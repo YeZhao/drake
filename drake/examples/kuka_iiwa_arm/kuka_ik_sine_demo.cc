@@ -168,31 +168,73 @@ int main(int argc, const char* argv[]) {
   // We start in the zero configuration (straight up).
 
 
-  const int kNumTimesteps = 2; // must be even
-  double dt = 4;
-  double t[kNumTimesteps];
+  // const int kNumTimesteps = 5; // must be odd
+  // double dt = 2;
+  // double t[kNumTimesteps];
+
+
 
   VectorXd zero_conf = tree.getZeroConfiguration();
-  MatrixXd q0(tree.get_num_positions(), kNumTimesteps);
+  VectorXd joint_lb = zero_conf - VectorXd::Constant(7, 0.01);
+  VectorXd joint_ub = zero_conf + VectorXd::Constant(7, 0.01);
+  // MatrixXd q0(tree.get_num_positions(), kNumTimesteps);
   std::vector<RigidBodyConstraint*> constraint_array;
-  for (int i=0; i<kNumTimesteps; i++){
-    q0.col(i) = zero_conf;
-    t[i] = dt*i;
-    if (i%2 == 1){
-      Vector3d pos_end;
-      pos_end << 0.3*cos(((double)i)*PI/kNumTimesteps), 0.3*sin(((double)i)*PI/kNumTimesteps), .5;
 
-      printf("pos_end: %f, %f, %f\n",pos_end[0],pos_end[1],pos_end[2]);
-      Vector2d tspan(dt*((double)i-0.5), dt*((double)i+0.5));
-      printf("tspan: %f, %f\n", tspan[0], tspan[1]);
-      Vector3d pos_lb = pos_end - Vector3d::Constant(0.05);
-      Vector3d pos_ub = pos_end + Vector3d::Constant(0.05);
-      WorldPositionConstraint wpc(&tree, tree.FindBodyIndex("iiwa_link_ee"),
-                                  Vector3d::Zero(), pos_lb, pos_ub,
-                                  tspan);
-      constraint_array.push_back(&wpc);      
-    }
+
+  const int kNumTimesteps = 5;
+  double t[kNumTimesteps] = { 0.0, 2.0, 5.0, 7.0, 9.0 };
+  MatrixXd q0(tree.get_num_positions(), kNumTimesteps);
+  for (int i = 0; i < kNumTimesteps; i++) {
+    q0.col(i) = zero_conf;
   }
+
+  PostureConstraint pc1(&tree, Vector2d(0, 0.5));
+  VectorXi joint_idx(7);
+  joint_idx << 0, 1, 2, 3, 4, 5, 6;
+  pc1.setJointLimits(joint_idx, joint_lb, joint_ub);
+  constraint_array.push_back(&pc1);
+
+  Vector3d pos_end;
+  Vector3d epsilon = Vector3d::Constant(0.005);
+  pos_end << 0, .3, .5;
+  Vector3d pos_lb = pos_end - epsilon;
+  Vector3d pos_ub = pos_end + epsilon;
+  WorldPositionConstraint wpc(&tree, tree.FindBodyIndex("iiwa_link_ee"),
+                              Vector3d::Zero(), pos_lb, pos_ub, Vector2d(1, 3));
+  constraint_array.push_back(&wpc);
+
+  pos_end << .3, 0, .5;
+  pos_lb = pos_end - epsilon;
+  pos_ub = pos_end + epsilon;
+  WorldPositionConstraint wpc2(&tree, tree.FindBodyIndex("iiwa_link_ee"),
+                              Vector3d::Zero(), pos_lb, pos_ub, Vector2d(4, 6));
+  constraint_array.push_back(&wpc2);
+
+  pos_end << 0, -.3, .5;
+  pos_lb = pos_end - epsilon;
+  pos_ub = pos_end + epsilon;
+  WorldPositionConstraint wpc3(&tree, tree.FindBodyIndex("iiwa_link_ee"),
+                              Vector3d::Zero(), pos_lb, pos_ub, Vector2d(6.5, 8));
+  constraint_array.push_back(&wpc3);
+
+  // for (int i=0; i<kNumTimesteps; i++){
+  //   q0.col(i) = zero_conf;
+  //   t[i] = dt*i;
+  //   if (dt*i>0.5){
+  //     Vector3d pos_end;
+  //     pos_end << 0.3*cos(((double)i)*PI/kNumTimesteps), 0.3*sin(((double)i)*PI/kNumTimesteps), .5;
+
+  //     printf("pos_end: %f, %f, %f\n",pos_end[0],pos_end[1],pos_end[2]);
+  //     Vector2d tspan(dt*((double)i-0.25), dt*((double)i+0.25));
+  //     printf("tspan: %f, %f\n", tspan[0], tspan[1]);
+  //     Vector3d pos_lb = pos_end - Vector3d::Constant(0.05);
+  //     Vector3d pos_ub = pos_end + Vector3d::Constant(0.05);
+  //     WorldPositionConstraint wpc(&tree, tree.FindBodyIndex("iiwa_link_ee"),
+  //                                 Vector3d::Zero(), pos_lb, pos_ub,
+  //                                 tspan);
+  //     constraint_array.push_back(&wpc);      
+  //   }
+  // }
 
   IKoptions ikoptions(&tree);
   int info[kNumTimesteps];
@@ -200,8 +242,6 @@ int main(int argc, const char* argv[]) {
   std::vector<std::string> infeasible_constraint;
 
   std::cout << "Num constraints imposed: " << constraint_array.size() << std::endl;
-  std::cout << "q0: " << q0 << std::endl;
-  // std::cout << "constraint array: " << constraint_array.data() << std::endl;
   
 
   inverseKinPointwise(&tree, kNumTimesteps, t, q0, q0, constraint_array.size(),
@@ -212,6 +252,7 @@ int main(int argc, const char* argv[]) {
   for (unsigned int i = 0; i < infeasible_constraint.size(); i++){
     std::cout << infeasible_constraint[i] << std::endl;
   }
+  std::cout << q_sol << std::endl;
   
   bool info_good = true;
   for (int i = 0; i < kNumTimesteps; ++i) {
