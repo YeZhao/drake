@@ -60,6 +60,12 @@ if(lcm_FOUND)
       drakeRBM
       drakeLCMSystem)
 
+  add_executable(kuka_id_gravity_comp kuka_id_gravity_comp.cc)
+  target_link_libraries(kuka_id_gravity_comp
+      drakeTrajectories
+      drakeRBM
+      drakeLCMSystem)
+
   add_executable(run_kuka_iiwa_gravity_compensated_torque_control
       run_kuka_iiwa_gravity_compensated_torque_control.cc)
   target_link_libraries(run_kuka_iiwa_gravity_compensated_torque_control
