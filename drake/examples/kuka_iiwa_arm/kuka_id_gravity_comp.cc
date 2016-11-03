@@ -9,6 +9,7 @@
 #include "drake/examples/kuka_iiwa_arm/iiwa_status.h"
 #include "drake/systems/plants/RigidBodyTree.h"
 #include "drake/common/drake_path.h"
+#include "drake/systems/plants/KinematicsCache.h"
 
 
 namespace drake {
@@ -90,7 +91,6 @@ class MessageHandler {
       iiwa_status_ = *status;
       time(&last_received_time_);
       received_first_message_ = true;
-      // TODO: do other things on status update
     }
 };
 
@@ -103,6 +103,14 @@ int main(int argc, const char* argv[]){
   RigidBodyTree tree(
     drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
     drake::systems::plants::joints::kFixed);
+  
+  Eigen::VectorXd positions = Eigen::VectorXd::Constant(7,1,0.0);
+  Eigen::VectorXd accelerations = Eigen::VectorXd::Constant(7,1,0.0);
+  Eigen::VectorXd torques;
+  KinematicsCache<double> kinCache(tree.bodies);
+  kinCache.initialize(positions);
+  tree.doKinematics(kinCache);
+  RigidBodyTree::BodyToWrenchMap<double> no_external_wrenches;
 
   // wait for the first status to come in
   bool success = handler.waitForFirstMessage();
@@ -118,15 +126,33 @@ int main(int argc, const char* argv[]){
   // initialize the iiwa command 
   lcmt_iiwa_command command;
   command.num_joints = kNumJoints;
+  command.num_torques = kNumJoints;
+  lcmt_iiwa_status status;
+  command.num_joints = kNumJoints;
   command.joint_position.resize(kNumJoints, 0.);
   command.num_torques = kNumJoints;
   command.joint_torque.resize(kNumJoints, 0.);
   while(!handler.hasTimedOut()){
     if (handler.handle()){
-      handler.printPositions();
-      command.timestamp = handler.getStatus().timestamp;
+      status = handler.getStatus();
+      // compute the inverse dynamics
+      for (int i=0; i < kNumJoints; i++){
+        positions[i] = status.joint_position_measured[i];
+      }
+      kinCache = tree.doKinematics(positions);
+      torques = tree.inverseDynamics(kinCache, 
+                      no_external_wrenches,
+                      accelerations,
+                      false);
+      command.timestamp = status.timestamp;
+      for (int i=0; i < kNumJoints; i++){
+        command.joint_torque[i] = torques[i];
+      }
+      
+
       //TODO: get the state from the MessageHandler and compute the inverse dynamics required to resist gravity 
       handler.publish(command);
+      handler.printPositions();
     }
   }
   printf("Timed out waiting for status\n");
