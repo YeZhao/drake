@@ -146,7 +146,7 @@ int main(int argc, const char* argv[]){
                       false);
       command.timestamp = status.timestamp;
       for (int i=0; i < kNumJoints; i++){
-        command.joint_torque[i] = torques[i];
+        command.joint_torque[i] = -torques[i];
       }
       
 
