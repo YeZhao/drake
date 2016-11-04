@@ -30,6 +30,18 @@ if(lcm_FOUND)
       REQUIRES
       VERSION 0.0.1)
 
+#  add_library_with_exports(LIB_NAME drakeKukaIiwaLCMHandler SOURCE_FILES
+#      kuka_message_handler.cc)
+#  target_link_libraries(drakeKukaIiwaLCMHandler
+#      drakeLCMSystem
+#      drakeLCMTypes)
+#  pods_install_libraries(drakeKukaIiwaLCMHandler)
+  drake_install_headers(kuka_message_handler.h)
+#  pods_install_pkg_config_file(drake-kuka-iiwa-LCM-Handler
+#      LIBS -ldrakeKukaIiwaLCMHandler
+#      REQUIRES
+#      VERSION 0.0.1)
+
   add_executable(run_kuka_iiwa_arm_dynamics run_kuka_iiwa_arm_dynamics.cc)
   target_link_libraries(run_kuka_iiwa_arm_dynamics
       drakeKukaIiwaArmCommon

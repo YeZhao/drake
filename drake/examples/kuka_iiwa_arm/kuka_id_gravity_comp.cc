@@ -7,6 +7,7 @@
 #include "drake/lcmt_iiwa_status.hpp"
 
 #include "drake/examples/kuka_iiwa_arm/iiwa_status.h"
+#include "drake/examples/kuka_iiwa_arm/kuka_message_handler.h"
 #include "drake/systems/plants/RigidBodyTree.h"
 #include "drake/common/drake_path.h"
 #include "drake/systems/plants/KinematicsCache.h"
@@ -17,142 +18,50 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace{
 
-const char* kLcmDarkCommandChannel = "IIWA_DARK_COMMAND";
-const int kNumJoints = 7;
 
-/** Handles sending and receiving of LCM messages
- *
- */
-class MessageHandler {
-  public:
-    /** Constructor
-     */
-    MessageHandler(std::shared_ptr<lcm::LCM> lcm): lcm_(lcm){
-      // subscribe the handler to IIWA_STATUS
-      lcm_->subscribe(IiwaStatus<double>::channel(),
-                      &MessageHandler::handleMessage,
-                      this);
-      printf("Listening to channel: %s\n",IiwaStatus<double>::channel().c_str());
-      // record the time of initialization
-      time(&last_received_time_);
-    }
-
-    /** Checks if it has been more than 3 seconds since the last message
-     */
-    bool hasTimedOut(){
-      // check if it has been more than 0.5 seconds since the last message
-      return difftime(time(NULL),last_received_time_) > 3;
-    }
-
-    /** Checks for new commands from LCM
-     *  This must be called in the event loop in order for new messages to come in
-     */
-    bool handle(){
-      // wait 10ms before moving releasing control of the process
-      return lcm_->handleTimeout(10);
-    }
-
-    /** Waits for the first message to come in up to a timeout
-     *  Returns true if a message came in successfully and false if it failed
-     */
-    bool waitForFirstMessage(){
-      bool success = true;
-      while(!this->received_first_message_ && success){
-        this->handle();
-        success = !(this->hasTimedOut());
-      }
-      return success;
-    }
-
-    void printPositions(){
-      int numJoints = iiwa_status_.num_joints;
-      for (int i=0; i<numJoints; i++){
-        printf("Joint %i measured at: %f\n", i, iiwa_status_.joint_position_measured[i]); 
-      }
-    }
-
-    lcmt_iiwa_status getStatus(){
-      return iiwa_status_;
-    }
-
-    void publish(lcmt_iiwa_command iiwa_command){
-      lcm_->publish(kLcmDarkCommandChannel, &iiwa_command);
-    }
-
-  private:
-    lcmt_iiwa_status iiwa_status_;
-    time_t last_received_time_;
-    bool received_first_message_ = false;
-    std::shared_ptr<lcm::LCM> lcm_;
-
-    void handleMessage(const lcm::ReceiveBuffer* rbuf,
-                       const std::string& chan,
-                       const lcmt_iiwa_status* status){
-      iiwa_status_ = *status;
-      time(&last_received_time_);
-      received_first_message_ = true;
-    }
-};
+const int kNumDOF = 7;
 
 int main(int argc, const char* argv[]){
   // allocate a pointer to an LCM object and create the message handler
   std::shared_ptr<lcm::LCM> lcm = std::make_shared<lcm::LCM>();
-  MessageHandler handler(lcm);
+  KukaMessageHandler handler(lcm);
 
   // load the model for the kuka arm
   RigidBodyTree tree(
     drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
     drake::systems::plants::joints::kFixed);
   
-  Eigen::VectorXd positions = Eigen::VectorXd::Constant(7,1,0.0);
-  Eigen::VectorXd accelerations = Eigen::VectorXd::Constant(7,1,0.0);
+  Eigen::VectorXd position = Eigen::VectorXd::Constant(kNumDOF,1,0.0);
+  Eigen::VectorXd accelerations = Eigen::VectorXd::Constant(kNumDOF,1,0.0);
   Eigen::VectorXd torques;
   KinematicsCache<double> kinCache(tree.bodies);
-  kinCache.initialize(positions);
+  kinCache.initialize(position);
   tree.doKinematics(kinCache);
   RigidBodyTree::BodyToWrenchMap<double> no_external_wrenches;
 
   // wait for the first status to come in
   bool success = handler.waitForFirstMessage();
 
-  if (success){
-    printf("Status has come in\n");
-    printf("Publishing to channel %s\n", kLcmDarkCommandChannel);    
-  }else{
+  if (!success){
     printf("Timed out waiting for status\n");
     return 1;
   }
 
-  // initialize the iiwa command 
-  lcmt_iiwa_command command;
-  command.num_joints = kNumJoints;
-  command.num_torques = kNumJoints;
-  lcmt_iiwa_status status;
-  command.num_joints = kNumJoints;
-  command.joint_position.resize(kNumJoints, 0.);
-  command.num_torques = kNumJoints;
-  command.joint_torque.resize(kNumJoints, 0.);
+  // control loop
   while(!handler.hasTimedOut()){
-    if (handler.handle()){
-      status = handler.getStatus();
+    if (handler.handle()){// if a new state has come in
+
+      // get the current position
+      position = handler.getPosition();
       // compute the inverse dynamics
-      for (int i=0; i < kNumJoints; i++){
-        positions[i] = status.joint_position_measured[i];
-      }
-      kinCache = tree.doKinematics(positions);
+      kinCache = tree.doKinematics(position);
       torques = tree.inverseDynamics(kinCache, 
                       no_external_wrenches,
                       accelerations,
-                      false);
-      command.timestamp = status.timestamp;
-      for (int i=0; i < kNumJoints; i++){
-        command.joint_torque[i] = -torques[i];
-      }
+                      false); 
       
-
-      //TODO: get the state from the MessageHandler and compute the inverse dynamics required to resist gravity 
-      handler.publish(command);
-      handler.printPositions();
+      // publish the state
+      handler.publishTorques(-1*torques);
     }
   }
   printf("Timed out waiting for status\n");
