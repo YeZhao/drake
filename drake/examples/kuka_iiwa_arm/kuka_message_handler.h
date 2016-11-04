@@ -19,7 +19,8 @@ class KukaMessageHandler {
     static const int kNumJoints;
     /** Constructor
      */
-    KukaMessageHandler(std::shared_ptr<lcm::LCM> lcm): lcm_(lcm){
+    KukaMessageHandler(){
+      lcm_ = std::make_shared<lcm::LCM>();
       // subscribe the handler to IIWA_STATUS
       lcm_->subscribe(IiwaStatus<double>::channel(),
                       &KukaMessageHandler::handleMessage,

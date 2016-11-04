@@ -23,8 +23,8 @@ const int kNumDOF = 7;
 
 int main(int argc, const char* argv[]){
   // allocate a pointer to an LCM object and create the message handler
-  std::shared_ptr<lcm::LCM> lcm = std::make_shared<lcm::LCM>();
-  KukaMessageHandler handler(lcm);
+  
+  KukaMessageHandler handler;
 
   // load the model for the kuka arm
   RigidBodyTree tree(
