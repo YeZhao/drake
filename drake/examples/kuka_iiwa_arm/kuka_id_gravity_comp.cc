@@ -1,12 +1,6 @@
 #include <iostream>
 #include <time.h>
 
-#include <lcm/lcm-cpp.hpp>
-
-#include "drake/lcmt_iiwa_command.hpp"
-#include "drake/lcmt_iiwa_status.hpp"
-
-#include "drake/examples/kuka_iiwa_arm/iiwa_status.h"
 #include "drake/examples/kuka_iiwa_arm/kuka_message_handler.h"
 #include "drake/systems/plants/RigidBodyTree.h"
 #include "drake/common/drake_path.h"
