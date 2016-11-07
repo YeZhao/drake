@@ -21,7 +21,7 @@ int main(int argc, const char* argv[]){
   KukaMessageHandler handler;
 
   // load the model for the kuka arm
-  RigidBodyTree tree(
+  RigidBodyTree<double> tree(
     drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
     drake::systems::plants::joints::kFixed);
   
@@ -31,7 +31,7 @@ int main(int argc, const char* argv[]){
   KinematicsCache<double> kinCache(tree.bodies);
   kinCache.initialize(position);
   tree.doKinematics(kinCache);
-  RigidBodyTree::BodyToWrenchMap<double> no_external_wrenches;
+  RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
 
   // wait for the first status to come in
   bool success = handler.waitForFirstMessage();
