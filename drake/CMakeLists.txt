@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
-project(drake)
+project(drake VERSION 0.0.0)
 
 cmake_policy(SET CMP0025 NEW)
 cmake_policy(SET CMP0042 NEW)
 
 include(../cmake/config.cmake)
+include(../cmake/install.cmake)
 include(../cmake/packages.cmake)
 include(../cmake/test.cmake)
 
@@ -27,7 +28,6 @@ if(CMAKE_NINJA_LINK_POOL_SIZE GREATER 0)
 endif()
 
 # options
-option(BUILD_SHARED_LIBS "Build Drake with shared libraries." ON)
 option(LONG_RUNNING_TESTS "some tests should be run nightly for coverage, but are too slow for CI" OFF)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -39,17 +39,17 @@ else()
   find_package(PythonInterp MODULE REQUIRED)
 endif()
 
+find_package(BLAS MODULE)
+find_package(Doxygen MODULE)
+find_package(Perl MODULE)
+find_package(Threads MODULE REQUIRED)
+
 # set up pods
 include(../cmake/pods.cmake)
 
 pods_find_pkg_config(bot2-lcmgl-client)
 pods_find_pkg_config(dreal)
 pods_find_pkg_config(ipopt)
-
-function(drake_install_headers)
-  file(RELATIVE_PATH rel_path ${PROJECT_SOURCE_DIR}/ ${CMAKE_CURRENT_SOURCE_DIR})
-  install(FILES ${ARGV} DESTINATION include/drake/${rel_path})
-endfunction()
 
 # A compatibility shim function that declares a library, with a built-in
 # default of SHARED.
@@ -74,11 +74,11 @@ if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize=") # sanitizers are extremely brittle
   if(APPLE)
     set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-undefined -Wl,error ${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS "-Wl,-undefined -Wl,error ${CMAKE_MODULE_LINKER_FLAGS}")
-    set(CMAKE_EXECUTABLE_LINKER_FLAGS "-Wl,-undefined -Wl,error ${CMAKE_EXECUTABLE_LINKER_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "-Wl,-undefined -Wl,error ${CMAKE_EXE_LINKER_FLAGS}")
   else()
     set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_MODULE_LINKER_FLAGS}")
-    set(CMAKE_EXECUTABLE_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_EXECUTABLE_LINKER_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_EXE_LINKER_FLAGS}")
   endif()
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -113,9 +113,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_DONT_DEFINE_TEST=1")
 set(drake_jar_javafiles matlab/util/Transform.java)
 set(drake_jar_requires)
 
-include(../cmake/procman.cmake)  # helper script for writing procman files
-
-find_package(Threads MODULE REQUIRED)
 
 # set up and build lcm types
 if(lcm_FOUND)
@@ -149,17 +146,20 @@ if(lcm_FOUND)
     else()
       message(STATUS "Found bot2-lcmgl")
     endif()
-    set(CMAKE_JAVA_INCLUDE_PATH ${CMAKE_JAVA_INCLUDE_PATH}:${LCMGL_JAR_FILE})
+    if(DEFINED CMAKE_JAVA_INCLUDE_PATH)
+      set(CMAKE_JAVA_INCLUDE_PATH "${CMAKE_JAVA_INCLUDE_PATH}:${LCMGL_JAR_FILE}")
+    else()
+      set(CMAKE_JAVA_INCLUDE_PATH "${LCMGL_JAR_FILE}")
+    endif()
     list(APPEND drake_jar_javafiles matlab/util/BotLCMGLClient.java)
   endif()
 endif()
 
 add_jar(drake SOURCES ${drake_jar_javafiles} INCLUDE_JARS ${drake_jar_requires})
 install_jar(drake share/java)
-pods_install_pkg_config_file(drake-java
+drake_install_pkg_config_file(drake-java
   CLASSPATH drake
-  REQUIRES ${drake_jar_requires}
-  VERSION 0.0.1)
+  REQUIRES ${drake_jar_requires})
 
 include_directories(SYSTEM "${EIGEN3_INCLUDE_DIRS}")
 
@@ -170,6 +170,7 @@ add_subdirectory(thirdParty/zlib/tinyxml2)
 add_subdirectory(common)
 add_subdirectory(lcm)
 add_subdirectory(math)
+add_subdirectory(multibody)
 add_subdirectory(util)
 add_subdirectory(solvers)
 add_subdirectory(system1)
@@ -181,7 +182,10 @@ if(Matlab_FOUND)
 endif()
 add_subdirectory(examples)
 add_subdirectory(bindings)
-add_subdirectory(regtests)
+
+if(BUILD_TESTING)
+  add_subdirectory(regtests)
+endif()
 
 # setup MATLAB pods-compliance
 include(../cmake/matlab_pods.cmake)
@@ -219,14 +223,24 @@ find_program(AVL_EXECUTABLE avl PATHS "${CMAKE_INSTALL_PREFIX}/bin")
 find_program(XFOIL_EXECUTABLE xfoil PATHS "${CMAKE_INSTALL_PREFIX}/bin")
 find_program(FFMPEG_EXECUTABLE ffmpeg)
 
+# Used by matlab/util/systemWCMakeEnv.m
 if(APPLE)
-  set(DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}" CACHE STRING "Environment variable used to launch processes from Matlab")
-  set(DYLD_FRAMEWORK_PATH "$ENV{DYLD_FRAMEWORK_PATH}" CACHE STRING "Environment variable used to launch processes from Matlab")
-  mark_as_advanced(DYLD_LIBRARY_PATH)
-  mark_as_advanced(DYLD_FRAMEWORK_PATH)
+  if(DEFINED ENV{DYLD_LIBRARY_PATH})
+    set(DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}" CACHE INTERNAL "" FORCE)
+  else()
+    set(DYLD_LIBRARY_PATH "" CACHE INTERNAL "" FORCE)
+  endif()
+  if(DEFINED ENV{DYLD_FRAMEWORK_PATH})
+    set(DYLD_FRAMEWORK_PATH "$ENV{DYLD_FRAMEWORK_PATH}" CACHE INTERNAL "" FORCE)
+  else()
+    set(DYLD_FRAMEWORK_PATH "" CACHE INTERNAL "" FORCE)
+  endif()
 else()
-  set(LD_LIBRARY_PATH "$ENV{LD_LIBRARY_PATH}" CACHE STRING "Environment variable used to launch processes from Matlab")
-  mark_as_advanced(LD_LIBRARY_PATH)
+  if(DEFINED ENV{LD_LIBRARY_PATH})
+    set(LD_LIBRARY_PATH "$ENV{LD_LIBRARY_PATH}" CACHE INTERNAL "" FORCE)
+  else()
+    set(LD_LIBRARY_PATH "" CACHE INTERNAL "" FORCE)
+  endif()
 endif()
 
 if(Matlab_FOUND)

@@ -27,6 +27,7 @@ function(drake_option NAME DEFAULT_STATE)
   cmake_parse_arguments(_opt "" "DEPENDS" "" ${_args})
 
   # Join description snippets.
+  set(_description)
   foreach(_snippet IN LISTS _opt_UNPARSED_ARGUMENTS)
     set(_description "${_description} ${_snippet}")
   endforeach()
@@ -97,7 +98,9 @@ function(drake_system_dependency NAME)
   endif()
 
   # Fix up arguments
-  if(NOT _sd_OPTIONAL)
+  if(_sd_OPTIONAL)
+    set(_else)
+  else()
     set(_else "(if OFF, the internal version will be used)")
   endif()
   if(DEFINED _sd_DEPENDS)
@@ -207,19 +210,24 @@ macro(drake_setup_options)
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # BEGIN external projects that are ON by default
 
+  drake_optional_external(BULLET ON "Bullet library for collision detection")
+
+  drake_optional_external(CCD ON "Convex shape Collision Detection library")
+
   drake_optional_external(GOOGLE_STYLEGUIDE ON
+    DEPENDS "NOT DISABLE_PYTHON"
     "Google code style tools for cpplint.py style checking" ON)
+
+  drake_optional_external(HSRB_DESCRIPTION ON
+    "A ROS package containing a model of Toyota's HSR version B robot.")
 
   drake_optional_external(SPDLOG ON
     "Fast C++ text logging facility\; disabling will turn off text logging")
 
   drake_optional_external(SWIGMAKE ON
+    DEPENDS "NOT DISABLE_MATLAB OR NOT DISABLE_PYTHON"
     "Helper tools to build Python & MATLAB wrappers"
     "for C++ libraries with Eigen")
-
-  drake_optional_external(BULLET ON "Bullet library for collision detection")
-
-  drake_optional_external(CCD ON "Convex shape Collision Detection library")
 
   if(NOT WIN32)
     # Not win32 yet; builds, but requires manual installation of VTKk, etc.
@@ -238,13 +246,14 @@ macro(drake_setup_options)
     # compatibility issues:
     # https://github.com/RobotLocomotion/drake/issues/2578
     drake_optional_external(IPOPT ON
-      DEPENDS "NOT APPLE OR NOT Matlab_FOUND"
+      DEPENDS "NOT APPLE OR NOT Matlab_FOUND\;NOT DISABLE_FORTRAN"
       "Interior Point Optimizer, for solving non-linear optimizations")
 
     drake_optional_external(OCTOMAP ON
       "3D occupancy mapping library\; provides oct-tree data structures")
 
     drake_optional_external(SWIG_MATLAB ON
+      DEPENDS "NOT DISABLE_MATLAB OR NOT DISABLE_PYTHON"
       "A version of SWIG with MATLAB support")
   endif()
 
@@ -288,6 +297,7 @@ macro(drake_setup_options)
   # haven't been tried.
   if(NOT WIN32)
     drake_optional_external(AVL OFF
+      DEPENDS "NOT DISABLE_FORTRAN"
       "use w/ AVL to compute aerodynamic coefficients for airfoils")
 
     drake_optional_external(DREAL OFF
@@ -309,6 +319,7 @@ macro(drake_setup_options)
       "The Underactuated Robotics textbook and its examples")
 
     drake_optional_external(XFOIL OFF
+      DEPENDS "NOT DISABLE_FORTRAN"
       "use w/ XFOIL to compute aerodynamic coefficients for airfoils")
   endif()
 

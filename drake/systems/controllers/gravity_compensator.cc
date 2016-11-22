@@ -1,7 +1,7 @@
 #include "drake/systems/controllers/gravity_compensator.h"
 
-#include "drake/systems/plants/KinematicsCache.h"
-#include "drake/systems/plants/RigidBodyTree.h"
+#include "drake/multibody/kinematics_cache.h"
+#include "drake/multibody/rigid_body_tree.h"
 
 namespace drake {
 namespace systems {
@@ -25,7 +25,7 @@ void GravityCompensator<T>::EvalOutput(const Context<T>& context,
   Eigen::VectorXd q = this->EvalEigenVectorInput(context, 0);
 
   KinematicsCache<T> cache = rigid_body_tree_.doKinematics(q);
-  eigen_aligned_std_unordered_map<RigidBody const*, drake::TwistVector<T>>
+  eigen_aligned_std_unordered_map<RigidBody<T> const*, drake::TwistVector<T>>
       f_ext;
   f_ext.clear();
 
@@ -34,9 +34,9 @@ void GravityCompensator<T>::EvalOutput(const Context<T>& context,
   System<T>::GetMutableOutputVector(output, 0) = g;
 }
 
-template class DRAKE_EXPORT GravityCompensator<double>;
+template class GravityCompensator<double>;
 // TODO(naveenoid): Get the AutoDiff working as in the line below.
-// template class DRAKE_EXPORT GravityCompensator<AutoDiffXd>;
+// template class GravityCompensator<AutoDiffXd>;
 
 }  // namespace systems
 }  // namespace drake

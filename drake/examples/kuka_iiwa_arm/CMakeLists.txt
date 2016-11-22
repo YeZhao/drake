@@ -4,13 +4,13 @@ if(lcm_FOUND)
       iiwa_common.cc)
   target_link_libraries(drakeKukaIiwaArmCommon
       drakeRBM)
-  pods_install_libraries(drakeKukaIiwaArmCommon)
+  drake_install_libraries(drakeKukaIiwaArmCommon)
   drake_install_headers(
       iiwa_common.h)
-  pods_install_pkg_config_file(drake-kuka-iiwa-arm-common
+  drake_install_pkg_config_file(drake-kuka-iiwa-arm-common
+      TARGET drakeKukaIiwaArmCommon
       LIBS -ldrakeKukaIiwaArmCommon
-      REQUIRES
-      VERSION 0.0.1)
+      REQUIRES drake-rbm)
 
   # TODO(liang.fok) Remove this library once all System 1.0-based KUKA iiwa
   # demos that are removed.
@@ -22,13 +22,19 @@ if(lcm_FOUND)
       drakeCommon
       drakeLCMSystem
       drakeLCMTypes)
-  pods_install_libraries(drakeKukaIiwaArm)
+  drake_install_libraries(drakeKukaIiwaArm)
   drake_install_headers(
       iiwa_simulation.h)
-  pods_install_pkg_config_file(drake-kuka-iiwa-arm
+  drake_install_pkg_config_file(drake-kuka-iiwa-arm
+      TARGET drakeKukaIiwaArm
       LIBS -ldrakeKukaIiwaArm
       REQUIRES
-      VERSION 0.0.1)
+        drake-common
+        drake-lcm-system
+        drake-lcmtypes-cpp
+        drake-rbsystem
+        drake-shapes
+        eigen3)
 
 #  add_library_with_exports(LIB_NAME drakeKukaIiwaLCMHandler SOURCE_FILES
 #      kuka_message_handler.cc)
@@ -116,4 +122,7 @@ if(lcm_FOUND)
 endif()
 
 add_subdirectory(controlled_kuka)
-add_subdirectory(test)
+
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

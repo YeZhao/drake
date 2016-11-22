@@ -9,14 +9,13 @@
 
 #include <lcm/lcm-cpp.hpp>
 
+#include "drake/lcmt_qp_controller_input.hpp"
+#include "drake/multibody/rigid_body_tree.h"
+#include "drake/systems/controllers/zmpUtil.h"
+#include "drake/systems/robotInterfaces/BodyMotionData.h"
+#include "drake/systems/robotInterfaces/Side.h"
 #include "drake/systems/trajectories/PiecewisePolynomial.h"
 #include "drake/systems/trajectories/ExponentialPlusPiecewisePolynomial.h"
-#include "drake/systems/plants/RigidBodyTree.h"
-#include "drake/lcmt_qp_controller_input.hpp"
-#include "BodyMotionData.h"
-#include "drake/systems/robotInterfaces/Side.h"
-#include "drake/systems/controllers/zmpUtil.h"
-#include "drake/common/drake_export.h"
 
 class QuadraticLyapunovFunction {
   // TODO(tkoolen): move into its own file
@@ -140,7 +139,7 @@ struct QPLocomotionPlanSettings {
     std::vector<int> ret;
     for (auto body_it = robot.bodies.begin(); body_it != robot.bodies.end();
          ++body_it) {
-      RigidBody& body = **body_it;
+      RigidBody<double>& body = **body_it;
       if (body.has_parent_body()) {
         const DrakeJoint& joint = body.getJoint();
         for (auto joint_name_it = joint_name_substrings.begin();
@@ -158,7 +157,7 @@ struct QPLocomotionPlanSettings {
   }
 };
 
-class DRAKE_EXPORT QPLocomotionPlan {
+class QPLocomotionPlan {
  private:
   RigidBodyTree<double>& robot_;  // TODO(tkoolen): const correctness
   QPLocomotionPlanSettings settings_;

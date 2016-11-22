@@ -17,6 +17,10 @@ drake_install_headers(
   pass_through.h
   pass_through-inl.h
   trajectory_source.h
-  zero_order_hold.h)
+  zero_order_hold.h
+  zero_order_hold-inl.h
+  )
 
-add_subdirectory(test)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

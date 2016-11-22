@@ -30,6 +30,8 @@ set(installed_headers
   quaternion.h
   random_rotation.h
   roll_pitch_yaw.h
+  roll_pitch_yaw_using_quaternion.h
+  roll_pitch_yaw_not_using_quaternion.h
   rotation_conversion_gradient.h
   rotation_matrix.h)
 
@@ -43,10 +45,14 @@ target_link_libraries(drakeMath drakeCommon)
 
 drake_install_headers(${installed_headers})
 
-pods_install_libraries(drakeMath)
-pods_install_pkg_config_file(drake-math
-  LIBS -ldrakeMath -ldrakeCommon
+drake_install_libraries(drakeMath)
+drake_install_pkg_config_file(drake-math
+  TARGET drakeMath
+  LIBS -ldrakeMath
   REQUIRES
-  VERSION 0.0.1)
+    drake-common
+    eigen3)
 
-add_subdirectory(test)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

@@ -13,12 +13,11 @@
 #include <Eigen/Core>
 
 #include "drake/common/drake_assert.h"
-#include "drake/common/drake_export.h"
 #include "drake/common/eigen_autodiff_types.h"
 #include "drake/common/polynomial.h"
-#include "drake/solvers/Function.h"
 #include "drake/solvers/constraint.h"
 #include "drake/solvers/decision_variable.h"
+#include "drake/solvers/function.h"
 #include "drake/solvers/mathematical_program.h"
 #include "drake/solvers/solution_result.h"
 
@@ -176,7 +175,7 @@ enum ProgramAttributes {
 typedef uint32_t AttributesSet;
 
 /// Interface used by implementations of individual solvers.
-class DRAKE_EXPORT MathematicalProgramSolverInterface {
+class MathematicalProgramSolverInterface {
  public:
   virtual ~MathematicalProgramSolverInterface() = default;
 
@@ -191,7 +190,7 @@ class DRAKE_EXPORT MathematicalProgramSolverInterface {
   virtual SolutionResult Solve(MathematicalProgram& prog) const = 0;
 };
 
-class DRAKE_EXPORT MathematicalProgram {
+class MathematicalProgram {
   /** Binding
    * @brief A binding on constraint type C is a mapping of the decision
    * variables onto the inputs of C.  This allows the constraint to operate
