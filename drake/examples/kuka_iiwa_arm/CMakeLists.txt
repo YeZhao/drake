@@ -92,33 +92,33 @@ if(lcm_FOUND)
   drake_add_test(
       NAME kuka_simulation COMMAND kuka_simulation -simulation_sec 0.1)
 
-  add_executable(kuka_ik_sine_demo kuka_ik_sine_demo.cc)
-  target_link_libraries(kuka_ik_sine_demo drakeIK
-      drakeTrajectories
-      drakeRBM
-      drakeLCMSystem)
+#  add_executable(kuka_ik_sine_demo kuka_ik_sine_demo.cc)
+#  target_link_libraries(kuka_ik_sine_demo drakeIK
+#      drakeTrajectories
+#      drakeRBM
+#      drakeLCMSystem)
 
-  add_executable(kuka_id_gravity_comp kuka_id_gravity_comp.cc)
-  target_link_libraries(kuka_id_gravity_comp
-      drakeTrajectories
-      drakeRBM
-      drakeLCMSystem)
+#  add_executable(kuka_id_gravity_comp kuka_id_gravity_comp.cc)
+#  target_link_libraries(kuka_id_gravity_comp
+#      drakeTrajectories
+#      drakeRBM
+#      drakeLCMSystem)
 
-  add_executable(run_kuka_iiwa_gravity_compensated_torque_control
-      run_kuka_iiwa_gravity_compensated_torque_control.cc)
-  target_link_libraries(run_kuka_iiwa_gravity_compensated_torque_control
-      drakeKukaIiwaArm
-      drakeRBSystem
-      drakeLCMSystem
-      gflags)
+#  add_executable(run_kuka_iiwa_gravity_compensated_torque_control
+#      run_kuka_iiwa_gravity_compensated_torque_control.cc)
+#  target_link_libraries(run_kuka_iiwa_gravity_compensated_torque_control
+#      drakeKukaIiwaArm
+#      drakeRBSystem
+#      drakeLCMSystem
+#      gflags)
 
-  add_executable(run_kuka_iiwa_gravity_compensated_position_control
-      run_kuka_iiwa_gravity_compensated_position_control.cc)
-  target_link_libraries(run_kuka_iiwa_gravity_compensated_position_control
-      drakeKukaIiwaArm
-      drakeRBSystem
-      drakeLCMSystem
-      gflags)
+#  add_executable(run_kuka_iiwa_gravity_compensated_position_control
+#      run_kuka_iiwa_gravity_compensated_position_control.cc)
+#  target_link_libraries(run_kuka_iiwa_gravity_compensated_position_control
+#      drakeKukaIiwaArm
+#      drakeRBSystem
+#      drakeLCMSystem
+#      gflags)
 endif()
 
 add_subdirectory(controlled_kuka)
