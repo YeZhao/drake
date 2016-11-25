@@ -48,6 +48,14 @@ if(lcm_FOUND)
 #      REQUIRES
 #      VERSION 0.0.1)
 
+  drake_install_headers(kuka_lcm_planner.h)
+  add_executable(run_kuka_dircol_planner run_kuka_dircol_planner.cc)
+  target_link_libraries(run_kuka_dircol_planner
+      drakeIK
+      drakeRBM
+      drakeLCMTypes
+      lcm)
+
   add_executable(run_kuka_iiwa_arm_dynamics run_kuka_iiwa_arm_dynamics.cc)
   target_link_libraries(run_kuka_iiwa_arm_dynamics
       drakeKukaIiwaArmCommon

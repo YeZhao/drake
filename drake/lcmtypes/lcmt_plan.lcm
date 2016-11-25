@@ -1,0 +1,11 @@
+package drake;
+
+struct lcmt_plan {
+  // The timestamp in microseconds.
+  int64_t utime;
+
+  int32_t num_states;
+
+  lcmt_robot_state plan[num_states];
+  int32_t info[num_states];
+}
