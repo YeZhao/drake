@@ -58,11 +58,10 @@ app.app.addWidgetToDock(robotSystem.playbackPanel.widget,
 # show sim time in the status bar
 infoLabel = KukaSimInfoLabel(app.mainWindow.statusBar())
 
-# use pydrake ik backend
+# use generic ik backend
 ikPlanner = robotSystem.ikPlanner
 print robotsystem.__file__
 ikPlanner.planningMode = 'generic'
-# ikPlanner.plannerPub._setupLocalServer()
 
 # change the default animation mode of the playback panel
 robotSystem.playbackPanel.animateOnExecute = True

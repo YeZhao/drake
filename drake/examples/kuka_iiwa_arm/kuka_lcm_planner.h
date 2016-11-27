@@ -2,6 +2,9 @@
 #include <memory>
 #include <iostream>
 #include <string>
+#include <sstream>
+#include <vector>
+
 
 #include "drake/lcmt_plan.hpp"
 #include "drake/lcmt_robot_state.hpp"
@@ -24,8 +27,8 @@ class KukaPlanner{
     static const char* IK_RESPONSE_CHANNEL;
     static const char* PLAN_RESPONSE_CHANNEL;
 
-    KukaPlanner(std::shared_ptr<lcm::LCM> lcm = std::make_shared<lcm::LCM>(),
-                std::shared_ptr<RigidBodyTree<double>> kuka = std::make_shared<RigidBodyTree<double>>()){
+    KukaPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+                std::shared_ptr<lcm::LCM> lcm){
       lcm_ = lcm;
       kuka_ = kuka;
 
@@ -49,50 +52,41 @@ class KukaPlanner{
                        const lcmt_generic_planner_request* status){
       std::cout << "Handling request in KukaPlanner, passing control to appropriate function\n";
       if (chan == IK_REQUEST_CHANNEL){
-        this->handleIkRequest(rbuf, status);
+        this->handleIkRequest(status);
       }else if (chan == IK_REQUEST_CHANNEL){
-        this->handlePlanRequest(rbuf, status);
+        this->handlePlanRequest(status);
       }
     }
 
   protected:
     std::shared_ptr<RigidBodyTree<double>> kuka_;
 
-    virtual void handleIkRequest(const lcm::ReceiveBuffer*,
-                                 const lcmt_generic_planner_request*) = 0;
+    virtual void handleIkRequest(const lcmt_generic_planner_request*) = 0;
 
-    virtual void handlePlanRequest(const lcm::ReceiveBuffer*,
-                                   const lcmt_generic_planner_request*) = 0;
+    virtual void handlePlanRequest(const lcmt_generic_planner_request*) = 0;
 
     void publishIkResponse(Eigen::VectorXd* pose, int info){
       lcmt_plan plan;
 
-      // TODO: build the message from the pose vector
       plan.utime = 0; // we're not using the utime on this message
       plan.num_states = 1;
+
+      // build the state
       lcmt_robot_state state;
       state.timestamp = 0;
       state.num_robots = 1;
-      state.robot_name.push_back(std::string("iiwa"));
+      state.robot_name.push_back(std::string("iiwa")); 
       state.num_joints = kuka_->get_num_positions();
+
       for (int i=0; i<kuka_->get_num_positions(); i++){
-        state.joint_name.push_back(std::string("joint %i") + std::to_string(i));
+        state.joint_name.push_back(std::string("iiwa_joint_") + std::to_string(i));
         state.joint_position.push_back((*pose)[i]);
-        state.joint_position.push_back(0.0);
+        state.joint_velocity.push_back(0.0);
+        state.joint_robot.push_back(0);
       }
       plan.plan.push_back(state);
       plan.info.push_back(info);
 
-
-//         int64_t    timestamp;
-//         int32_t    num_robots;
-//         std::vector< std::string > robot_name;
-//         int32_t    num_joints;
-//         std::vector< int32_t > joint_robot;
-//         std::vector< std::string > joint_name;
-//         std::vector< float > joint_position;
-//         std::vector< float > joint_velocity;
-      std::cout << "Finished building pose\n";
       lcm_->publish(IK_RESPONSE_CHANNEL, &plan);
     }
 
@@ -113,27 +107,31 @@ const char* KukaPlanner::IK_RESPONSE_CHANNEL = "CANDIDATE_MANIP_IKPLAN";
 const char* KukaPlanner::PLAN_RESPONSE_CHANNEL = "CANDIDATE_MANIP_PLAN";
 
 class KukaIkPlanner : public KukaPlanner{
+  public:
+    KukaIkPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+                 std::shared_ptr<lcm::LCM> lcm) : KukaPlanner(kuka, lcm){}
+
   protected:
-    virtual void handleIkRequest(const lcm::ReceiveBuffer* rbuf,
-                                 const lcmt_generic_planner_request* status) {
+    virtual void handleIkRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling ik request from KukaIkPlanner\n";
+
+      // status->poses
       // TODO compute IK and publish response
       Eigen::VectorXd pose = Eigen::VectorXd::Zero(kuka_->get_num_positions());
+      std::cout << "Returning pose:\n" << pose << std::endl;
       int info = 0;
-      std::cout << "Publishing an empty pose\n";
       publishIkResponse(&pose,info);
       std::cout << "Finished publishing\n";
     }
 
-    virtual void handlePlanRequest(const lcm::ReceiveBuffer* rbuf,
-                           const lcmt_generic_planner_request* status) {
+    virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling plan request from KukaDircolPlanner\n";  
       const int num_timesteps = 20;
       Eigen::VectorXd time_vec(num_timesteps);
       Eigen::MatrixXd traj(kuka_->get_num_positions(), num_timesteps);
 
       // TODO compute IK and publish response
-      std::cout << "Publishing an empty trajectory\n";
+      std::cout << "Publishing an empty trajectory:\n" << traj << std::endl;
       publishPlanResponse(&time_vec, &traj);
       std::cout << "Finished publishing\n";
     }
@@ -141,10 +139,13 @@ class KukaIkPlanner : public KukaPlanner{
 
 
 class KukaDircolPlanner : public KukaIkPlanner {
+  public:
+    KukaDircolPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+                 std::shared_ptr<lcm::LCM> lcm) : KukaIkPlanner(kuka, lcm){}
+
   protected:
     // override the plan request, but not the IK request
-    virtual void handlePlanRequest(const lcm::ReceiveBuffer* rbuf,
-                                   const lcmt_generic_planner_request* status) {
+    virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
 
       std::cout << "Handling plan request from KukaDircolPlanner\n";
       const int num_timesteps = 20;
@@ -155,6 +156,22 @@ class KukaDircolPlanner : public KukaIkPlanner {
       publishPlanResponse(&time_vec, &traj);
     }
 };
+
+// helper function for string splitting
+void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+}
+
+std::vector<std::string> split(const std::string &s, char delim) {
+    std::vector<std::string> elems;
+    split(s, delim, elems);
+    return elems;
+}
 
 } // kuka_iiwa_arm
 } // examples
