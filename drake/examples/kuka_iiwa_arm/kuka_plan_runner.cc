@@ -67,7 +67,7 @@ class RobotPlanRunner {
     lcmt_iiwa_command iiwa_command;
     iiwa_command.num_joints = kNumJoints;
     iiwa_command.joint_position.resize(kNumJoints, 0.);
-    iiwa_command.num_torques = 0;
+    iiwa_command.num_torques = kNumJoints;
     iiwa_command.joint_torque.resize(kNumJoints, 0.);
 
     while (true) {
@@ -77,21 +77,74 @@ class RobotPlanRunner {
       DRAKE_ASSERT(iiwa_status_.utime != -1);
       cur_time_us = iiwa_status_.utime;
 
-      if (plan_) {
+      if (qtraj_) {
         if (plan_number_ != cur_plan_number) {
           std::cout << "Starting new plan." << std::endl;
           start_time_us = cur_time_us;
           cur_plan_number = plan_number_;
         }
 
-        const double cur_traj_time_s =
-            static_cast<double>(cur_time_us - start_time_us) / 1e6;
-        const auto desired_next = plan_->value(cur_traj_time_s);
+        const int kNumDof = 7;
+        const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
+
+        const auto q_ref = qtraj_->value(cur_traj_time_s);
+        const auto qd_ref = qdtraj_->value(cur_traj_time_s);
+        const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
 
         iiwa_command.utime = iiwa_status_.utime;
 
+        // Inverse Dynamics
+        // Set desired joint position and velocity
+        Eigen::VectorXd joint_position_desired(kNumDof); 
+        joint_position_desired << q_ref;
+        Eigen::VectorXd joint_velocity_desired(kNumDof); 
+        joint_velocity_desired << qd_ref;
+        Eigen::VectorXd joint_accel_desired(kNumDof); 
+        joint_accel_desired << qdd_ref;
+
+
+        double *qptr = &iiwa_status_.joint_position_measured[0];
+        Eigen::Map<Eigen::VectorXd> q(qptr, kNumDof);
+        double *qdptr = &iiwa_status_.joint_velocity_estimated[0];
+        Eigen::Map<Eigen::VectorXd> qd(qdptr, kNumDof);
+
+        // Computing inverse dynamics torque command
+        KinematicsCache<double> cache = tree_.doKinematics(q, qd);
+        const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
+
+        // note that, the gravity term in the inverse dynamics is set to zero.
+        Eigen::VectorXd torque_command = tree_.inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
+        
+        Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
+        KinematicsCache<double> cache0 = tree_.doKinematics(q, qd);
+        Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache0, no_external_wrenches, z, false);
+        torque_command -= gravity_torque;
+
+        // PD position control
+        Eigen::VectorXd position_ctrl_torque_command(kNumDof);
+        Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
+        // Kp_pos_ctrl << 225, 289, 144, 49, 324, 49, 49;
+        Kp_pos_ctrl << 100, 100, 100, 100, 100, 50, 50;
+        Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
+        // Kd_pos_ctrl << 30, 34, 24, 14, 36, 14, 14;
+        Kd_pos_ctrl << 19, 19, 19, 19, 19, 14, 14;
+        // (TODOs) Add integral control (anti-windup)
         for (int joint = 0; joint < kNumJoints; joint++) {
-          iiwa_command.joint_position[joint] = desired_next(joint);
+          position_ctrl_torque_command(joint) = Kp_pos_ctrl(joint)*(joint_position_desired(joint) - iiwa_status_.joint_position_measured[joint])
+                                              + Kd_pos_ctrl(joint)*(joint_velocity_desired(joint) - iiwa_status_.joint_velocity_estimated[joint]);
+        }
+        //Combination of ID torque control and IK position control
+        torque_command += position_ctrl_torque_command;
+
+        // -------->(For Safety) Set up iiwa position command<----------
+        for (int joint = 0; joint < kNumJoints; joint++) {
+          iiwa_command.joint_position[joint] = q_ref(joint);
+        }
+
+        // -------->Set up iiwa torque command<-------------
+        for (int joint = 0; joint < kNumJoints; joint++) {
+          iiwa_command.joint_torque[joint] = torque_command(joint);
+          iiwa_command.joint_torque[joint] = std::max(-150.0, std::min(150.0, iiwa_command.joint_torque[joint]));
         }
 
         lcm_.publish(kLcmCommandChannel, &iiwa_command);
@@ -130,14 +183,18 @@ class RobotPlanRunner {
     for (int k = 0; k < static_cast<int>(plan->plan.size()); ++k) {
       input_time.push_back(plan->plan[k].utime / 1e6);
     }
-    plan_.reset(new PiecewisePolynomialTrajectory(traj_mat, input_time));
+    qtraj_.reset(new PiecewisePolynomialTrajectory(traj_mat, input_time));
+    qdtraj_.reset(new PiecewisePolynomialTrajectory(qtraj_->getPP().derivative(1)));
+    qddtraj_.reset(new PiecewisePolynomialTrajectory(qdtraj_->getPP().derivative(1)));
     ++plan_number_;
   }
 
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
   int plan_number_{};
-  std::unique_ptr<PiecewisePolynomialTrajectory> plan_;
+  std::unique_ptr<PiecewisePolynomialTrajectory> qtraj_;
+  std::unique_ptr<PiecewisePolynomialTrajectory> qdtraj_;
+  std::unique_ptr<PiecewisePolynomialTrajectory> qddtraj_;
   lcmt_iiwa_status iiwa_status_;
 };
 
