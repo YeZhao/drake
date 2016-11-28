@@ -43,6 +43,10 @@ class PiecewisePolynomialTrajectory : public Trajectory {
     return pp_.value(t);
   }
 
+  PiecewisePolynomial<double> getPP(){
+    return pp_;
+  }
+
   /**
    * @return The number of rows of the output vector, which is also
    * the number of rows in the PiecewisePolynomial.
