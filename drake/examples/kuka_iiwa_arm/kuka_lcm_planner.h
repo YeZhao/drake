@@ -76,13 +76,20 @@ class KukaPlanner{
       plan.utime = 0;
       plan.robot_name = "iiwa"; 
       plan.num_states = 1;
+      std::cout << "tag1" << std::endl;
       Eigen::VectorXd state(kuka_->get_num_positions() + kuka_->get_num_velocities());
       state.head(kuka_->get_num_positions()) = *pose;
       state.tail(kuka_->get_num_velocities()) = Eigen::VectorXd::Zero(kuka_->get_num_velocities());
+      std::cout << "tag2" << std::endl;
+      
       plan.plan.push_back(lcmRobotState(0.0,state,kuka_));
+      std::cout << "tag3" << std::endl;
+
       plan.plan_info.push_back(info);
       // publish
+      std::cout << "tag4" << std::endl;
       lcm_->publish(IK_RESPONSE_CHANNEL, &plan);
+      std::cout << "tag5" << std::endl;
     }
 
     void publishPlanResponse(Eigen::VectorXd* time, Eigen::MatrixXd* trajectory, std::vector<int> info){
@@ -91,8 +98,9 @@ class KukaPlanner{
       plan.robot_name="iiwa";
       plan.num_states = time->size();
       for (int i=0; i<plan.num_states; i++){
-        plan.plan[i] = lcmRobotState((*time)[i], trajectory->col(i), kuka_);
-        plan.plan_info[i] = info[i];
+        std::cout << "test " << i << std::endl;
+        plan.plan.push_back(lcmRobotState((*time)[i], trajectory->col(i), kuka_));
+        plan.plan_info.push_back(info[i]);
       }
       plan.num_grasp_transitions = 0;
       plan.left_arm_control_type = plan.NONE;
@@ -149,25 +157,26 @@ class KukaIkPlanner : public KukaPlanner{
       // TODO: read the ikoptions from the message
       IKoptions ikoptions(kuka_);
 
-      // print some of the message components for debugging
-      // std::cout << "---------- Message Values ------------" << std::endl;
-      // std::cout << "Poses: " << status->poses << std::endl;
-      // std::cout << "Seed Pose: " << status->seed_pose << std::endl;
-      // std::cout << "Nominal Pose: " << status->nominal_pose << std::endl;
-      // std::cout << "End Pose: " << status->end_pose << std::endl;
-      // std::cout << "Joint Names: " << status->joint_names << std::endl;
-      // std::cout << "Options: " << status->options << std::endl;
-      // // print some of the computed values
-      // std::cout << "---------- Computed Values ------------" << std::endl;
-      // std::cout << "Seed Pose: \n" << seed_pose << std::endl;
-      // std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
+      //// print some of the message components for debugging
+      std::cout << "---------- Message Values ------------" << std::endl;
+      std::cout << "Poses: " << status->poses << std::endl;
+      std::cout << "Seed Pose: " << status->seed_pose << std::endl;
+      std::cout << "Nominal Pose: " << status->nominal_pose << std::endl;
+      std::cout << "End Pose: " << status->end_pose << std::endl;
+      std::cout << "Joint Names: " << status->joint_names << std::endl;
+      std::cout << "Options: " << status->options << std::endl;
+      // print some of the computed values
+      std::cout << "---------- Computed Values ------------" << std::endl;
+      std::cout << "Seed Pose: \n" << seed_pose << std::endl;
+      std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
 
       auto results = inverseKinSimple(kuka_, seed_pose, nominal_pose, constraint_ptrs, ikoptions);
+      std::cout << "Computed IK" << std::endl;
       publishIkResponse(&(results.q_sol[0]),results.info[0]);
     }
 
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
-      std::cout << "Handling plan request from KukaDircolPlanner\n";  
+      std::cout << "Handling plan request in KukaIKPlanner\n";  
       const int num_timesteps = 20;
       Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
       Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(kuka_->get_num_positions(), num_timesteps);
@@ -193,8 +202,33 @@ class KukaDircolPlanner : public KukaIkPlanner {
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling plan request from KukaDircolPlanner\n";
       // unpack the LCM message
-      auto constraints = parse_constraints(status->constraints, kuka_);
-      std::cout << "Num constraints " << constraints.size() << std::endl;
+      // no constraints in the plan request
+      // auto constraints = parse_constraints(status->constraints, kuka_);
+      // std::cout << "Num constraints " << constraints.size() << std::endl;
+
+      auto poses = parse_json_object(status->poses);
+      auto joint_names = parse_json_list(status->joint_names);
+      auto start_pose_full = parse_json_list(poses[status->seed_pose]);
+      auto nominal_pose_full = parse_json_list(poses[status->nominal_pose]);
+      auto goal_pose_full = parse_json_list(poses[status->end_pose]);
+      Eigen::VectorXd start_pose(kuka_->get_num_positions());
+      Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
+      Eigen::VectorXd goal_pose(kuka_->get_num_positions());
+      auto pos_idx_map = kuka_->computePositionNameToIndexMap();
+      for (int i=0; i<joint_names.size(); i++){
+        auto joint = joint_names[i]; 
+        // ignore all of the positions associated with the floating base
+        if (contains(joint,"base"))
+          continue;
+        int idx = pos_idx_map[joint];
+        start_pose[idx] = parse_json_double(start_pose_full[i]);
+        nominal_pose[idx] = parse_json_double(nominal_pose_full[i]);
+        goal_pose[idx] = parse_json_double(goal_pose_full[i]);
+      }
+
+      // TODO: compute the dynamic trajectory
+
+
 
       // print some of the message components for debugging
       std::cout << "---------- Message Values ------------" << std::endl;
@@ -206,9 +240,10 @@ class KukaDircolPlanner : public KukaIkPlanner {
       std::cout << "Joint Names: " << status->joint_names << std::endl;
       std::cout << "Options: " << status->options << std::endl;
       // print some of the computed values
-      // std::cout << "---------- Computed Values ------------" << std::endl;
-      // std::cout << "Seed Pose: \n" << seed_pose << std::endl;
-      // std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
+      std::cout << "---------- Computed Values ------------" << std::endl;
+      std::cout << "Start Pose: \n" << start_pose << std::endl;
+      std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
+      std::cout << "Goal Pose: \n" << goal_pose << std::endl;
 
       const int num_timesteps = 20;
       Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
@@ -255,7 +290,6 @@ bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree
   return msg;
 
 }
-
 
 } // anonymous
 } // kuka_iiwa_arm
