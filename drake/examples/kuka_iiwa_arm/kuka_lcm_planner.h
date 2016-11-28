@@ -136,9 +136,7 @@ class KukaIkPlanner : public KukaPlanner{
         // ignore all of the positions associated with the floating base
         if (contains(joint,"base"))
           continue;
-        std::cout << joint << std::endl;
         int idx = pos_idx_map[joint];
-        std::cout << "Index for " << joint << ": " << idx << std::endl;
         seed_pose[idx] = parse_json_double(seed_pose_full[i]);
         nominal_pose[idx] = parse_json_double(nominal_pose_full[i]);
       }
@@ -185,6 +183,20 @@ class KukaDircolPlanner : public KukaIkPlanner {
   protected:
     // override the plan request, but not the IK request
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
+
+      // print some of the message components for debugging
+      std::cout << "---------- Message Values ------------" << std::endl;
+      std::cout << "Poses: " << status->poses << std::endl;
+      std::cout << "Seed Pose: " << status->seed_pose << std::endl;
+      std::cout << "Nominal Pose: " << status->nominal_pose << std::endl;
+      std::cout << "End Pose: " << status->end_pose << std::endl;
+      std::cout << "Joint Names: " << status->joint_names << std::endl;
+      std::cout << "Options: " << status->options << std::endl;
+      // print some of the computed values
+      // std::cout << "---------- Computed Values ------------" << std::endl;
+      // std::cout << "Seed Pose: \n" << seed_pose << std::endl;
+      // std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
+
 
       std::cout << "Handling plan request from KukaDircolPlanner\n";
       const int num_timesteps = 20;

@@ -93,16 +93,13 @@ std::unique_ptr<WorldPositionConstraint> parse_world_position_constraint(const s
   if (tspan_it != constraint.end())
     tspan = json_to_eigen_d<2>(tspan_it->second);
 
-  std::cout << "Decoding the reference frame" << std::endl;
   // referenceFrame
   Eigen::Vector3d reference_pos = Eigen::Vector3d::Zero();
   auto reference_frame_it = constraint.find("referenceFrame");
   if (reference_frame_it != constraint.end()){
-    std::cout << reference_frame_it->second << std::endl;
     auto reference_frame = parse_json_object(reference_frame_it->second);
     auto pos_it = reference_frame.find("position");
     if (pos_it != reference_frame.end()){
-      std::cout << "Found position: " << pos_it->second << std::endl;
       reference_pos = json_to_eigen_d<3>(pos_it->second);
     }
   } 
@@ -126,11 +123,11 @@ std::unique_ptr<WorldPositionConstraint> parse_world_position_constraint(const s
     link_name = link_name_it->second;
   
   // print everything for debugging
-  std::cout << "Creating WorldPositionConstraint: " << data << std::endl;
-  std::cout << "Timespan: \n" << tspan << std::endl;
-  std::cout << "Lower Bound: \n" << pos_lb << std::endl;
-  std::cout << "Upper Bound: \n" << pos_ub << std::endl;
-  std::cout << "Link Name: \n" << link_name << std::endl;
+  // std::cout << "Creating WorldPositionConstraint: " << data << std::endl;
+  // std::cout << "Timespan: \n" << tspan << std::endl;
+  // std::cout << "Lower Bound: \n" << pos_lb << std::endl;
+  // std::cout << "Upper Bound: \n" << pos_ub << std::endl;
+  // std::cout << "Link Name: \n" << link_name << std::endl;
 
   // create world position constraint
   auto wpc = std::make_unique<WorldPositionConstraint>(tree, tree->FindBodyIndex(link_name),
@@ -168,11 +165,11 @@ std::unique_ptr<WorldQuatConstraint> parse_world_quat_constraint(const std::stri
     link_name = link_name_it->second;
 
   // print everything for debugging
-  std::cout << "Creating WorldQuatConstraint: " << data << std::endl;
-  std::cout << "Timespan: \n" << tspan << std::endl;
-  std::cout << "Tolerance: \n" << tol << std::endl;
-  std::cout << "Quaternion: \n" << quat_des << std::endl;
-  std::cout << "Link Name: \n" << link_name << std::endl;
+  // std::cout << "Creating WorldQuatConstraint: " << data << std::endl;
+  // std::cout << "Timespan: \n" << tspan << std::endl;
+  // std::cout << "Tolerance: \n" << tol << std::endl;
+  // std::cout << "Quaternion: \n" << quat_des << std::endl;
+  // std::cout << "Link Name: \n" << link_name << std::endl;
   
   // create world quat constraint
   auto wqc = std::make_unique<WorldQuatConstraint>(tree, tree->FindBodyIndex(link_name),
