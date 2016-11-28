@@ -21,7 +21,7 @@ std::unique_ptr<WorldQuatConstraint> parse_world_quat_constraint(const std::stri
 
 std::vector<std::unique_ptr<RigidBodyConstraint>> parse_constraints(const std::string &data, RigidBodyTree<double>* tree){
   auto json_constraint_list = parse_json_list(data);
-  std::vector<std::unique_ptr<RigidBodyConstraint>> constraint_vec(json_constraint_list.size());
+  std::vector<std::unique_ptr<RigidBodyConstraint>> constraint_vec;
   for (int i=0; i<json_constraint_list.size(); i++){
     // wrap in a try-catch block for some of the floating base constraints
     try{

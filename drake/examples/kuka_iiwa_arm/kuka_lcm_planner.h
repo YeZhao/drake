@@ -29,7 +29,7 @@ class KukaPlanner{
     static const char* IK_RESPONSE_CHANNEL;
     static const char* PLAN_RESPONSE_CHANNEL;
 
-    KukaPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+    KukaPlanner(RigidBodyTree<double>* kuka,
                 std::shared_ptr<lcm::LCM> lcm){
       lcm_ = lcm;
       kuka_ = kuka;
@@ -53,8 +53,6 @@ class KukaPlanner{
                        const std::string& chan,
                        const lcmt_generic_planner_request* status){
       std::cout << "Handling request in KukaPlanner, passing control to appropriate function\n";
-
-      auto constraints = parse_constraints(status->constraints, kuka_.get());
       
       if (chan == IK_REQUEST_CHANNEL){
         this->handleIkRequest(status);
@@ -64,7 +62,7 @@ class KukaPlanner{
     }
 
   protected:
-    std::shared_ptr<RigidBodyTree<double>> kuka_;
+    RigidBodyTree<double>* kuka_;
 
     virtual void handleIkRequest(const lcmt_generic_planner_request*) = 0;
 
@@ -113,20 +111,56 @@ const char* KukaPlanner::PLAN_RESPONSE_CHANNEL = "CANDIDATE_MANIP_PLAN";
 
 class KukaIkPlanner : public KukaPlanner{
   public:
-    KukaIkPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+    KukaIkPlanner(RigidBodyTree<double>* kuka,
                  std::shared_ptr<lcm::LCM> lcm) : KukaPlanner(kuka, lcm){}
 
   protected:
     virtual void handleIkRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling ik request from KukaIkPlanner\n";
 
-      // status->poses
-      // TODO compute IK and publish response
-      Eigen::VectorXd pose = Eigen::VectorXd::Zero(kuka_->get_num_positions());
-      std::cout << "Returning pose:\n" << pose << std::endl;
-      int info = 0;
-      publishIkResponse(&pose,info);
-      std::cout << "Finished publishing\n";
+      // unpack the LCM message
+      auto constraints = parse_constraints(status->constraints, kuka_);
+      std::vector<RigidBodyConstraint*> constraint_ptrs(constraints.size());
+      for (int i=0; i<constraints.size(); i++){
+        constraint_ptrs[i] = constraints[i].get();
+      }
+      auto poses = parse_json_object(status->poses);
+      auto joint_names = parse_json_list(status->joint_names);
+      auto seed_pose_full = parse_json_list(poses[status->seed_pose]);
+      auto nominal_pose_full = parse_json_list(poses[status->nominal_pose]);
+      Eigen::VectorXd seed_pose(kuka_->get_num_positions());
+      Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
+      auto pos_idx_map = kuka_->computePositionNameToIndexMap();
+      for (int i=0; i<joint_names.size(); i++){
+        auto joint = joint_names[i]; 
+        // ignore all of the positions associated with the floating base
+        if (contains(joint,"base"))
+          continue;
+        std::cout << joint << std::endl;
+        int idx = pos_idx_map[joint];
+        std::cout << "Index for " << joint << ": " << idx << std::endl;
+        seed_pose[idx] = parse_json_double(seed_pose_full[i]);
+        nominal_pose[idx] = parse_json_double(nominal_pose_full[i]);
+      }
+      // ignore the specified ikoptions for now
+      // TODO: read the ikoptions from the message
+      IKoptions ikoptions(kuka_);
+
+      // print some of the message components for debugging
+      // std::cout << "---------- Message Values ------------" << std::endl;
+      // std::cout << "Poses: " << status->poses << std::endl;
+      // std::cout << "Seed Pose: " << status->seed_pose << std::endl;
+      // std::cout << "Nominal Pose: " << status->nominal_pose << std::endl;
+      // std::cout << "End Pose: " << status->end_pose << std::endl;
+      // std::cout << "Joint Names: " << status->joint_names << std::endl;
+      // std::cout << "Options: " << status->options << std::endl;
+      // // print some of the computed values
+      // std::cout << "---------- Computed Values ------------" << std::endl;
+      // std::cout << "Seed Pose: \n" << seed_pose << std::endl;
+      // std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
+
+      auto results = inverseKinSimple(kuka_, seed_pose, nominal_pose, constraint_ptrs, ikoptions);
+      publishIkResponse(&(results.q_sol[0]),results.info[0]);
     }
 
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
@@ -145,7 +179,7 @@ class KukaIkPlanner : public KukaPlanner{
 
 class KukaDircolPlanner : public KukaIkPlanner {
   public:
-    KukaDircolPlanner(std::shared_ptr<RigidBodyTree<double>> kuka,
+    KukaDircolPlanner(RigidBodyTree<double>* kuka,
                  std::shared_ptr<lcm::LCM> lcm) : KukaIkPlanner(kuka, lcm){}
 
   protected:

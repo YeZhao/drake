@@ -11,13 +11,13 @@ namespace kuka_iiwa_arm {
 namespace {
 
 int main(int argc, const char* argv[]) {
-  
-  auto kuka = std::make_shared<RigidBodyTree<double>>(
+
+  RigidBodyTree<double> kuka(
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       drake::multibody::joints::kFixed);
   auto lcm = std::make_shared<lcm::LCM>();
 
-  KukaDircolPlanner planner(kuka, lcm);
+  KukaDircolPlanner planner(&kuka, lcm);
   planner.run();
   return 0;
 }
