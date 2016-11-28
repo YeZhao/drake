@@ -6,8 +6,7 @@
 #include <vector>
 
 
-#include "drake/lcmt_plan.hpp"
-#include "drake/lcmt_robot_state.hpp"
+#include "robotlocomotion/robot_plan_t.hpp"
 #include "drake/lcmt_generic_planner_request.hpp"
 
 
@@ -21,6 +20,8 @@
 namespace drake{
 namespace examples{
 namespace kuka_iiwa_arm{
+namespace{
+bot_core::robot_state_t lcmRobotState(double, Eigen::VectorXd, RigidBodyTree<double>*);
 
 class KukaPlanner{
   public:
@@ -52,11 +53,12 @@ class KukaPlanner{
     void handleRequest(const lcm::ReceiveBuffer* rbuf,
                        const std::string& chan,
                        const lcmt_generic_planner_request* status){
+      std::cout << "Messge from " << chan << std::endl;
       std::cout << "Handling request in KukaPlanner, passing control to appropriate function\n";
       
       if (chan == IK_REQUEST_CHANNEL){
         this->handleIkRequest(status);
-      }else if (chan == IK_REQUEST_CHANNEL){
+      }else if (chan == PLAN_REQUEST_CHANNEL){
         this->handlePlanRequest(status);
       }
     }
@@ -69,32 +71,35 @@ class KukaPlanner{
     virtual void handlePlanRequest(const lcmt_generic_planner_request*) = 0;
 
     void publishIkResponse(Eigen::VectorXd* pose, int info){
-      lcmt_plan plan;
-
-      plan.utime = 0; // we're not using the utime on this message
-      plan.num_states = 1;
-
       // build the state
-      lcmt_robot_state state;
-      state.timestamp = 0;
-      state.num_robots = 1;
-      state.robot_name.push_back(std::string("iiwa")); 
-      state.num_joints = kuka_->get_num_positions();
-
-      for (int i=0; i<kuka_->get_num_positions(); i++){
-        state.joint_name.push_back(std::string("iiwa_joint_") + std::to_string(i));
-        state.joint_position.push_back((*pose)[i]);
-        state.joint_velocity.push_back(0.0);
-        state.joint_robot.push_back(0);
-      }
-      plan.plan.push_back(state);
-      plan.info.push_back(info);
-
+      robotlocomotion::robot_plan_t plan;
+      plan.utime = 0;
+      plan.robot_name = "iiwa"; 
+      plan.num_states = 1;
+      Eigen::VectorXd state(kuka_->get_num_positions() + kuka_->get_num_velocities());
+      state.head(kuka_->get_num_positions()) = *pose;
+      state.tail(kuka_->get_num_velocities()) = Eigen::VectorXd::Zero(kuka_->get_num_velocities());
+      plan.plan.push_back(lcmRobotState(0.0,state,kuka_));
+      plan.plan_info.push_back(info);
+      // publish
       lcm_->publish(IK_RESPONSE_CHANNEL, &plan);
     }
 
-    void publishPlanResponse(Eigen::VectorXd* time, Eigen::MatrixXd* trajectory){
-      lcmt_plan plan;
+    void publishPlanResponse(Eigen::VectorXd* time, Eigen::MatrixXd* trajectory, std::vector<int> info){
+      robotlocomotion::robot_plan_t plan;
+      plan.utime=0;
+      plan.robot_name="iiwa";
+      plan.num_states = time->size();
+      for (int i=0; i<plan.num_states; i++){
+        plan.plan[i] = lcmRobotState((*time)[i], trajectory->col(i), kuka_);
+        plan.plan_info[i] = info[i];
+      }
+      plan.num_grasp_transitions = 0;
+      plan.left_arm_control_type = plan.NONE;
+      plan.left_leg_control_type = plan.NONE;
+      plan.right_arm_control_type = plan.NONE;
+      plan.right_leg_control_type = plan.NONE;
+
       // TODO: build the message from the time and trajectory
       lcm_->publish(PLAN_RESPONSE_CHANNEL, &plan);
     }
@@ -164,12 +169,15 @@ class KukaIkPlanner : public KukaPlanner{
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling plan request from KukaDircolPlanner\n";  
       const int num_timesteps = 20;
-      Eigen::VectorXd time_vec(num_timesteps);
-      Eigen::MatrixXd traj(kuka_->get_num_positions(), num_timesteps);
-
+      Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
+      Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(kuka_->get_num_positions(), num_timesteps);
+      std::vector<int> info(num_timesteps);
+      for (int i=0; i<num_timesteps; i++){
+        info[i]=1;
+      }
       // TODO compute IK and publish response
       std::cout << "Publishing an empty trajectory:\n" << traj << std::endl;
-      publishPlanResponse(&time_vec, &traj);
+      publishPlanResponse(&time_vec, &traj, info);
       std::cout << "Finished publishing\n";
     }
 };
@@ -183,9 +191,14 @@ class KukaDircolPlanner : public KukaIkPlanner {
   protected:
     // override the plan request, but not the IK request
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
+      std::cout << "Handling plan request from KukaDircolPlanner\n";
+      // unpack the LCM message
+      auto constraints = parse_constraints(status->constraints, kuka_);
+      std::cout << "Num constraints " << constraints.size() << std::endl;
 
       // print some of the message components for debugging
       std::cout << "---------- Message Values ------------" << std::endl;
+      std::cout << "Constraints" << status->constraints << std::endl;
       std::cout << "Poses: " << status->poses << std::endl;
       std::cout << "Seed Pose: " << status->seed_pose << std::endl;
       std::cout << "Nominal Pose: " << status->nominal_pose << std::endl;
@@ -197,17 +210,54 @@ class KukaDircolPlanner : public KukaIkPlanner {
       // std::cout << "Seed Pose: \n" << seed_pose << std::endl;
       // std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
 
-
-      std::cout << "Handling plan request from KukaDircolPlanner\n";
       const int num_timesteps = 20;
-      Eigen::VectorXd time_vec(num_timesteps);
-      Eigen::MatrixXd traj(kuka_->get_num_positions(), num_timesteps);
+      Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
+      Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(kuka_->get_num_positions(), num_timesteps);
+      std::vector<int> info(num_timesteps);
+      for (int i=0; i<num_timesteps; i++){
+        info[i]=1;
+      }
+
       // TODO compute IK and publish response
-      std::cout << "Publishing empty response\n";
-      publishPlanResponse(&time_vec, &traj);
+      std::cout << "Publishing an empty trajectory:\n" << traj << std::endl;
+      publishPlanResponse(&time_vec, &traj, info);
+      std::cout << "Finished publishing\n";
     }
 };
 
+bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree<double>* tree){
+  auto pos = q.head(tree->get_num_positions());
+  auto vel = q.tail(tree->get_num_velocities());
+
+  bot_core::robot_state_t msg;
+  
+  msg.utime = (int) t*1e6;
+  // TODO: figure out what the pose means in this context
+  // msg.pose = ???
+  msg.num_joints = tree->get_num_positions();
+  for (int i=0; i<msg.num_joints; i++){
+    msg.joint_name.push_back(tree->get_position_name(i));
+    msg.joint_position.push_back(pos[i]);
+    msg.joint_velocity.push_back(vel[i]);
+    msg.joint_effort.push_back(0.0);
+  }
+  
+  // msg.twist = bot_core::twist_t();
+  // msg.twist.linear_velocity = bot_core::vector_3d_t()
+  // msg.twist.angular_velocity = bot_core::vector_3d_t()
+  // msg.force_torque = bot_core::vector_3d_t();
+  for (int i=0; i<3; i++){
+    msg.force_torque.l_hand_force[i] = 0.0;  
+    msg.force_torque.l_hand_torque[i] = 0.0;
+    msg.force_torque.r_hand_force[i] = 0.0;  
+    msg.force_torque.r_hand_torque[i] = 0.0; 
+  }
+  return msg;
+
+}
+
+
+} // anonymous
 } // kuka_iiwa_arm
 } // examples
 } // drake

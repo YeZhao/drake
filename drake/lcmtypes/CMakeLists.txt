@@ -30,7 +30,6 @@ lcm_wrap_types(
   lcmt_joint_pd_override.lcm
   lcmt_generic_planner_request.lcm
   lcmt_piecewise_polynomial.lcm
-  lcmt_plan.lcm
   lcmt_polynomial.lcm
   lcmt_polynomial_matrix.lcm
   lcmt_qp_controller_input.lcm
