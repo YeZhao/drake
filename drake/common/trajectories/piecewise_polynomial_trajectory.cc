@@ -16,21 +16,38 @@ PiecewisePolynomialTrajectory::PiecewisePolynomialTrajectory(
   // For each timestep, creates a PolynomialMatrix for each joint position.
   // Each column of trajectory_matrix represents a particular time, and the
   // rows of that column contain values for each joint coordinate.
+  Eigen::VectorXd vel_init(trajectory_matrix.rows());
+  Eigen::VectorXd vel_final(trajectory_matrix.rows());
+  PPType::PolynomialMatrix poly_matrix(trajectory_matrix.rows(), 1);
+
   for (int i = 0; i < num_time_steps; ++i) {
-    PPType::PolynomialMatrix poly_matrix(trajectory_matrix.rows(), 1);
     const auto traj_now = trajectory_matrix.col(i);
 
-    // Produces interpolating polynomials for each joint coordinate.
     if (i != num_time_steps - 1) {
+      // Produces cubic interpolating polynomials for each joint coordinate.
       for (int row = 0; row < trajectory_matrix.rows(); ++row) {
-        Eigen::Vector2d coeffs(0, 0);
+        Eigen::Vector4d coeffs(0, 0, 0, 0);
+        double t_inc_ = times.at(i+1) - times.at(i); // time duration of each trajectory segment
+
+        // coarse estimation of desired velocities at the via points
+        if (i == 0){
+          vel_init(row) = 0;
+        }
+        else{
+          vel_init(row) = vel_final(row);
+        }
+        if (num_time_steps-i == 2) {
+          vel_final(row) = 0;
+        }
+        else {
+          vel_final(row) = (trajectory_matrix(row, i + 2) - trajectory_matrix(row, i))/(times.at(i + 2) - times.at(i));
+        }
+        
+        // coefficients of cubic splines
         coeffs[0] = traj_now(row);
-        // Sets the coefficient such that it will reach the value of
-        // the next timestep at the time when we advance to the next
-        // piece.  In the event that we're at the end of the
-        // trajectory, this will be left 0.
-        coeffs[1] = (trajectory_matrix(row, i + 1) - coeffs[0]) /
-                    (times.at(i + 1) - times.at(i));
+        coeffs[1] = vel_init(row); // coefficient of the first-order term
+        coeffs[2] = 3.0*(trajectory_matrix(row, i + 1) - coeffs[0])/pow(t_inc_, 2) - 2.0*vel_init(row)/t_inc_ - vel_final(row)/t_inc_; // coefficient of the second-order term
+        coeffs[3] = -2.0*(trajectory_matrix(row, i + 1) - coeffs[0])/pow(t_inc_, 3) + (vel_init(row) + vel_final(row))/pow(t_inc_, 2); // coefficient of the third-order term
         poly_matrix(row) = PPType::PolynomialType(coeffs);
       }
       polys.push_back(poly_matrix);
