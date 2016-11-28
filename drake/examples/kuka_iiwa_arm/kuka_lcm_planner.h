@@ -16,6 +16,8 @@
 #include "drake/multibody/rigid_body_tree.h"
 #include "drake/common/drake_path.h"
 
+#include "rigid_body_plan_parser.h"
+
 namespace drake{
 namespace examples{
 namespace kuka_iiwa_arm{
@@ -51,6 +53,9 @@ class KukaPlanner{
                        const std::string& chan,
                        const lcmt_generic_planner_request* status){
       std::cout << "Handling request in KukaPlanner, passing control to appropriate function\n";
+
+      auto constraints = parse_constraints(status->constraints, kuka_.get());
+      
       if (chan == IK_REQUEST_CHANNEL){
         this->handleIkRequest(status);
       }else if (chan == IK_REQUEST_CHANNEL){
@@ -156,22 +161,6 @@ class KukaDircolPlanner : public KukaIkPlanner {
       publishPlanResponse(&time_vec, &traj);
     }
 };
-
-// helper function for string splitting
-void split(const std::string &s, char delim, std::vector<std::string> &elems) {
-    std::stringstream ss;
-    ss.str(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-}
-
-std::vector<std::string> split(const std::string &s, char delim) {
-    std::vector<std::string> elems;
-    split(s, delim, elems);
-    return elems;
-}
 
 } // kuka_iiwa_arm
 } // examples
