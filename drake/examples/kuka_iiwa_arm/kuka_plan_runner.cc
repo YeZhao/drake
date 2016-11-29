@@ -17,6 +17,7 @@
 #include "drake/common/trajectories/piecewise_polynomial.h"
 #include "drake/common/trajectories/piecewise_polynomial_trajectory.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/examples/kuka_iiwa_arm/kuka_inverse_dynamics_controller.h"
 #include "drake/multibody/rigid_body_tree.h"
 
 #include "drake/lcmt_iiwa_command.hpp"
@@ -46,8 +47,8 @@ typedef PPType::PolynomialMatrix PPMatrix;
 class RobotPlanRunner {
  public:
   /// tree is aliased
-  explicit RobotPlanRunner(const RigidBodyTree<double>& tree)
-      : tree_(tree), plan_number_(0) {
+  explicit RobotPlanRunner(const RigidBodyTree<double>& tree, InverseDynamicsController& torqueCtrl)
+      : tree_(tree), torqueCtrl_(torqueCtrl), plan_number_(0) {
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotPlanRunner::HandleStatus, this);
@@ -101,40 +102,14 @@ class RobotPlanRunner {
         joint_velocity_desired << qd_ref;
         Eigen::VectorXd joint_accel_desired(kNumDof); 
         joint_accel_desired << qdd_ref;
-
-
+        
         double *qptr = &iiwa_status_.joint_position_measured[0];
         Eigen::Map<Eigen::VectorXd> q(qptr, kNumDof);
         double *qdptr = &iiwa_status_.joint_velocity_estimated[0];
         Eigen::Map<Eigen::VectorXd> qd(qdptr, kNumDof);
 
         // Computing inverse dynamics torque command
-        KinematicsCache<double> cache = tree_.doKinematics(q, qd);
-        const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-
-        // note that, the gravity term in the inverse dynamics is set to zero.
-        Eigen::VectorXd torque_command = tree_.inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
-        
-        Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
-        KinematicsCache<double> cache0 = tree_.doKinematics(q, qd);
-        Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache0, no_external_wrenches, z, false);
-        torque_command -= gravity_torque;
-
-        // PD position control
-        Eigen::VectorXd position_ctrl_torque_command(kNumDof);
-        Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
-        // Kp_pos_ctrl << 225, 289, 144, 49, 324, 49, 49;
-        Kp_pos_ctrl << 100, 100, 100, 100, 100, 50, 50;
-        Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        // Kd_pos_ctrl << 30, 34, 24, 14, 36, 14, 14;
-        Kd_pos_ctrl << 19, 19, 19, 19, 19, 14, 14;
-        // (TODOs) Add integral control (anti-windup)
-        for (int joint = 0; joint < kNumJoints; joint++) {
-          position_ctrl_torque_command(joint) = Kp_pos_ctrl(joint)*(joint_position_desired(joint) - iiwa_status_.joint_position_measured[joint])
-                                              + Kd_pos_ctrl(joint)*(joint_velocity_desired(joint) - iiwa_status_.joint_velocity_estimated[joint]);
-        }
-        //Combination of ID torque control and IK position control
-        torque_command += position_ctrl_torque_command;
+        Eigen::VectorXd torque_command = torqueCtrl_.computeTorqueCmd(joint_position_desired, joint_velocity_desired, joint_accel_desired, q, qd, kNumDof, tree_);
 
         // -------->(For Safety) Set up iiwa position command<----------
         for (int joint = 0; joint < kNumJoints; joint++) {
@@ -191,6 +166,8 @@ class RobotPlanRunner {
 
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
+  InverseDynamicsController& torqueCtrl_;
+
   int plan_number_{};
   std::unique_ptr<PiecewisePolynomialTrajectory> qtraj_;
   std::unique_ptr<PiecewisePolynomialTrajectory> qdtraj_;
@@ -203,7 +180,8 @@ int do_main(int argc, const char* argv[]) {
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       drake::multibody::joints::kFixed);
 
-  RobotPlanRunner runner(tree);
+  InverseDynamicsController torqueCtrl;
+  RobotPlanRunner runner(tree, torqueCtrl);
   runner.Run();
   return 0;
 }
@@ -212,7 +190,6 @@ int do_main(int argc, const char* argv[]) {
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake
-
 
 int main(int argc, const char* argv[]) {
   return drake::examples::kuka_iiwa_arm::do_main(argc, argv);
