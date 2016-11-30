@@ -47,8 +47,8 @@ typedef PPType::PolynomialMatrix PPMatrix;
 class RobotPlanRunner {
  public:
   /// tree is aliased
-  explicit RobotPlanRunner(const RigidBodyTree<double>& tree, InverseDynamicsController& torqueCtrl)
-      : tree_(tree), torqueCtrl_(torqueCtrl), plan_number_(0) {
+  explicit RobotPlanRunner(const RigidBodyTree<double>& tree) //InverseDynamicsController& torqueCtrl
+      : tree_(tree), plan_number_(0) {
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotPlanRunner::HandleStatus, this);
@@ -109,7 +109,8 @@ class RobotPlanRunner {
         Eigen::Map<Eigen::VectorXd> qd(qdptr, kNumDof);
 
         // Computing inverse dynamics torque command
-        Eigen::VectorXd torque_command = torqueCtrl_.computeTorqueCmd(joint_position_desired, joint_velocity_desired, joint_accel_desired, q, qd, kNumDof, tree_);
+        InverseDynamicsController* torqueCtrl_;
+        Eigen::VectorXd torque_command = torqueCtrl_->computeTorqueCmd(joint_position_desired, joint_velocity_desired, joint_accel_desired, q, qd, kNumDof, tree_);
 
         // -------->(For Safety) Set up iiwa position command<----------
         for (int joint = 0; joint < kNumJoints; joint++) {
@@ -166,7 +167,7 @@ class RobotPlanRunner {
 
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
-  InverseDynamicsController& torqueCtrl_;
+  //InverseDynamicsController& torqueCtrl_;
 
   int plan_number_{};
   std::unique_ptr<PiecewisePolynomialTrajectory> qtraj_;
@@ -180,8 +181,7 @@ int do_main(int argc, const char* argv[]) {
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       drake::multibody::joints::kFixed);
 
-  InverseDynamicsController torqueCtrl;
-  RobotPlanRunner runner(tree, torqueCtrl);
+  RobotPlanRunner runner(tree);
   runner.Run();
   return 0;
 }
