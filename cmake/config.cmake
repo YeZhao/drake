@@ -18,20 +18,21 @@ function(drake_check_compiler NAME VERSION)
     set(_version_string "${VERSION}")
   endif()
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${VERSION})
-    message(FATAL_ERROR "${NAME} version must be at least ${_version_string}")
+    message(FATAL_ERROR "${NAME} version must be at least ${_version_string} \
+                         (detected version ${CMAKE_CXX_COMPILER_VERSION})")
   endif()
 endfunction()
 
 #------------------------------------------------------------------------------
 # Find MATLAB.
 #------------------------------------------------------------------------------
-function(drake_setup_matlab)
+macro(drake_setup_matlab)
   option(DISABLE_MATLAB "Don't use MATLAB even if it is present." OFF)
 
   if(DISABLE_MATLAB)
     message(STATUS "MATLAB is disabled.")
     unset(MATLAB_EXECUTABLE CACHE)
-    unset(Matlab_FOUND CACHE)
+    set(Matlab_FOUND OFF)
   else()
     # Look for the MATLAB executable. This does not use find_package(Matlab)
     # because that is "really good at finding MATLAB", and we only want to
@@ -43,72 +44,61 @@ function(drake_setup_matlab)
       get_filename_component(_matlab_bindir "${_matlab_realpath}" DIRECTORY)
       get_filename_component(Matlab_ROOT_DIR
         "${_matlab_bindir}" DIRECTORY CACHE)
+      unset(_matlab_realpath)
+      unset(_matlab_bindir)
 
-      if(MATLAB_EXECUTABLE)
-        # MATLAB 7.12 (R2011a) introduced the rng() function so it is a lower
-        # bound on the oldest MATLAB version that Drake can support
-        find_package(Matlab 7.12 MODULE
-          COMPONENTS
-            MAIN_PROGRAM
-            MEX_COMPILER
-            MX_LIBRARY
-            SIMULINK)
-      endif()
+      find_package(Matlab MODULE
+        COMPONENTS
+          MAIN_PROGRAM
+          MEX_COMPILER
+          MX_LIBRARY
+          SIMULINK)
     else()
+      set(Matlab_FOUND OFF)
       message(STATUS "MATLAB was not found.")
     endif()
   endif()
-endfunction()
+endmacro()
 
 #------------------------------------------------------------------------------
 # Determine the version of MATLAB's JVM and set Java build flags to match.
 #------------------------------------------------------------------------------
 function(drake_setup_java_for_matlab)
   if(NOT MATLAB_JVM_VERSION)
-    if(NOT Matlab VERSION_GREATER 8.1)  # R2013a
-      set(MATLAB_JVM_VERSION 1.6 CACHE INTERNAL "")
-    elseif(NOT Matlab VERSION_GREATER 9.1)  # R2016b
-      set(MATLAB_JVM_VERSION 1.7 CACHE INTERNAL "")
-    else()
-      message(STATUS "Detecting MATLAB JVM version")
+    message(STATUS "Detecting MATLAB JVM version")
 
-      # Set arguments for running MATLAB
-      set(_args -nodesktop -nodisplay -nosplash)
-      set(_input_file /dev/null)
-      if(WIN32)
-        set(_args ${_args} -wait)
-        set(_input_file NUL)
-      endif()
-      set(_logfile "${CMAKE_CURRENT_BINARY_DIR}/drake_setup_java_for_matlab.log")
+    # Set arguments for running MATLAB
+    set(_args -nodesktop -nodisplay -nosplash)
+    set(_input_file /dev/null)
+    set(_logfile "${CMAKE_CURRENT_BINARY_DIR}/drake_setup_java_for_matlab.log")
 
-      # Ask MATLAB for its JVM version
-      execute_process(
-        COMMAND "${Matlab_MAIN_PROGRAM}" ${_args} -logfile "${_logfile}" -r "version -java,quit"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-        TIMEOUT 450
-        RESULT_VARIABLE _result
-        OUTPUT_QUIET
-        INPUT_FILE ${_input_file})
+    # Ask MATLAB for its JVM version
+    execute_process(
+      COMMAND "${Matlab_MAIN_PROGRAM}" ${_args} -logfile "${_logfile}" -r "version -java,quit"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+      TIMEOUT 450
+      RESULT_VARIABLE _result
+      OUTPUT_QUIET
+      INPUT_FILE ${_input_file})
 
-      if(_result EQUAL 0)
-        if(EXISTS ${_logfile})
-          file(READ ${_logfile} _output)
+    if(_result EQUAL 0)
+      if(EXISTS ${_logfile})
+        file(READ ${_logfile} _output)
 
-          # Test for a valid result
-          if(_output MATCHES "Java ([0-9]+\\.[0-9]+)\\.([0-9_.]+)")
-            set(MATLAB_JVM_VERSION ${CMAKE_MATCH_1} CACHE INTERNAL "")
-          else()
-            message(WARNING
-              "Could not determine MATLAB JVM version because regular expression was not matched")
-          endif()
+        # Test for a valid result
+        if(_output MATCHES "Java ([0-9]+\\.[0-9]+)\\.([0-9_.]+)")
+          set(MATLAB_JVM_VERSION ${CMAKE_MATCH_1} CACHE INTERNAL "")
         else()
           message(WARNING
-            "Could not determine MATLAB JVM version because MATLAB log file was not created")
+            "Could not determine MATLAB JVM version because regular expression was not matched")
         endif()
       else()
         message(WARNING
-          "Could not determine MATLAB JVM version because MATLAB exited with nonzero result ${_result}")
+          "Could not determine MATLAB JVM version because MATLAB log file was not created")
       endif()
+    else()
+      message(WARNING
+        "Could not determine MATLAB JVM version because MATLAB exited with nonzero result ${_result}")
     endif()
 
     if(MATLAB_JVM_VERSION)
@@ -145,9 +135,7 @@ macro(drake_setup_compiler)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     drake_check_compiler("Apple Clang" 7)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    drake_check_compiler("Clang" 3.7)
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    drake_check_compiler("MSVC" 19 "19 (VS 2015)")
+    drake_check_compiler("Clang" 3.9)
   endif()
 
   # Set compiler language standard level
@@ -175,9 +163,59 @@ macro(drake_setup_java)
 endmacro()
 
 #------------------------------------------------------------------------------
+# Find and set up Fortran.
+#------------------------------------------------------------------------------
+macro(drake_setup_fortran)
+  option(DISABLE_FORTRAN "Do not use Fortran even if it is supported" OFF)
+  mark_as_advanced(DISABLE_FORTRAN)
+
+  if(NOT DISABLE_FORTRAN)
+    if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+      enable_language(Fortran)
+
+      if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU" AND CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "4.9")
+        message(FATAL_ERROR "GNU Fortran compiler version must be at least 4.9 \
+                             (detected version ${CMAKE_Fortran_COMPILER_VERSION})")
+      endif()
+    else()
+      # Ninja and Xcode may not support Fortran, so manually find the Fortran
+      # compiler and set any flags passed in by environment variable
+      find_program(CMAKE_Fortran_COMPILER
+        NAMES "$ENV{FC}" gfortran gfortran-6 gfortran-5 gfortran-4
+        DOC "Fortran compiler")
+      if(CMAKE_Fortran_COMPILER)
+        message(STATUS "Found Fortran compiler: ${CMAKE_Fortran_COMPILER}")
+      else()
+        message(FATAL_ERROR "Could NOT find Fortran compiler")
+      endif()
+      set(CMAKE_Fortran_FLAGS "$ENV{FFLAGS}" CACHE STRING
+        "Flags for Fortran compiler")
+    endif()
+  endif()
+endmacro()
+
+#------------------------------------------------------------------------------
+# Set up Python.
+#------------------------------------------------------------------------------
+macro(drake_setup_python)
+  option(DISABLE_PYTHON "Do not use Python even if it is supported" OFF)
+  mark_as_advanced(DISABLE_PYTHON)
+
+  # Choose your python (major) version
+  option(WITH_PYTHON_3 "Force Drake to use Python 3 instead of Python 2" OFF)
+
+  if(WITH_PYTHON_3)
+    find_package(Python 3 MODULE REQUIRED)
+  else()
+    find_package(Python 2.7 MODULE REQUIRED)
+  endif()
+endmacro()
+
+#------------------------------------------------------------------------------
 # Add local CMake modules to CMake search path.
 #------------------------------------------------------------------------------
 function(drake_setup_cmake BASE_PATH)
+  set(CMAKE_MODULE_PATH "${BASE_PATH}")
   file(GLOB _versions RELATIVE ${BASE_PATH} "${BASE_PATH}/*/")
   foreach(_version ${_versions})
     if(IS_DIRECTORY "${BASE_PATH}/${_version}")
@@ -206,25 +244,36 @@ macro(drake_setup_platform)
   # Ensure that find_package() searches in the install directory first.
   list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}")
 
+  # Set default lib directory name suffix
+  set(LIB_SUFFIX "" CACHE STRING
+    "Suffix of library install directory, e.g. '64'")
+  mark_as_advanced(LIB_SUFFIX)
+
   drake_setup_compiler()
   drake_setup_matlab()
   drake_setup_java()
+  drake_setup_python()
 
-  # Choose your python (major) version
-  option(WITH_PYTHON_3 "Force Drake to use python 3 instead of python 2" OFF)
-
-  # Set default build
+  # Set default build type
   if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING
       "The type of build. Options are: Debug Release RelWithDebInfo MinSizeRel."
       FORCE)
   endif()
+
+  # Build shared libraries by default
+  option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 endmacro()
 
 #------------------------------------------------------------------------------
 # Set up properties for the Drake superbuild.
 #------------------------------------------------------------------------------
 macro(drake_setup_superbuild)
+  enable_testing()
+  set_property(DIRECTORY PROPERTY TEST_INCLUDE_FILE
+    ${CMAKE_BINARY_DIR}/CTestExternals.cmake)
+  file(REMOVE ${CMAKE_BINARY_DIR}/CTestExternals.cmake)
+
   # Set default install prefix
   if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE STRING
@@ -232,6 +281,9 @@ macro(drake_setup_superbuild)
       FORCE)
   endif()
   message(STATUS CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX})
+
+  # Drake itself does not contain Fortran code.
+  drake_setup_fortran()
 endmacro()
 
 ###############################################################################

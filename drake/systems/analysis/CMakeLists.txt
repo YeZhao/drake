@@ -1,5 +1,6 @@
 # Source files used to build drakeSystemAnalysis
 set(sources
+  runge_kutta3_integrator.cc
   simulator.cc
 )
 
@@ -9,6 +10,7 @@ set(installed_headers
     integrator_base.h
     explicit_euler_integrator.h
     runge_kutta2_integrator.h
+    runge_kutta3_integrator.h
     simulator.h
 )
 
@@ -22,10 +24,14 @@ target_link_libraries(drakeSystemAnalysis drakeSystemFramework drakeCommon)
 
 drake_install_headers(${installed_headers})
 
-pods_install_libraries(drakeSystemAnalysis)
-pods_install_pkg_config_file(drake-system-analysis
-  LIBS -ldrakeSystemAnalysis -ldrakeSystemFramework -ldrakeCommon
+drake_install_libraries(drakeSystemAnalysis)
+drake_install_pkg_config_file(drake-system-analysis
+  TARGET drakeSystemAnalysis
+  LIBS -ldrakeSystemAnalysis
   REQUIRES
-  VERSION 0.0.1)
+    drake-common
+    drake-system-framework)
 
-add_subdirectory(test)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

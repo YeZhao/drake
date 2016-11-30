@@ -3,9 +3,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "drake/common/autodiff_overloads.h"
 #include "drake/common/drake_assert.h"
 #include "drake/common/eigen_autodiff_types.h"
-#include "drake/common/drake_export.h"
 #include "drake/systems/framework/basic_vector.h"
 #include "drake/systems/framework/leaf_context.h"
 
@@ -72,10 +72,14 @@ void Integrator<T>::EvalOutput(const Context<T>& context,
       System<T>::CopyContinuousStateVector(context);
 }
 
+template<typename T>
+Integrator<AutoDiffXd>* Integrator<T>::DoToAutoDiffXd() const {
+  return new Integrator<AutoDiffXd>(this->get_input_port(0).get_size());
+}
 
 // Explicitly instantiates on the most common scalar types.
-template class DRAKE_EXPORT Integrator<double>;
-template class DRAKE_EXPORT Integrator<AutoDiffXd>;
+template class Integrator<double>;
+template class Integrator<AutoDiffXd>;
 
 }  // namespace systems
 }  // namespace drake

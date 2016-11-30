@@ -10,6 +10,7 @@ configure_file(drake_path.cc.in ${drake_path_cc})
 
 # List all source files used to build libdrakeCommon.
 set(sources
+  double_overloads.cc
   drake_assert.cc
   ${drake_path_cc}
   drake_throw.cc
@@ -18,7 +19,9 @@ set(sources
   polynomial.cc
   symbolic_environment.cc
   symbolic_expression.cc
+  symbolic_expression_cell.cc
   symbolic_formula.cc
+  symbolic_formula_cell.cc
   symbolic_variable.cc
   symbolic_variables.cc
   text_logging.cc
@@ -27,11 +30,13 @@ set(sources
 # List headers that should be installed with Drake so that they
 # are available elsewhere via #include "drake/common/xxx.h".
 set(installed_headers
+  autodiff_overloads.h
+  cond.h
   constants.h
+  double_overloads.h
   drake_assert.h
+  drake_compat.h
   drake_deprecated.h
-  drake_export.h
-  drake_gcc48.h
   drake_path.h
   drake_throw.h
   eigen_autodiff_types.h
@@ -39,16 +44,20 @@ set(installed_headers
   eigen_stl_types.h
   eigen_types.h
   functional_form.h
+  hash.h
   nice_type_name.h
   number_traits.h
   polynomial.h
   sorted_vectors_have_intersection.h
   symbolic_environment.h
   symbolic_expression.h
+  symbolic_expression_cell.h
   symbolic_formula.h
+  symbolic_formula_cell.h
   symbolic_variable.h
   symbolic_variables.h
   text_logging.h
+  text_logging_gflags.h
   trig_poly.h
   )
 
@@ -62,7 +71,6 @@ add_library_with_exports(LIB_NAME drakeCommon
   SOURCE_FILES ${sources} ${installed_headers} ${private_headers})
 target_link_libraries(drakeCommon gflags Threads::Threads)
 
-drake_find_package(spdlog CONFIG)
 if(spdlog_FOUND)
   target_compile_definitions(drakeCommon PUBLIC HAVE_SPDLOG)
   target_link_libraries(drakeCommon spdlog::spdlog)
@@ -72,10 +80,17 @@ endif()
 drake_install_headers(${installed_headers})
 
 # Install the library and note Drake's dependency on it.
-pods_install_libraries(drakeCommon)
-pods_install_pkg_config_file(drake-common
-  LIBS -ldrakeCommon
-  REQUIRES
-  VERSION 0.0.1)
+drake_install_libraries(drakeCommon)
+drake_install_pkg_config_file(drake-common
+  TARGET drakeCommon
+  LIBS
+    -ldrakeCommon
+    -lgflags
+    ${CMAKE_THREAD_LIBS_INIT}
+  REQUIRES eigen3)
 
-add_subdirectory(test)
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()
+
+add_subdirectory(trajectories)

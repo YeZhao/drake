@@ -14,15 +14,20 @@ set(sources
   leaf_system.cc
   modal_state.cc
   output_port_listener_interface.cc
+  parameters.cc
   primitives/adder.cc
+  primitives/affine_system.cc
   primitives/constant_value_source.cc
   primitives/constant_vector_source.cc
   primitives/demultiplexer.cc
   primitives/gain.cc
   primitives/integrator.cc
+  primitives/linear_system.cc
+  primitives/matrix_gain.cc
   primitives/multiplexer.cc
   primitives/pass_through.cc
-  primitives/time_varying_polynomial_source.cc
+  primitives/signal_logger.cc
+  primitives/trajectory_source.cc
   primitives/zero_order_hold.cc
   state.cc
   subvector.cc
@@ -58,10 +63,12 @@ set(installed_headers
   leaf_system.h
   modal_state.h
   output_port_listener_interface.h
+  parameters.h
   state.h
   subvector.h
   supervector.h
   system.h
+  systems.h
   system_input.h
   system_output.h
   system_port_descriptor.h
@@ -78,12 +85,18 @@ target_link_libraries(drakeSystemFramework drakeCommon drakeTrajectories)
 
 drake_install_headers(${installed_headers})
 
-pods_install_libraries(drakeSystemFramework)
-pods_install_pkg_config_file(drake-system-framework
-  LIBS -ldrakeSystemFramework -ldrakeCommon -ldrakeTrajectories
+drake_install_libraries(drakeSystemFramework)
+drake_install_pkg_config_file(drake-system-framework
+  TARGET drakeSystemFramework
+  LIBS -ldrakeSystemFramework
   REQUIRES
-  VERSION 0.0.1)
+    drake-common
+    drake-trajectories
+    eigen3)
 
 #add_subdirectory(examples)
 add_subdirectory(primitives)
-add_subdirectory(test)
+
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

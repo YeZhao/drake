@@ -40,7 +40,7 @@ class Context {
   const T& get_time() const { return get_step_info().time_sec; }
 
   /// Set the current time in seconds.
-  virtual void set_time(const T& time_sec)  {
+  virtual void set_time(const T& time_sec) {
     get_mutable_step_info()->time_sec = time_sec;
   }
 
@@ -79,7 +79,6 @@ class Context {
     return get_continuous_state()->get_vector();
   }
 
-
   /// Returns a mutable pointer to the difference component of the state,
   /// which may be of size zero.
   DifferenceState<T>* get_mutable_difference_state() {
@@ -100,7 +99,7 @@ class Context {
 
   /// Returns a const pointer to the discrete difference component of the
   /// state at @p index.  Asserts if @p index doesn't exist.
-  const VectorBase<T>* get_difference_state(int index) const {
+  const BasicVector<T>* get_difference_state(int index) const {
     const DifferenceState<T>* xd = get_state().get_difference_state();
     return xd->get_difference_state(index);
   }
@@ -144,6 +143,26 @@ class Context {
 
   /// Returns the number of input ports.
   virtual int get_num_input_ports() const = 0;
+
+  /// Connects a FreestandingInputPort with the given @p value at the given
+  /// @p index. Asserts if @p index is out of range.
+  void FixInputPort(int index, std::unique_ptr<BasicVector<T>> value) {
+    SetInputPort(index,
+                 std::make_unique<FreestandingInputPort>(std::move(value)));
+  }
+
+  /// Connects a FreestandingInputPort with the given @p value at the given
+  /// @p index. Asserts if @p index is out of range.  Returns a raw pointer to
+  /// the allocated BasicVector that will remain valid until this input
+  /// port is overwritten or the context is destroyed.
+  BasicVector<T>* FixInputPort(int index,
+                               const Eigen::Ref<const VectorX<T>>& data) {
+    auto vec = std::make_unique<BasicVector<T>>(data);
+    BasicVector<T>* ptr = vec.get();
+    SetInputPort(index, std::make_unique<systems::FreestandingInputPort>(
+                            std::move(vec)));
+    return ptr;
+  }
 
   /// Evaluates and returns the input port identified by @p descriptor,
   /// using the given @p evaluator, which should be the Diagram containing
@@ -232,6 +251,15 @@ class Context {
     return std::unique_ptr<Context<T>>(DoClone());
   }
 
+  /// Initializes this context's time, state, and parameters from the real
+  /// values in @p source, regardless of this context's scalar type.
+  /// Requires a constructor T(double).
+  void SetTimeStateAndParametersFrom(const Context<double>& source) {
+    set_time(T(source.get_time()));
+    get_mutable_state()->SetFrom(source.get_state());
+    // TODO(david-german-tri): Parameters.
+  }
+
   /// Declares that @p parent is the context of the enclosing Diagram. The
   /// enclosing Diagram context is needed to evaluate inputs recursively.
   /// Aborts if the parent has already been set to something else.
@@ -298,4 +326,3 @@ class Context {
 
 }  // namespace systems
 }  // namespace drake
-

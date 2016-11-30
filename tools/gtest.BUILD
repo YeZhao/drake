@@ -12,5 +12,7 @@ cc_library(
     ]),
     includes = ["include"],
     linkopts = ["-pthread"],
+    linkstatic = 1,
     visibility = ["//visibility:public"],
+    copts = ["-Wno-unused-const-variable"],
 )
