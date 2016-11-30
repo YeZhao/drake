@@ -16,6 +16,7 @@
 #include "drake/common/drake_path.h"
 
 #include "rigid_body_plan_parser.h"
+// #include "kuka_dircol_params.h"
 
 namespace drake{
 namespace examples{
@@ -227,8 +228,15 @@ class KukaDircolPlanner : public KukaIkPlanner {
       }
 
       // TODO: compute the dynamic trajectory
-
-
+      
+      const int num_timesteps = 20;
+      // const int time_lower_bound = 2;
+      // const int time_upper_bound = 6;
+      
+      // solvers::DircolTrajectoryOptimization dircol_traj(
+      //     7 /* num inputs */, 14 /* num_states */,
+      //     num_timesteps, time_lower_bound,time_upper_bound);
+      // AddTrajectoryParams(kNumTimeSamples, x0, xG, &dircol_traj, std::make_unique(&kuka_));
 
       // print some of the message components for debugging
       std::cout << "---------- Message Values ------------" << std::endl;
@@ -245,7 +253,6 @@ class KukaDircolPlanner : public KukaIkPlanner {
       std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
       std::cout << "Goal Pose: \n" << goal_pose << std::endl;
 
-      const int num_timesteps = 20;
       Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
       Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(kuka_->get_num_positions(), num_timesteps);
       std::vector<int> info(num_timesteps);

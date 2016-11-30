@@ -60,6 +60,16 @@ if(lcm_FOUND)
       lcm
       robotlocomotion-lcmtypes-cpp)
 
+  add_executable(test_kuka_dircol test_kuka_dircol.cc)
+  target_link_libraries(test_kuka_dircol
+      drakeRigidBodyPlant
+      drakeRBM
+      drakeDynamicConstraint
+      drakeRBSystem
+      drakePendulumPlant
+      drakeTrajectoryOptimization
+      drakeCommon)
+
   add_executable(run_kuka_iiwa_arm_dynamics run_kuka_iiwa_arm_dynamics.cc)
   target_link_libraries(run_kuka_iiwa_arm_dynamics
       drakeKukaIiwaArmCommon

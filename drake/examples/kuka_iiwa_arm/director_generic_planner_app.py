@@ -10,6 +10,10 @@ from director import lcmUtils
 from PythonQt import QtGui, QtCore
 import drake as lcm_drake
 
+import sys
+sys.path.append('../')
+from director_ext import genericdrakeik
+
 
 class KukaSimInfoLabel(object):
     '''
@@ -60,7 +64,8 @@ infoLabel = KukaSimInfoLabel(app.mainWindow.statusBar())
 
 # use generic ik backend
 ikPlanner = robotSystem.ikPlanner
-print robotsystem.__file__
+genericPlannerPub = genericdrakeik.GenericDrakePlannerPublisher(ikPlanner, robotSystem.affordanceManager)
+ikPlanner.addPublisher('generic', genericPlannerPub)
 ikPlanner.planningMode = 'generic'
 
 # change the default animation mode of the playback panel
