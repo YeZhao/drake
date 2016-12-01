@@ -36,17 +36,7 @@ if(lcm_FOUND)
         drake-shapes
         eigen3)
 
-#  add_library_with_exports(LIB_NAME drakeKukaIiwaLCMHandler SOURCE_FILES
-#      kuka_message_handler.cc)
-#  target_link_libraries(drakeKukaIiwaLCMHandler
-#      drakeLCMSystem
-#      drakeLCMTypes)
-#  pods_install_libraries(drakeKukaIiwaLCMHandler)
   drake_install_headers(kuka_message_handler.h)
-#  pods_install_pkg_config_file(drake-kuka-iiwa-LCM-Handler
-#      LIBS -ldrakeKukaIiwaLCMHandler
-#      REQUIRES
-#      VERSION 0.0.1)
 
   drake_install_headers(kuka_lcm_planner.h)
   drake_install_headers(parse_json.h)
@@ -59,16 +49,6 @@ if(lcm_FOUND)
       drakeLCMTypes
       lcm
       robotlocomotion-lcmtypes-cpp)
-
-  add_executable(test_kuka_dircol test_kuka_dircol.cc)
-  target_link_libraries(test_kuka_dircol
-      drakeRigidBodyPlant
-      drakeRBM
-      drakeDynamicConstraint
-      drakeRBSystem
-      drakePendulumPlant
-      drakeTrajectoryOptimization
-      drakeCommon)
 
   add_executable(run_kuka_iiwa_arm_dynamics run_kuka_iiwa_arm_dynamics.cc)
   target_link_libraries(run_kuka_iiwa_arm_dynamics
