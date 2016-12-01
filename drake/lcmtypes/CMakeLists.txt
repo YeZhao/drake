@@ -27,6 +27,7 @@ lcm_wrap_types(
   lcmt_force_torque.lcm
   lcmt_iiwa_command.lcm
   lcmt_iiwa_status.lcm
+  lcmt_iiwa_inverse_dynamics_input.lcm
   lcmt_joint_pd_override.lcm
   lcmt_piecewise_polynomial.lcm
   lcmt_polynomial.lcm
