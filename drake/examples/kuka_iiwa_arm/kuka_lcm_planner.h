@@ -202,10 +202,7 @@ class KukaDircolPlanner : public KukaIkPlanner {
     // override the plan request, but not the IK request
     virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
       std::cout << "Handling plan request from KukaDircolPlanner\n";
-      // unpack the LCM message
-      // no constraints in the plan request
-      // auto constraints = parse_constraints(status->constraints, kuka_);
-      // std::cout << "Num constraints " << constraints.size() << std::endl;
+      // unpack the LCM message: there are usually no constraints in this plan request
 
       auto poses = parse_json_object(status->poses);
       auto joint_names = parse_json_list(status->joint_names);
@@ -230,13 +227,6 @@ class KukaDircolPlanner : public KukaIkPlanner {
       // TODO: compute the dynamic trajectory
       
       const int num_timesteps = 20;
-      // const int time_lower_bound = 2;
-      // const int time_upper_bound = 6;
-      
-      // solvers::DircolTrajectoryOptimization dircol_traj(
-      //     7 /* num inputs */, 14 /* num_states */,
-      //     num_timesteps, time_lower_bound,time_upper_bound);
-      // AddTrajectoryParams(kNumTimeSamples, x0, xG, &dircol_traj, std::make_unique(&kuka_));
 
       // print some of the message components for debugging
       std::cout << "---------- Message Values ------------" << std::endl;
@@ -253,6 +243,7 @@ class KukaDircolPlanner : public KukaIkPlanner {
       std::cout << "Nominal Pose: \n" << nominal_pose << std::endl;
       std::cout << "Goal Pose: \n" << goal_pose << std::endl;
 
+      // Dummy trajectory for now
       Eigen::VectorXd time_vec = Eigen::VectorXd::Zero(num_timesteps);
       Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(kuka_->get_num_positions(), num_timesteps);
       std::vector<int> info(num_timesteps);
@@ -260,7 +251,6 @@ class KukaDircolPlanner : public KukaIkPlanner {
         info[i]=1;
       }
 
-      // TODO compute IK and publish response
       std::cout << "Publishing an empty trajectory:\n" << traj << std::endl;
       publishPlanResponse(&time_vec, &traj, info);
       std::cout << "Finished publishing\n";
@@ -284,10 +274,6 @@ bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree
     msg.joint_effort.push_back(0.0);
   }
   
-  // msg.twist = bot_core::twist_t();
-  // msg.twist.linear_velocity = bot_core::vector_3d_t()
-  // msg.twist.angular_velocity = bot_core::vector_3d_t()
-  // msg.force_torque = bot_core::vector_3d_t();
   for (int i=0; i<3; i++){
     msg.force_torque.l_hand_force[i] = 0.0;  
     msg.force_torque.l_hand_torque[i] = 0.0;
