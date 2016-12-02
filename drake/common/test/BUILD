@@ -89,8 +89,17 @@ cc_test(
 
 cc_test(
     name = "is_approx_equal_abstol_test",
+    size = "small",
     srcs = ["is_approx_equal_abstol_test.cc"],
-    size = "small", deps = DEPS + ["//drake/common:is_approx_equal_abstol"])
+    deps = DEPS + ["//drake/common:is_approx_equal_abstol"],
+)
+
+cc_library(
+    name = "measure_execution",
+    testonly = 1,
+    hdrs = ["measure_execution.h"],
+    linkstatic = 1,
+)
 
 cc_test(
     name = "nice_type_name_test",
