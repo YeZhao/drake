@@ -135,7 +135,7 @@ class KukaIkPlanner : public KukaPlanner{
       // unpack the LCM message
       auto constraints = parse_constraints(status->constraints, kuka_);
       std::vector<RigidBodyConstraint*> constraint_ptrs(constraints.size());
-      for (int i=0; i<constraints.size(); i++){
+      for (unsigned int i=0; i<constraints.size(); i++){
         constraint_ptrs[i] = constraints[i].get();
       }
       auto poses = parse_json_object(status->poses);
@@ -145,7 +145,7 @@ class KukaIkPlanner : public KukaPlanner{
       Eigen::VectorXd seed_pose(kuka_->get_num_positions());
       Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
       auto pos_idx_map = kuka_->computePositionNameToIndexMap();
-      for (int i=0; i<joint_names.size(); i++){
+      for (unsigned int i=0; i<joint_names.size(); i++){
         auto joint = joint_names[i]; 
         // ignore all of the positions associated with the floating base
         if (contains(joint,"base"))
@@ -216,7 +216,7 @@ class KukaDircolPlanner : public KukaIkPlanner {
       Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
       Eigen::VectorXd goal_pose(kuka_->get_num_positions());
       auto pos_idx_map = kuka_->computePositionNameToIndexMap();
-      for (int i=0; i<joint_names.size(); i++){
+      for (unsigned int i=0; i<joint_names.size(); i++){
         auto joint = joint_names[i]; 
         // ignore all of the positions associated with the floating base
         if (contains(joint,"base"))

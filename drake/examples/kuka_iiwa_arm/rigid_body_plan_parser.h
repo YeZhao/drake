@@ -22,7 +22,7 @@ std::unique_ptr<WorldQuatConstraint> parse_world_quat_constraint(const std::stri
 std::vector<std::unique_ptr<RigidBodyConstraint>> parse_constraints(const std::string &data, RigidBodyTree<double>* tree){
   auto json_constraint_list = parse_json_list(data);
   std::vector<std::unique_ptr<RigidBodyConstraint>> constraint_vec;
-  for (int i=0; i<json_constraint_list.size(); i++){
+  for (unsigned int i=0; i<json_constraint_list.size(); i++){
     // wrap in a try-catch block for some of the floating base constraints
     try{
       constraint_vec.push_back(parse_constraint(json_constraint_list[i],tree));  
@@ -63,7 +63,7 @@ std::unique_ptr<PostureConstraint> parse_posture_constraint(const std::string &d
   auto joint_name_it = constraint.find("joints");
   if (joint_name_it != constraint.end()){
     auto joint_names = parse_json_list(joint_name_it->second);
-    for (int i=0; i<joint_names.size(); i++){
+    for (unsigned int i=0; i<joint_names.size(); i++){
       joint_idx << tree->FindIndexOfChildBodyOfJoint(joint_names[i]);
     }
   }else{
