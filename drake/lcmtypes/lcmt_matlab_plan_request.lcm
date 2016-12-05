@@ -1,0 +1,9 @@
+package drake;
+
+struct lcmt_matlab_plan_request {
+  double timestamp;
+  int32_t state_size;
+
+  double start_state[state_size];
+  double goal_state[state_size];
+}
