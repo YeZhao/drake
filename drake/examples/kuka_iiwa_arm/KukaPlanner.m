@@ -23,11 +23,26 @@ classdef KukaPlanner
             warning(w);
         end
         
-        function handle_request(obj, request)
-            obj.plan_dircol();
+        function handle_request(obj, msg)
+            disp('Handling plan request')
+            msg = drake.lcmt_matlab_plan_request(msg);
+            [t,x,u,info] = obj.plan_dircol(msg.start_state, msg.goal_state);
+            res = drake.lcmt_matlab_plan_response();
+            res.num_timesteps = length(t);
+            res.state_size = 14;
+            res.input_size = 7;
+            res.time = t;
+            size(x)
+            size(u)
+            size(t)
+            res.state = x;
+            res.input = u;
+            res.info = info;
+  
+           obj.lc.publish(obj.response_channel, res) 
         end
         
-        function [t, x, u] = plan_dircol(obj, x0, xG)
+        function [t, x, u, info] = plan_dircol(obj, x0, xG)
             % test state and goal
             if (nargin == 0)
                 x0 = [1; zeros(6,1); zeros(7,1)];
@@ -40,7 +55,7 @@ classdef KukaPlanner
             obj.kuka.goal_state = xG;
 
             % setup dircol
-            prog = DircolTrajectoryOptimization(k, N, [2 6]);% arbitrary timescale
+            prog = DircolTrajectoryOptimization(obj.kuka, N, [2 6]);% arbitrary timescale
             prog.addStateConstraint(ConstantConstraint(x0),1);
             prog.addStateConstraint(ConstantConstraint(xG),1);
             prog.addRunningCost(@k.runningCost);
@@ -63,16 +78,14 @@ classdef KukaPlanner
         end
         
         function run(obj)
+            disp('In the main loop')
             while true
                 % check if there is a message available
                 req_msg = obj.lcmAggregator.getNextMessage(5);
                 if isempty(req_msg)
                     continue
                 end
-                plan = obj.handle_request(req_msg);
-                % TODO: implement handle_request method
-%                 plan = plan.toLCM();
-%                 obj.lc.publish(obj.response_channel, plan)
+                obj.handle_request(req_msg);
             end
         end
     end

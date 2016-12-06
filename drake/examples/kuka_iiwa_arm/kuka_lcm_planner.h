@@ -4,10 +4,13 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <time.h>
 
 
 #include "robotlocomotion/robot_plan_t.hpp"
 #include "drake/lcmt_generic_planner_request.hpp"
+#include "drake/lcmt_matlab_plan_request.hpp"
+#include "drake/lcmt_matlab_plan_response.hpp"
 
 
 #include "drake/multibody/ik_options.h"
@@ -66,6 +69,7 @@ class KukaPlanner{
 
   protected:
     RigidBodyTree<double>* kuka_;
+    std::shared_ptr<lcm::LCM> lcm_;
 
     virtual void handleIkRequest(const lcmt_generic_planner_request*) = 0;
 
@@ -112,9 +116,6 @@ class KukaPlanner{
       // TODO: build the message from the time and trajectory
       lcm_->publish(PLAN_RESPONSE_CHANNEL, &plan);
     }
-
-  private:
-    std::shared_ptr<lcm::LCM> lcm_;
 
 };
 
@@ -227,6 +228,7 @@ class KukaDircolPlanner : public KukaIkPlanner {
         goal_pose[idx] = parse_json_double(goal_pose_full[i]);
       }
 
+      
       // TODO: compute the dynamic trajectory
       
       const int num_timesteps = 20;
@@ -297,6 +299,85 @@ bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree
   return msg;
 
 }
+
+class KukaMatlabDircolPlanner : public KukaIkPlanner {
+  public:
+    static const char* MATLAB_PLAN_REQUEST_CHANNEL;
+    static const char* MATLAB_PLAN_RESPONSE_CHANNEL;
+
+    KukaMatlabDircolPlanner(RigidBodyTree<double>* kuka,
+                 std::shared_ptr<lcm::LCM> lcm) : KukaIkPlanner(kuka, lcm){
+      
+      lcm_->subscribe(MATLAB_PLAN_RESPONSE_CHANNEL,
+        &KukaMatlabDircolPlanner::handleMatlabResponse, this);
+    }
+
+    void handleMatlabResponse(const lcm::ReceiveBuffer* rbuf,
+                              const std::string& chan,
+                              const lcmt_matlab_plan_response* plan){
+      std::cout << "handling matlab response" << std::endl;
+      Eigen::VectorXd t(plan->num_timesteps);
+      Eigen::MatrixXd traj(kuka_->get_num_positions(), plan->num_timesteps);
+      std::cout << traj << std::endl;
+      std::vector<int> info;
+
+      for (int i=0; i<plan->num_timesteps; i++){
+        std::cout << "parsing time " << i << std::endl;
+        t[i] = plan->time[i];
+        std::cout << "parsing position " << i << std::endl;
+        info.push_back(1);//plan->status;
+        for (int j=0; j < kuka_->get_num_positions(); j++){
+          traj(j,i) = plan->state[j][i];
+        }
+      }
+
+      publishPlanResponse(&t, &traj, info);
+    }
+  protected:
+    // override the plan request, but not the IK request
+    virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
+      auto poses = parse_json_object(status->poses);
+      auto joint_names = parse_json_list(status->joint_names);
+      auto start_pose_full = parse_json_list(poses[status->seed_pose]);
+      auto nominal_pose_full = parse_json_list(poses[status->nominal_pose]);
+      auto goal_pose_full = parse_json_list(poses[status->end_pose]);
+      Eigen::VectorXd start_pose(kuka_->get_num_positions());
+      Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
+      Eigen::VectorXd goal_pose(kuka_->get_num_positions());
+      auto pos_idx_map = kuka_->computePositionNameToIndexMap();
+      for (unsigned int i=0; i<joint_names.size(); i++){
+        auto joint = joint_names[i]; 
+        // ignore all of the positions associated with the floating base
+        if (contains(joint,"base"))
+          continue;
+        int idx = pos_idx_map[joint];
+        start_pose[idx] = parse_json_double(start_pose_full[i]);
+        nominal_pose[idx] = parse_json_double(nominal_pose_full[i]);
+        goal_pose[idx] = parse_json_double(goal_pose_full[i]);
+      }
+
+      lcmt_matlab_plan_request msg;
+      msg.timestamp = time(NULL);
+      msg.state_size = kuka_->get_num_positions()*2;
+      // set position
+      for (int i=0; i<kuka_->get_num_positions(); i++){
+        msg.start_state.push_back(goal_pose[i]);
+        msg.goal_state.push_back(goal_pose[i]);
+      }
+      // set velocity
+      for (int i=0; i<kuka_->get_num_positions(); i++){
+        msg.start_state.push_back(0);
+        msg.goal_state.push_back(0);
+      }
+
+      // send request
+      lcm_->publish(MATLAB_PLAN_REQUEST_CHANNEL, &msg);
+
+    }
+};
+
+const char* KukaMatlabDircolPlanner::MATLAB_PLAN_REQUEST_CHANNEL = "MATLAB_KUKA_DIRCOL_REQUEST";
+const char* KukaMatlabDircolPlanner::MATLAB_PLAN_RESPONSE_CHANNEL = "MATLAB_KUKA_DIRCOL_RESPONSE";
 
 } // anonymous
 } // kuka_iiwa_arm

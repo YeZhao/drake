@@ -1,0 +1,12 @@
+package drake;
+
+struct lcmt_matlab_plan_response {
+  int32_t num_timesteps;
+  int32_t state_size;
+  int32_t input_size;
+
+  double time[num_timesteps];
+  double state[state_size][num_timesteps];
+  double input[input_size][num_timesteps];
+  int32_t info;
+}
