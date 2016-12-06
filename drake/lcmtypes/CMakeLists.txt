@@ -29,6 +29,7 @@ lcm_wrap_types(
   lcmt_iiwa_status.lcm
   lcmt_robot_controller_reference.lcm
   lcmt_joint_pd_override.lcm
+  lcmt_generic_planner_request.lcm
   lcmt_piecewise_polynomial.lcm
   lcmt_polynomial.lcm
   lcmt_polynomial_matrix.lcm
