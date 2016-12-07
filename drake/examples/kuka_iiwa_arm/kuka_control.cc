@@ -101,6 +101,32 @@ class RobotController {
         KinematicsCache<double> cache0 = tree_.doKinematics(q, qd);
         Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache0, no_external_wrenches, z, false);
         torque_command -= gravity_torque;
+        
+/*        std::cout << "id: " << tree_.get_model_instance_id() << std::endl;
+        const std::set<int> end_effector_id_set={3};
+        double gripper_mass = 0.425;//tree_.getMass(end_effector_id_set);
+
+        std::cout << "gripper_mass" << gripper_mass << std::endl;
+        Eigen::VectorXd J = tree_.centerOfMassJacobian(cache, {7}, true);
+*/
+        // figure out end_effector_id_set and dimension of J.
+
+        //int base_body_or_frame_ind = 0;
+        //int end_effector_body_or_frame_ind = 7;
+        //int expressed_in_body_or_frame_ind = 0;
+        //bool in_terms_of_qdot = true;
+        //std::vector<int> v_or_qdot_indices;
+
+        //Eigen::MatrixXd J = tree_.geometricJacobian(cache, base_body_or_frame_ind, end_effector_body_or_frame_ind, 
+        //                    expressed_in_body_or_frame_ind, in_terms_of_qdot, &v_or_qdot_indices);
+
+/*        std::cout << "Jacobian" << J << std::endl;
+        Eigen::Vector3d gravity_vector;
+        gravity_vector << 0, 0, -gripper_mass * 9.8;
+        std::cout << "J rows" << J.rows() << std::endl;
+        std::cout << "J column" << J.cols() << std::endl;
+        Eigen::VectorXd torque_gripper = J.transpose() * gravity_vector;
+*/
 
         // PD position control
         Eigen::VectorXd position_ctrl_torque_command(kNumDof);
@@ -162,7 +188,7 @@ class RobotController {
 
 int DoMain(int argc, const char* argv[]) {
   RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
+      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf", //iiwa14_fixed_gripper
       drake::multibody::joints::kFixed);
 
   RobotController runner(tree);

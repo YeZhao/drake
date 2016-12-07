@@ -96,6 +96,7 @@ class RobotPlanRunner {
           robot_controller_reference.joint_velocity_desired[joint] = qd_ref(joint);
           robot_controller_reference.joint_accel_desired[joint] = qdd_ref(joint);
         }
+        std::cout << "here also" << std::endl;
 
         // publish robot controller reference to kuka control runner
         lcm_.publish(kLcmControlRefChannel, &robot_controller_reference);
@@ -151,7 +152,7 @@ class RobotPlanRunner {
 
 int do_main(int argc, const char* argv[]) {
   RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
+      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
       drake::multibody::joints::kFixed);
 
   RobotPlanRunner runner(tree);
