@@ -264,15 +264,14 @@
   <link name="iiwa_link_ee">
     </link>
 
-
  <joint
     name="wrist"
     type="fixed">
     <origin
-      xyz="0 0 0"
-      rpy="0 0 0" />
+      xyz="0 0 0.045"
+      rpy="0 0 1.57" />
     <parent
-      link="iiwa_link_ee_kuka" />
+      link="iiwa_link_7" />
     <child
       link="robotiq_85_base_link" />
     <axis
@@ -283,7 +282,6 @@
       velocity="2.0"
       effort="1000" />
   </joint>
-
 
   <link
     name="robotiq_85_base_link">
@@ -810,9 +808,6 @@
       effort="1000" />
   </joint>
 
-
-
-
   <!--Extensions -->
   <!-- Load Gazebo lib and set the robot namespace -->
   <gazebo>
@@ -939,4 +934,3 @@
     </actuator>
   </transmission>
 </robot>
-

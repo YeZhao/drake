@@ -41,7 +41,7 @@ group "1.tools" {
 
 }
 
-cmd "2.kuka_ik_demo" {
-    exec = "build/drake/examples/kuka_iiwa_arm/kuka_ik_demo";
+cmd "2.Robotiq_initializer" {
+    exec = "python ../robotiq-driver/CModelRtuNode.py /dev/ttyUSB0";
     host = "localhost";
 }

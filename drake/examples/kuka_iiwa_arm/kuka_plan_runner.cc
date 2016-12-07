@@ -96,7 +96,6 @@ class RobotPlanRunner {
           robot_controller_reference.joint_velocity_desired[joint] = qd_ref(joint);
           robot_controller_reference.joint_accel_desired[joint] = qdd_ref(joint);
         }
-        std::cout << "here also" << std::endl;
 
         // publish robot controller reference to kuka control runner
         lcm_.publish(kLcmControlRefChannel, &robot_controller_reference);
