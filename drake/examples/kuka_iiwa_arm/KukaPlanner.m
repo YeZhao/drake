@@ -32,10 +32,11 @@ classdef KukaPlanner
             res.state_size = 14;
             res.input_size = 7;
             res.time = t;
-            t
-            size(x)
-            size(u)
-            size(t)
+            disp('start state')
+            msg.start_state
+            disp('end_state')
+            msg.goal_state
+            
             res.state = x;
             res.input = u;
             res.info = info;
@@ -58,9 +59,9 @@ classdef KukaPlanner
             % setup dircol
             prog = DircolTrajectoryOptimization(obj.kuka, N, [2 6]);% arbitrary timescale
             prog.addStateConstraint(ConstantConstraint(x0),1);
-            prog.addStateConstraint(ConstantConstraint(xG),1);
-            prog.addRunningCost(@k.runningCost);
-            prog.addFinalCost(@k.finalCost);
+            prog.addStateConstraint(ConstantConstraint(xG),N);
+            prog.addRunningCost(@obj.kuka.runningCost);
+            prog.addFinalCost(@obj.kuka.finalCost);
 
             % initial guess at the trajectory
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xG)]));

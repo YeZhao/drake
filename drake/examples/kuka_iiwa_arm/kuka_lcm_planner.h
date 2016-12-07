@@ -325,12 +325,14 @@ class KukaMatlabDircolPlanner : public KukaIkPlanner {
         goal_pose[idx] = parse_json_double(goal_pose_full[i]);
       }
 
+      std::cout << "Start Pose" << poses[status->seed_pose] << std::endl;
+      std::cout << "End Pose" << poses[status->end_pose] << std::endl;
       lcmt_matlab_plan_request msg;
       msg.timestamp = time(NULL);
       msg.state_size = kuka_->get_num_positions()*2;
       // set position
       for (int i=0; i<kuka_->get_num_positions(); i++){
-        msg.start_state.push_back(goal_pose[i]);
+        msg.start_state.push_back(start_pose[i]);
         msg.goal_state.push_back(goal_pose[i]);
       }
       // set velocity
