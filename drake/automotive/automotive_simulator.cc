@@ -304,9 +304,8 @@ void AutomotiveSimulator<T>::ConnectJointStateSourcesToVisualizer() {
 template <typename T>
 void AutomotiveSimulator<T>::Start() {
   DRAKE_DEMAND(!started_);
-  // By this time, all model instances should have been added to the tree.
-  // While the parsers have already called `compile()` on the `RigidBodyTree`,
-  // in an abundance of caution, the following line calls `compile()` again.
+  // By this time, all model instances should have been added to the tree. Thus,
+  // it should be safe to compile the tree.
   rigid_body_tree_->compile();
 
   ConnectJointStateSourcesToVisualizer();

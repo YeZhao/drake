@@ -134,7 +134,6 @@ if(lcm_FOUND)
 endif()
 
 add_subdirectory(controlled_kuka)
-add_subdirectory(iiwa_world)
 
 if(BUILD_TESTING)
   add_subdirectory(test)

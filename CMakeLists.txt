@@ -20,6 +20,7 @@ drake_setup_options()
 # External projects in order of dependencies; 'trivial' ones first
 drake_add_external(eigen PUBLIC CMAKE)
 drake_add_external(meshconverters PUBLIC CMAKE)
+drake_add_external(mosek PUBLIC MATLAB)
 drake_add_external(spdlog PUBLIC CMAKE)
 drake_add_external(swigmake PUBLIC CMAKE MATLAB PYTHON)
 drake_add_external(yalmip PUBLIC CMAKE MATLAB)
@@ -29,9 +30,14 @@ drake_add_external(yalmip PUBLIC CMAKE MATLAB)
 drake_add_external(avl PUBLIC CMAKE FORTRAN)
 
 # bullet
+if(WIN32)
+  set(BULLET_EXTRA_CMAKE_ARGS -DUSE_MSVC_RUNTIME_LIBRARY_DLL=ON)
+else()
+  set(BULLET_EXTRA_CMAKE_ARGS -DBUILD_SHARED_LIBS=ON)
+endif()
+
 drake_add_external(bullet PUBLIC CMAKE
   CMAKE_ARGS
-    -DBUILD_SHARED_LIBS=ON
     -DBUILD_BULLET2_DEMOS=OFF
     -DBUILD_CPU_DEMOS=OFF
     -DBUILD_EXTRAS=OFF
@@ -42,7 +48,8 @@ drake_add_external(bullet PUBLIC CMAKE
     -DCMAKE_RELWITHDEBINFO_POSTFIX=
     -DINSTALL_LIBS=ON
     -DPKGCONFIG_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/lib/pkgconfig
-    -DUSE_DOUBLE_PRECISION=ON)
+    -DUSE_DOUBLE_PRECISION=ON
+    ${BULLET_EXTRA_CMAKE_ARGS})
 
 # ccd
 drake_add_external(ccd PUBLIC CMAKE
@@ -70,6 +77,7 @@ drake_add_external(gflags PUBLIC CMAKE
 drake_add_external(googletest PUBLIC CMAKE
   CMAKE_ARGS
     -DBUILD_SHARED_LIBS=ON
+    -DGTEST_CREATE_SHARED_LIBRARY=1 # Needed for parameterized tests on Windows
     -DCMAKE_INSTALL_NAME_DIR=${CMAKE_INSTALL_PREFIX}/lib)
 
 # google_styleguide
@@ -104,13 +112,6 @@ drake_add_external(ipopt PUBLIC AUTOTOOLS FORTRAN
     --with-blas=BUILD
     --with-lapack=BUILD
     --with-pic)
-
-# mosek
-drake_add_external(mosek PUBLIC CMAKE MATLAB
-  CMAKE_ARGS
-    -DBUILD_TESTING=OFF
-    -DWITH_MATLAB=${Matlab_FOUND}
-    -DWITH_PYTHON=OFF)
 
 # nlopt
 drake_add_external(nlopt PUBLIC CMAKE
@@ -213,8 +214,6 @@ drake_add_external(drake LOCAL PUBLIC CMAKE ALWAYS TEST MATLAB PYTHON
   BINARY_DIR ${PROJECT_BINARY_DIR}/drake
   CMAKE_ARGS
     -DDISABLE_MATLAB:BOOL=${DISABLE_MATLAB}
-    -DDISABLE_PYTHON:BOOL=${DISABLE_PYTHON}
-    -DDISABLE_FORTRAN:BOOL=${DISABLE_FORTRAN}
     -DWITH_AVL:BOOL=${WITH_AVL}
     -DWITH_BOT_CORE_LCMTYPES:BOOL=${WITH_BOT_CORE_LCMTYPES}
     -DWITH_BULLET:BOOL=${WITH_BULLET}

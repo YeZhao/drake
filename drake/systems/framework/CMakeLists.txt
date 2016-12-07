@@ -26,7 +26,6 @@ set(sources
   primitives/matrix_gain.cc
   primitives/multiplexer.cc
   primitives/pass_through.cc
-  primitives/signal_logger.cc
   primitives/trajectory_source.cc
   primitives/zero_order_hold.cc
   state.cc

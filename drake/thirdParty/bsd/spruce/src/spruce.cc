@@ -244,11 +244,7 @@ void spruce::path::setAsTemp() {
 /*-------------------------------------------------------
     class path.setAsCurrent
 ---------------------------------------------------------*/
-void spruce::path::setAsCurrent() {
-  char* cwd = SPRUCE_GETCWD(NULL, 0);
-  setStr(cwd);
-  free(cwd);
-}
+void spruce::path::setAsCurrent() { setStr(SPRUCE_GETCWD(NULL, 0)); }
 
 /*-------------------------------------------------------
     class path.normalize

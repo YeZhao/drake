@@ -1,16 +1,17 @@
 # -*- python -*-
-# This file contains rules for Bazel; see drake/doc/bazel.rst.
+
+# This file contains rules for the Bazel build system.
+# See http://bazel.io/ .
 
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "framework",
-    srcs = glob(["*.cc"]),
     hdrs = glob(["*.h"]),
-    linkstatic = 1,
+    srcs = glob(["*.cc"]),
     deps = [
-        "//drake/common",
         "//drake/common:autodiff",
+        "//drake/common:common",
         "//drake/common:number_traits",
     ],
-)
+    linkstatic=1)

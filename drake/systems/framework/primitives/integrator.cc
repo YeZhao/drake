@@ -72,10 +72,6 @@ void Integrator<T>::EvalOutput(const Context<T>& context,
       System<T>::CopyContinuousStateVector(context);
 }
 
-template<typename T>
-Integrator<AutoDiffXd>* Integrator<T>::DoToAutoDiffXd() const {
-  return new Integrator<AutoDiffXd>(this->get_input_port(0).get_size());
-}
 
 // Explicitly instantiates on the most common scalar types.
 template class Integrator<double>;
