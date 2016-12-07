@@ -1,2 +1,4 @@
-k = KukaPlanner();
-k.run();
+function runKukaPlanner
+    k = KukaPlanner();
+    k.run();
+end

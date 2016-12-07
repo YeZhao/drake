@@ -12,15 +12,11 @@ classdef KukaPlanner
         function obj = KukaPlanner()
             % create LCM object
             obj.lc = lcm.lcm.LCM.getSingleton();
+            obj.kuka = Kuka;
             
             % subscribe to the MATLAB_KUKA_DIRCON channel
             obj.lcmAggregator = drake.matlab.util.MessageMonitor(drake.lcmt_matlab_plan_request,'timestamp');
             obj.lc.subscribe(obj.request_channel,obj.lcmAggregator)
-
-            % create kuka object and supress warnings
-            w = warning('off','all');
-            obj.kuka = Kuka;
-            warning(w);
         end
         
         function handle_request(obj, msg)
@@ -45,38 +41,63 @@ classdef KukaPlanner
         end
         
         function [t, x, u, info] = plan_dircol(obj, x0, xG)
+            Nx = 14;
+            Nq = 7;
+            Nv = Nx-Nq;
+            
             % test state and goal
             if (nargin == 0)
-                x0 = [1; zeros(6,1); zeros(7,1)];
-                xG = zeros(14,1);
+                x0 = [1; zeros(Nq-1,1); zeros(Nv,1)];
+                xG = zeros(Nx,1);
             end
 
             % trajectory params
-            tf0 = 4;
+            tf0 = 2;
             N = 20;
             obj.kuka.goal_state = xG;
-
+            
             % setup dircol
-            prog = DircolTrajectoryOptimization(obj.kuka, N, [2 6]);% arbitrary timescale
-            prog.addStateConstraint(ConstantConstraint(x0),1);
-            prog.addStateConstraint(ConstantConstraint(xG),N);
-            prog.addRunningCost(@obj.kuka.runningCost);
-            prog.addFinalCost(@obj.kuka.finalCost);
-
+            prog = DircolTrajectoryOptimization(obj.kuka, N, [0.01 6]);% arbitrary timescale
+            
+             % state constraint
+            prog = prog.addStateConstraint(ConstantConstraint(x0),1);
+            prog = prog.addStateConstraint(ConstantConstraint(xG),N);
+            
+            % cost functions
+            running_cost_func = @(dt,x,u) obj.kuka.runningCost(dt,x,u,xG);
+            final_cost_func = @(dt,x) obj.kuka.finalCost(dt,x,xG);
+            prog = prog.addRunningCost(running_cost_func);
+            prog = prog.addFinalCost(final_cost_func);
+            
+            % joint limits
+            [jl_min, jl_max] = obj.kuka.getJointLimits;
+            x_min = [jl_min; -inf(Nq,1)];
+            x_max = [jl_max;  inf(Nq,1)];
+            prog = prog.addConstraint(BoundingBoxConstraint(repmat(x_min,N,1),repmat(x_max,N,1)), prog.x_inds);
+            
             % initial guess at the trajectory
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xG)]));
 
             % solve with dircol
-            [xtraj, utraj, z, F, info] = prog.solveTraj(tf0,traj_init);
-
+            disp('Solving with dircol');
+            tic;
+            [xtraj, utraj, ~, ~, info] = prog.solveTraj(tf0,traj_init);
+            toc
+            disp('Finished dircol')
+            
             % unpack the trajectory
-            t = linspace(xtraj.tspan(1),xtraj.tspan(end),N);
-            x = zeros(14,N);
-            u = zeros(7,N);
-            for i=1:N
-                x(:,i) = xtraj.eval(t(i));
-                u(:,i) = utraj.eval(t(i));
-            end
+            t = xtraj.getBreaks();
+            x = xtraj.eval(xtraj.getBreaks());
+            u = utraj.eval(utraj.getBreaks());
+            
+            % for debugging
+            % x
+            % info
+            % traj = xtraj.setOutputFrame(obj.kuka.getStateFrame());
+            % v = obj.kuka.constructVisualizer();
+            % playback(v,traj,struct('slider',true));
+
+            
         end
         
         function run(obj)

@@ -102,8 +102,8 @@ class KukaPlanner{
       plan.utime=0;
       plan.robot_name="iiwa";
       plan.num_states = t_vec->size();
+      
       for (int i=0; i<plan.num_states; i++){
-        std::cout << "test " << i << std::endl;
         plan.plan.push_back(lcmRobotState((*t_vec)[i], trajectory->col(i), kuka_));
         plan.plan_info.push_back(info[i]);
       }
@@ -114,6 +114,7 @@ class KukaPlanner{
       plan.right_leg_control_type = plan.NONE;
 
       // TODO: build the message from the time and trajectory
+      std::cout << "about to publish plan" << std::endl;
       lcm_->publish(PLAN_RESPONSE_CHANNEL, &plan);
     }
 
@@ -351,36 +352,23 @@ const char* KukaMatlabDircolPlanner::MATLAB_PLAN_REQUEST_CHANNEL = "MATLAB_KUKA_
 const char* KukaMatlabDircolPlanner::MATLAB_PLAN_RESPONSE_CHANNEL = "MATLAB_KUKA_DIRCOL_RESPONSE";
 
 bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree<double>* tree){
+  
   auto pos = q.head(tree->get_num_positions());
-  auto vel = q.tail(tree->get_num_velocities());
+  auto vel = Eigen::VectorXd::Zero(tree->get_num_velocities());
 
   bot_core::robot_state_t msg;
   
-  std::cout << t << std::endl;
-  msg.utime = (int) t*1e6;
-  std::cout << msg.utime << std::endl;
-  // TODO: figure out what the pose means in this context
-  // msg.pose = ???
+  msg.utime = (int) (t*1e6);
   msg.num_joints = tree->get_num_positions();
+
   for (int i=0; i<msg.num_joints; i++){
     msg.joint_name.push_back(tree->get_position_name(i));
     msg.joint_position.push_back(pos[i]);
     msg.joint_velocity.push_back(vel[i]);
     msg.joint_effort.push_back(0.0);
   }
-  
-  // msg.twist = bot_core::twist_t();
-  // msg.twist.linear_velocity = bot_core::vector_3d_t()
-  // msg.twist.angular_velocity = bot_core::vector_3d_t()
-  // msg.force_torque = bot_core::vector_3d_t();
-  for (int i=0; i<3; i++){
-    msg.force_torque.l_hand_force[i] = 0.0;  
-    msg.force_torque.l_hand_torque[i] = 0.0;
-    msg.force_torque.r_hand_force[i] = 0.0;  
-    msg.force_torque.r_hand_torque[i] = 0.0; 
-  }
-  return msg;
 
+  return msg;
 }
 
 } // anonymous

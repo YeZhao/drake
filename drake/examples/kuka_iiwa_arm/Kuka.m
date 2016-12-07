@@ -8,26 +8,36 @@ classdef Kuka < RigidBodyManipulator
     methods
         function obj = Kuka()
             % suppress the cylinder warning
-            warning('off','Drake:RigidBodyManipulator:ReplacedCylinder');
+            w = warning('off','all');
             
             % load the object
             urdf_path = [getDrakePath,'/examples/kuka_iiwa_arm/urdf/iiwa14.urdf'];
             options.floating = false;
             obj@RigidBodyManipulator(urdf_path, options);
+            
+            warning(w);
         end
-        
-        function [g,dg] = runningCost(dt,x,u)
+    end
+    
+    methods(Static = true)
+         function [h,dh] = finalCost(t,x,goal_state)
             % simple quadratic cost to the goal
-            err = x - obj.goal_state;
-            g = err'*err + u'*u;
-            dg = [0,2*err',2*u'];
-        end
+            Q = 10*eye(length(x));
+            T = 10;
+
+            err = x - goal_state;
+            h = T*t + err'*Q*err;
+            dh = [T,2*err'*Q];
+         end
         
-        function [h,dh] = finalCost(t,x)
+        function [g,dg] = runningCost(dt,x,u,goal_state)
             % simple quadratic cost to the goal
-            err = x - obj.goal_state;
-            g = t + err'*err;
-            dg = [1,2*err'];
+            R = 0.01*eye(length(u));
+            Q = 10*eye(length(x));
+
+            err = x - goal_state;
+            g = err'*Q*err + u'*R*u;
+            dg = [0, 2*err'*Q, 2*u'*R];
         end
     end
 end
