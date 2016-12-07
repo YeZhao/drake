@@ -32,6 +32,7 @@ classdef KukaPlanner
             res.state_size = 14;
             res.input_size = 7;
             res.time = t;
+            t
             size(x)
             size(u)
             size(t)
@@ -68,7 +69,7 @@ classdef KukaPlanner
             [xtraj, utraj, z, F, info] = prog.solveTraj(tf0,traj_init);
 
             % unpack the trajectory
-            t = linspace(xtraj.tspan(1),xtraj.tspan(1),N);
+            t = linspace(xtraj.tspan(1),xtraj.tspan(end),N);
             x = zeros(14,N);
             u = zeros(7,N);
             for i=1:N
