@@ -25,19 +25,19 @@ set(optimization_files)
 set(optimization_requires)
 list(APPEND optimization_files
   ${private_headers}
-  decision_variable.cc
   equality_constrained_qp_solver.cc
   linear_system_solver.cc
   mathematical_program.cc
   moby_lcp_solver.cc
   system_identification.cc
   )
-if(ipopt_FOUND)
+pods_find_pkg_config(ipopt)
+if (ipopt_FOUND)
  list(APPEND optimization_files ipopt_solver.cc)
  list(APPEND optimization_requires ipopt)
 else()
   list(APPEND optimization_files no_ipopt.cc)
-endif()
+endif(ipopt_FOUND)
 if(NLopt_FOUND)
   list(APPEND optimization_files nlopt_solver.cc)
   list(APPEND optimization_requires nlopt)
@@ -68,6 +68,7 @@ if(gurobi_FOUND)
 else()
   list(APPEND optimization_files no_gurobi.cc)
 endif()
+
 
 add_library_with_exports(LIB_NAME drakeOptimization SOURCE_FILES ${optimization_files})
 target_link_libraries(drakeOptimization drakeCommon)
@@ -122,11 +123,12 @@ if(gurobi_FOUND)
   target_link_libraries(drakeOptimization gurobi)
 endif()
 if(mosek_FOUND)
-  target_link_libraries(drakeOptimization mosek)
+  target_include_directories(drakeOptimization PUBLIC ${mosek_INCLUDE_DIRS})
+  target_link_libraries(drakeOptimization ${mosek_LIBRARIES})
 endif()
 
 if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-add_subdirectory(trajectory_optimization)
+add_subdirectory(trajectoryOptimization)

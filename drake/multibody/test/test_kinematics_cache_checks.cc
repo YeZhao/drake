@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "drake/common/drake_path.h"
 #include "drake/common/eigen_types.h"
 #include "drake/util/drakeGeometryUtil.h"
 
@@ -153,8 +152,7 @@ void performChecks(RigidBodyTree<double>& model, KinematicsCache<double>& cache,
 
 int main() {
   std::unique_ptr<RigidBodyTree<double>> model(new RigidBodyTree<double>(
-      drake::GetDrakePath() +
-      "/examples/Atlas/urdf/atlas_minimal_contact.urdf"));
+      "examples/Atlas/urdf/atlas_minimal_contact.urdf"));
   if (model == nullptr) {
     cerr << "ERROR: Failed to load model" << endl;
   }

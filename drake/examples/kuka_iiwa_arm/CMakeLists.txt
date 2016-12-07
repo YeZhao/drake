@@ -103,8 +103,6 @@ if(lcm_FOUND)
   drake_add_test(
       NAME kuka_simulation COMMAND kuka_simulation -simulation_sec 0.1)
 
-<<<<<<< HEAD
-=======
 #  add_executable(kuka_ik_sine_demo kuka_ik_sine_demo.cc)
 #  target_link_libraries(kuka_ik_sine_demo drakeIK
 #      drakeTrajectories
@@ -132,11 +130,9 @@ if(lcm_FOUND)
 #      drakeRBSystem
 #      drakeLCMSystem
 #      gflags)
->>>>>>> f4057b2e8ff50abf6d14d9b3cdc9cd99b1530184
 endif()
 
 add_subdirectory(controlled_kuka)
-add_subdirectory(iiwa_world)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
