@@ -1,8 +1,9 @@
-# -*- python -*-
-# This file contains rules for Bazel; see drake/doc/bazel.rst.
+# -*- python -*
+
+# This file contains rules for the Bazel build system.
+# See http://bazel.io/ .
 
 package(default_visibility = ["//visibility:public"])
-
 DEPS = ["//drake/common:common"]
 
 cc_library(
@@ -11,18 +12,16 @@ cc_library(
         "drake_lcm_interface.h",
         "drake_lcm_message_handler_interface.h",
     ],
-    linkstatic = 1,
     deps = DEPS,
-)
+    linkstatic = 1)
 
 cc_library(
     name = "mock",
-    testonly = 1,
     srcs = ["drake_mock_lcm.cc"],
     hdrs = ["drake_mock_lcm.h"],
-    linkstatic = 1,
     deps = DEPS + [":interface"],
-)
+    linkstatic = 1,
+    testonly = 1)
 
 cc_library(
     name = "lcm",
@@ -34,27 +33,13 @@ cc_library(
         "drake_lcm.h",
         "lcm_receive_thread.h",
     ],
-    linkstatic = 1,
-    deps = DEPS + [
-        ":interface",
-        "@lcm//:lcm",
-    ],
-)
+    deps = DEPS + [":interface", "@lcm//:lcm"],
+    linkstatic = 1)
 
 cc_library(
     name = "lcmt_drake_signal_utils",
-    testonly = 1,
     srcs = ["lcmt_drake_signal_utils.cc"],
     hdrs = ["lcmt_drake_signal_utils.h"],
-    linkstatic = 1,
     deps = DEPS + ["//drake/lcmtypes:drake_signal"],
-)
-
-cc_library(
-    name = "lcm_call_matlab",
-    testonly = 1,
-    srcs = ["lcm_call_matlab.cc"],
-    hdrs = ["lcm_call_matlab.h"],
     linkstatic = 1,
-    deps = DEPS + ["//drake/lcmtypes:call_matlab"],
-)
+    testonly = 1)

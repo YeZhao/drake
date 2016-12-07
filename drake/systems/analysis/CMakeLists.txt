@@ -1,6 +1,5 @@
 # Source files used to build drakeSystemAnalysis
 set(sources
-  runge_kutta3_integrator.cc
   simulator.cc
 )
 
@@ -10,8 +9,6 @@ set(installed_headers
     integrator_base.h
     explicit_euler_integrator.h
     runge_kutta2_integrator.h
-    runge_kutta3_integrator.h
-    runge_kutta3_integrator-inl.h
     simulator.h
 )
 

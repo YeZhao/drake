@@ -35,6 +35,7 @@ if(gurobi_FOUND AND lcm_FOUND AND yaml-cpp_FOUND)
       eigen3
       lcm)
 
+  pods_find_pkg_config(bot2-lcmgl-client)
   if(bot2-lcmgl-client_FOUND)
     add_executable(zmpCoMObserverStateVisualizer zmpCoMObserverStateVisualizer.cpp)
     pods_use_pkg_config_packages(zmpCoMObserverStateVisualizer bot2-lcmgl-client)

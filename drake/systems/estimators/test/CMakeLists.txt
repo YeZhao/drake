@@ -1,3 +1,0 @@
-
-drake_add_cc_test(luenberger_observer_test luenberger_observer_test.cc)
-target_link_libraries(luenberger_observer_test drakeEstimators)
