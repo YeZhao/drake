@@ -275,18 +275,19 @@ class KukaMatlabDircolPlanner : public KukaIkPlanner {
     void handleMatlabResponse(const lcm::ReceiveBuffer* rbuf,
                               const std::string& chan,
                               const lcmt_matlab_plan_response* plan){
-      std::cout << "handling matlab response" << std::endl;
-      Eigen::VectorXd t(plan->num_timesteps);
-      Eigen::MatrixXd traj(kuka_->get_num_positions(), plan->num_timesteps);
-      std::cout << traj << std::endl;
+
+      int N = plan->num_timesteps;
+      int Nx = kuka_->get_num_positions() + kuka_->get_num_velocities();
+      Eigen::VectorXd t(N);
+      Eigen::MatrixXd traj(Nx, N);
       std::vector<int> info;
 
-      for (int i=0; i<plan->num_timesteps; i++){
+      for (int i=0; i<N; i++){
         std::cout << "parsing time " << i << std::endl;
         t[i] = plan->time[i];
         std::cout << "parsing position " << i << std::endl;
         info.push_back(1);//plan->status;
-        for (int j=0; j < kuka_->get_num_positions(); j++){
+        for (int j=0; j < Nx; j++){
           traj(j,i) = plan->state[j][i];
         }
       }
@@ -344,7 +345,7 @@ const char* KukaMatlabDircolPlanner::MATLAB_PLAN_RESPONSE_CHANNEL = "MATLAB_KUKA
 bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree<double>* tree){
   
   auto pos = q.head(tree->get_num_positions());
-  auto vel = Eigen::VectorXd::Zero(tree->get_num_velocities());
+  auto vel = q.tail(tree->get_num_velocities());
 
   bot_core::robot_state_t msg;
   

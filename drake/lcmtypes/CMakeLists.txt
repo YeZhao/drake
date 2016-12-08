@@ -30,10 +30,8 @@ lcm_wrap_types(
   lcmt_robot_controller_reference.lcm
   lcmt_joint_pd_override.lcm
   lcmt_generic_planner_request.lcm
-  lcmt_matlab_array.lcm
   lcmt_matlab_plan_request.lcm
   lcmt_matlab_plan_response.lcm
-  lcmt_call_matlab.lcm
   lcmt_piecewise_polynomial.lcm
   lcmt_polynomial.lcm
   lcmt_polynomial_matrix.lcm

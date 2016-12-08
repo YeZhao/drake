@@ -25,8 +25,8 @@ classdef KukaPlanner
             [t,x,u,info] = obj.plan_dircol(msg.start_state, msg.goal_state);
             res = drake.lcmt_matlab_plan_response();
             res.num_timesteps = length(t);
-            res.state_size = 14;
-            res.input_size = 7;
+            res.state_size = obj.kuka.getNumStates;
+            res.input_size = obj.kuka.getNumPositions;
             res.time = t;
             disp('start state')
             msg.start_state
@@ -41,8 +41,8 @@ classdef KukaPlanner
         end
         
         function [t, x, u, info] = plan_dircol(obj, x0, xG)
-            Nx = 14;
-            Nq = 7;
+            Nx = obj.kuka.getNumStates;
+            Nq = obj.kuka.getNumPositions;
             Nv = Nx-Nq;
             
             % test state and goal
@@ -74,6 +74,11 @@ classdef KukaPlanner
             x_min = [jl_min; -inf(Nq,1)];
             x_max = [jl_max;  inf(Nq,1)];
             prog = prog.addConstraint(BoundingBoxConstraint(repmat(x_min,N,1),repmat(x_max,N,1)), prog.x_inds);
+            
+            % additional solver options
+            prog.setSolverOptions('snopt','majorfeasibilitytolerance',1e-3);
+            prog.setSolverOptions('snopt','minorfeasibilitytolerance',1e-3);
+            prog.setSolverOptions('snopt','majoroptimalitytolerance',1e-3);
             
             % initial guess at the trajectory
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xG)]));

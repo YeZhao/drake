@@ -161,12 +161,9 @@ classdef NonlinearProgram
       obj.solver_options.snopt.MajorIterationsLimit = 1000;
       obj.solver_options.snopt.MinorIterationsLimit = 500;
       obj.solver_options.snopt.IterationsLimit = 10000;
-%       obj.solver_options.snopt.MajorOptimalityTolerance = 1e-6;
-%       obj.solver_options.snopt.MajorFeasibilityTolerance = 1e-6;
-%       obj.solver_options.snopt.MinorFeasibilityTolerance = 1e-6;
-      obj.solver_options.snopt.MajorOptimalityTolerance = 1e-3;
-      obj.solver_options.snopt.MajorFeasibilityTolerance = 1e-3;
-      obj.solver_options.snopt.MinorFeasibilityTolerance = 1e-3;
+      obj.solver_options.snopt.MajorOptimalityTolerance = 1e-6;
+      obj.solver_options.snopt.MajorFeasibilityTolerance = 1e-6;
+      obj.solver_options.snopt.MinorFeasibilityTolerance = 1e-6;
       obj.solver_options.snopt.SuperbasicsLimit = 300;
       obj.solver_options.snopt.VerifyLevel = 0;
       obj.solver_options.snopt.DerivativeOption = 1;
