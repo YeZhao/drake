@@ -39,7 +39,7 @@ class RobotController {
  public:
   /// tree is aliased
   explicit RobotController(const RigidBodyTree<double>& tree)
-      : tree_(tree), plan_number_(0), controller_trigger_(false) {
+      : tree_(tree), controller_trigger_(false) {
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotController::HandleStatus, this);
@@ -154,7 +154,6 @@ class RobotController {
 
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
-  int plan_number_{};
   bool controller_trigger_;// control runner wait for the first message from plan runner 
   lcmt_iiwa_status iiwa_status_;
   lcmt_robot_controller_reference robot_controller_reference_;

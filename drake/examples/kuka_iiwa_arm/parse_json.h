@@ -137,7 +137,7 @@ template<int size>
 Eigen::Matrix<double, size, 1> json_to_eigen_d(const std::string& data){
   auto string_list = parse_json_list(data);
   Eigen::Matrix<double, size, 1> vec(string_list.size());
-  for (int i=0; i<string_list.size(); i++){
+  for (unsigned int i=0; i< string_list.size(); i++){
     vec[i] = parse_json_double(string_list[i]);
   }
   return vec;

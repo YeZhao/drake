@@ -29,6 +29,8 @@ lcm_cc_library(
     lcm_srcs = [
         "lcmt_iiwa_command.lcm",
         "lcmt_iiwa_status.lcm",
+        "lcmt_matlab_plan_request",
+        "lcmt_matlab_plan_response",
     ],
     linkstatic = 1)
 

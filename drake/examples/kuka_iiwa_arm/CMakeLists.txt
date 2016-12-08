@@ -130,6 +130,7 @@ if(lcm_FOUND)
 #      drakeRBSystem
 #      drakeLCMSystem
 #      gflags)
+
 endif()
 
 add_subdirectory(controlled_kuka)
