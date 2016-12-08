@@ -105,11 +105,13 @@ class RobotController {
         // PD position control
         Eigen::VectorXd position_ctrl_torque_command(kNumDof);
         Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
-        // Kp_pos_ctrl << 225, 289, 144, 49, 324, 49, 49;
-        Kp_pos_ctrl << 100, 100, 100, 100, 100, 50, 50;
+        Kp_pos_ctrl << 225, 361, 144, 81, 324, 36, 49;
+        //Kp_pos_ctrl << 225, 289, 144, 49, 324, 36, 49;// best gains at this moment
+        //Kp_pos_ctrl << 100, 100, 100, 100, 100, 81, 50;// original gains
         Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        // Kd_pos_ctrl << 30, 34, 24, 14, 36, 14, 14;
-        Kd_pos_ctrl << 19, 19, 19, 19, 19, 14, 14;
+        Kd_pos_ctrl << 30, 38, 24, 18, 36, 12, 14;
+        //Kd_pos_ctrl << 30, 34, 24, 14, 36, 12, 14;// best gains at this moment
+        //Kd_pos_ctrl << 19, 19, 19, 19, 19, 18, 14;// original gains
         // (TODOs) Add integral control (anti-windup)
         for (int joint = 0; joint < kNumJoints; joint++) {
           position_ctrl_torque_command(joint) = Kp_pos_ctrl(joint)*(joint_position_desired(joint) - iiwa_status_.joint_position_measured[joint])

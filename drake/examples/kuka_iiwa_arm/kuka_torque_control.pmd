@@ -34,14 +34,16 @@ group "1.tools" {
     host = "localhost";
   }
 
-  cmd "2.signal-scope" {
-    exec = "build/install/bin/signal-scope drake/examples/kuka_iiwa_arm/kuka_iiwa_signal_scope.py";
+  cmd "2.Robotiq_initializer" {
+    exec = "python ../robotiq-driver/CModelRtuNode.py /dev/ttyUSB0";
     host = "localhost";
   }
 
+  cmd "3.signal-scope" {
+    exec = "build/install/bin/signal-scope drake/examples/kuka_iiwa_arm/kuka_iiwa_signal_scope.py";
+    host = "localhost";
+  }
 }
 
-cmd "2.Robotiq_initializer" {
-    exec = "python ../robotiq-driver/CModelRtuNode.py /dev/ttyUSB0";
-    host = "localhost";
-}
+
+

@@ -269,7 +269,7 @@
     type="fixed">
     <origin
       xyz="0 0 0.045"
-      rpy="0 0 1.57" />
+      rpy="0 0 0" />
     <parent
       link="iiwa_link_7" />
     <child
