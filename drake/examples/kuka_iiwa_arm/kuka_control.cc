@@ -38,8 +38,13 @@ const int kNumJoints = 7;
 class RobotController {
  public:
   /// tree is aliased
+<<<<<<< HEAD
   explicit RobotController(const RigidBodyTree<double>& tree, const RigidBodyTree<double>& gravity_tree)
       : tree_(tree), gravity_tree_(gravity_tree), plan_number_(0), controller_trigger_(false) {
+=======
+  explicit RobotController(const RigidBodyTree<double>& tree)
+      : tree_(tree), controller_trigger_(false) {
+>>>>>>> a98ccac40a629397f4ab4df0a57b2b5296e74aad
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotController::HandleStatus, this);
@@ -157,7 +162,6 @@ class RobotController {
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
   const RigidBodyTree<double>& gravity_tree_;
-  int plan_number_{};
   bool controller_trigger_;// control runner wait for the first message from plan runner 
   lcmt_iiwa_status iiwa_status_;
   lcmt_robot_controller_reference robot_controller_reference_;

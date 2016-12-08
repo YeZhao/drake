@@ -17,7 +17,7 @@ int main(int argc, const char* argv[]) {
       drake::multibody::joints::kFixed);
   auto lcm = std::make_shared<lcm::LCM>();
 
-  KukaDircolPlanner planner(&kuka, lcm);
+  KukaMatlabDircolPlanner planner(&kuka, lcm);
   planner.run();
   return 0;
 }

@@ -83,9 +83,8 @@ std::map<std::string, std::string> parse_json_object(const std::string &data){
   std::map<std::string, std::string> map;
   std::string key, val;
   std::size_t begin_key = data.find('{');
-  std::size_t end_key, begin_val;
-  std::size_t end_val = 0;
-
+  std::size_t end_key, begin_val, end_val;
+  
   while (begin_key != std::string::npos){
 
     // keys are all strings
@@ -126,6 +125,8 @@ std::map<std::string, std::string> parse_json_object(const std::string &data){
     }else if (data.substr(begin_val,5)=="false"){
       end_val = begin_val+4;
       begin_key = end_val+1;
+    }else{
+      throw; // could not detect the type
     }
     val = data.substr(begin_val,end_val-begin_val+1);
 
@@ -138,7 +139,7 @@ template<int size>
 Eigen::Matrix<double, size, 1> json_to_eigen_d(const std::string& data){
   auto string_list = parse_json_list(data);
   Eigen::Matrix<double, size, 1> vec(string_list.size());
-  for (unsigned int i=0; i<string_list.size(); i++){
+  for (unsigned int i=0; i< string_list.size(); i++){
     vec[i] = parse_json_double(string_list[i]);
   }
   return vec;

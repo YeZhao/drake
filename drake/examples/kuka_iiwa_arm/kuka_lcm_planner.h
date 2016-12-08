@@ -4,10 +4,13 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <time.h>
 
 
 #include "robotlocomotion/robot_plan_t.hpp"
 #include "drake/lcmt_generic_planner_request.hpp"
+#include "drake/lcmt_matlab_plan_request.hpp"
+#include "drake/lcmt_matlab_plan_response.hpp"
 
 
 #include "drake/multibody/ik_options.h"
@@ -66,6 +69,7 @@ class KukaPlanner{
 
   protected:
     RigidBodyTree<double>* kuka_;
+    std::shared_ptr<lcm::LCM> lcm_;
 
     virtual void handleIkRequest(const lcmt_generic_planner_request*) = 0;
 
@@ -93,14 +97,14 @@ class KukaPlanner{
       std::cout << "tag5" << std::endl;
     }
 
-    void publishPlanResponse(Eigen::VectorXd* time, Eigen::MatrixXd* trajectory, std::vector<int> info){
+    void publishPlanResponse(Eigen::VectorXd* t_vec, Eigen::MatrixXd* trajectory, std::vector<int> info){
       robotlocomotion::robot_plan_t plan;
       plan.utime=0;
       plan.robot_name="iiwa";
-      plan.num_states = time->size();
+      plan.num_states = t_vec->size();
+      
       for (int i=0; i<plan.num_states; i++){
-        std::cout << "test " << i << std::endl;
-        plan.plan.push_back(lcmRobotState((*time)[i], trajectory->col(i), kuka_));
+        plan.plan.push_back(lcmRobotState((*t_vec)[i], trajectory->col(i), kuka_));
         plan.plan_info.push_back(info[i]);
       }
       plan.num_grasp_transitions = 0;
@@ -110,11 +114,9 @@ class KukaPlanner{
       plan.right_leg_control_type = plan.NONE;
 
       // TODO: build the message from the time and trajectory
+      std::cout << "about to publish plan" << std::endl;
       lcm_->publish(PLAN_RESPONSE_CHANNEL, &plan);
     }
-
-  private:
-    std::shared_ptr<lcm::LCM> lcm_;
 
 };
 
@@ -224,6 +226,7 @@ class KukaDircolPlanner : public KukaIkPlanner {
         goal_pose[idx] = parse_json_double(goal_pose_full[i]);
       }
 
+      
       // TODO: compute the dynamic trajectory
       
       const int num_timesteps = 20;
@@ -257,31 +260,106 @@ class KukaDircolPlanner : public KukaIkPlanner {
     }
 };
 
+class KukaMatlabDircolPlanner : public KukaIkPlanner {
+  public:
+    static const char* MATLAB_PLAN_REQUEST_CHANNEL;
+    static const char* MATLAB_PLAN_RESPONSE_CHANNEL;
+
+    KukaMatlabDircolPlanner(RigidBodyTree<double>* kuka,
+                 std::shared_ptr<lcm::LCM> lcm) : KukaIkPlanner(kuka, lcm){
+      
+      lcm_->subscribe(MATLAB_PLAN_RESPONSE_CHANNEL,
+        &KukaMatlabDircolPlanner::handleMatlabResponse, this);
+    }
+
+    void handleMatlabResponse(const lcm::ReceiveBuffer* rbuf,
+                              const std::string& chan,
+                              const lcmt_matlab_plan_response* plan){
+
+      int N = plan->num_timesteps;
+      int Nx = kuka_->get_num_positions() + kuka_->get_num_velocities();
+      Eigen::VectorXd t(N);
+      Eigen::MatrixXd traj(Nx, N);
+      std::vector<int> info;
+
+      for (int i=0; i<N; i++){
+        std::cout << "parsing time " << i << std::endl;
+        t[i] = plan->time[i];
+        std::cout << "parsing position " << i << std::endl;
+        info.push_back(1);//plan->status;
+        for (int j=0; j < Nx; j++){
+          traj(j,i) = plan->state[j][i];
+        }
+      }
+
+      publishPlanResponse(&t, &traj, info);
+    }
+  protected:
+    // override the plan request, but not the IK request
+    virtual void handlePlanRequest(const lcmt_generic_planner_request* status) {
+      auto poses = parse_json_object(status->poses);
+      auto joint_names = parse_json_list(status->joint_names);
+      auto start_pose_full = parse_json_list(poses[status->seed_pose]);
+      auto nominal_pose_full = parse_json_list(poses[status->nominal_pose]);
+      auto goal_pose_full = parse_json_list(poses[status->end_pose]);
+      Eigen::VectorXd start_pose(kuka_->get_num_positions());
+      Eigen::VectorXd nominal_pose(kuka_->get_num_positions());
+      Eigen::VectorXd goal_pose(kuka_->get_num_positions());
+      auto pos_idx_map = kuka_->computePositionNameToIndexMap();
+      for (unsigned int i=0; i<joint_names.size(); i++){
+        auto joint = joint_names[i]; 
+        // ignore all of the positions associated with the floating base
+        if (contains(joint,"base"))
+          continue;
+        int idx = pos_idx_map[joint];
+        start_pose[idx] = parse_json_double(start_pose_full[i]);
+        nominal_pose[idx] = parse_json_double(nominal_pose_full[i]);
+        goal_pose[idx] = parse_json_double(goal_pose_full[i]);
+      }
+
+      std::cout << "Start Pose" << poses[status->seed_pose] << std::endl;
+      std::cout << "End Pose" << poses[status->end_pose] << std::endl;
+      lcmt_matlab_plan_request msg;
+      msg.timestamp = time(NULL);
+      msg.state_size = kuka_->get_num_positions()*2;
+      // set position
+      for (int i=0; i<kuka_->get_num_positions(); i++){
+        msg.start_state.push_back(start_pose[i]);
+        msg.goal_state.push_back(goal_pose[i]);
+      }
+      // set velocity
+      for (int i=0; i<kuka_->get_num_positions(); i++){
+        msg.start_state.push_back(0);
+        msg.goal_state.push_back(0);
+      }
+
+      // send request
+      lcm_->publish(MATLAB_PLAN_REQUEST_CHANNEL, &msg);
+
+    }
+};
+
+const char* KukaMatlabDircolPlanner::MATLAB_PLAN_REQUEST_CHANNEL = "MATLAB_KUKA_DIRCOL_REQUEST";
+const char* KukaMatlabDircolPlanner::MATLAB_PLAN_RESPONSE_CHANNEL = "MATLAB_KUKA_DIRCOL_RESPONSE";
+
 bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree<double>* tree){
+  
   auto pos = q.head(tree->get_num_positions());
   auto vel = q.tail(tree->get_num_velocities());
 
   bot_core::robot_state_t msg;
   
-  msg.utime = (int) t*1e6;
-  // TODO: figure out what the pose means in this context
-  // msg.pose = ???
+  msg.utime = (int) (t*1e6);
   msg.num_joints = tree->get_num_positions();
+
   for (int i=0; i<msg.num_joints; i++){
     msg.joint_name.push_back(tree->get_position_name(i));
     msg.joint_position.push_back(pos[i]);
     msg.joint_velocity.push_back(vel[i]);
     msg.joint_effort.push_back(0.0);
   }
-  
-  for (int i=0; i<3; i++){
-    msg.force_torque.l_hand_force[i] = 0.0;  
-    msg.force_torque.l_hand_torque[i] = 0.0;
-    msg.force_torque.r_hand_force[i] = 0.0;  
-    msg.force_torque.r_hand_torque[i] = 0.0; 
-  }
-  return msg;
 
+  return msg;
 }
 
 } // anonymous
