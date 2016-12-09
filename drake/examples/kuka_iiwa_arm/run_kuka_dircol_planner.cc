@@ -1,7 +1,7 @@
-#import <iostream>
-#import <memory>
+#include <iostream>
+#include <memory>
 
-#import "kuka_lcm_planner.h"
+#include "kuka_lcm_planner.h"
 #include "drake/common/drake_path.h"
 #include "drake/multibody/rigid_body_tree.h"
 

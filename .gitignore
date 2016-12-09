@@ -19,6 +19,7 @@
 *.class
 *.snm
 *.nav
+*.pyc
 *~
 uname.err
 !externals/install_prereqs.sh

@@ -38,13 +38,8 @@ const int kNumJoints = 7;
 class RobotController {
  public:
   /// tree is aliased
-<<<<<<< HEAD
   explicit RobotController(const RigidBodyTree<double>& tree, const RigidBodyTree<double>& gravity_tree)
-      : tree_(tree), gravity_tree_(gravity_tree), plan_number_(0), controller_trigger_(false) {
-=======
-  explicit RobotController(const RigidBodyTree<double>& tree)
-      : tree_(tree), controller_trigger_(false) {
->>>>>>> a98ccac40a629397f4ab4df0a57b2b5296e74aad
+      : tree_(tree), gravity_tree_(gravity_tree), controller_trigger_(false) {
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotController::HandleStatus, this);
@@ -114,7 +109,7 @@ class RobotController {
         //Kp_pos_ctrl << 225, 289, 144, 49, 324, 36, 49;// best gains at this moment
         //Kp_pos_ctrl << 100, 100, 100, 100, 100, 81, 50;// original gains
         Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        Kd_pos_ctrl << 30, 38, 24, 18, 36, 12, 14;
+        Kd_pos_ctrl << 30, 38, 24, 18, 36, 5, 14;
         //Kd_pos_ctrl << 30, 34, 24, 14, 36, 12, 14;// best gains at this moment
         //Kd_pos_ctrl << 19, 19, 19, 19, 19, 18, 14;// original gains
         // (TODOs) Add integral control (anti-windup)

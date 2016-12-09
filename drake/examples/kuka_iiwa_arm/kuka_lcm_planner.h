@@ -8,6 +8,11 @@
 
 
 #include "robotlocomotion/robot_plan_t.hpp"
+#include "bot_core/twist_t.hpp"
+#include "bot_core/position_3d_t.hpp"
+#include "bot_core/quaternion_t.hpp"
+#include "bot_core/vector_3d_t.hpp"
+#include "bot_core/force_torque_t.hpp"
 #include "drake/lcmt_generic_planner_request.hpp"
 #include "drake/lcmt_matlab_plan_request.hpp"
 #include "drake/lcmt_matlab_plan_response.hpp"
@@ -108,10 +113,13 @@ class KukaPlanner{
         plan.plan_info.push_back(info[i]);
       }
       plan.num_grasp_transitions = 0;
+
       plan.left_arm_control_type = plan.NONE;
       plan.left_leg_control_type = plan.NONE;
       plan.right_arm_control_type = plan.NONE;
       plan.right_leg_control_type = plan.NONE;
+
+      plan.num_bytes = 0;
 
       // TODO: build the message from the time and trajectory
       std::cout << "about to publish plan" << std::endl;
@@ -358,6 +366,62 @@ bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree
     msg.joint_velocity.push_back(vel[i]);
     msg.joint_effort.push_back(0.0);
   }
+
+  // populate all of the unused fields to avoid seg-faults
+  // pose
+  bot_core::position_3d_t pose;
+  bot_core::vector_3d_t translation;
+  bot_core::quaternion_t rotation;
+
+  translation.x = 0.0;
+  translation.y = 0.0;
+  translation.z = 0.0;
+
+  rotation.w = 0.0;
+  rotation.x = 0.0;
+  rotation.y = 0.0;
+  rotation.z = 0.0;
+
+  pose.translation = translation;
+  pose.rotation = rotation;
+  msg.pose = pose;
+
+  // twist
+  bot_core::twist_t twist;
+  bot_core::vector_3d_t linear_vel;
+  bot_core::vector_3d_t angular_vel;
+
+  linear_vel.x = 0.0;
+  linear_vel.y = 0.0;
+  linear_vel.z = 0.0;
+
+  angular_vel.x = 0.0;
+  angular_vel.y = 0.0;
+  angular_vel.z = 0.0;
+
+  twist.linear_velocity = linear_vel;
+  twist.angular_velocity = angular_vel;
+
+  msg.twist = twist;
+
+  // force_torque
+  bot_core::force_torque_t force_torque;
+  force_torque.l_foot_force_z = 0.0;
+  force_torque.l_foot_torque_x = 0.0;
+  force_torque.l_foot_torque_y = 0.0;
+
+  force_torque.r_foot_force_z = 0.0;
+  force_torque.r_foot_torque_x = 0.0;
+  force_torque.r_foot_torque_y = 0.0;
+
+  for (int i=0; i<3; i++){
+    force_torque.l_hand_force[i] = 0.0;  
+    force_torque.l_hand_torque[i] = 0.0;
+    force_torque.r_hand_force[i] = 0.0;  
+    force_torque.r_hand_torque[i] = 0.0; 
+  }
+
+  msg.force_torque = force_torque;
 
   return msg;
 }

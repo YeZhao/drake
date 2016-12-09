@@ -57,7 +57,9 @@ classdef KukaPlanner
             obj.kuka.goal_state = xG;
             
             % setup dircol
-            prog = DircolTrajectoryOptimization(obj.kuka, N, [0.01 6]);% arbitrary timescale
+            t_min = 0.01;
+            t_max = 10;
+            prog = DircolTrajectoryOptimization(obj.kuka, N, [t_min t_max]);% arbitrary timescale
             
              % state constraint
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
@@ -96,11 +98,11 @@ classdef KukaPlanner
             u = utraj.eval(utraj.getBreaks());
             
             % for debugging
-            % x
-            % info
-            % traj = xtraj.setOutputFrame(obj.kuka.getStateFrame());
-            % v = obj.kuka.constructVisualizer();
-            % playback(v,traj,struct('slider',true));
+            x
+            info
+            traj = xtraj.setOutputFrame(obj.kuka.getStateFrame());
+            v = obj.kuka.constructVisualizer();
+            playback(v,traj,struct('slider',true));
 
             
         end
