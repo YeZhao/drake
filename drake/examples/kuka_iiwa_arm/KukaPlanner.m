@@ -57,9 +57,10 @@ classdef KukaPlanner
             obj.kuka.goal_state = xG;
             
             % setup dircol
-            t_min = 0.01;
-            t_max = 10;
-            prog = DircolTrajectoryOptimization(obj.kuka, N, [t_min t_max]);% arbitrary timescale
+            t_min = 1;
+            t_max = 6;
+            options.integration_method = DirtranTrajectoryOptimization.MIDPOINT;
+            prog = DirtranTrajectoryOptimization(obj.kuka, N, [t_min t_max],options);% arbitrary timescale
             
              % state constraint
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
@@ -73,8 +74,8 @@ classdef KukaPlanner
             
             % joint limits
             [jl_min, jl_max] = obj.kuka.getJointLimits;
-            x_min = [jl_min; -inf(Nq,1)];
-            x_max = [jl_max;  inf(Nq,1)];
+            x_min = [jl_min; -.75*ones(Nv,1)];
+            x_max = [jl_max;  .75*ones(Nv,1)];
             prog = prog.addConstraint(BoundingBoxConstraint(repmat(x_min,N,1),repmat(x_max,N,1)), prog.x_inds);
             
             % additional solver options

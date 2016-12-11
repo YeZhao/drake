@@ -38,8 +38,9 @@ const int kNumJoints = 7;
 class RobotController {
  public:
   /// tree is aliased
-  explicit RobotController(const RigidBodyTree<double>& tree, const RigidBodyTree<double>& gravity_tree)
-      : tree_(tree), gravity_tree_(gravity_tree), controller_trigger_(false) {
+  explicit RobotController(const RigidBodyTree<double>& tree, const RigidBodyTree<double>& gravity_tree,
+                           const RigidBodyTree<double>& new_gravity_tree)
+      : tree_(tree), gravity_tree_(gravity_tree), new_gravity_tree_(new_gravity_tree), controller_trigger_(false) {
     VerifyIiwaTree(tree);
     lcm_.subscribe(kLcmStatusChannel,
                     &RobotController::HandleStatus, this);
@@ -102,15 +103,61 @@ class RobotController {
         Eigen::VectorXd gravity_torque = gravity_tree_.inverseDynamics(cache0, no_external_wrenches, z, false);
         torque_command -= gravity_torque;
 
+
+
+
+        Eigen::VectorXd new_z = Eigen::VectorXd::Zero(kNumDof); 
+        KinematicsCache<double> new_cache0 = new_gravity_tree_.doKinematics(q, qd);
+        Eigen::VectorXd new_gravity_torque = new_gravity_tree_.inverseDynamics(new_cache0, no_external_wrenches, new_z, false);
+
+        Eigen::VectorXd new_gripper_gravity_torque = new_gravity_torque - gravity_torque;
+        std::cout << "new_gripper_gravity_torque: " << new_gripper_gravity_torque << std::endl;
+
+        //std::cout << "id: " << tree_.get_model_instance_id() << std::endl;
+        //const std::set<int> end_effector_id_set={3};
+        double gripper_mass = 0.425;//tree_.getMass(end_effector_id_set);
+        //std::cout << "gripper_mass" << gripper_mass << std::endl;
+        //Eigen::VectorXd J = tree_.centerOfMassJacobian(cache, {7}, true);
+
+        int base_body_or_frame_ind = 2;
+        int end_effector_body_or_frame_ind = 8;
+        int expressed_in_body_or_frame_ind = 0;
+        bool in_terms_of_qdot = true;
+        std::vector<int> v_or_qdot_indices;
+
+        Eigen::MatrixXd J = tree_.geometricJacobian(cache, base_body_or_frame_ind, end_effector_body_or_frame_ind, 
+                           expressed_in_body_or_frame_ind, in_terms_of_qdot, &v_or_qdot_indices);
+
+        //std::cout << "Jacobian" << J << std::endl;
+        Eigen::VectorXd gravity_force(6);
+        gravity_force << 0, 0, -gripper_mass * 9.8;
+        Eigen::VectorXd center_of_mass(3);
+        center_of_mass << 0, 0, 0.0584;
+        Eigen::Vector3d gripper_rotational_torque;
+        double ele1 = -center_of_mass(2) * gravity_force(1) + center_of_mass(1) * gravity_force(2);
+        double ele2 = center_of_mass(2) * gravity_force(0) - center_of_mass(0) * gravity_force(2);
+        double ele3 = -center_of_mass(1) * gravity_force(0) + center_of_mass(0) * gravity_force(1);
+        gripper_rotational_torque << ele1, ele2, ele3;
+        std::cout << "gripper_rotational_torque" << gripper_rotational_torque << std::endl; 
+        //std::cout << center_of_mass.cross(gravity_force) << std::endl; 
+        //gripper_rotational_torque << center_of_mass.cross(gravity_force);
+        //std::cout << "gravity_vector: " << gravity_vector << std::endl;
+        //std::cout << "J column" << J.cols() << std::endl;
+        Eigen::VectorXd torque_gripper = J.bottomRows(3).transpose() * gravity_force + J.topRows(3).transpose() * gripper_rotational_torque;
+        Eigen::VectorXd torque_gripper_diff = torque_gripper - new_gripper_gravity_torque;
+        std::cout << "torque_gripper" << torque_gripper << std::endl;
+
+        //std::cout << "torque_gripper" << torque_gripper << std::endl;
+        std::cout << "torque_gripper_diff" << torque_gripper_diff << std::endl;
+
+
         // PD position control
         Eigen::VectorXd position_ctrl_torque_command(kNumDof);
         Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
-        Kp_pos_ctrl << 225, 361, 144, 81, 324, 36, 49;
-        //Kp_pos_ctrl << 225, 289, 144, 49, 324, 36, 49;// best gains at this moment
+        Kp_pos_ctrl << 225, 361, 144, 81, 324, 36, 49;// best gains for December 9th kuka demo
         //Kp_pos_ctrl << 100, 100, 100, 100, 100, 81, 50;// original gains
         Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        Kd_pos_ctrl << 30, 38, 24, 18, 36, 5, 14;
-        //Kd_pos_ctrl << 30, 34, 24, 14, 36, 12, 14;// best gains at this moment
+        Kd_pos_ctrl << 25, 33, 20, 15, 36, 5, 14;// best gains for December 9th kuka demo, tune down damping gains from dummy critically damped gains
         //Kd_pos_ctrl << 19, 19, 19, 19, 19, 18, 14;// original gains
         // (TODOs) Add integral control (anti-windup)
         for (int joint = 0; joint < kNumJoints; joint++) {
@@ -157,6 +204,7 @@ class RobotController {
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
   const RigidBodyTree<double>& gravity_tree_;
+  const RigidBodyTree<double>& new_gravity_tree_;
   bool controller_trigger_;// control runner wait for the first message from plan runner 
   lcmt_iiwa_status iiwa_status_;
   lcmt_robot_controller_reference robot_controller_reference_;
@@ -168,11 +216,15 @@ int DoMain(int argc, const char* argv[]) {
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       drake::multibody::joints::kFixed);
 
+  RigidBodyTree<double> new_gravity_tree(
+      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      drake::multibody::joints::kFixed);
+
   RigidBodyTree<double> tree(
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
       drake::multibody::joints::kFixed);
 
-  RobotController runner(tree, gravity_tree);
+  RobotController runner(tree, gravity_tree, new_gravity_tree);
   runner.Run();
   return 0;
 }
