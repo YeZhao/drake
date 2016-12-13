@@ -38,7 +38,6 @@ class KukaSimInfoLabel(object):
         self.label.text = 'Sim freq: %d hz  |  Sim time: %.2f' % (simFreq,
                                                                   simTime)
 
-
 def makeRobotSystem(view):
     factory = robotsystem.RobotSystemFactory()
     options = factory.getDisabledOptions()

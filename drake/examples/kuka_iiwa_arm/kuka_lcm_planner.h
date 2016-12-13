@@ -6,7 +6,6 @@
 #include <vector>
 #include <time.h>
 
-
 #include "robotlocomotion/robot_plan_t.hpp"
 #include "bot_core/twist_t.hpp"
 #include "bot_core/position_3d_t.hpp"
@@ -16,7 +15,6 @@
 #include "drake/lcmt_generic_planner_request.hpp"
 #include "drake/lcmt_matlab_plan_request.hpp"
 #include "drake/lcmt_matlab_plan_response.hpp"
-
 
 #include "drake/multibody/ik_options.h"
 #include "drake/multibody/rigid_body_ik.h"
@@ -113,7 +111,6 @@ class KukaPlanner{
         plan.plan_info.push_back(info[i]);
       }
       plan.num_grasp_transitions = 0;
-
       plan.left_arm_control_type = plan.NONE;
       plan.left_leg_control_type = plan.NONE;
       plan.right_arm_control_type = plan.NONE;
@@ -367,8 +364,9 @@ bot_core::robot_state_t lcmRobotState(double t, Eigen::VectorXd q, RigidBodyTree
     msg.joint_effort.push_back(0.0);
   }
 
-  // populate all of the unused fields to avoid seg-faults
-  // pose
+  // populate all of the unused fields to avoid segmentation faults 
+
+  //pose
   bot_core::position_3d_t pose;
   bot_core::vector_3d_t translation;
   bot_core::quaternion_t rotation;

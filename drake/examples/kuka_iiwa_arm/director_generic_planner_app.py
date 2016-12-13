@@ -10,7 +10,6 @@ from director import lcmUtils
 from PythonQt import QtGui, QtCore
 import drake as lcm_drake
 import subprocess
-
 import os
 import lcm
 import sys
@@ -39,7 +38,6 @@ class KukaSimInfoLabel(object):
         simFreq = self.sub.getMessageRate()
         self.label.text = 'Sim freq: %d hz  |  Sim time: %.2f' % (simFreq,
                                                                   simTime)
-
 
 def makeRobotSystem(view):
     factory = robotsystem.RobotSystemFactory()

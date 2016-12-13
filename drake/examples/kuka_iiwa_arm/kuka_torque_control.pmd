@@ -28,13 +28,12 @@ group "1.tools" {
     host = "localhost";
   }
 
-
   cmd "1.director-ik-app" {
     exec = "DRC_BASE=/none build/install/bin/directorPython drake/examples/kuka_iiwa_arm/director_ik_app.py --director_config drake/examples/kuka_iiwa_arm/director_config.json";
     host = "localhost";
   }
 
-  cmd "2.Robotiq_initializer" {
+  cmd "2.Robotiq_driver" {
     exec = "python ../robotiq-driver/CModelRtuNode.py /dev/ttyUSB0";
     host = "localhost";
   }
@@ -44,6 +43,3 @@ group "1.tools" {
     host = "localhost";
   }
 }
-
-
-
