@@ -55,5 +55,3 @@ group "2.kuka-dircol-planner" {
         host = "localhost";
     }
 }
-
-
