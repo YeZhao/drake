@@ -17,7 +17,7 @@ std::shared_ptr<RigidBodySystem> CreateKukaIiwaSystem(void) {
       Eigen::aligned_allocator<RigidBodySystem>());
 
   rigid_body_system->AddModelInstanceFromFile(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
+      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
       drake::multibody::joints::kFixed);
 
   // Sets some simulation parameters.

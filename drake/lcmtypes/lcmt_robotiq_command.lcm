@@ -2,6 +2,9 @@ package drake;
 //Functionality of robotiq hand
 struct lcmt_robotiq_command {
 
+// The timestamp in microseconds.
+int64_t utime;
+
 //Activate gripper: Gripper only works when this is 0x1 and will complete an auto-callibration after
 byte rACT;
 

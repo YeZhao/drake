@@ -8,8 +8,13 @@ from director import robotsystem
 from director import applogic
 from director import lcmUtils
 from PythonQt import QtGui, QtCore
+import subprocess
+import sys
+import os
+import lcm
 import drake as lcmdrake
-
+print sys.path
+import Robotiq_Command
 
 class KukaSimInfoLabel(object):
     '''
@@ -33,7 +38,6 @@ class KukaSimInfoLabel(object):
         self.label.text = 'Sim freq: %d hz  |  Sim time: %.2f' % (simFreq,
                                                                   simTime)
 
-
 def makeRobotSystem(view):
     factory = robotsystem.RobotSystemFactory()
     options = factory.getDisabledOptions()
@@ -41,6 +45,32 @@ def makeRobotSystem(view):
                                          useTeleop=True)
     return factory.construct(view=view, options=options)
 
+def sendGripperCommand(action):
+
+  lc = lcm.LCM()
+  command_topic = outputMsg()
+  command = outputMsg()
+  command = CModelSimpleController.genCommand(action,command) 
+  lc.publish("command_topic",command.encode())
+
+def gripperConnect():
+  pass
+def gripperOpen():
+  tester.gripperOpen()
+def gripperClose():
+  tester.gripperClose()
+def gripperReset():
+  tester.gripperReset()
+def gripperActivate():
+  tester.gripperActivate()
+  
+def setupGripperButtons():
+  toolBar = applogic.findToolBar('Main Toolbar')
+  app.app.addToolBarAction(toolBar, 'Gripper Open', icon='', callback=gripperOpen)
+  app.app.addToolBarAction(toolBar, 'Gripper Close', icon='', callback=gripperClose)
+  app.app.addToolBarAction(toolBar, 'Gripper Reset', icon='', callback=gripperReset)
+  app.app.addToolBarAction(toolBar, 'Gripper Connect', icon='', callback=gripperConnect)
+  app.app.addToolBarAction(toolBar, 'Gripper Activate', icon='', callback=gripperActivate)
 
 # create a default mainwindow app
 app = mainwindowapp.MainWindowAppFactory().construct()
@@ -54,6 +84,8 @@ app.app.addWidgetToDock(robotSystem.teleopPanel.widget,
                         QtCore.Qt.RightDockWidgetArea)
 app.app.addWidgetToDock(robotSystem.playbackPanel.widget,
                         QtCore.Qt.BottomDockWidgetArea)
+
+setupGripperButtons()
 
 # show sim time in the status bar
 infoLabel = KukaSimInfoLabel(app.mainWindow.statusBar())
@@ -71,6 +103,8 @@ robotSystem.ikPlanner.getIkOptions().setProperty('Use pointwise', False)
 
 # set the default camera view
 applogic.resetCamera(viewDirection=[-1,0,0], view=app.view)
+
+tester = Robotiq_Command.Robotiq_Command()
 
 # start!
 app.app.start()

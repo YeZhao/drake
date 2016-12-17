@@ -125,6 +125,8 @@ std::map<std::string, std::string> parse_json_object(const std::string &data){
     }else if (data.substr(begin_val,5)=="false"){
       end_val = begin_val+4;
       begin_key = end_val+1;
+    }else{
+      throw; // could not detect the type
     }
     val = data.substr(begin_val,end_val-begin_val+1);
 

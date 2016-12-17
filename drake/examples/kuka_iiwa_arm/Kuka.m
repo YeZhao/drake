@@ -20,10 +20,10 @@ classdef Kuka < RigidBodyManipulator
     end
     
     methods(Static = true)
-         function [h,dh] = finalCost(t,x,goal_state)
+        function [h,dh] = finalCost(t,x,goal_state)
             % simple quadratic cost to the goal
-            Q = 10*eye(length(x));
-            T = 10;
+            Q = 0*eye(length(x));
+            T = 100;
 
             err = x - goal_state;
             h = T*t + err'*Q*err;
@@ -32,8 +32,10 @@ classdef Kuka < RigidBodyManipulator
         
         function [g,dg] = runningCost(dt,x,u,goal_state)
             % simple quadratic cost to the goal
-            R = 0.01*eye(length(u));
-            Q = 10*eye(length(x));
+            R = 1e-3*eye(length(u));
+            pos_cost = 30*ones(length(x)/2,1); 
+            vel_cost = 10*ones(length(x)/2,1); 
+            Q = diag([pos_cost; vel_cost]);
 
             err = x - goal_state;
             g = err'*Q*err + u'*R*u;

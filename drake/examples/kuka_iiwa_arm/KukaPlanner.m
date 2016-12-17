@@ -57,7 +57,10 @@ classdef KukaPlanner
             obj.kuka.goal_state = xG;
             
             % setup dircol
-            prog = DircolTrajectoryOptimization(obj.kuka, N, [0.01 6]);% arbitrary timescale
+            t_min = 1;
+            t_max = 6;
+            options.integration_method = DirtranTrajectoryOptimization.MIDPOINT;
+            prog = DirtranTrajectoryOptimization(obj.kuka, N, [t_min t_max],options);% arbitrary timescale
             
              % state constraint
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
@@ -71,14 +74,15 @@ classdef KukaPlanner
             
             % joint limits
             [jl_min, jl_max] = obj.kuka.getJointLimits;
-            x_min = [jl_min; -inf(Nq,1)];
-            x_max = [jl_max;  inf(Nq,1)];
+            max_joint_velocity = 0.75;
+            x_min = [jl_min; -max_joint_velocity*ones(Nv,1)];
+            x_max = [jl_max;  max_joint_velocity*ones(Nv,1)];
             prog = prog.addConstraint(BoundingBoxConstraint(repmat(x_min,N,1),repmat(x_max,N,1)), prog.x_inds);
             
             % additional solver options
-            prog.setSolverOptions('snopt','majorfeasibilitytolerance',1e-3);
-            prog.setSolverOptions('snopt','minorfeasibilitytolerance',1e-3);
-            prog.setSolverOptions('snopt','majoroptimalitytolerance',1e-3);
+            prog.setSolverOptions('snopt','majorfeasibilitytolerance',1e-2);
+            prog.setSolverOptions('snopt','minorfeasibilitytolerance',1e-2);
+            prog.setSolverOptions('snopt','majoroptimalitytolerance',1e-2);
             
             % initial guess at the trajectory
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xG)]));
@@ -94,14 +98,6 @@ classdef KukaPlanner
             t = xtraj.getBreaks();
             x = xtraj.eval(xtraj.getBreaks());
             u = utraj.eval(utraj.getBreaks());
-            
-            % for debugging
-            % x
-            % info
-            % traj = xtraj.setOutputFrame(obj.kuka.getStateFrame());
-            % v = obj.kuka.constructVisualizer();
-            % playback(v,traj,struct('slider',true));
-
             
         end
         
