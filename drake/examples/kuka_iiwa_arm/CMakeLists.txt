@@ -109,21 +109,22 @@ if(lcm_FOUND)
 #      drakeLCMSystem
 #      gflags)
 
-#  add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
-#  target_link_libraries(iiwa_wsg_simulation
-#    drakeKukaIiwaArmCommon
-#    drakeKukaIiwaWorld
-#    drakeLCMSystem2
-#    drakeRigidBodyPlant
-#    drakeSchunkWsg
-#    drakeSystemAnalysis
-#    drakeSystemControllers)
-#  drake_add_test(
-#      NAME iiwa_wsg_simulation COMMAND iiwa_wsg_simulation -simulation_sec 0.01)
+  add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
+  target_link_libraries(iiwa_wsg_simulation
+    drakeKukaIiwaArmCommon
+    drakeKukaIiwaWorld
+    drakeLCMSystem2
+    drakeRigidBodyPlant
+    drakeSchunkWsg
+    drakeSystemAnalysis
+    drakeSystemControllers)
+  drake_add_test(
+      NAME iiwa_wsg_simulation COMMAND iiwa_wsg_simulation -simulation_sec 0.01)
 
 endif()
 
 add_subdirectory(controlled_kuka)
+add_subdirectory(iiwa_world)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
