@@ -5,6 +5,7 @@
 # GUROBI_PATH should be the linux64 directory in the Gurobi 6.05 release.
 # TODO(david-german-tri): Add support for OS X.
 def _gurobi_impl(repository_ctx):
+
     gurobi_path = repository_ctx.os.environ.get(
         "GUROBI_PATH", "/MISSING_GUROBI_PATH")
     repository_ctx.symlink(gurobi_path, "gurobi-distro")

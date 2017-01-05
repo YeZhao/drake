@@ -12,6 +12,7 @@
 #include "drake/common/drake_assert.h"
 #include "drake/common/drake_path.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
 #include "drake/lcmt_robot_controller_reference.hpp"
@@ -169,7 +170,7 @@ class RobotController {
       const RigidBody<double>& body = *tree.bodies[i];
       if (body.has_parent_body()) {
         const RigidBody<double>& parent_body = *(body.get_parent());
-        const auto& cache_element = cache.getElement(body);
+        const auto& cache_element = cache.get_element(i);
 
         auto body_acceleration = body_accelerations.col(i);
 
@@ -205,7 +206,7 @@ class RobotController {
     for (ptrdiff_t i = body_size_no_gripper - 1; i >= 0; --i) {
       RigidBody<double>& body = *tree.bodies[i];
       if (body.has_parent_body()) {
-        const auto& cache_element = cache.getElement(body);
+        const auto& cache_element = cache.get_element(i);
         const auto& joint = body.getJoint();
         auto joint_wrench = joint_wrenches_const.col(i);
 
@@ -231,11 +232,16 @@ class RobotController {
 
 int DoMain(int argc, const char* argv[]) {
 
-  RigidBodyTree<double> tree(
+/*  RigidBodyTree<double> tree(
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
-      drake::multibody::joints::kFixed);
+      drake::multibody::joints::kFixed);*/
 
-  RobotController runner(tree);
+  auto tree = std::make_unique<RigidBodyTree<double>>();
+  parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      multibody::joints::kFixed, tree.get());
+
+  RobotController runner(*tree);
   runner.Run();
   return 0;
 }

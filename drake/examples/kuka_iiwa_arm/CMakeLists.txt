@@ -18,16 +18,16 @@ if(lcm_FOUND)
   drake_install_headers(kuka_message_handler.h)
 
   drake_install_headers(kuka_lcm_planner.h)
-  drake_install_headers(parse_json.h)
+  #drake_install_headers(parse_json.h)
   drake_install_headers(rigid_body_plan_parser.h)
-  add_executable(test_parse_json test_parse_json.cc)
-  add_executable(run_kuka_dircol_planner run_kuka_dircol_planner.cc)
-  target_link_libraries(run_kuka_dircol_planner
-      drakeIK
-      drakeRBM
-      drakeLCMTypes
-      lcm
-      robotlocomotion-lcmtypes-cpp)
+  #add_executable(test_parse_json test_parse_json.cc)
+  #add_executable(run_kuka_dircol_planner run_kuka_dircol_planner.cc)
+  #target_link_libraries(run_kuka_dircol_planner
+  #    drakeIK
+  #    drakeRBM
+  #    drakeLCMTypes
+  #    lcm
+  #    robotlocomotion-lcmtypes-cpp)
 
   add_executable(run_kuka_iiwa_arm_dynamics run_kuka_iiwa_arm_dynamics.cc)
   target_link_libraries(run_kuka_iiwa_arm_dynamics
@@ -109,17 +109,17 @@ if(lcm_FOUND)
 #      drakeLCMSystem
 #      gflags)
 
-  add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
-  target_link_libraries(iiwa_wsg_simulation
-    drakeKukaIiwaArmCommon
-    drakeKukaIiwaWorld
-    drakeLCMSystem2
-    drakeRigidBodyPlant
-    drakeSchunkWsg
-    drakeSystemAnalysis
-    drakeSystemControllers)
-  drake_add_test(
-      NAME iiwa_wsg_simulation COMMAND iiwa_wsg_simulation -simulation_sec 0.01)
+#  add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
+#  target_link_libraries(iiwa_wsg_simulation
+#    drakeKukaIiwaArmCommon
+#    drakeKukaIiwaWorld
+#    drakeLCMSystem2
+#    drakeRigidBodyPlant
+#    drakeSchunkWsg
+#    drakeSystemAnalysis
+#    drakeSystemControllers)
+#  drake_add_test(
+#      NAME iiwa_wsg_simulation COMMAND iiwa_wsg_simulation -simulation_sec 0.01)
 
 endif()
 

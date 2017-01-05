@@ -7,7 +7,6 @@
 ///
 /// When a plan is received, it will immediately begin executing that
 /// plan on the arm (replacing any plan in progress).
-#include <memory>
 
 #include <lcm/lcm-cpp.hpp>
 
@@ -18,7 +17,6 @@
 #include "drake/common/trajectories/piecewise_polynomial.h"
 #include "drake/common/trajectories/piecewise_polynomial_trajectory.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
-#include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
@@ -115,9 +113,9 @@ class RobotPlanRunner {
   void HandlePlan(const lcm::ReceiveBuffer* rbuf, const std::string& chan,
                   const robotlocomotion::robot_plan_t* plan) {
     std::cout << "New plan received." << std::endl;
+    Eigen::MatrixXd traj_mat(kNumJoints, plan->num_states);
+    traj_mat.fill(0);
 
-    std::vector<Eigen::MatrixXd> knots(plan->num_states,
-                                       Eigen::MatrixXd::Zero(kNumJoints, 1));
     std::map<std::string, int> name_to_idx =
         tree_.computePositionNameToIndexMap();
     for (int i = 0; i < plan->num_states; ++i) {
@@ -126,14 +124,12 @@ class RobotPlanRunner {
         if (name_to_idx.count(state.joint_name[j]) == 0) {
           continue;
         }
-        // Treat the matrix at knots[i] as a column vector.
-        knots[i](name_to_idx[state.joint_name[j]], 0) = state.joint_position[j];
+        traj_mat(name_to_idx[state.joint_name[j]], i) =
+            state.joint_position[j];
       }
     }
 
-    for (int i = 0; i < plan->num_states; ++i) {
-      std::cout << knots[i] << std::endl;
-    }
+    std::cout << traj_mat << std::endl;
 
     std::vector<double> input_time;
     for (int k = 0; k < static_cast<int>(plan->plan.size()); ++k) {
@@ -155,9 +151,14 @@ class RobotPlanRunner {
 };
 
 int do_main(int argc, const char* argv[]) {
-  RigidBodyTree<double> tree(
+/*  RigidBodyTree<double> tree(
       drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
       drake::multibody::joints::kFixed);
+*/
+  auto tree = std::make_unique<RigidBodyTree<double>>();
+  parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      multibody::joints::kFixed, tree.get());
 
   RobotPlanRunner runner(*tree);
   runner.Run();
