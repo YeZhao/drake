@@ -1,0 +1,5 @@
+*~
+*pyc
+pod-build
+/build
+.idea

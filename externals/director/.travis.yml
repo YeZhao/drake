@@ -1,0 +1,39 @@
+language: generic
+sudo: required
+dist: trusty
+osx_image: xcode7.3
+
+virtualenv:
+  system_site_packages: true
+
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode7.3
+      env: USE_LCM=ON MAKE_PACKAGE=ON
+    - os: linux
+      env: USE_LCM=ON MAKE_PACKAGE=ON MAKE_DOCS=ON
+    - os: linux
+      env: USE_LCM=OFF
+
+notifications:
+  email: false
+
+branches:
+  only:
+    - master
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export DISPLAY=:99.0 ; fi
+  - distro/travis/before_install.sh
+
+install: true
+
+script:
+ - distro/travis/build_and_test.sh
+
+after_failure:
+  - echo 'after_failure'
+
+after_success:
+  - distro/travis/after_success.sh
