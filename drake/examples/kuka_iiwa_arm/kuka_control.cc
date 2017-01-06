@@ -73,9 +73,6 @@ class RobotController {
       // Call lcm handle until at least one message is processed
       while (0 == lcm_.handleTimeout(10)) { }
       DRAKE_ASSERT(iiwa_status_.utime != -1);
-    std::cout << iiwa_status_.utime << std::endl;
-      std::cout << robot_controller_reference_.utime << std::endl;
-      //DRAKE_ASSERT(robot_controller_reference_.utime != -1);
       cur_time_us = iiwa_status_.utime;
 
       if (controller_trigger_) {  

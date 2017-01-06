@@ -160,8 +160,6 @@ int DoMain() {
   systems::DiagramBuilder<double> builder;
   auto model = builder.AddSystem<SimulatedKuka<double>>();
 
-  std::cout << "here" << std::endl;
-
   const RigidBodyTree<double>& tree =
       model->get_plant().get_rigid_body_tree();
   VerifyIiwaTree(tree);
@@ -182,8 +180,6 @@ int DoMain() {
           "IIWA_STATUS", &lcm));
   auto status_sender = builder.AddSystem<IiwaStatusSender>();
 
-  std::cout << "here" << std::endl;
-
   builder.Connect(command_sub->get_output_port(0),
                   command_receiver->get_input_port(0));
   builder.Connect(command_receiver->get_output_port(0),
@@ -198,17 +194,14 @@ int DoMain() {
                   status_pub->get_input_port(0));
   auto sys = builder.Build();
 
-  std::cout << "here1" << std::endl;
   Simulator<double> simulator(*sys);
 
-  std::cout << "here" << std::endl;
   lcm.StartReceiveThread();
-  std::cout << "here" << std::endl;
   simulator.Initialize();
-  std::cout << "here" << std::endl;
+
   // Simulate for a very long time.
   simulator.StepTo(FLAGS_simulation_sec);
-  std::cout << "here" << std::endl;
+  
   return 0;
 }
 
