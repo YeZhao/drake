@@ -108,7 +108,7 @@ class RobotController {
         Kp_pos_ctrl << 225, 361, 144, 81, 324, 36, 49;// best gains for December 9th kuka demo
         //Kp_pos_ctrl << 100, 100, 100, 100, 100, 81, 50;// original gains
         Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        Kd_pos_ctrl << 25, 33, 20, 15, 36, 3, 4;// best gains for December 9th kuka demo, tune down damping gains from dummy critically damped gains
+        Kd_pos_ctrl << 25, 33, 20, 15, 36, 2, 3;// best gains for December 9th kuka demo, tune down damping gains from dummy critically damped gains
         //Kd_pos_ctrl << 19, 19, 19, 19, 19, 18, 14;// original gains
         // (TODOs) Add integral control (anti-windup)
         for (int joint = 0; joint < kNumJoints; joint++) {

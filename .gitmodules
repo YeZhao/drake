@@ -16,6 +16,9 @@
 [submodule "externals/spotless"]
 	path = externals/spotless
 	url = https://github.com/RobotLocomotion/spotless-pod.git
+[submodule "externals/director"]
+	path = externals/director
+	url = https://github.com/RobotLocomotion/director.git
 [submodule "externals/signalscope"]
 	path = externals/signalscope
 	url = https://github.com/mitdrc/signal-scope.git
