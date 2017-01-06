@@ -151,10 +151,7 @@ class RobotPlanRunner {
 };
 
 int do_main(int argc, const char* argv[]) {
-/*  RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
-      drake::multibody::joints::kFixed);
-*/
+
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
       GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",

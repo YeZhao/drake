@@ -42,7 +42,7 @@ group "2.high-level-ik-planner" {
   }
 
   cmd "1.director_ik_planner_app" {
-    exec = "DRC_BASE=/none build/install/bin/directorPython drake/examples/kuka_iiwa_arm/director_ik_app.py --director_config drake/examples/kuka_iiwa_arm/director_config.json";
+    exec = "build/install/bin/directorPython drake/examples/kuka_iiwa_arm/director_ik_app.py --director_config drake/examples/kuka_iiwa_arm/director_config.json";
     host = "localhost";
   }
 
@@ -54,7 +54,7 @@ group "2.high-level-ik-planner" {
 
 group "3.high-level-dircol-planner" {
     cmd "0.director_generic_planner_app" {
-        exec = "DRC_BASE=/none build/install/bin/directorPython drake/examples/kuka_iiwa_arm/director_generic_planner_app.py --director_config drake/examples/kuka_iiwa_arm/director_config.json";
+        exec = "build/install/bin/directorPython drake/examples/kuka_iiwa_arm/director_generic_planner_app.py --director_config drake/examples/kuka_iiwa_arm/director_config.json";
         host = "localhost";
     }
     cmd "1.kuka_dircol_planner" {

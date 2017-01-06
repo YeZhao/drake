@@ -73,7 +73,9 @@ class RobotController {
       // Call lcm handle until at least one message is processed
       while (0 == lcm_.handleTimeout(10)) { }
       DRAKE_ASSERT(iiwa_status_.utime != -1);
-      DRAKE_ASSERT(robot_controller_reference_.utime != -1);
+    std::cout << iiwa_status_.utime << std::endl;
+      std::cout << robot_controller_reference_.utime << std::endl;
+      //DRAKE_ASSERT(robot_controller_reference_.utime != -1);
       cur_time_us = iiwa_status_.utime;
 
       if (controller_trigger_) {  
@@ -231,10 +233,6 @@ class RobotController {
 };
 
 int DoMain(int argc, const char* argv[]) {
-
-/*  RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
-      drake::multibody::joints::kFixed);*/
 
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(

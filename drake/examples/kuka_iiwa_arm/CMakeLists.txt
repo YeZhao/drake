@@ -18,7 +18,7 @@ if(lcm_FOUND)
   drake_install_headers(kuka_message_handler.h)
 
   drake_install_headers(kuka_lcm_planner.h)
-  #drake_install_headers(parse_json.h)
+  drake_install_headers(parse_json.h)
   drake_install_headers(rigid_body_plan_parser.h)
   #add_executable(test_parse_json test_parse_json.cc)
   #add_executable(run_kuka_dircol_planner run_kuka_dircol_planner.cc)
