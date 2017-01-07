@@ -1,150 +1,116 @@
 #pragma once
 
 #include <cstddef>
-
 #include <list>
+#include <memory>
 #include <string>
+#include <type_traits>
+#include <unordered_set>
+#include <vector>
 
 #include <Eigen/Core>
 
-#include "drake/common/drake_assert.h"
+#include "drake/common/symbolic_variable.h"
 
 namespace drake {
 namespace solvers {
+template <int rows, int cols>
+using DecisionVariableMatrix =
+    Eigen::Matrix<drake::symbolic::Variable, rows, cols>;
+template <int rows>
+using DecisionVariableVector = DecisionVariableMatrix<rows, 1>;
+using DecisionVariableMatrixX =
+    DecisionVariableMatrix<Eigen::Dynamic, Eigen::Dynamic>;
+using DecisionVariableVectorX = DecisionVariableVector<Eigen::Dynamic>;
+
+using VariableListRef = std::list<Eigen::Ref<const DecisionVariableMatrixX>>;
 
 /**
- * DecisionVariable
- * @brief Provides storage for a decision variable inside an
- * MathematicalProgram.
+ * This class stores a list of DecisionVariableMatrix objects. An instance
+ * of this class is going to be bound to a constraint, indicating that a
+ * constraint is imposed on one or several DecisionVariableMatrix objects.
+ * TODO(hongkai.dai) : replace this class with symbolic::List, or rename it as
+ * using Arguments = std::vector<DecisionVariableMatrixX>;
+ *
  */
-class DecisionVariable {
+class VariableList {
  public:
-  enum class VarType { CONTINUOUS, INTEGER, BINARY };
+  explicit VariableList(const VariableListRef& variable_list);
 
-  DecisionVariable(VarType type, const std::string& name, size_t num_vars,
-                   size_t start_index)
-      : type_(type),
-        name_(name),
-        data_(Eigen::VectorXd::Zero(num_vars)),
-        start_index_(start_index) {}
-
-  /** index()
-   * @brief returns the first index of this variable in the entire variable
-   * vector for the program
+  /**
+   * Returns all the stored DecisionVariableMatrix.
    */
-  size_t index() const { return start_index_; }
-  /** size()
-   * @brief returns the number of elements in the decision variable vector
-   */
-  size_t size() const { return data_.size(); }
-  /** name()
-   * @return the name of the DecisionVariable
-   */
-  const std::string& name() const { return name_; }
-  /** value()
-   * @brief returns the actual stored value; which is only meaningful after
-   * calling solve() in the program.
-   */
-  const Eigen::VectorXd& value() const { return data_; }
-  void set_value(const Eigen::VectorXd& new_data) { data_ = new_data; }
-
-  VarType type() const {return type_;}
-
- private:
-  VarType type_;
-  std::string name_;
-  Eigen::VectorXd data_;
-  size_t start_index_;
-};
-
-class DecisionVariableView {  // enables users to access pieces of the decision
-                              // variables like they would any other eigen
-                              // vector
- public:
-  /// Create a view which covers an entire DecisionVariable.
-  ///
-  /// @p var is aliased, and must remain valid for the lifetime of the view.
-  explicit DecisionVariableView(const DecisionVariable& var)
-      : var_(var), start_index_(0), size_(var_.size()) {}
-
-  /// Create a view covering part of a DecisionVariable.
-  ///
-  /// @p var is aliased, and must remain valid for the lifetime of the view.
-  DecisionVariableView(const DecisionVariable& var, size_t start, size_t n)
-      : var_(var), start_index_(start), size_(n) {
-    DRAKE_ASSERT((start + n) <= static_cast<size_t>(var.size()));
+  const std::list<DecisionVariableMatrixX>& variables() const {
+    return variables_;
   }
 
-  /** index()
-   * @brief returns the first index of this variable in the entire variable
-   * vector for the program
+  /**
+   * Given a list of DecisionVariableMatrix @p vars, computes the TOTAL number
+   * of unique scalar decision variables stored in @p vars.
+   * Example
+   * @code{.cc}
+   * // Create a mathematical program with no decision variables.
+   * MathematicalProgram prog;
+   *
+   * // Add a vector containing 4 decision variables.
+   * auto x = prog.NewContinuousVariables<4>();
+   *
+   * // x1 contains x(0), x(1), x(2).
+   * DecisionVariableVector<3> x1 = x.head<3>();
+   *
+   * // x2 contains x(2), x(3).
+   * DecisionVariableVector<2> x2 = x.tail<2>();
+   *
+   * // Construct a VariableList containing both x1 and x2.
+   * VariableList var_list({x1, x2});
+   *
+   * std::cout << "The number of unique variables is " <<
+   *     var_list.num_unique_variables() << std::endl;
+   *
+   * std::cout << "The size of variable list (including duplication) is " <<
+   *     var_list.size() << std::endl;
+   * @endcode
+   *
+   * The output is
+   * <pre>
+   * The number of unique variables is 4
+   * The size of variable list (including duplication) is 5
+   * </pre>
    */
-  size_t index() const { return var_.index() + start_index_; }
+  size_t num_unique_variables() const {
+    return unique_variable_indices_.size();
+  }
 
-  /** size()
-   * @brief returns the number of elements in the decision variable vector
+  /**
+   * Given a list of DecisionVariableMatrix @p vars, computes the TOTAL number
+   * of scalar decision variables stored in @p vars, including duplication. The
+   * duplicated variables will be counted for more than once.
+   * @see num_unique_variables() for an example.
    */
   size_t size() const { return size_; }
 
-  /** value()
-   * @brief returns the actual stored value; which is only meaningful after
-   * calling solve() in the program.
+  /**
+   * Determines if the stored DecisionVariableMatrix objects are
+   * all column vectors.
    */
-  Eigen::VectorBlock<const Eigen::VectorXd, Eigen::Dynamic> value() const {
-    return var_.value().segment(start_index_, size_);
-  }
+  bool column_vectors_only() const { return column_vectors_only_; }
 
-  std::string name() const {
-    if ((start_index_ == 0) &&
-        (size_ == static_cast<size_t>(var_.value().size()))) {
-      return var_.name();
-    } else {
-      return var_.name() + "(" + std::to_string(start_index_) + ":" +
-             std::to_string(start_index_ + size_) + ")";
-    }
-  }
-
-  /** covers()
-   * @brief returns true iff the given @p index of the enclosing
-   * MathematicalProgram is included in this VariableView.*/
-  bool covers(size_t var_index) const {
-    return (var_index >= index()) && (var_index < (index() + size_));
-  }
-
-  const DecisionVariableView operator()(size_t i) const {
-    DRAKE_ASSERT(i <= size_);
-    return DecisionVariableView(var_, start_index_ + i, 1);
-  }
-  const DecisionVariableView row(size_t i) const {
-    DRAKE_ASSERT(i <= size_);
-    return DecisionVariableView(var_, start_index_ + i, 1);
-  }
-  const DecisionVariableView head(size_t n) const {
-    DRAKE_ASSERT(n <= size_);
-    return DecisionVariableView(var_, start_index_, n);
-  }
-  const DecisionVariableView tail(size_t n) const {
-    DRAKE_ASSERT(n <= size_);
-    return DecisionVariableView(var_, start_index_ + size_ - n, n);
-  }
-  const DecisionVariableView segment(size_t start, size_t n) const {
-    DRAKE_ASSERT(start + n <= size_);
-    return DecisionVariableView(var_, start_index_ + start, n);
+  /**
+   * @return The all unique variables stored in the class.
+   */
+  const std::unordered_set<drake::symbolic::Variable,
+                           drake::hash_value<symbolic::Variable>>&
+  unique_variables() const {
+    return unique_variable_indices_;
   }
 
  private:
-  const DecisionVariable& var_;
-  size_t start_index_, size_;
+  std::list<DecisionVariableMatrixX> variables_{};
+  size_t size_{0};
+  bool column_vectors_only_{true};
+  std::unordered_set<drake::symbolic::Variable,
+                     drake::hash_value<symbolic::Variable>>
+      unique_variable_indices_{};
 };
-
-typedef std::list<DecisionVariableView> VariableList;
-inline int GetVariableListSize(const VariableList& vars) {
-  int var_dim = 0;
-  for (const auto& var : vars) {
-    var_dim += var.size();
-  }
-  return var_dim;
-}
-
 }  // end namespace solvers
 }  // end namespace drake

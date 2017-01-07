@@ -17,6 +17,7 @@
 #include "drake/common/trajectories/piecewise_polynomial.h"
 #include "drake/common/trajectories/piecewise_polynomial_trajectory.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
 #include "drake/lcmt_iiwa_status.hpp"
@@ -150,11 +151,13 @@ class RobotPlanRunner {
 };
 
 int do_main(int argc, const char* argv[]) {
-  RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
-      drake::multibody::joints::kFixed);
 
-  RobotPlanRunner runner(tree);
+  auto tree = std::make_unique<RigidBodyTree<double>>();
+  parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      multibody::joints::kFixed, tree.get());
+
+  RobotPlanRunner runner(*tree);
   runner.Run();
 
   return 0;

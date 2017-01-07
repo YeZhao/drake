@@ -15,15 +15,16 @@ namespace drake {
  */
 class PiecewisePolynomialTrajectory : public Trajectory {
  public:
+
   /**
-   * Construct a PiecewisePolynomialTrajectory from a trajectory matrix.
-   * @param trajectory_matrix Each column represents a particular
-   * time, and the rows of that column contain values for each joint coordinate.
-   * @param times Knot points: the times where the polynomial pieces connect.
-   */
+     * Construct a PiecewisePolynomialTrajectory from a trajectory matrix.
+     * @param trajectory_matrix Each column represents a particular
+     * time, and the rows of that column contain values for each joint coordinate.
+     * @param times Knot points: the times where the polynomial pieces connect.
+     */
   explicit PiecewisePolynomialTrajectory(
-      const Eigen::MatrixXd& trajectory_matrix,
-      const std::vector<double>& times);
+        const Eigen::MatrixXd& trajectory_matrix,
+        const std::vector<double>& times);
 
   /**
    * Construct a PiecewisePolynomialTrajectory from a PiecewisePolynomial.
@@ -44,7 +45,7 @@ class PiecewisePolynomialTrajectory : public Trajectory {
   }
 
   PiecewisePolynomial<double> getPP(){
-    return pp_;
+      return pp_;
   }
 
   /**

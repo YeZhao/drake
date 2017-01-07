@@ -12,6 +12,7 @@
 #include "drake/common/drake_assert.h"
 #include "drake/common/drake_path.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
 #include "drake/lcmt_robot_controller_reference.hpp"
@@ -72,7 +73,6 @@ class RobotController {
       // Call lcm handle until at least one message is processed
       while (0 == lcm_.handleTimeout(10)) { }
       DRAKE_ASSERT(iiwa_status_.utime != -1);
-      DRAKE_ASSERT(robot_controller_reference_.utime != -1);
       cur_time_us = iiwa_status_.utime;
 
       if (controller_trigger_) {  
@@ -108,7 +108,7 @@ class RobotController {
         Kp_pos_ctrl << 225, 361, 144, 81, 324, 36, 49;// best gains for December 9th kuka demo
         //Kp_pos_ctrl << 100, 100, 100, 100, 100, 81, 50;// original gains
         Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-        Kd_pos_ctrl << 25, 33, 20, 15, 36, 5, 14;// best gains for December 9th kuka demo, tune down damping gains from dummy critically damped gains
+        Kd_pos_ctrl << 25, 33, 20, 15, 36, 2, 3;// best gains for December 9th kuka demo, tune down damping gains from dummy critically damped gains
         //Kd_pos_ctrl << 19, 19, 19, 19, 19, 18, 14;// original gains
         // (TODOs) Add integral control (anti-windup)
         for (int joint = 0; joint < kNumJoints; joint++) {
@@ -169,7 +169,7 @@ class RobotController {
       const RigidBody<double>& body = *tree.bodies[i];
       if (body.has_parent_body()) {
         const RigidBody<double>& parent_body = *(body.get_parent());
-        const auto& cache_element = cache.getElement(body);
+        const auto& cache_element = cache.get_element(i);
 
         auto body_acceleration = body_accelerations.col(i);
 
@@ -205,7 +205,7 @@ class RobotController {
     for (ptrdiff_t i = body_size_no_gripper - 1; i >= 0; --i) {
       RigidBody<double>& body = *tree.bodies[i];
       if (body.has_parent_body()) {
-        const auto& cache_element = cache.getElement(body);
+        const auto& cache_element = cache.get_element(i);
         const auto& joint = body.getJoint();
         auto joint_wrench = joint_wrenches_const.col(i);
 
@@ -231,11 +231,12 @@ class RobotController {
 
 int DoMain(int argc, const char* argv[]) {
 
-  RigidBodyTree<double> tree(
-      drake::GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
-      drake::multibody::joints::kFixed);
+  auto tree = std::make_unique<RigidBodyTree<double>>();
+  parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      multibody::joints::kFixed, tree.get());
 
-  RobotController runner(tree);
+  RobotController runner(*tree);
   runner.Run();
   return 0;
 }

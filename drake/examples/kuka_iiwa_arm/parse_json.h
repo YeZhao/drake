@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <Eigen/Core>
+//#include <Eigen/Core>
 
 namespace drake {
 namespace examples {

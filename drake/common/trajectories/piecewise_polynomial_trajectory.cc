@@ -57,4 +57,4 @@ PiecewisePolynomialTrajectory::PiecewisePolynomialTrajectory(
   pp_ = PPType(polys, segment_times);
 }
 
-}  // namespace drake
+} // namespace drake
