@@ -13,14 +13,14 @@ namespace {
 
 int main(int argc, const char* argv[]) {
 
-  auto kuka = std::make_unique<RigidBodyTree<double>>();
+  auto kuka = std::make_shared<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
       GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       multibody::joints::kFixed, kuka.get());
   auto lcm = std::make_shared<lcm::LCM>();
 
   //(TODO: fix the kuka RigidBodyTree reference issue)  
-  KukaMatlabDircolPlanner planner(&kuka, lcm);
+  KukaMatlabDircolPlanner planner(&*kuka, lcm);
   planner.run();
   return 0;
 }
