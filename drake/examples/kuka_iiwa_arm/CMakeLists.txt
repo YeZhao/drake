@@ -64,6 +64,16 @@ if(lcm_FOUND)
     robotlocomotion-lcmtypes-cpp
     lcm)
 
+  add_executable(kuka_plan_runner_friction_estimation kuka_plan_runner_friction_estimation.cc)
+  target_link_libraries(kuka_plan_runner_friction_estimation
+    drakeKukaIiwaArmCommon
+    drakeTrajectories
+    drakeMultibodyParsers
+    drakeRBM
+    drakeLCMTypes
+    robotlocomotion-lcmtypes-cpp
+    lcm)
+    
   add_executable(kuka_control kuka_control.cc)
   target_link_libraries(kuka_control
     drakeKukaIiwaArmCommon
