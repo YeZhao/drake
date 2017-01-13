@@ -10,6 +10,7 @@
 
 #include <lcm/lcm-cpp.hpp>
 #include <cmath>
+
 #include <stdio.h>
 #include <fstream>
 #include <string>
@@ -109,6 +110,7 @@ class RobotPlanRunner {
         double joint_vel = 0.2; 
 
         //int vel_sign = copysign(1, sin(sign_freq*cur_traj_time_s));
+
         std::cout << vel_sign << std::endl;
         if (joint_pos >= PI/4){
           traj_time_init_s = cur_traj_time_s;

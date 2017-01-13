@@ -1,4 +1,4 @@
-function paramEstSyntheticData
+function paramEstSyntheticData_KukaArm
 
 tmp = addpathTemporary(fullfile(pwd,'..'));
 
@@ -17,7 +17,7 @@ parameterEstimationOptions.model = 'energetic';
 % Parameter Estimation robot
 % 'Acrobot' 
 % 'KukaArm'
-parameterEstimationOptions.robot = 'Acrobot';
+parameterEstimationOptions.robot = 'KukaArm';
 
 % Method by which to obtain qdd (not used if using energetic model)
 % 'manipul':   Use acrobot manipulator equations to estimate true qdd
@@ -42,16 +42,16 @@ parameterEstimationOptions.print_result = 'noprint';
 % Standard deviation of the data input error
 if strcmp(parameterEstimationOptions.model,'energetic')
     % In this case, for theta1,theta2,theta1dot,theta2dot
-    noisestd = sqrt([.0005, .0005, .0007, .0007]);
+    noisestd = sqrt([.0005, .0005, .0005, .0005, .0005, .0005, .0005, .0007, .0007, .0007, .0007, .0007, .0007, .0007]);
 else
     % In this case, for theta1,theta2,theta1dot,theta2dot,theta1doubledot,theta2doubledot
-    noisestd = sqrt([.0005, .0005, .0007, .0007, .0012, .0012,]);
+    noisestd = sqrt([.0005, .0005, .0005, .0005, .0005, .0005, .0005, .0007, .0007, .0007, .0007, .0007, .0007, .0007, .0012, .0012, .0012, .0012, .0012, .0012, .0012]);
 end
 % Standard deviation of the parameter value percent error
 paramstd = 1/5;
 
-r = AcrobotPlant;
-rtrue = AcrobotPlant;
+r = KukaArmPlant;
+rtrue = KukaArmPlant;
 
 if ~strcmp(mode,'base')
     % Perturb original parameter estimates with random percentage error
@@ -67,20 +67,31 @@ if ~strcmp(mode,'base')
     % rtrue.m2 = rtrue.m2 + rtrue.m2*paramerr(4);
     rtrue.b1  = rtrue.b1 + rtrue.b1*paramerr(5);
     rtrue.b2  = rtrue.b2 + rtrue.b2*paramerr(6);
-    rtrue.lc1 = rtrue.lc1 + rtrue.lc1*paramerr(7); 
-    rtrue.lc2 = rtrue.lc2 + rtrue.lc2*paramerr(8); 
-    rtrue.Ic1 = rtrue.Ic1 + rtrue.Ic1*paramerr(9);  
-    rtrue.Ic2 = rtrue.Ic2 + rtrue.Ic2*paramerr(10);
+    rtrue.c1x = rtrue.c1x + rtrue.c1x*paramerr(7); 
+    rtrue.c2x = rtrue.c2x + rtrue.c2x*paramerr(8); 
+    rtrue.I1xx = rtrue.I1xx + rtrue.I1xx*paramerr(9);  
+    rtrue.I2xx = rtrue.I2xx + rtrue.I2xx*paramerr(10);
 end
 
 outputFrameNames = r.getOutputFrame.getCoordinateNames();
 
 %% Test on swingup up data
-[utraj,xtraj] = swingUpTrajectory(rtrue);
-Ts = .01; breaks=getBreaks(utraj); T0 = breaks(1); Tf = breaks(end);
-tsamples = T0:Ts:Tf;
-xsamples = eval(xtraj,tsamples)';
-usamples = eval(utraj,tsamples)';
+% [utraj,xtraj] = swingUpTrajectory(rtrue);
+% Ts = .01; breaks=getBreaks(utraj); T0 = breaks(1); Tf = breaks(end);
+% tsamples = T0:Ts:Tf;
+Ts = .01; 
+tsamples = 0:Ts:6;
+utraj = zeros(601,7);
+xtraj = zeros(601,14);
+xsamples = zeros(601,14);%eval(xtraj,tsamples)';
+usamples = zeros(601,7);%eval(utraj,tsamples)';
+
+nq = r.num_positions;
+qdd = zeros(length(tsamples),nq);
+for i=1:length(tsamples)
+    [H,C,B] = manipulatorDynamics(rtrue,xsamples(i,1:nq)',xsamples(i,nq+(1:nq))');
+    qdd(i,:) = (H\(B*usamples(i,:)' - C))';
+end
 
 %% Generate second derivative
 if ~strcmp(parameterEstimationOptions.model,'energetic')
@@ -122,11 +133,11 @@ end
 xsamplesfinal = xsamples+measurementNoise;
 
 
-% Debugging purposes
-v = AcrobotVisualizer(r);
-vtrue = AcrobotVisualizer(rtrue);
-vtrue.playback(xtraj);
-
+% % Debugging purposes
+% v = AcrobotVisualizer(r);
+% vtrue = AcrobotVisualizer(rtrue);
+% vtrue.playback(xtraj);
+% 
 % % plot(xsamples(:,1)); hold on; plot(xsamplesfinal(:,1));
 % plot(xsamples); hold on; plot(xsamplesfinal);
 % % Testing to see if estimate is produced by local minima
