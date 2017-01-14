@@ -103,15 +103,7 @@ class RobotPlanRunner {
         }
         const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        // const auto q_ref = qtraj_->value(cur_traj_time_s);
-        // const auto qd_ref = qdtraj_->value(cur_traj_time_s);
-        // const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
-
-        double joint_vel = 0.2; 
-
-        //int vel_sign = copysign(1, sin(sign_freq*cur_traj_time_s));
-
-        std::cout << vel_sign << std::endl;
+        double joint_vel = 0.1;
         if (joint_pos >= PI/4){
           traj_time_init_s = cur_traj_time_s;
           vel_sign = -1;
@@ -125,27 +117,26 @@ class RobotPlanRunner {
         }
 
         joint_pos = joint_pos_init + (double)vel_sign*joint_vel*(cur_traj_time_s - traj_time_init_s);
-        //std::cout << "joint_pos: " << joint_pos << std::endl;
-        //std::cout << "joint_pos_init: " << joint_pos_init << std::endl;
         Eigen::VectorXd q_ref(kNumJoints);
         Eigen::VectorXd qd_ref(kNumJoints);
         Eigen::VectorXd qdd_ref(kNumJoints);
-        q_ref << 0,joint_pos,0,0,0,0,0;
-        qd_ref << 0,joint_vel,0,0,0,0,0;
+        q_ref << 0,0,0,joint_pos,0,0,0;
+        qd_ref << 0,0,0,joint_vel,0,0,0;
         qdd_ref << 0,0,0,0,0,0,0;
-        //std::cout << "cur_traj_time_s: " << cur_traj_time_s << std::endl; 
-        std::cout << "iiwa_status_.joint_torque_measured(3) " << iiwa_status_.joint_torque_measured[3] << std::endl; 
 
         Eigen::VectorXd q_meas(kNumJoints);
         Eigen::VectorXd qd_meas(kNumJoints);
+        Eigen::VectorXd torque_meas(kNumJoints);
         for(int joint = 0; joint < kNumJoints; joint++){
           q_meas(joint) = iiwa_status_.joint_position_measured[joint];
           qd_meas(joint) = iiwa_status_.joint_velocity_estimated[joint];
+          torque_meas(joint) = iiwa_status_.joint_torque_measured[joint];
         }
 
         saveVector(q_meas, "joint_position_measured");
         saveVector(qd_meas, "joint_velocity_measured");
-        //saveValue(cur_traj_time_s, "cur_traj_time_s");
+        saveVector(torque_meas, "joint_torque_measured");
+        saveValue(cur_traj_time_s, "cur_traj_time_s");
 
         robot_controller_reference.utime = iiwa_status_.utime;
 
@@ -162,7 +153,6 @@ class RobotPlanRunner {
   }
 
   void saveVector(const Eigen::VectorXd & _vec, const char * _name){
-
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
@@ -175,6 +165,17 @@ class RobotPlanRunner {
       save_file<<"\n";
       save_file.flush();
       save_file.close();
+  }
+
+  void saveValue(double _value, const char * _name){
+      std::string _file_name = KUKA_DATA_DIR;
+      _file_name += _name;
+      _file_name += ".txt";
+
+      std::ofstream save_file;
+      save_file.open(_file_name, std::fstream::app);
+      save_file<<_value <<"\n";
+      save_file.flush();
   }
 
  private:
