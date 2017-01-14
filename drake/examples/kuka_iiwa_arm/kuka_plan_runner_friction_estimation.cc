@@ -103,20 +103,21 @@ class RobotPlanRunner {
         }
         const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        double joint_vel = 0.1;
-        if (joint_pos >= PI/4){
+        double joint_vel = 0.6;
+        double joint_max_position = PI/4; 
+        if (joint_pos >= joint_max_position){
           traj_time_init_s = cur_traj_time_s;
           vel_sign = -1;
           std::cout << "hit joint pos limit" << std::endl;
           joint_pos_init = joint_pos - joint_offset;
-        }else if (joint_pos <= -PI/4){
+        }else if (joint_pos <= -joint_max_position){
           traj_time_init_s = cur_traj_time_s;
           vel_sign = 1;
           std::cout << "hit joint neg limit" << std::endl;
           joint_pos_init = joint_pos + joint_offset;
         }
-
         joint_pos = joint_pos_init + (double)vel_sign*joint_vel*(cur_traj_time_s - traj_time_init_s);
+        
         Eigen::VectorXd q_ref(kNumJoints);
         Eigen::VectorXd qd_ref(kNumJoints);
         Eigen::VectorXd qdd_ref(kNumJoints);
