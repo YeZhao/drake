@@ -99,7 +99,8 @@ class RobotController {
 
         // gravity compensation without gripper (to cancel out the low-level kuka controller)
         Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
-        Eigen::VectorXd gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
+        // Eigen::VectorXd gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
+        Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache, no_external_wrenches, z, false);
         torque_command -= gravity_torque;
         
         // PD position control
@@ -233,7 +234,7 @@ int DoMain(int argc, const char* argv[]) {
 
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_fixed_gripper.urdf",
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       multibody::joints::kFixed, tree.get());
 
   RobotController runner(*tree);

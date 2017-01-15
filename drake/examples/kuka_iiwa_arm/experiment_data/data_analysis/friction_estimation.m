@@ -8,20 +8,26 @@ clear all
 clc 
 close all
 fclose all
-%% 
+
+%% set the joint number to be identified
+joint_index = 5;
+%%
+
 % sequence: p4, p7, p75, p8, p85, p9, 1, 
-path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/joint4/vel_p8';
+path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/vel_p1';
 
 read_joint_status_file;
 
 % crop the beginning and ending part of data sequence
 beginning_index = 50;
 ending_index = length(joint_position_measured) - 1000;
-joint_index = 4;
+
 
 vertical_pos_index = [];
 joint_vel_vertical_pos = [];
 joint_torque_vertical_pos = [];
+
+joint_torque_measured = -joint_torque_measured;
 
 % collect all the data when the arm crosses zero vertical position
 for i = beginning_index:ending_index
@@ -46,34 +52,50 @@ joint_vel_positive_set = joint_vel_vertical_pos(joint_vel_vertical_pos>0);
 joint_vel_negative_set = joint_vel_vertical_pos(joint_vel_vertical_pos<0);
 
 if ((length(joint_torque_positive_set) ~= length(joint_torque_negative_set)) || (length(joint_vel_positive_set) ~= length(joint_vel_negative_set)))
-    error('Error: sizes of posive and negative sets are not equal!');
+    disp('Error: sizes of posive and negative sets are not equal!');
+    % if the stiction bias is too large such that the torque sign is
+    % flipped, especially joint 4
+    joint_torque_positive_set = [];
+    joint_torque_negative_set = [];
+    joint_vel_positive_set = [];
+    joint_vel_negative_set = [];
+    
+    for i =1:length(joint_torque_vertical_pos)
+        if mod(i,2) == 1
+            joint_torque_negative_set = [joint_torque_negative_set, joint_torque_vertical_pos(i)];
+            joint_vel_negative_set = [joint_vel_negative_set, joint_vel_vertical_pos(i)];
+        else
+            joint_torque_positive_set = [joint_torque_positive_set, joint_torque_vertical_pos(i)];
+            joint_vel_positive_set = [joint_vel_positive_set, joint_vel_vertical_pos(i)];
+        end
+    end
 end
 
 % average the position and torque data
 joint_torque_positive_avg = mean(joint_torque_positive_set);
 joint_torque_negative_avg = mean(joint_torque_negative_set);
 joint_vel_positive_avg = mean(joint_vel_positive_set);
-joint_vel_negative_avg = mean(joint_vel_negative_set);
+joint_vel_negative_avg = mean(joint_vel_negative_set); 
 
 % For debugging
 joint_torque_positive_avg
 joint_torque_negative_avg
 joint_vel_positive_avg
 joint_vel_negative_avg
-(joint_torque_positive_avg - joint_torque_negative_avg)/2
-(joint_vel_positive_avg - joint_vel_negative_avg)/2
+% (joint_torque_positive_avg - joint_torque_negative_avg)/2
+% (joint_vel_positive_avg - joint_vel_negative_avg)/2
 
-% friction_positive_set6 = [];
-% friction_negative_set6 = [];
-% 
-% friction_positive_set6 = load('FRICTION_POSITIVE_SET6.dat'); 
-% friction_negative_set6 = load('FRICTION_NEGATIVE_SET6.dat'); 
-% 
-% friction_positive_set6 = [friction_positive_set4;joint_vel_positive_avg,joint_torque_positive_avg];
-% friction_negative_set6 = [friction_negative_set4;joint_vel_negative_avg,joint_torque_negative_avg];
-% 
-% save FRICTION_POSITIVE_SET6.dat friction_positive_set6 -ASCII
-% save FRICTION_NEGATIVE_SET6.dat friction_negative_set6 -ASCII
+% friction_positive_set_joint = [];
+% friction_negative_set_joint = [];
+%  
+friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT5.dat'); 
+friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT5.dat'); 
+
+friction_positive_set_joint = [friction_positive_set_joint;joint_vel_positive_avg,joint_torque_positive_avg];
+friction_negative_set_joint = [friction_negative_set_joint;joint_vel_negative_avg,joint_torque_negative_avg];
+
+save FRICTION_POSITIVE_SET_JOINT5.dat friction_positive_set_joint -ASCII
+save FRICTION_NEGATIVE_SET_JOINT5.dat friction_negative_set_joint -ASCII
 
 % figure font 
 bigTextSize = 20;
@@ -82,27 +104,27 @@ textSize = 16;
 smallTextSize = 14;
 legendMargin = 0.3;
 
-% figure(1)
-% coeffs_positive = polyfit(friction_positive_set6(:,1),friction_positive_set6(:,2), 1);
-% x1 = linspace(0, 1.0, 100);
-% y1 = polyval(coeffs_positive, x1);
-% coeffs_negative = polyfit(friction_negative_set6(:,1),friction_negative_set6(:,2), 1);
-% x2 = linspace(-1,0, 100);
-% y2 = polyval(coeffs_negative, x2);
-% plot(x1, y1,'Linewidth',2)
-% hold on
-% plot(x2, y2,'Linewidth',2)
-% hold on
-% plot(friction_positive_set6(:,1),friction_positive_set6(:,2),'ro','MarkerSize',10)
-% hold on
-% plot(friction_negative_set6(:,1),friction_negative_set6(:,2),'ro','MarkerSize',10)
-% xlabel('joint velocity [rad/s]','fontsize',mediumTextSize)
-% ylabel('joint torque [Nm]','fontsize',mediumTextSize)
-% title('Joint 6 friction model','fontsize',bigTextSize)
-% xlim([-1.2, 1.2])
-% ylim([-2, 2])
-% grid on
-% %print -depsc Joint_6_friction_data
+figure(1)
+coeffs_positive = polyfit(friction_positive_set_joint(:,1),friction_positive_set_joint(:,2), 1);
+x1 = linspace(0, 0.6, 100);
+y1 = polyval(coeffs_positive, x1);
+coeffs_negative = polyfit(friction_negative_set_joint(:,1),friction_negative_set_joint(:,2), 1);
+x2 = linspace(-0.6, 0, 100);
+y2 = polyval(coeffs_negative, x2);
+plot(x1, y1,'Linewidth',2)
+hold on
+plot(x2, y2,'Linewidth',2)
+hold on
+plot(friction_positive_set_joint(:,1),friction_positive_set_joint(:,2),'ro','MarkerSize',10)
+hold on
+plot(friction_negative_set_joint(:,1),friction_negative_set_joint(:,2),'ro','MarkerSize',10)
+xlabel('joint velocity [rad/s]','fontsize',mediumTextSize)
+ylabel('joint torque [Nm]','fontsize',mediumTextSize)
+title('Joint 2 friction model','fontsize',bigTextSize)
+xlim([-1.2, 1.2])
+ylim([-8, 8])
+grid on
+%print -depsc Joint_2_friction_data
  
 % figure(2)
 % % data with manual shifting
@@ -193,10 +215,24 @@ friction_positive_set6 = [0.1, 0.0840;
 
 % joint_vel_vertical_pos =
 % 
-%    -0.5018    0.5020   -0.5018    0.5020   -0.5017    0.5019   -0.5018    0.5019   -0.5019    0.5020   -0.5018    0.5019
-% 
-% joint_torque_vertical_pos
-% 
 % joint_torque_vertical_pos =
 % 
-%     0.0773   -0.2605    0.0707   -0.2523    0.0751   -0.2440    0.0689   -0.2442    0.0862   -0.2429    0.0844   -0.2610
+%   Columns 1 through 14
+% 
+%     1.8300   -1.4417    1.8404   -1.3413    1.8421   -1.3510    1.8439   -1.3527    1.8342   -1.3480    1.8309   -1.3574    1.8452   -1.3677
+% 
+%   Columns 15 through 18
+% 
+%     1.8565   -1.3680    1.8609   -1.3612
+% 
+% joint_vel_vertical_pos
+% 
+% joint_vel_vertical_pos =
+% 
+%   Columns 1 through 14
+% 
+%    -0.8035    0.8088   -0.8026    0.8080   -0.8028    0.8079   -0.8026    0.8082   -0.8026    0.8080   -0.8027    0.8079   -0.8027    0.8078
+% 
+%   Columns 15 through 18
+% 
+%    -0.8029    0.8077   -0.8028    0.8079
