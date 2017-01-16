@@ -10,7 +10,7 @@ close all
 fclose all
 
 %% set the joint number to be identified
-joint_index = 5;
+joint_index = 7;
 %%
 
 % sequence: p4, p7, p75, p8, p85, p9, 1, 
@@ -88,14 +88,14 @@ joint_vel_negative_avg
 % friction_positive_set_joint = [];
 % friction_negative_set_joint = [];
 %  
-friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT5.dat'); 
-friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT5.dat'); 
+friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT7.dat'); 
+friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT7.dat'); 
 
 friction_positive_set_joint = [friction_positive_set_joint;joint_vel_positive_avg,joint_torque_positive_avg];
 friction_negative_set_joint = [friction_negative_set_joint;joint_vel_negative_avg,joint_torque_negative_avg];
 
-save FRICTION_POSITIVE_SET_JOINT5.dat friction_positive_set_joint -ASCII
-save FRICTION_NEGATIVE_SET_JOINT5.dat friction_negative_set_joint -ASCII
+save FRICTION_POSITIVE_SET_JOINT7.dat friction_positive_set_joint -ASCII
+save FRICTION_NEGATIVE_SET_JOINT7.dat friction_negative_set_joint -ASCII
 
 % figure font 
 bigTextSize = 20;
@@ -106,10 +106,10 @@ legendMargin = 0.3;
 
 figure(1)
 coeffs_positive = polyfit(friction_positive_set_joint(:,1),friction_positive_set_joint(:,2), 1);
-x1 = linspace(0, 0.6, 100);
+x1 = linspace(0, 1, 100);
 y1 = polyval(coeffs_positive, x1);
 coeffs_negative = polyfit(friction_negative_set_joint(:,1),friction_negative_set_joint(:,2), 1);
-x2 = linspace(-0.6, 0, 100);
+x2 = linspace(-1, 0, 100);
 y2 = polyval(coeffs_negative, x2);
 plot(x1, y1,'Linewidth',2)
 hold on
@@ -120,11 +120,11 @@ hold on
 plot(friction_negative_set_joint(:,1),friction_negative_set_joint(:,2),'ro','MarkerSize',10)
 xlabel('joint velocity [rad/s]','fontsize',mediumTextSize)
 ylabel('joint torque [Nm]','fontsize',mediumTextSize)
-title('Joint 2 friction model','fontsize',bigTextSize)
+title('Joint 7 friction model','fontsize',bigTextSize)
 xlim([-1.2, 1.2])
-ylim([-8, 8])
+ylim([-0, 0.2])
 grid on
-%print -depsc Joint_2_friction_data
+%print -depsc Joint_7_friction_data
  
 % figure(2)
 % % data with manual shifting

@@ -103,7 +103,7 @@ class RobotPlanRunner {
         }
         const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        double joint_vel = 0.6;
+        double joint_vel = 0.1;
         double joint_max_position = PI/6; 
         if (joint_pos >= joint_max_position){
           traj_time_init_s = cur_traj_time_s;
