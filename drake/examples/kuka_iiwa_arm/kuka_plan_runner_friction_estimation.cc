@@ -40,6 +40,8 @@ using Eigen::Vector2d;
 using Eigen::Vector3d;
 
 #define PI 3.1415926
+static std::list< const char*> gs_fileName;
+static std::list< std::string > gs_fileName_string;
 
 namespace drake {
 namespace examples {
@@ -157,6 +159,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
@@ -172,11 +175,20 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
       save_file<<_value <<"\n";
       save_file.flush();
+  }
+
+  void clean_file(const char * _file_name, std::string & _ret_file){
+      std::list<std::string>::iterator iter = std::find(gs_fileName_string.begin(), gs_fileName_string.end(), _file_name);
+      if(gs_fileName_string.end() == iter){
+          gs_fileName_string.push_back(_file_name);
+          remove(_ret_file.c_str());
+      }
   }
 
  private:
