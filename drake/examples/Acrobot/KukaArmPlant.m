@@ -17,8 +17,14 @@ classdef KukaArmPlant < Manipulator
     
     m1 = 5.76; m2 = 6.35; m3 = 3.5; m4 = 3.5; m5 = 3.5; m6 = 1.8; m7 = 1.2;
     g = 9.81;
-    b1=.1;  b2=.1; b3=.1;  b4=.1; b5=.1;  b6=.1; b7=.1;
-    %    b1=0; b2=0;
+    
+    % viscous coefficients of positive and negative directions
+    bv1_positive=0.1392;  bv2_positive=8.3008; bv3_positive=0.0108;  bv4_positive=1.4523; bv5_positive=0.0178;  bv6_positive=0.1199; bv7_positive= -0.0573;
+    bv1_negative=0.2439;  bv2_negative=8.6682; bv3_negative=-0.0106;  bv4_negative=1.6164; bv5_negative=0.0104;  bv6_negative=0.0961; bv7_negative= -0.0319;
+    % coulomb coefficients of positive and negative directions
+    bc1_positive=1.7809;  bc2_positive= 1.9103; bc3_positive= -0.0445;  bc4_positive=0.2538; bc5_positive=0.1151;  bc6_positive=0.0534; bc7_positive=0.4934;
+    bc1_negative= -0.3484;  bc2_negative= 0.1029; bc3_negative= -0.3254;  bc4_negative=-0.4345; bc5_negative=0.0809;  bc6_negative=-0.0881; bc7_negative=-0.1781;
+    %    bv1_positive=0; bv2_positive=0;
     %lc1 = .5; lc2 = 1;
     
     c1x = 0, c1y = -0.03, c1z = 0.12;
@@ -57,13 +63,13 @@ classdef KukaArmPlant < Manipulator
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',28,'p',{'m1','m2','m3','m4','m5','m6','m7','I1xx','I1yy','I1zz','I2xx', ...
 %           'I2yy','I2zz','I3xx','I3yy','I3zz','I4xx','I4yy','I4zz','I5xx','I5yy','I5zz','I6xx','I6yy','I6zz','I7xx','I7yy','I7zz'}));
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',14,'p',...
-%         {'b1','b2','b3','b4','b5','b6','b7','m1','m2','m3','m4','m5','m6','m7'}));
+%         {'bv1_positive','bv2_positive','bv3_positive','bv4_positive','bv5_positive','bv6_positive','bv7_positive','m1','m2','m3','m4','m5','m6','m7'}));
       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',7,'p',...
         {'m1','m2','m3','m4','m5','m6','m7'}));
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',6,'p',...
-%         { 'b1','b2','lc1','lc2','Ic1','Ic2' }));
+%         { 'bv1_positive','bv2_positive','lc1','lc2','Ic1','Ic2' }));
 %      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',10,'p',...
-%        { 'l1','l2','m1','m2','b1','b2','lc1','lc2','I1','I2' }));
+%        { 'l1','l2','m1','m2','bv1_positive','bv2_positive','lc1','lc2','I1','I2' }));
 %      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',1,'p',...
 %        { 'lc2' }));
       obj = setParamLimits(obj,zeros(obj.getParamFrame.dim,1));
@@ -89,7 +95,11 @@ classdef KukaArmPlant < Manipulator
       c6x = obj.c6x; c6y = obj.c6y; c6z = obj.c6z;
       c7x = obj.c7x; c7y = obj.c7y; c7z = obj.c7z;
       
-      b1=obj.b1; b2=obj.b2; b3=obj.b3; b4=obj.b4; b5=obj.b5; b6=obj.b6; b7=obj.b7;
+      bv1_positive=obj.bv1_positive; bv2_positive=obj.bv2_positive; bv3_positive=obj.bv3_positive; bv4_positive=obj.bv4_positive; bv5_positive=obj.bv5_positive; bv6_positive=obj.bv6_positive; bv7_positive=obj.bv7_positive;
+      bv1_negative=obj.bv1_negative; bv2_negative=obj.bv2_negative; bv3_negative=obj.bv3_negative; bv4_negative=obj.bv4_negative; bv5_negative=obj.bv5_negative; bv6_negative=obj.bv6_negative; bv7_negative=obj.bv7_negative;
+      bc1_positive=obj.bc1_positive; bc2_positive=obj.bc2_positive; bc3_positive=obj.bc3_positive; bc4_positive=obj.bc4_positive; bc5_positive=obj.bc5_positive; bc6_positive=obj.bc6_positive; bc7_positive=obj.bc7_positive;
+      bc1_negative=obj.bc1_negative; bc2_negative=obj.bc2_negative; bc3_negative=obj.bc3_negative; bc4_negative=obj.bc4_negative; bc5_negative=obj.bc5_negative; bc6_negative=obj.bc6_negative; bc7_negative=obj.bc7_negative;
+      
       %I1 = obj.Ic1 + obj.m1*obj.lc1^2; I2 = obj.Ic2 + obj.m2*obj.lc2^2;
       %I1xx = obj.I1xx; I2xx = obj.I2xx;
       %m2l1lc2 = m2*l1*lc2;  % occurs often!
@@ -106,8 +116,17 @@ classdef KukaArmPlant < Manipulator
       %G = g*[ m1*lc1*s(1) + m2*(l1*s(1)+lc2*s12); m2*lc2*s12 ];
       G = getKukaArmGravityVector(obj,q);
       
+      % Coulomb and viscous friction
+      for i =1:7
+        if (qd(i) > 0)
+            b(i,1) = bv1_positive * qd(i) + bc1_positive; 
+        else
+            b(i,1) = bv1_negative * qd(i) + bc1_negative; 
+        end
+      end
+      
       % accumate total C and add a damping term:
-      C = C + G + [b1;b2;b3;b4;b5;b6;b7].*qd;
+      C = C + G + b;
       B = eye(7);
     end
     
@@ -131,7 +150,11 @@ classdef KukaArmPlant < Manipulator
       c6x = obj.c6x; c6y = obj.c6y; c6z = obj.c6z;
       c7x = obj.c7x; c7y = obj.c7y; c7z = obj.c7z;
       
-      %b1=obj.b1; b2=obj.b2; b3=obj.b3; b4=obj.b4; b5=obj.b5; b6=obj.b6; b7=obj.b7;
+%       bv1_positive=obj.bv1_positive; bv2_positive=obj.bv2_positive; bv3_positive=obj.bv3_positive; bv4_positive=obj.bv4_positive; bv5_positive=obj.bv5_positive; bv6_positive=obj.bv6_positive; bv7_positive=obj.bv7_positive;
+%       bv1_negative=obj.bv1_negative; bv2_negative=obj.bv2_negative; bv3_negative=obj.bv3_negative; bv4_negative=obj.bv4_negative; bv5_negative=obj.bv5_negative; bv6_negative=obj.bv6_negative; bv7_negative=obj.bv7_negative;
+%       bc1_positive=obj.bc1_positive; bc2_positive=obj.bc2_positive; bc3_positive=obj.bc3_positive; bc4_positive=obj.bc4_positive; bc5_positive=obj.bc5_positive; bc6_positive=obj.bc6_positive; bc7_positive=obj.bc7_positive;
+%       bc1_negative=obj.bc1_negative; bc2_negative=obj.bc2_negative; bc3_negative=obj.bc3_negative; bc4_negative=obj.bc4_negative; bc5_negative=obj.bc5_negative; bc6_negative=obj.bc6_negative; bc7_negative=obj.bc7_negative;
+      
       %I1 = obj.Ic1 + obj.m1*obj.lc1^2; I2 = obj.Ic2 + obj.m2*obj.lc2^2;
       %I1xx = obj.I1xx; I2xx = obj.I2xx;
       q = x(1:7); qd = x(8:14);

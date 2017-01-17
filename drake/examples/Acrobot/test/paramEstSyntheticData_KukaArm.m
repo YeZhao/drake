@@ -65,8 +65,8 @@ if ~strcmp(mode,'base')
     % rtrue.l2 = rtrue.l2 + rtrue.l2*paramerr(2); 
     % rtrue.m1 = rtrue.m1 + rtrue.m1*paramerr(3); 
     % rtrue.m2 = rtrue.m2 + rtrue.m2*paramerr(4);
-    rtrue.b1  = rtrue.b1 + rtrue.b1*paramerr(5);
-    rtrue.b2  = rtrue.b2 + rtrue.b2*paramerr(6);
+    rtrue.bv1_positive  = rtrue.bv1_positive + rtrue.bv1_positive*paramerr(5);
+    rtrue.bv2_positive  = rtrue.bv2_positive + rtrue.bv2_positive*paramerr(6);
     rtrue.c1x = rtrue.c1x + rtrue.c1x*paramerr(7); 
     rtrue.c2x = rtrue.c2x + rtrue.c2x*paramerr(8); 
     rtrue.I1xx = rtrue.I1xx + rtrue.I1xx*paramerr(9);  
