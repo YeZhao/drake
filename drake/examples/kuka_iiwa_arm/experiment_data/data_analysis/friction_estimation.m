@@ -1,5 +1,5 @@
 %=================================================
-%  Date:        January 13th, 2016
+%  Date:        January 13th, 2017
 %  File name:   friction_estimation.m
 %  Author:      Ye Zhao (HarvardAgileRoboticsLab)
 %=================================================
@@ -10,11 +10,11 @@ close all
 fclose all
 
 %% set the joint number to be identified
-joint_index = 7;
+joint_index = 3;
 %%
 
 % sequence: p4, p7, p75, p8, p85, p9, 1, 
-path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/vel_p1';
+path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/vel_p9';
 
 read_joint_status_file;
 
@@ -88,14 +88,14 @@ joint_vel_negative_avg
 % friction_positive_set_joint = [];
 % friction_negative_set_joint = [];
 %  
-friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT7.dat'); 
-friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT7.dat'); 
+friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT3.dat'); 
+friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT3.dat'); 
 
 friction_positive_set_joint = [friction_positive_set_joint;joint_vel_positive_avg,joint_torque_positive_avg];
 friction_negative_set_joint = [friction_negative_set_joint;joint_vel_negative_avg,joint_torque_negative_avg];
 
-save FRICTION_POSITIVE_SET_JOINT7.dat friction_positive_set_joint -ASCII
-save FRICTION_NEGATIVE_SET_JOINT7.dat friction_negative_set_joint -ASCII
+save FRICTION_POSITIVE_SET_JOINT3.dat friction_positive_set_joint -ASCII
+save FRICTION_NEGATIVE_SET_JOINT3.dat friction_negative_set_joint -ASCII
 
 % figure font 
 bigTextSize = 20;

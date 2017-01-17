@@ -98,8 +98,9 @@ class RobotController {
         //torque_command(4) = 0;// to be tested
         //torque_command(0) = 3.3;
         //torque_command(1) = 5;
-        //torque_command(2) = 1.65;//1.65;  1.7
-        torque_command(3) = 0;//-1.4  1.4, -1.38 
+        //torque_command(2) = 1.65;
+        //torque_command(3) = -1.39; //[0 --> positive position: 1.43 Nm, 0 --> negative position: -1.36Nm, 
+                                     // negative position --> 0: 1.40 Nm, positive position --> 0: -1.39 Nm]
 
         // -------->(For Safety) Set up iiwa position command<----------
         for (int joint = 0; joint < kNumJoints; joint++) {

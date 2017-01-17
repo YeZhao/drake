@@ -105,7 +105,7 @@ class RobotPlanRunner {
         }
         const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        double joint_vel = 0.1;
+        double joint_vel = 0.6;
         double joint_max_position = PI/6; 
         if (joint_pos >= joint_max_position){
           traj_time_init_s = cur_traj_time_s;
@@ -123,8 +123,8 @@ class RobotPlanRunner {
         Eigen::VectorXd q_ref(kNumJoints);
         Eigen::VectorXd qd_ref(kNumJoints);
         Eigen::VectorXd qdd_ref(kNumJoints);
-        q_ref << 0,0,0,0,0,0,joint_pos;
-        qd_ref << 0,0,0,0,0,0,joint_vel;
+        q_ref << 0,0,joint_pos,0,0,0,0;
+        qd_ref << 0,0,joint_vel,0,0,0,0;
         qdd_ref << 0,0,0,0,0,0,0;
 
         Eigen::VectorXd q_meas(kNumJoints);
