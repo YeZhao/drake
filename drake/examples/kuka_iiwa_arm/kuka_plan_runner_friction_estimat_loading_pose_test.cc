@@ -79,17 +79,16 @@ class RobotPlanRunner {
 
     lcmt_robot_controller_reference robot_controller_reference;
     robot_controller_reference.num_joints = kNumJoints;
-    robot_controller_reference.joint_position_desired.resize(kNumJoints, 0.);
-    robot_controller_reference.joint_velocity_desired.resize(kNumJoints, 0.);
+    robot_controller_reference.joint_position_desired.resize(kNumJoints, 0.0);
+    robot_controller_reference.joint_velocity_desired.resize(kNumJoints, 0.0);
     robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
-    robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
+    robot_controller_reference.u_nominal.resize(kNumJoints, 0.0);
 
-    // double joint_pos = 0;
-    // int vel_sign = 1;
-    // double traj_time_init_s = 0;
-    // double joint_pos_init = 0;
-    // double joint_offset = 0.01;
-
+    double joint_pos = 0;
+    int vel_sign = 1;
+    double traj_time_init_s = 0;
+    double joint_pos_init = 0;
+    double joint_offset = 0.01;
     Eigen::VectorXd qd_meas_previous(kNumJoints); // 7DOF joint velocity at previous time sample
     qd_meas_previous.setZero();
 
@@ -108,61 +107,82 @@ class RobotPlanRunner {
         }
         const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        const auto q_ref = qtraj_->value(cur_traj_time_s);
-        const auto qd_ref = qdtraj_->value(cur_traj_time_s);
-        const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
+      std::cout << "cur_traj_time_s: " << cur_traj_time_s << std::endl;
+      double initial_phase_duration = 15;
 
-        // double joint_vel = 0.6;
-        // double joint_max_position = PI/6; 
-        // if (joint_pos >= joint_max_position){
-        //   traj_time_init_s = cur_traj_time_s;
-        //   vel_sign = -1;
-        //   std::cout << "hit joint pos limit" << std::endl;
-        //   joint_pos_init = joint_pos - joint_offset;
-        // }else if (joint_pos <= -joint_max_position){
-        //   traj_time_init_s = cur_traj_time_s;
-        //   vel_sign = 1;
-        //   std::cout << "hit joint neg limit" << std::endl;
-        //   joint_pos_init = joint_pos + joint_offset;
-        // }
-        // joint_pos = joint_pos_init + (double)vel_sign*joint_vel*(cur_traj_time_s - traj_time_init_s);
-        
-        // Eigen::VectorXd q_ref(kNumJoints);
-        // Eigen::VectorXd qd_ref(kNumJoints);
-        // Eigen::VectorXd qdd_ref(kNumJoints);
-        // q_ref << 0,0,joint_pos,0,0,0,0;
-        // qd_ref << 0,0,joint_vel,0,0,0,0;
-        // qdd_ref << 0,0,0,0,0,0,0;
+      if (cur_traj_time_s < initial_phase_duration){
+        const auto q_ref_init_phase = qtraj_->value(cur_traj_time_s);
+        const auto qd_ref_init_phase = qdtraj_->value(cur_traj_time_s);
+        const auto qdd_ref_init_phase = qddtraj_->value(cur_traj_time_s);
 
-        Eigen::VectorXd q_meas(kNumJoints);
-        Eigen::VectorXd qd_meas(kNumJoints);
-        Eigen::VectorXd qdd_meas(kNumJoints);
-        Eigen::VectorXd torque_meas(kNumJoints);
         for(int joint = 0; joint < kNumJoints; joint++){
-          q_meas(joint) = iiwa_status_.joint_position_measured[joint];
-          qd_meas(joint) = iiwa_status_.joint_velocity_estimated[joint];
-          torque_meas(joint) = iiwa_status_.joint_torque_measured[joint];
+          robot_controller_reference.joint_position_desired[joint] = q_ref_init_phase(joint);
+          robot_controller_reference.joint_velocity_desired[joint] = qd_ref_init_phase(joint);
+          robot_controller_reference.joint_accel_desired[joint] = qdd_ref_init_phase(joint);
         }
+      }else{
+          double joint_vel = 0.7;
+          double joint_max_position = PI/6; 
+          if (joint_pos >= joint_max_position){
+            traj_time_init_s = cur_traj_time_s - initial_phase_duration;
+            vel_sign = -1;
+            std::cout << "hit joint pos limit and then swing back" << std::endl;
+            joint_pos_init = joint_pos - joint_offset;
+          }else if (joint_pos <= -joint_max_position){
+            traj_time_init_s = cur_traj_time_s - initial_phase_duration;
+            vel_sign = 1;
+            std::cout << "hit joint neg limit and then swing back" << std::endl;
+            joint_pos_init = joint_pos + joint_offset;
+          }
+          joint_pos = joint_pos_init + (double)vel_sign*joint_vel*(cur_traj_time_s - traj_time_init_s - initial_phase_duration);
+          
+          // safety limit
+          if (joint_pos > 1)
+            joint_pos = 1;
+          else if(joint_pos < -1){
+            joint_pos = -1;
+          } 
 
-        //derive joint accelerations
-        for (int joint = 0; joint < kNumJoints; joint++){
-            qdd_meas(joint) = (qd_meas(joint) - qd_meas_previous(joint))/0.005;
+          Eigen::VectorXd q_ref(kNumJoints);
+          Eigen::VectorXd qd_ref(kNumJoints);
+          Eigen::VectorXd qdd_ref(kNumJoints);
+          q_ref << 0,0,0,PI/2,joint_pos,-PI/2,0;
+          qd_ref << 0,0,0,0,joint_vel,0,0;
+          qdd_ref << 0,0,0,0,0,0,0;
+
+          Eigen::VectorXd q_meas(kNumJoints);
+          Eigen::VectorXd qd_meas(kNumJoints);
+          Eigen::VectorXd qdd_meas(kNumJoints);
+          Eigen::VectorXd torque_meas(kNumJoints);
+          for(int joint = 0; joint < kNumJoints; joint++){
+            q_meas(joint) = iiwa_status_.joint_position_measured[joint];
+            qd_meas(joint) = iiwa_status_.joint_velocity_estimated[joint];
+            torque_meas(joint) = iiwa_status_.joint_torque_measured[joint];
+          }
+
+          //derive joint accelerations
+          for (int joint = 0; joint < kNumJoints; joint++){
+              qdd_meas(joint) = (qd_meas(joint) - qd_meas_previous(joint))/0.005;
+          }
+          qd_meas_previous = qd_meas;
+
+          saveVector(q_meas, "joint_position_measured");
+          saveVector(qd_meas, "joint_velocity_measured");
+          saveVector(qdd_meas, "joint_acceleration_measured");
+          saveVector(torque_meas, "joint_torque_measured");
+          saveValue(cur_traj_time_s, "cur_traj_time_s");
+
+          for(int joint = 0; joint < kNumJoints; joint++){
+            robot_controller_reference.joint_position_desired[joint] = q_ref(joint);
+            robot_controller_reference.joint_velocity_desired[joint] = qd_ref(joint);
+            robot_controller_reference.joint_accel_desired[joint] = qdd_ref(joint);
+          }
+
         }
-        qd_meas_previous = qd_meas;
-
-        saveVector(q_meas, "joint_position_measured");
-        saveVector(qd_meas, "joint_velocity_measured");
-        saveVector(qdd_meas, "joint_acceleration_measured");
-        saveVector(torque_meas, "joint_torque_measured");
-        saveValue(cur_traj_time_s, "cur_traj_time_s");
-
+        
         robot_controller_reference.utime = iiwa_status_.utime;
 
-        for(int joint = 0; joint < kNumJoints; joint++){
-          robot_controller_reference.joint_position_desired[joint] = q_ref(joint);
-          robot_controller_reference.joint_velocity_desired[joint] = qd_ref(joint);
-          robot_controller_reference.joint_accel_desired[joint] = qdd_ref(joint);
-        }
+
 
         // publish robot controller reference to kuka control runner
         lcm_.publish(kLcmControlRefChannel, &robot_controller_reference);

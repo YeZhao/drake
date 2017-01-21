@@ -10,11 +10,10 @@ close all
 fclose all
 
 %% set the joint number to be identified
-joint_index = 3;
+joint_index = 5;
 %%
 
-% sequence: p4, p7, p75, p8, p85, p9, 1, 
-path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/vel_p9';
+path = '~/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model';
 
 read_joint_status_file;
 
@@ -82,20 +81,18 @@ joint_torque_positive_avg
 joint_torque_negative_avg
 joint_vel_positive_avg
 joint_vel_negative_avg
-% (joint_torque_positive_avg - joint_torque_negative_avg)/2
-% (joint_vel_positive_avg - joint_vel_negative_avg)/2
 
-% friction_positive_set_joint = [];
-% friction_negative_set_joint = [];
-%  
-friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT3.dat'); 
-friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT3.dat'); 
+friction_positive_set_joint = [];
+friction_negative_set_joint = [];
+ 
+friction_positive_set_joint = load('FRICTION_POSITIVE_SET_JOINT3_NEW.dat'); 
+friction_negative_set_joint = load('FRICTION_NEGATIVE_SET_JOINT3_NEW.dat'); 
 
 friction_positive_set_joint = [friction_positive_set_joint;joint_vel_positive_avg,joint_torque_positive_avg];
 friction_negative_set_joint = [friction_negative_set_joint;joint_vel_negative_avg,joint_torque_negative_avg];
 
-save FRICTION_POSITIVE_SET_JOINT3.dat friction_positive_set_joint -ASCII
-save FRICTION_NEGATIVE_SET_JOINT3.dat friction_negative_set_joint -ASCII
+save FRICTION_POSITIVE_SET_JOINT3_NEW.dat friction_positive_set_joint -ASCII
+save FRICTION_NEGATIVE_SET_JOINT3_NEW.dat friction_negative_set_joint -ASCII
 
 % figure font 
 bigTextSize = 20;
@@ -125,26 +122,6 @@ xlim([-1.2, 1.2])
 ylim([-0, 0.2])
 grid on
 %print -depsc Joint_7_friction_data
- 
-% figure(2)
-% % data with manual shifting
-% coeffs1 = polyfit(friction_positive_set6(:,1),friction_positive_set6(:,2), 1);
-% x1 = linspace(0, 1.0, 100);
-% y1 = polyval(coeffs1, x1);
-% % x2 = linspace(-1,0, 100);
-% % y2 = polyval(coeffs, x2);
-% plot(x1, y1,'Linewidth',2)
-% hold on
-% % plot(x2, y2,'Linewidth',2)
-% % hold on
-% plot(friction_positive_set6(:,1),friction_positive_set6(:,2),'ro','MarkerSize',10)
-% xlabel('joint velocity [rad/s]','fontsize',mediumTextSize)
-% ylabel('joint torque [Nm]','fontsize',mediumTextSize)
-% title('Joint 6 friction model','fontsize',bigTextSize)
-% xlim([-1.2, 1.2])
-% ylim([-2, 2])
-% grid on
-% %print -depsc Joint_6_friction_data
 
 figure(3)
 plot(joint_velocity_measured(joint_index,beginning_index:ending_index),joint_torque_measured(joint_index,beginning_index:ending_index))
@@ -169,6 +146,13 @@ xlabel('joint position [rad]')
 ylabel('joint velocity [rad/s]')
 title('Joint 6 Position V.S. Velocity')
 %print -depsc Joint_6_Velocity_VS_Position
+
+figure(6)
+plot(cur_traj_time(joint_index,beginning_index:ending_index),joint_velocity_measured(joint_index,beginning_index:ending_index))
+hold on;
+plot(cur_traj_time(joint_index,beginning_index:ending_index),joint_acceleration_measured(joint_index,beginning_index:ending_index))
+
+
 
 %joint 6
 friction_positive_set6 = [0.1, 0.0840;
@@ -211,28 +195,3 @@ friction_positive_set6 = [0.1, 0.0840;
 %                           0.9001, 1.5795;]
 %                           %1.0169, 0.3802;
 
-
-
-% joint_vel_vertical_pos =
-% 
-% joint_torque_vertical_pos =
-% 
-%   Columns 1 through 14
-% 
-%     1.8300   -1.4417    1.8404   -1.3413    1.8421   -1.3510    1.8439   -1.3527    1.8342   -1.3480    1.8309   -1.3574    1.8452   -1.3677
-% 
-%   Columns 15 through 18
-% 
-%     1.8565   -1.3680    1.8609   -1.3612
-% 
-% joint_vel_vertical_pos
-% 
-% joint_vel_vertical_pos =
-% 
-%   Columns 1 through 14
-% 
-%    -0.8035    0.8088   -0.8026    0.8080   -0.8028    0.8079   -0.8026    0.8082   -0.8026    0.8080   -0.8027    0.8079   -0.8027    0.8078
-% 
-%   Columns 15 through 18
-% 
-%    -0.8029    0.8077   -0.8028    0.8079
