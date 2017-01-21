@@ -1,37 +1,61 @@
-function [H] = getKukaArmInertiaMatrix(obj,q,c,s)
+function [H] = getKukaArmInertiaMatrix_simplified(obj,q,c,s)
 
 % link mass
 m1=obj.m1; m2=obj.m2; m3=obj.m3; m4=obj.m4; m5=obj.m5; m6=obj.m6; m7=obj.m7;
 
 % link inertia (with repsect to joint local coordinate)
-I1xx= obj.I1xx; I1xy= obj.I1xy; I1xz= obj.I1xz; I1yy= obj.I1yy; I1yz= obj.I1yz; I1zz= obj.I1zz;
-I2xx= obj.I2xx; I2xy= obj.I2xy; I2xz= obj.I2xz; I2yy= obj.I2yy; I2yz= obj.I2yz; I2zz= obj.I2zz;
-I3xx= obj.I3xx; I3xy= obj.I3xy; I3xz= obj.I3xz; I3yy= obj.I3yy; I3yz= obj.I3yz; I3zz= obj.I3zz;
-I4xx= obj.I4xx; I4xy= obj.I4xy; I4xz= obj.I4xz; I4yy= obj.I4yy; I4yz= obj.I4yz; I4zz= obj.I4zz;
-I5xx= obj.I5xx; I5xy= obj.I5xy; I5xz= obj.I5xz; I5yy= obj.I5yy; I5yz= obj.I5yz; I5zz= obj.I5zz;
-I6xx= obj.I6xx; I6xy= obj.I6xy; I6xz= obj.I6xz; I6yy= obj.I6yy; I6yz= obj.I6yz; I6zz= obj.I6zz;
-I7xx= obj.I7xx; I7xy= obj.I7xy; I7xz= obj.I7xz; I7yy= obj.I7yy; I7yz= obj.I7yz; I7zz= obj.I7zz;
+% I1xx= obj.I1xx; I1xy= obj.I1xy; I1xz= obj.I1xz; I1yy= obj.I1yy; I1yz= obj.I1yz; I1zz= obj.I1zz;
+% I2xx= obj.I2xx; I2xy= obj.I2xy; I2xz= obj.I2xz; I2yy= obj.I2yy; I2yz= obj.I2yz; I2zz= obj.I2zz;
+% I3xx= obj.I3xx; I3xy= obj.I3xy; I3xz= obj.I3xz; I3yy= obj.I3yy; I3yz= obj.I3yz; I3zz= obj.I3zz;
+% I4xx= obj.I4xx; I4xy= obj.I4xy; I4xz= obj.I4xz; I4yy= obj.I4yy; I4yz= obj.I4yz; I4zz= obj.I4zz;
+% I5xx= obj.I5xx; I5xy= obj.I5xy; I5xz= obj.I5xz; I5yy= obj.I5yy; I5yz= obj.I5yz; I5zz= obj.I5zz;
+% I6xx= obj.I6xx; I6xy= obj.I6xy; I6xz= obj.I6xz; I6yy= obj.I6yy; I6yz= obj.I6yz; I6zz= obj.I6zz;
+% I7xx= obj.I7xx; I7xy= obj.I7xy; I7xz= obj.I7xz; I7yy= obj.I7yy; I7yz= obj.I7yz; I7zz= obj.I7zz;
+
+I1xx= obj.I1xx; I1xy= 0; I1xz= 0; I1yy= obj.I1yy; I1yz= 0; I1zz= 0;
+I2xx= obj.I2xx; I2xy= 0; I2xz= 0; I2yy= obj.I2yy; I2yz= 0; I2zz= 0;
+I3xx= obj.I3xx; I3xy= 0; I3xz= 0; I3yy= obj.I3yy; I3yz= 0; I3zz= 0;
+I4xx= obj.I4xx; I4xy= 0; I4xz= 0; I4yy= obj.I4yy; I4yz= 0; I4zz= 0;
+I5xx= obj.I5xx; I5xy= 0; I5xz= 0; I5yy= obj.I5yy; I5yz= 0; I5zz= 0;
+I6xx= obj.I6xx; I6xy= 0; I6xz= 0; I6yy= obj.I6yy; I6yz= 0; I6zz= 0;
+I7xx= obj.I7xx; I7xy= 0; I7xz= 0; I7yy= obj.I7yy; I7yz= 0; I7zz= 0;
 
 % link 3D position
-l1x=obj.l1x; l1y=obj.l1y; l1z=obj.l1z;
-l2x=obj.l2x; l2y=obj.l2y; l2z=obj.l2z;
-l3x=obj.l3x; l3y=obj.l3y; l3z=obj.l3z;
-l4x=obj.l4x; l4y=obj.l4y; l4z=obj.l4z;
-l5x=obj.l5x; l5y=obj.l5y; l5z=obj.l5z;
-l6x=obj.l6x; l6y=obj.l6y; l6z=obj.l6z;
-l7x=obj.l7x; l7y=obj.l7y; l7z=obj.l7z;
+% l1x=obj.l1x; l1y=obj.l1y; l1z=obj.l1z;
+% l2x=obj.l2x; l2y=obj.l2y; l2z=obj.l2z;
+% l3x=obj.l3x; l3y=obj.l3y; l3z=obj.l3z;
+% l4x=obj.l4x; l4y=obj.l4y; l4z=obj.l4z;
+% l5x=obj.l5x; l5y=obj.l5y; l5z=obj.l5z;
+% l6x=obj.l6x; l6y=obj.l6y; l6z=obj.l6z;
+% l7x=obj.l7x; l7y=obj.l7y; l7z=obj.l7z;
+
+l1x = 0; l1y = 0; l1z = 0.1575;
+l2x = 0; l2y = 0; l2z = 0.2025;
+l3x = 0; l3y = 0.2045; l3z = 0;
+l4x = 0; l4y = 0; l4z = 0.2155;
+l5x = 0; l5y = 0.1845; l5z = 0;
+l6x = 0; l6y = 0; l6z = 0.2155;
+l7x = 0; l7y = 0.081; l7z = 0;
 
 % gravity constant
 g=obj.g;
 
 % CoM 3D position (with repsect to joint local coordinate)
-c1x = obj.c1x; c1y = obj.c1y; c1z = obj.c1z;
-c2x = obj.c2x; c2y = obj.c2y; c2z = obj.c2z;
-c3x = obj.c3x; c3y = obj.c3y; c3z = obj.c3z;
-c4x = obj.c4x; c4y = obj.c4y; c4z = obj.c4z;
-c5x = obj.c5x; c5y = obj.c5y; c5z = obj.c5z;
-c6x = obj.c6x; c6y = obj.c6y; c6z = obj.c6z;
-c7x = obj.c7x; c7y = obj.c7y; c7z = obj.c7z;
+% c1x = obj.c1x; c1y = obj.c1y; c1z = obj.c1z;
+% c2x = obj.c2x; c2y = obj.c2y; c2z = obj.c2z;
+% c3x = obj.c3x; c3y = obj.c3y; c3z = obj.c3z;
+% c4x = obj.c4x; c4y = obj.c4y; c4z = obj.c4z;
+% c5x = obj.c5x; c5y = obj.c5y; c5z = obj.c5z;
+% c6x = obj.c6x; c6y = obj.c6y; c6z = obj.c6z;
+% c7x = obj.c7x; c7y = obj.c7y; c7z = obj.c7z;
+
+c1x = 0; c1y = -0.03; c1z = 0.12;
+c2x = 0.0003; c2y = 0.059; c2z = 0.042;
+c3x = 0; c3y = 0.03; c3z = 0.13;
+c4x = 0; c4y = 0.067; c4z = 0.034;
+c5x = 0.0001; c5y = 0.021; c5z = 0.076;
+c6x = 0; c6y = 0.0006; c6z = 0.0004;
+c7x = 0; c7y = 0; c7z = 0.02;
 
 % joint angle data
 q1 = q(1);
