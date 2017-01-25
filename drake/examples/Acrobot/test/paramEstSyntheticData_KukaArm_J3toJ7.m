@@ -1,22 +1,79 @@
-function paramEstSyntheticData_KukaArm_J6J7
+function paramEstSyntheticData_KukaArm_J3toJ7
 clear all
+
 tmp = addpathTemporary(fullfile(pwd,'..'));
 
 %% read arm data
-path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model';
+path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/joint_3_to_7_dynamic_motion_nice_data1';
 read_joint_status_file;
 
 % crop the beginning and ending part of data sequence
-beginning_index = 200;%1;%
-ending_index = length(joint_position_measured) - 400; %420;% 450;%
-%410;%2100%
+beginning_index_set = 560;%[560,2530,7270];%[3600, 6860];%;%2800;%1000;%
+ending_index_set = 10000;%length(joint_position_measured_raw) - 400;%[1960,4360,8980];%[6200, 11000];%;%;%1800;%%1800;%1800;%3600;%2000;%
 
-joint_velocity_measured = joint_velocity_measured(6:7,beginning_index:ending_index);
-joint_position_measured = joint_position_measured(6:7,beginning_index:ending_index);
-joint_acceleration_measured = joint_acceleration_measured(6:7,beginning_index:ending_index);
-joint_torque_measured = joint_torque_measured(6:7,beginning_index:ending_index);
-cur_traj_time = cur_traj_time(beginning_index:ending_index);
+% bad index
+% 4900,
+% 6740,
+
+joint_velocity_measured = [];
+joint_position_measured = [];
+joint_acceleration_measured = [];
+joint_torque_measured = [];
+
+for i=1:length(beginning_index_set)
+    joint_velocity_measured = [joint_velocity_measured, joint_velocity_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+    joint_position_measured = [joint_position_measured, joint_position_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+    joint_acceleration_measured = [joint_acceleration_measured, joint_acceleration_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+    joint_torque_measured = [joint_torque_measured, joint_torque_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+end
+
 joint_torque_measured = -joint_torque_measured;
+% q5 = joint_position_measured(1,:);
+% q6 = joint_position_measured(2,:);
+% q7 = joint_position_measured(3,:);
+% 
+% dq5 = joint_velocity_measured(1,:);
+% dq6 = joint_velocity_measured(2,:);
+% dq7 = joint_velocity_measured(3,:);
+% 
+% q5ddot = joint_acceleration_measured(1,:);
+% q6ddot = joint_acceleration_measured(2,:);
+% q7ddot = joint_acceleration_measured(3,:);
+% 
+% 
+%     l5x = 0, l5y = 0.1845, l5z = 0;
+%     l6x = 0, l6y = 0, l6z = 0.2155;
+%     l7x = 0,l7y = 0.081, l7z = 0;
+%     
+%     %m1 = 5.76; m2 = 6.35; m3 = 3.5; m4 = 3.5; 
+%     m5 = 3.5; m7 = 1.2;
+%     g = 9.81;
+%     
+%     c5x = 0.0001, c5y = 0.021, c5z = 0.076;
+%     c6x = 0, c6y = 0.0006, c6z = 0.0004;
+%     c7x = 0, c7y = 0, c7z = 0.02;
+%     
+% %     I1xx= 0.033, I1xy= 0, I1xz= 0, I1yy= 0.0333, I1yz= 0.004887, I1zz= 0.0123;
+% %     I2xx= 0.0305, I2xy= 0, I2xz= 0, I2yy= 0.0304, I2yz= 0.004887, I2zz= 0.011;
+% %     I3xx= 0.025, I3xy= 0, I3xz= 0, I3yy= 0.0238, I3yz= 0.00487, I3zz= 0.0076;
+% %     I4xx= 0.017, I4xy= 0, I4xz= 0, I4yy= 0.0164, I4yz= 0.00284, I4zz= 0.006;
+%     I5xx= 0.01, I5xy= 0, I5xz= 0, I5yy= 0.0087, I5yz= 0.00309, I5zz= 0.00449;
+%     I6xx= 0.0049, I6xy= 0, I6xz= 0, I6yy= 0.0047, I6yz= 0.000246, I6zz= 0.0036;
+%     I7xx= 0.0002, I7xy= 0, I7xz= 0, I7yy= 0.0002, I7yz= 0, I7zz= 0.0003;
+%     
+% w = (- c6y*c6z*cos(q6).*q5ddot) + c6y^2 .*q6ddot - (c6y^2*dq5.^2.*sin(2*q6))/2 - g*sin(q6)*c6y;
+% 
+% H1 = (2268949521066275.*cos(q6))./9223372036854775808 - I7xx*cos(q7).*sin(q6).*sin(q7) + I7yy*cos(q7).*sin(q6).*sin(q7).*q5ddot;
+% H2 = (m7*c7z^2 + (81*m7*c7z)/500 + I7xx/2 + I7yy/2 + I6zz + (6561*m7)/1000000 - (I7xx*cos(2*q7))/2 + (I7yy*cos(2*q7))/2).*q6ddot;
+% 
+% C2 = dq5.*((I7xx*dq6.*sin(2*q5))/2 - (I7yy*dq6.*sin(2*q5))/2 + I7yy*dq7.*cos(q5).^2.*sin(q6) + I7xx*dq7.*sin(q5).^2.*sin(q6)) - (dq5.^2*m7.*sin(2*q6)*(1000*c7z + 81)^2)/2000000 + (dq5.*dq6.*sin(2*q5)*(I6xx - I6yy))/2 - dq6.*dq7.*cos(q5).*cos(q6).*sin(q5)*(I7xx - I7yy);
+% 
+% G2 = -(g*sin(q6)*(81*m7 + 1000*c7z*m7))/1000;
+% 
+% y = joint_torque_measured(2,:) - H1 - H2 - C2 - G2;
+% 
+% figure(1)
+% plot(w,y)
 
 %%
 % Synthetic parameter estimation mode
@@ -32,7 +89,7 @@ mode = 'measnoise';
 parameterEstimationOptions.model = 'dynamic';
 
 % Parameter Estimation robot
-% 'Acrobot' 
+% 'Acrobot'
 % 'KukaArm'
 parameterEstimationOptions.robot = 'KukaArm';
 
@@ -67,8 +124,8 @@ end
 % Standard deviation of the parameter value percent error
 paramstd = 1/5;
 
-r = KukaArmPlant_J6J7;
-rtrue = KukaArmPlant_J6J7;
+r = KukaArmPlant_J3toJ7;
+rtrue = KukaArmPlant_J3toJ7;
 
 % if ~strcmp(mode,'base')
 %     % Perturb original parameter estimates with random percentage error
@@ -159,7 +216,7 @@ arm_input = joint_torque_measured';
 % % Testing to see if estimate is produced by local minima
 % r = rtrue;
 
-outputFrameNames = [outputFrameNames;'theta6doubledot';'theta7doubledot'];
+outputFrameNames = [outputFrameNames;'theta3doubledot';'theta4doubledot';'theta5doubledot';'theta6doubledot';'theta7doubledot'];
 Ts = .01;
 data = iddata(arm_state,arm_input,Ts,'InputName',r.getInputFrame.getCoordinateNames(),'OutputName',outputFrameNames);
 [estimated_parameters, estimated_delay] = parameterEstimation(r,data,parameterEstimationOptions);
@@ -169,8 +226,8 @@ coords = getCoordinateNames(r.getParamFrame);
 p_true = double(rtrue.getParams);
 p_init = double(r.getParams);
 fprintf('\nParameter estimation results:\n\n');
-fprintf('  Param  \tTrue    \t Initial\tEstimated\n');
-fprintf('  -----  \t--------\t--------\t---------\n');
+fprintf('  Param  \tKuka CAD Model    \tEstimated\n');
+fprintf('  -----  \t--------\t\t---------\n');
 for i=1:length(coords)
-  fprintf('%7s  \t%8.5f\t%8.5f\t%8.5f\n',coords{i},p_true(i),p_init(i),estimated_parameters(i));
+  fprintf('%7s  \t%8.6f\t\t%8.6f\n',coords{i},p_true(i),estimated_parameters(i));
 end
