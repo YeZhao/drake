@@ -30,7 +30,7 @@
 
 #include "drake/lcmt_iiwa_status.hpp"
 #include "drake/lcmt_robot_controller_reference.hpp"
-#define KUKA_DATA_DIR "/home/yezhao/kuka-dev/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/"
+#define KUKA_DATA_DIR "/home/yezhao/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/"
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
