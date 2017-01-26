@@ -84,12 +84,6 @@ class RobotPlanRunner {
     robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
     robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
 
-    // double joint_pos = 0;
-    // int vel_sign = 1;
-    // double traj_time_init_s = 0;
-    // double joint_pos_init = 0;
-    // double joint_offset = 0.01;
-
     Eigen::VectorXd qd_meas_previous(kNumJoints); // 7DOF joint velocity at previous time sample
     qd_meas_previous.setZero();
 

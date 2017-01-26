@@ -18,8 +18,8 @@ group "1.middleware-kuka-plan-and-torque-control" {
     host = "localhost";
   }
 
-  cmd "1.kuka_plan_runner_friction_estimation" {
-    exec = "build/drake/examples/kuka_iiwa_arm/kuka_plan_runner_friction_estimation";
+  cmd "1.kuka_plan_runner_mass_and_CoM_estimation" {
+    exec = "build/drake/examples/kuka_iiwa_arm/kuka_plan_runner_mass_and_CoM_estimation";
     host = "localhost";
   }
 
