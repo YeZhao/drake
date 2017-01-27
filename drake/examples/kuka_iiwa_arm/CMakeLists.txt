@@ -83,6 +83,16 @@ if(lcm_FOUND)
     drakeLCMTypes
     robotlocomotion-lcmtypes-cpp
     lcm)
+
+  add_executable(kuka_plan_runner_mass_and_CoM_estimation_J2toJ7 kuka_plan_runner_mass_and_CoM_estimation_J2toJ7.cc)
+  target_link_libraries(kuka_plan_runner_mass_and_CoM_estimation_J2toJ7
+    drakeKukaIiwaArmCommon
+    drakeTrajectories
+    drakeMultibodyParsers
+    drakeRBM
+    drakeLCMTypes
+    robotlocomotion-lcmtypes-cpp
+    lcm)
             
   add_executable(kuka_control kuka_control.cc)
   target_link_libraries(kuka_control

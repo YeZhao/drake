@@ -84,30 +84,36 @@ class RobotPlanRunner {
     robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
     robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
 
-    int num_joint_pose = 7;
+    int num_joint_pose = 10;
     int num_of_joint = 3;
-    int init_joint_index = 4;
+    int init_joint_index = 1;
     Eigen::VectorXd joint_pose_min(num_of_joint);
     Eigen::VectorXd joint_pose_max(num_of_joint);
 
-    joint_pose_min << -140*PI/180, -110*PI/180, -150*PI/180;
-    joint_pose_max << 140*PI/180, 110*PI/180, 150*PI/180;
+    joint_pose_min << -60*PI/180, -110*PI/180, -60*PI/180;
+    joint_pose_max << 60*PI/180, 110*PI/180, 60*PI/180;
 
     Eigen::VectorXd joint_pose_inc(num_of_joint);
-    joint_pose_inc << (joint_pose_max(0) - joint_pose_min(0))/(double)(num_joint_pose-1), (joint_pose_min(1) - joint_pose_max(1))/(double)(num_joint_pose-1), (joint_pose_max(2) - joint_pose_min(2))/(double)(num_joint_pose-1);
+    joint_pose_inc << (joint_pose_max(0) - joint_pose_min(0))/(double)(num_joint_pose-1), (joint_pose_max(1) - joint_pose_min(1))/(double)(num_joint_pose-1), (joint_pose_max(2) - joint_pose_min(2))/(double)(num_joint_pose-1);
 
-    Eigen::VectorXd joint_5_pose_set(num_joint_pose);
-    Eigen::VectorXd joint_6_pose_set(num_joint_pose);
-    Eigen::VectorXd joint_7_pose_set(num_joint_pose);
+    std::cout << "joint_pose_inc" << joint_pose_inc << std::endl;
+
+    Eigen::VectorXd joint_2_pose_set(num_joint_pose);
+    Eigen::VectorXd joint_3_pose_set(num_joint_pose);
+    Eigen::VectorXd joint_4_pose_set(num_joint_pose);
 
     for(int i = 0;i<num_joint_pose;i++){
-      joint_5_pose_set(i) = joint_pose_min(0) + joint_pose_inc(0)*i;
-      joint_6_pose_set(i) = joint_pose_max(1) + joint_pose_inc(1)*i;
-      joint_7_pose_set(i) = joint_pose_min(2) + joint_pose_inc(2)*i;
+      joint_2_pose_set(i) = joint_pose_min(0) + joint_pose_inc(0)*i;
+      joint_3_pose_set(i) = joint_pose_min(1) + joint_pose_inc(1)*i;
+      joint_4_pose_set(i) = joint_pose_min(2) + joint_pose_inc(2)*i;
     }
 
+    std::cout << "joint_2_pose_set" << joint_2_pose_set << std::endl;
+    std::cout << "joint_3_pose_set" << joint_3_pose_set << std::endl;
+    std::cout << "joint_4_pose_set" << joint_4_pose_set << std::endl;
+
     int trajectory_seg_index = 1;
-    double trajectory_seg_duration = 5;
+    double trajectory_seg_duration = 6;
 
     Eigen::VectorXd q_ref(kNumJoints);
     Eigen::VectorXd qd_ref(kNumJoints);
@@ -118,7 +124,7 @@ class RobotPlanRunner {
 
     double traj_time_init_s = 0;
     Eigen::VectorXd joint_pos_init(num_joint_pose);
-    joint_pos_init << joint_5_pose_set(0), joint_6_pose_set(0), joint_7_pose_set(0);
+    joint_pos_init << joint_2_pose_set(0), joint_3_pose_set(0), joint_4_pose_set(0);
     bool save_initial_data_flag_ = true;
     bool ending_motion_flag_ = false;
 
@@ -128,7 +134,7 @@ class RobotPlanRunner {
     Eigen::VectorXd torque_meas(kNumJoints);
 
     Eigen::VectorXd init_joint_vel(num_of_joint);
-    init_joint_vel << -0.4, 0.4, -0.4;
+    init_joint_vel << -0.4, -0.4, -0.4;
 
     Eigen::VectorXd qd_meas_previous(kNumJoints); // 7DOF joint velocity at previous time sample
     qd_meas_previous.setZero();
@@ -136,6 +142,9 @@ class RobotPlanRunner {
     int first_joint_index = 0;
     int second_joint_index = 0;
     int third_joint_index = 0;
+
+    bool second_joint_forward_index = true;
+    bool third_joint_forward_index = true;
 
     while (true) {
       // Call lcm handle until at least one message is processed
@@ -195,9 +204,40 @@ class RobotPlanRunner {
                 first_joint_index = (int)floor((double)trajectory_seg_index/(double)num_joint_pose) % num_joint_pose;
                 second_joint_index = trajectory_seg_index % num_joint_pose;;
                 third_joint_index = trajectory_seg_index % num_joint_pose;
-                joint_pos_init << joint_5_pose_set(first_joint_index), joint_6_pose_set(second_joint_index), joint_7_pose_set(third_joint_index);
 
-                std::cout << "first_joint_index: " << first_joint_index << ", second_joint_index: " << second_joint_index << ", third_joint_index: " << third_joint_index << std::endl;
+                std::cout << "second_joint_index: " << second_joint_index << std::endl;
+                std::cout << "third_joint_index: " << third_joint_index << std::endl;
+
+                if (trajectory_seg_index >= num_joint_pose - 1){
+                  if (second_joint_index == 0){
+                    second_joint_forward_index = !second_joint_forward_index;
+                  }
+                    
+                  if (third_joint_index == 0){
+                    third_joint_forward_index = !third_joint_forward_index;
+                  }
+                }
+                
+                if (second_joint_forward_index){
+                  joint_pos_init(1) = joint_3_pose_set(second_joint_index);
+                }else{
+                  joint_pos_init(1) = joint_3_pose_set(num_joint_pose - second_joint_index - 1);
+                }
+
+                if (third_joint_forward_index){
+                  joint_pos_init(2) = joint_4_pose_set(third_joint_index);
+                }else{
+                  joint_pos_init(2) = joint_4_pose_set(num_joint_pose - third_joint_index - 1);
+                }
+                joint_pos_init(0) = joint_2_pose_set(first_joint_index);
+
+                //joint_pos_init << joint_2_pose_set(first_joint_index), joint_3_pose_set(second_joint_index), joint_4_pose_set(third_joint_index);
+
+                if (second_joint_forward_index)
+                  std::cout << "first_joint_index: " << first_joint_index << ", second_joint_index: " << second_joint_index << ", third_joint_index: " << third_joint_index << std::endl;
+                else
+                  std::cout << "first_joint_index: " << first_joint_index << ", second_joint_index: " << num_joint_pose - second_joint_index - 1 << ", third_joint_index: " << num_joint_pose - third_joint_index - 1 << std::endl;
+                
                 trajectory_seg_index++;
               }else{
                 ending_motion_flag_ = true;
@@ -210,19 +250,36 @@ class RobotPlanRunner {
               q_ref(init_joint_index) = joint_pos_init(0) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
           }else{
               q_ref(init_joint_index) = joint_pos_init(0) + joint_pose_inc(0);
+          }  
+          
+          if (second_joint_forward_index){
+            if (q_ref(1+init_joint_index) < joint_pos_init(1) + joint_pose_inc(1)){
+              q_ref(1+init_joint_index) = joint_pos_init(1) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
+            }else{
+              q_ref(1+init_joint_index) = joint_pos_init(1) + joint_pose_inc(1);
+            } 
+          }else{
+            if (q_ref(1+init_joint_index) > joint_pos_init(1) - joint_pose_inc(1)){
+              q_ref(1+init_joint_index) = joint_pos_init(1) - joint_vel * (cur_traj_time_s - traj_time_init_s); 
+            }else{
+              q_ref(1+init_joint_index) = joint_pos_init(1) - joint_pose_inc(1);
+            }
           }
 
-          if (q_ref(1+init_joint_index) > joint_pos_init(1) + joint_pose_inc(1)){
-            q_ref(1+init_joint_index) = joint_pos_init(1) - joint_vel * (cur_traj_time_s - traj_time_init_s); 
+          if (third_joint_forward_index){
+            if (q_ref(2+init_joint_index) < joint_pos_init(2) + joint_pose_inc(2)){
+              q_ref(2+init_joint_index) = joint_pos_init(2) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
+            }else{
+              q_ref(2+init_joint_index) = joint_pos_init(2) + joint_pose_inc(2);
+            }
           }else{
-            q_ref(1+init_joint_index) = joint_pos_init(1) + joint_pose_inc(1);
-          } 
-
-          if (q_ref(2+init_joint_index) < joint_pos_init(2) + joint_pose_inc(2)){
-            q_ref(2+init_joint_index) = joint_pos_init(2) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
-          }else{
-            q_ref(2+init_joint_index) = joint_pos_init(2) + joint_pose_inc(2);
+            if (q_ref(2+init_joint_index) > joint_pos_init(2) - joint_pose_inc(2)){
+              q_ref(2+init_joint_index) = joint_pos_init(2) - joint_vel * (cur_traj_time_s - traj_time_init_s); 
+            }else{
+              q_ref(2+init_joint_index) = joint_pos_init(2) - joint_pose_inc(2);
+            }
           }
+
         }
 
         // save measured data
@@ -238,6 +295,11 @@ class RobotPlanRunner {
         }
         qd_meas_previous = qd_meas;
 
+/*        saveValue(cur_traj_time_s, "cur_traj_time_s_full");
+        saveVector(q_meas, "joint_position_measured_full");
+        saveVector(qd_meas, "joint_velocity_measured_full");
+        saveVector(torque_meas, "joint_torque_measured_full");
+*/
         robot_controller_reference.utime = iiwa_status_.utime;
 
         for(int joint = 0; joint < kNumJoints; joint++){
