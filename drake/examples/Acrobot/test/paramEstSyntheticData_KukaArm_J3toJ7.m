@@ -4,30 +4,43 @@ clear all
 tmp = addpathTemporary(fullfile(pwd,'..'));
 
 %% read arm data
-path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/friction_model/joint_3_to_7_dynamic_motion_nice_data1';
+path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/static_test/J5toJ7_set2';
 read_joint_status_file;
 
-% crop the beginning and ending part of data sequence
-beginning_index_set = 560;%[560,2530,7270];%[3600, 6860];%;%2800;%1000;%
-ending_index_set = 10000;%length(joint_position_measured_raw) - 400;%[1960,4360,8980];%[6200, 11000];%;%;%1800;%%1800;%1800;%3600;%2000;%
+% % crop the beginning and ending part of data sequence
+% beginning_index_set = 560;%[560,2530,7270];%[3600, 6860];%;%2800;%1000;%
+% ending_index_set = 10000;%length(joint_position_measured_raw) - 400;%[1960,4360,8980];%[6200, 11000];%;%;%1800;%%1800;%1800;%3600;%2000;%
+% 
+% % bad index
+% % 4900,
+% % 6740,
+% 
+% joint_velocity_measured = [];
+% joint_position_measured = [];
+% joint_acceleration_measured = [];
+% joint_torque_measured = [];
+% 
+% for i=1:length(beginning_index_set)
+%     joint_velocity_measured = [joint_velocity_measured, joint_velocity_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+%     joint_position_measured = [joint_position_measured, joint_position_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+%     joint_acceleration_measured = [joint_acceleration_measured, joint_acceleration_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+%     joint_torque_measured = [joint_torque_measured, joint_torque_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
+% end
+% 
+% joint_torque_measured = -joint_torque_measured;
 
-% bad index
-% 4900,
-% 6740,
+joint_begin_index = 3;
+joint_end_index = 7;
 
-joint_velocity_measured = [];
-joint_position_measured = [];
-joint_acceleration_measured = [];
-joint_torque_measured = [];
+beginning_index = 1;
+ending_index = length(joint_position_measured_raw);
 
-for i=1:length(beginning_index_set)
-    joint_velocity_measured = [joint_velocity_measured, joint_velocity_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
-    joint_position_measured = [joint_position_measured, joint_position_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
-    joint_acceleration_measured = [joint_acceleration_measured, joint_acceleration_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
-    joint_torque_measured = [joint_torque_measured, joint_torque_measured_raw(3:7,beginning_index_set(i):ending_index_set(i))];
-end
-
+joint_velocity_measured = joint_velocity_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
+joint_position_measured = joint_position_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
+joint_acceleration_measured = joint_acceleration_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
+joint_torque_measured = joint_torque_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
 joint_torque_measured = -joint_torque_measured;
+
 % q5 = joint_position_measured(1,:);
 % q6 = joint_position_measured(2,:);
 % q7 = joint_position_measured(3,:);

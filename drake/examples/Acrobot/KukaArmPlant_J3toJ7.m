@@ -67,8 +67,8 @@ classdef KukaArmPlant_J3toJ7 < Manipulator
 %           'I2yy','I2zz','I3xx','I3yy','I3zz','I4xx','I4yy','I4zz','I5xx','I5yy','I5zz','I6xx','I6yy','I6zz','I7xx','I7yy','I7zz'}));
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',14,'p',...
 %         {'bv1_positive','bv2_positive','bv3_positive','bv4_positive','bv5_positive','bv6_positive','bv7_positive','m1','m2','m3','m4','m5','m6','m7'}));
-      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',9,'p',...
-        {'m3','m4','m5','m6','c3y', 'c3z', 'c4x', 'c4y', 'c4z'})); %,'m1','m2','m3',,'m6','m7'
+      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',7,'p',...
+        {'m3','m4','c3y', 'c3z', 'c4x', 'c4y', 'c4z'})); %,'m1','m2','m3',,'m6','m7'
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',6,'p',...
 %         { 'bv1_positive','bv2_positive','lc1','lc2','Ic1','Ic2' }));
 %      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',10,'p',...
@@ -141,7 +141,7 @@ classdef KukaArmPlant_J3toJ7 < Manipulator
       end
       
       % accumate total C and add a damping term:
-      C = C + G + b;
+      C = C + G;
       B = eye(5);
     end
     

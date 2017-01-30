@@ -15,7 +15,10 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
     l6x = 0, l6y = 0, l6z = 0.2155;
     l7x = 0,l7y = 0.081, l7z = 0;
     
-    m1 = 5.76; m2 = 6.35; m3 = 3.5; m4 = 3.5; m5 = 3.5; m6 = 1.8; m7 = 1.06;%1.2;
+    m1 = 5.76; m2 = 6.35;
+    m3 = 3.5;%3.59;%
+    m4 = 3.5;%4.32; 
+    m5 = 3.5; m6 = 1.8; m7 = 1.18;%1.2;
     g = 9.81;
     
     % viscous coefficients of positive and negative directions
@@ -26,16 +29,20 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
     bc1_negative= -0.3484;  bc2_negative= 0.1029; bc3_negative= -0.3254;  bc4_negative=-0.4345; bc5_negative=0.0809;  bc6_negative=-0.0881; bc7_negative=-0.1781;
     %    bv1_positive=0; bv2_positive=0;
     
+    
     c1x = 0, c1y = -0.03, c1z = 0.12;
     c2x = 0.0003, c2y = 0.059, c2z = 0.042;
-    c3x = 0, c3y = 0.03, c3z = 0.13;
-    c4x = 0, c4y = 0.067, c4z = 0.034;
+    c3x = 0, c3y = 0.03, %0.057;%
+    c3z = 0.13;%0.0268;% 0.13;%
+    c4x = 0, c4y = 0.067,%0.055;% 
+    c4z = 0.034;%0.049;%
     c5x = 0.0001, c5y = 0.021, c5z = 0.076;
     c6x = 0, c6z = 0.0004;
     c7x = 0, c7y = 0;
     
+    
     % update with identified parameters
-    c7z = 0.016;%0.02;
+    c7z = 0.0176;%0.02;
     c6y = 0.00055;%0.0006 
     
     I1xx= 0.033, I1xy= 0, I1xz= 0, I1yy= 0.0333, I1yz= 0.004887, I1zz= 0.0123;
@@ -67,10 +74,16 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
 %           'I2yy','I2zz','I3xx','I3yy','I3zz','I4xx','I4yy','I4zz','I5xx','I5yy','I5zz','I6xx','I6yy','I6zz','I7xx','I7yy','I7zz'}));
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',14,'p',...
 %         {'bv1_positive','bv2_positive','bv3_positive','bv4_positive','bv5_positive','bv6_positive','bv7_positive','m1','m2','m3','m4','m5','m6','m7'}));
-%       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',4,'p',...
-%         {'m2','m3','m4','m5'})); %,'m1','m2','m3',,'m6','m7'
-      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',8,'p',...
-        {'m2','m3','m4','c3y', 'c3z', 'c4x', 'c4y', 'c4z'})); %,'m1','m2','m3',,'m6','m7'
+%         obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',3,'p',...
+%         {'m2','m3','m4'})); %,'m1','m2','m3',,'m6','m7'
+%         obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',6,'p',...
+%         {'c2x','c2y','c3y','c3z','c4y','c4z'})); %'m2','m3','m4','m1','m2','m3',,'m6','m7' 'c2x', 'c2y', 'c2z' 
+%       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',3,'p',...
+%         {'c3y','c3z','c4z'})); %'m2','m3','m4','m1','m2','m3',,'m6','m7' 'c2x', 'c2y', 'c2z' 
+      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',9,'p',...
+        {'m2','m3','m4','c2x', 'c2y','c3y','c3z','c4y','c4z'})); %'m2','m3','m4','m1','m2','m3',,'m6','m7' 'c2x', 'c2y', 'c2z' 
+%         obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',8,'p',...
+%         {'m2','m3','m4','c3y', 'c3z', 'c4x', 'c4y', 'c4z'}));
 %       obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',6,'p',...
 %         { 'bv1_positive','bv2_positive','lc1','lc2','Ic1','Ic2' }));
 %      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',10,'p',...
@@ -80,7 +93,7 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
       obj = setParamLimits(obj,zeros(obj.getParamFrame.dim,1));
     end
 
-    function [H,C,B] = manipulatorDynamics(obj,q,qd)
+    function [C,B] = manipulatorDynamics(obj,q,qd)
       % keep it readable:
       m1=obj.m1; m2=obj.m2; m3=obj.m3; m4=obj.m4; m5=obj.m5; m6=obj.m6; m7=obj.m7;
       l1x=obj.l1x; l1y=obj.l1y; l1z=obj.l1z;
@@ -117,11 +130,11 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
       %H = [ I1 + I2 + m2*l1^2 + 2*m2l1lc2*c(2), h12; h12, I2 ];
       
       tic
-      H = getKukaArmInertiaMatrix_J2toJ7(obj,q,c,s);
+      %H = getKukaArmInertiaMatrix_J2toJ7(obj,q,c,s);
       toc
       
       tic
-      C = getKukaArmCoriolisCentrifugalVector_J2toJ7(obj,q,qd,c,s);
+      %C = getKukaArmCoriolisCentrifugalVector_J2toJ7(obj,q,qd,c,s);
       toc
       %C = [ -2*m2l1lc2*s(2)*qd(2), -m2l1lc2*s(2)*qd(2); m2l1lc2*s(2)*qd(1), 0 ];
       %G = g*[ m1*lc1*s(1) + m2*(l1*s(1)+lc2*s12); m2*lc2*s12 ];
@@ -146,7 +159,7 @@ classdef KukaArmPlant_J2toJ7 < Manipulator
       b(6,1) = (bv7_positive + bv7_positive)/2 * qd(6);
       
       % accumate total C and add a damping term:
-      C = C + G + b;
+      C = G; 
       B = eye(6);
     end
     

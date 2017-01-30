@@ -190,7 +190,7 @@ classdef KukaArmPlant_J5J6J7 < Manipulator
       b3 = (bv7_positive + bv7_negative)/2 * dq7 + bc7_positive;
       b = [b1;b2;b3];
       % accumate total C and add a damping term:
-      C = C + G + b;
+      C = C + G;
       B = eye(3);
     end
     
