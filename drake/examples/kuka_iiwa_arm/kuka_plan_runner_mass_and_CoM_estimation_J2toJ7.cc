@@ -255,8 +255,6 @@ class RobotPlanRunner {
                 }
                 joint_pos_init(0) = joint_2_pose_set(first_joint_index);
 
-                //joint_pos_init << joint_2_pose_set(first_joint_index), joint_3_pose_set(second_joint_index), joint_4_pose_set(third_joint_index);
-
                 if (first_joint_forward_index)
                   std::cout << "first_joint_index: " << first_joint_index;
                 else
@@ -336,11 +334,6 @@ class RobotPlanRunner {
         }
         qd_meas_previous = qd_meas;
 
-/*        saveValue(cur_traj_time_s, "cur_traj_time_s_full");
-        saveVector(q_meas, "joint_position_measured_full");
-        saveVector(qd_meas, "joint_velocity_measured_full");
-        saveVector(torque_meas, "joint_torque_measured_full");
-*/
         robot_controller_reference.utime = iiwa_status_.utime;
 
         for(int joint = 0; joint < kNumJoints; joint++){
@@ -359,7 +352,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
@@ -375,7 +368,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
