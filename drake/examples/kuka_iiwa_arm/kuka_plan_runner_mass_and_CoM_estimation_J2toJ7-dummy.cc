@@ -84,14 +84,14 @@ class RobotPlanRunner {
     robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
     robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
 
-    int num_joint_pose = 10;
+    int num_joint_pose = 4;
     int num_of_joint = 3;
     int init_joint_index = 1;
     Eigen::VectorXd joint_pose_min(num_of_joint);
     Eigen::VectorXd joint_pose_max(num_of_joint);
 
-    joint_pose_min << -70*PI/180, -110*PI/180, -70*PI/180;
-    joint_pose_max << 70*PI/180, 110*PI/180, 70*PI/180;
+    joint_pose_min << -60*PI/180, -110*PI/180, -60*PI/180;
+    joint_pose_max << 60*PI/180, 110*PI/180, 60*PI/180;
 
     Eigen::VectorXd joint_pose_inc(num_of_joint);
     joint_pose_inc << (joint_pose_max(0) - joint_pose_min(0))/(double)(num_joint_pose-1), (joint_pose_max(1) - joint_pose_min(1))/(double)(num_joint_pose-1), (joint_pose_max(2) - joint_pose_min(2))/(double)(num_joint_pose-1);
@@ -113,9 +113,9 @@ class RobotPlanRunner {
     std::cout << "joint_4_pose_set" << joint_4_pose_set << std::endl;
 
     int trajectory_seg_index = 1;
-    //int first_trajectory_seg_index_offset = 0;
-    //int second_trajectory_seg_index_offset = 0;
-    double trajectory_seg_duration = 4;
+    int first_trajectory_seg_index_offset = 0;
+    int second_trajectory_seg_index_offset = 0;
+    double trajectory_seg_duration = 6;
 
     Eigen::VectorXd q_ref(kNumJoints);
     Eigen::VectorXd qd_ref(kNumJoints);
@@ -126,7 +126,7 @@ class RobotPlanRunner {
 
     double traj_time_init_s = 0;
     Eigen::VectorXd joint_pos_init(num_joint_pose);
-    joint_pos_init << joint_2_pose_set(7), joint_3_pose_set(0), joint_4_pose_set(0);
+    joint_pos_init << joint_2_pose_set(0), joint_3_pose_set(0), joint_4_pose_set(0);
     bool save_initial_data_flag_ = true;
     bool ending_motion_flag_ = false;
 
@@ -204,9 +204,9 @@ class RobotPlanRunner {
               traj_time_init_s = cur_traj_time_s;
 
               std::cout << "----------start----------" << std::endl;
-              if (trajectory_seg_index < num_joint_pose*num_joint_pose){
+              if (trajectory_seg_index < num_joint_pose*num_joint_pose*num_joint_pose){
                 std::cout << "trajectory_seg_index:" << trajectory_seg_index << std::endl;
-                first_joint_index = 7;
+                first_joint_index = (int)floor((double)trajectory_seg_index/(double)(num_joint_pose*num_joint_pose));
                 second_joint_index = (int)floor((double)trajectory_seg_index/(double)num_joint_pose) % num_joint_pose;
                 third_joint_index = trajectory_seg_index % num_joint_pose;
 
@@ -214,13 +214,17 @@ class RobotPlanRunner {
                 std::cout << "second_joint_forward_index: " << second_joint_forward_index << std::endl;
                 std::cout << "third_joint_forward_index: " << third_joint_forward_index << std::endl;
 
-                if (trajectory_seg_index > num_joint_pose*num_joint_pose){
+                if (trajectory_seg_index - first_trajectory_seg_index_offset > num_joint_pose*num_joint_pose){
                   if (first_joint_index == 0){
                     first_joint_forward_index = !first_joint_forward_index;
                   }
+                  first_trajectory_seg_index_offset = trajectory_seg_index;
+                  second_trajectory_seg_index_offset = trajectory_seg_index;
                 }
+                std::cout << "second_trajectory_seg_index_offset: " << second_trajectory_seg_index_offset << std::endl;
+                std::cout << "second_joint_index: " << second_joint_index << std::endl;
 
-                if (trajectory_seg_index > num_joint_pose + 2){
+                if (trajectory_seg_index - second_trajectory_seg_index_offset > num_joint_pose + 2){
                   if (second_joint_index == 0){
                     second_joint_forward_index = !second_joint_forward_index;
                   }
@@ -359,7 +363,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
@@ -375,7 +379,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
