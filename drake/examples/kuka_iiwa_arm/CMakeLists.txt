@@ -93,16 +93,6 @@ if(lcm_FOUND)
     drakeLCMTypes
     robotlocomotion-lcmtypes-cpp
     lcm)
-
-  add_executable(kuka_plan_runner_dynamic_test kuka_plan_runner_dynamic_test.cc)
-  target_link_libraries(kuka_plan_runner_dynamic_test
-    drakeKukaIiwaArmCommon
-    drakeTrajectories
-    drakeMultibodyParsers
-    drakeRBM
-    drakeLCMTypes
-    robotlocomotion-lcmtypes-cpp
-    lcm)
             
   add_executable(kuka_control kuka_control.cc)
   target_link_libraries(kuka_control
