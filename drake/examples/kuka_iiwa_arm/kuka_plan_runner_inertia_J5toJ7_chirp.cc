@@ -32,14 +32,6 @@
 #include "drake/lcmt_robot_controller_reference.hpp"
 #define KUKA_DATA_DIR "/home/yezhao/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/dynamic_test/"
 
-//chirp params
-/*#define SWEEP_FREQ_HZ_LOW 0.001
-#define SWEEP_FREQ_HZ_HIGH 10
-#define SWEEP_RATE 0.033 //percent change of sweep range per second
-#define SWEEP_RANGE (SWEEP_FREQ_HZ_HIGH-SWEEP_FREQ_HZ_LOW)
-#define SWEEP_SETPOINT_CURRENT_AMPLITUDE_A_DEFAULT 0.5
-#define SWEEP_SETPOINT_MID_CURRENT_A 0.0 
-*/
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using Eigen::VectorXi;
@@ -60,9 +52,6 @@ const char* const kLcmStatusChannel = "IIWA_STATUS";
 const char* const kLcmControlRefChannel = "CONTROLLER_REFERENCE";
 const char* const kLcmPlanChannel = "COMMITTED_ROBOT_PLAN";
 const int kNumJoints = 7;
-
-//chirp signal params
-//double Prev_effective_angle = 0.0;
 
 static bool forward_end1 = 0;
 static bool forward_end2 = 0;
@@ -156,7 +145,6 @@ class RobotPlanRunner {
     Eigen::VectorXd SWEEP_FREQ_HZ_HIGH(num_of_joint);
     SWEEP_FREQ_HZ_HIGH << 0.8, 0.7, 2;
     double SWEEP_RATE = 0.03; //percent change of sweep range per second
-    //double SWEEP_RANGE = SWEEP_FREQ_HZ_HIGH-SWEEP_FREQ_HZ_LOW;
     double SWEEP_SETPOINT_CURRENT_AMPLITUDE_A_DEFAULT = 0.5;
     double SWEEP_SETPOINT_MID_CURRENT_A = 0.0; 
 
@@ -183,38 +171,6 @@ class RobotPlanRunner {
         }
         cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
 
-        /*if (cur_traj_time_s < 5){
-            for(int i = 0;i<num_of_joint;i++){
-              if (abs(iiwa_status_.joint_position_measured[i+init_joint_index] - joint_pos_init(i)) > 1e-4){
-                q_ref(i+init_joint_index) = init_joint_vel(i) * (cur_traj_time_s - traj_time_init_s); 
-              }else{
-                q_ref(i+init_joint_index) = joint_pos_init(i);
-              }
-            }
-        }else{
-          cur_traj_time_s = cur_traj_time_s - 5;
-          if ((cur_traj_time_s > trajectory_seg_duration*trajectory_seg_index || save_initial_data_flag_) & !ending_motion_flag_){
-
-            if (save_initial_data_flag_)
-              save_initial_data_flag_ = false;
-            else{
-              traj_time_init_s = cur_traj_time_s;
-
-              if (trajectory_seg_index < num_joint_pose*num_joint_pose){
-                first_joint_index = 3;//(int)floor((double)trajectory_seg_index/(double)num_joint_pose) % num_joint_pose;
-                second_joint_index = 3;//trajectory_seg_index % num_joint_pose;;
-                third_joint_index = 3;//trajectory_seg_index % num_joint_pose;
-                joint_pos_init << joint_5_pose_set(first_joint_index), joint_6_pose_set(second_joint_index), joint_7_pose_set(third_joint_index);
-
-                std::cout << "first_joint_index: " << first_joint_index << ", second_joint_index: " << second_joint_index << ", third_joint_index: " << third_joint_index << std::endl;
-                trajectory_seg_index++;
-              }else{
-                ending_motion_flag_ = true;
-              }
-              std::cout << "trajectory_seg_index:" << trajectory_seg_index << std::endl;
-            }
-          }*/
-
           double samplePeriod_s = 1e-3;
 
           if(!End1){
@@ -232,26 +188,6 @@ class RobotPlanRunner {
           for(int i = 0;i < 3;i++)
             q_ref(i+init_joint_index) += joint_pos_init(i);
           
-          /*joint_vel = 0.35 + 0.15*cos(PI/4*(cur_traj_time_s - traj_time_init_s));
-          if (q_ref(init_joint_index) < joint_pos_init(0) + joint_pose_inc(0)){
-              q_ref(init_joint_index) = joint_pos_init(0) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
-          }else{
-              q_ref(init_joint_index) = joint_pos_init(0) + joint_pose_inc(0);
-          }
-
-          if (q_ref(1+init_joint_index) > joint_pos_init(1) + joint_pose_inc(1)){
-            q_ref(1+init_joint_index) = joint_pos_init(1) - joint_vel * (cur_traj_time_s - traj_time_init_s); 
-          }else{
-            q_ref(1+init_joint_index) = joint_pos_init(1) + joint_pose_inc(1);
-          } 
-
-          if (q_ref(2+init_joint_index) < joint_pos_init(2) + joint_pose_inc(2)){
-            q_ref(2+init_joint_index) = joint_pos_init(2) + joint_vel * (cur_traj_time_s - traj_time_init_s); 
-          }else{
-            q_ref(2+init_joint_index) = joint_pos_init(2) + joint_pose_inc(2);
-          }*/
-        //}
-
         // save measured data
         for(int joint = 0; joint < kNumJoints; joint++){
           q_meas(joint) = iiwa_status_.joint_position_measured[joint];
@@ -266,7 +202,6 @@ class RobotPlanRunner {
         qd_meas_previous = qd_meas;
 
         double tolerance = 0.01;
-        //if ((fabs(qd_meas(4)) > tolerance) || (fabs(qd_meas(5)) > tolerance) || (fabs(qd_meas(6)) > tolerance)){
         if ((fabs(qd_meas(4)) > tolerance) || (fabs(qd_meas(5)) > tolerance) || (fabs(qd_meas(6)) > tolerance)){
           saveVector(q_meas, "joint_position_measured");
           saveVector(qd_meas, "joint_velocity_measured");
@@ -292,8 +227,6 @@ class RobotPlanRunner {
   //generates a chirp signal
   double getChirpSignal(double elapsedTime, double samplePeriod, double amplitude, double offset, double lowFreq_hz, double highFreq_hz, double rate, bool *end, bool *forward_end, bool *backward_end, double *new_init_chirp_time_s, bool *set_new_init_chirp_time){
     double effective_angle, effective_switching_freq_hz, chirp_signal;
-    //double range = highFreq_hz - lowFreq_hz;
-    //std::cout << "elapsedTime: " << elapsedTime << std::endl;
 
     if(elapsedTime > 0.0){
 
@@ -301,8 +234,6 @@ class RobotPlanRunner {
         *end = 1;
       }
       std::cout << "------------------" << std::endl;
-      //linear chirp
-      //std::cout << "rate*range: " << rate*range << std::endl;
       if (*forward_end){
         rate = -rate;
         if(*set_new_init_chirp_time){
@@ -318,23 +249,6 @@ class RobotPlanRunner {
       chirp_signal = amplitude*sin(effective_angle) + offset;
       std::cout << "effective_switching_freq_hz: " << effective_switching_freq_hz << std::endl;
 
-/*      //exponential chirp
-      effective_angle = 2 * PI * lowFreq_hz * ( pow(rate*range,elapsedTime) - 1 )/log(rate*range);
-      chirp_signal = amplitude*sin(effective_angle) + offset;
-*/
-      //std::cout << "effective_angle: " << effective_angle << std::endl;
-      //std::cout << "pow(rate*range,elapsedTime): " << pow(rate*range,elapsedTime) << std::endl;
-      //std::cout << "log(rate*range): " << log(rate*range) << std::endl;
-
-      /*if(samplePeriod <= 0.0){
-        effective_switching_freq_hz = 0.0;
-      }
-      else{
-        effective_switching_freq_hz = (effective_angle - Prev_effective_angle)/(samplePeriod*2*PI); 
-      }
-      Prev_effective_angle = effective_angle;
-      std::cout << "effective_switching_freq_hz: " << effective_switching_freq_hz << std::endl;
-      */
       if(effective_switching_freq_hz > highFreq_hz) {
         //*end = 1;
         *forward_end = 1;
@@ -347,7 +261,6 @@ class RobotPlanRunner {
       chirp_signal = offset;
       effective_switching_freq_hz = 0.0;
     }
-    //std::cout << "chirp_signal: " << chirp_signal << std::endl;
 
     return chirp_signal;
   }

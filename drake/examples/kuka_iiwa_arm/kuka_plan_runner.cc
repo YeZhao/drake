@@ -150,7 +150,6 @@ class RobotPlanRunner {
     Eigen::VectorXd SWEEP_FREQ_HZ_HIGH(num_of_joint);
     SWEEP_FREQ_HZ_HIGH << 1, 0.7, 2;
     double SWEEP_RATE = 0.03; //percent change of sweep range per second
-    //double SWEEP_RANGE = SWEEP_FREQ_HZ_HIGH-SWEEP_FREQ_HZ_LOW;
     double SWEEP_SETPOINT_CURRENT_AMPLITUDE_A_DEFAULT = 0.5;
     double SWEEP_SETPOINT_MID_CURRENT_A = 0.0; 
 
@@ -234,8 +233,6 @@ class RobotPlanRunner {
     //generates a chirp signal
     double getChirpSignal(double elapsedTime, double samplePeriod, double amplitude, double offset, double lowFreq_hz, double highFreq_hz, double rate, bool *end, bool *forward_end, bool *backward_end, double *new_init_chirp_time_s, bool *set_new_init_chirp_time){
       double effective_angle, effective_switching_freq_hz, chirp_signal;
-      //double range = highFreq_hz - lowFreq_hz;
-      //std::cout << "elapsedTime: " << elapsedTime << std::endl;
 
       if(elapsedTime > 0.0){
 
@@ -243,8 +240,6 @@ class RobotPlanRunner {
           *end = 1;
         }
         std::cout << "------------------" << std::endl;
-        //linear chirp
-        //std::cout << "rate*range: " << rate*range << std::endl;
         if (*forward_end){
           rate = -rate;
           if(*set_new_init_chirp_time){
@@ -260,10 +255,6 @@ class RobotPlanRunner {
         chirp_signal = amplitude*sin(effective_angle) + offset;
         std::cout << "effective_switching_freq_hz: " << effective_switching_freq_hz << std::endl;
 
-        //std::cout << "effective_angle: " << effective_angle << std::endl;
-        //std::cout << "pow(rate*range,elapsedTime): " << pow(rate*range,elapsedTime) << std::endl;
-        //std::cout << "log(rate*range): " << log(rate*range) << std::endl;
-
         if(effective_switching_freq_hz > highFreq_hz) {
           *forward_end = 1;
         }
@@ -275,8 +266,6 @@ class RobotPlanRunner {
         chirp_signal = offset;
         effective_switching_freq_hz = 0.0;
       }
-      //std::cout << "chirp_signal: " << chirp_signal << std::endl;
-
       return chirp_signal;
     }
 
