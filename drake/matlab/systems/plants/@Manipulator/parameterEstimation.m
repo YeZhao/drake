@@ -48,6 +48,7 @@ else options=struct(); end
 if (~isfield(options,'print_result')) 
   options.print_result='noprint'; 
 end
+options.print_result='printall';
 if (~isfield(options,'model')) 
   options.model='dynamic'; 
 end
@@ -70,7 +71,6 @@ np = length(p_orig);
 assert(all(pmin>=0));  % otherwise I'll have to subtract it out from the coordinates
 %  not hard, just not implmented yet.
 
-
 %%   Step 1: Extract lumped-parameters 
 % Initialize Variables
 q=msspoly('q',nq);
@@ -85,7 +85,12 @@ u=msspoly('u',nu);
 p=obj.getParamFrame.getPoly;
 pobj = setParams(obj,p);
 
-[H,C,B] = manipulatorDynamics(pobj,qt,qd);
+if strcmp(options.robot,'Acrobot')
+    [H,C,B] = manipulatorDynamics(pobj,qt,qd);%[To be checked]
+elseif strcmp(options.robot,'KukaArm')
+    [H,C,B] = manipulatorDynamics(pobj,qt,qd);%[To be checked]
+end
+
 if strcmp(options.model,'dynamic')
     % Formulate equations of motion
     err = H*qdd + C - B*u;
@@ -105,17 +110,23 @@ elseif strcmp(options.model,'energetic')
     [T1,U1] = energy(pobj,[qt1;qd1]);
     [T2,U2] = energy(pobj,[qt2;qd2]);
     % Need to formulate energy dissipation from AcrobotPlant class
-    dE = (B*u-[p(1);p(2)].*qd1)'*qd1*dt; % Under cursory testing, this works better
+    if strcmp(options.robot,'Acrobot')
+        %dE = (B*u-[p(1);p(2)].*qd1)'*qd1*dt; % Under cursory testing, this
+        %works better [changed]
+        dE = (B*u-[p(1);p(2)].*qd1)'*qd1*dt; % Under cursory testing, this works better
+    elseif strcmp(options.robot,'KukaArm')
+        dE = (B*u-[p(1);p(2);p(3)].*qd1)'*qd1*dt; % Under cursory testing, this works better
+    end
 %     dE = (B*u-[p(1);p(2)].*qd1)'*(q2-q1);
     err = (T1+U1)-(T2+U2)+dE;
 else
     error('Model not recognized')
 end
 
-[lp,M,Mb,lin_params,beta] = identifiableParameters(getmsspoly(err),p); % posynomial lumped params
-% [lp, M, Mb] = linearParameters(getmsspoly(err),p); % monomial lumped params
+%[lp,M,Mb,lin_params,beta] = identifiableParameters(getmsspoly(err),p); % posynomial lumped params
+[lp, M, Mb] = linearParameters(getmsspoly(err),p); % monomial lumped params
 
-nlp = length(lp);
+nlp = length(lp); % number of identifiable parameters
 lp_orig = double(subs(lp,p,p_orig));
 lumped_params = msspoly('lp',nlp); 
 % now err=M*lp+Mb and lperr=M*lumped_params+Mb;
@@ -157,7 +168,6 @@ dt_data = diff(t_data);
 % ylabel({'\DeltaE Magnitude' '(Joules)/sample'})
 % legend('True \DeltaE','Estimated \DeltaE');
 
-
 if strcmp(options.model,'dynamic')
     ndata = length(t_data);
     variables = [q;s;c;qd;qdd;u];
@@ -179,8 +189,8 @@ if strcmp(options.method,'nonlinprog') || strcmp(options.method,'linprog')
     
     if strcmp(options.method,'nonlinprog')
         % % Only nonlinear least squares
-        % nonlinfun = @(x) nonlinerr(x,lp,p,M_data,Mb_data);
-        % prog=prog.addCost(FunctionHandleObjective(np,nonlinfun),1:np);
+        nonlinfun = @(x) nonlinerr(x,lp,p,M_data,Mb_data);
+        prog=prog.addCost(FunctionHandleObjective(np,nonlinfun),1:np);
     end
     if strcmp(options.method,'linprog')
         % Least squares -> Nonlinear least squares on lumped parameter solution
@@ -191,12 +201,26 @@ if strcmp(options.method,'nonlinprog') || strcmp(options.method,'linprog')
         prog=prog.addConstraint(lpconstraint,1:np);
     end
     [x,F,info] = prog.solve(p_orig);
+    
+%     % debugging the relative standard deviation
+%     signa_p_square = F/(length(Mb_data) - length(lp));
+%     C_xi = signa_p_square*pinv(full(M_data)'*full(M_data));
+%     xi = [x(9);x(8);x(7);x(6);x(5);x(4);x(3)];
+%     for i=1:length(lp)
+%         sigma_xi(i) = sqrt(C_xi(i,i));
+%         sigma_xir(i) = 100*sigma_xi(i)/xi(i);% percentage
+%     end     
+%     save('M_data1.mat','M_data','Mb_data');    
+%     nonlinfun = @(x) nonlinerr1(x,lp,p,M_data,Mb_data);
+
+    info
     if(info ~= 1)
     	error('failed to solve the problem');
     end
 elseif strcmp(options.method,'lsqnonlin')
     % Using MATLAB built-in nonlinear least squares solver
-    % [x, sqerr_est] = lsqnonlin(nonlinfun,p_orig,pmin,pmax);
+    %nonlinfun = @(x) nonlinerr(x,lp,p,M_data,Mb_data);
+    %[x, sqerr_est] = lsqnonlin(nonlinfun,p_orig,pmin,pmax);
 else
     error('Parameter estimation method not recognized')
 end
@@ -217,15 +241,15 @@ if strcmp(options.print_result,'printest')
     fprintf('  Param  \tEstimated\n');
     fprintf('  -----  \t---------\n');
     for i=1:length(coords)
-      fprintf('%7s  \t%8.2f\n',coords{i},phat(i));
+      fprintf('%7s  \t%8.5f\n',coords{i},phat(i));
     end
 elseif strcmp(options.print_result,'printall')
     coords = getCoordinateNames(getParamFrame(obj));
     fprintf('\nParameter estimation results:\n\n');
     fprintf('  Param  \tOriginal\tEstimated\n');
-    fprintf('  -----  \t--------\t---------\n');
+    fprintf('  -----  \t--------\t\t---------\n');
     for i=1:length(coords)
-      fprintf('%7s  \t%8.2f\t%8.2f\n',coords{i},p_orig(i),phat(i));
+      fprintf('%7s  \t%8.5f\t\t%8.5f\n',coords{i},p_orig(i),phat(i));
     end
 end
 %TODO: calculate estimated_delay
@@ -248,7 +272,7 @@ function [f,df] = nonlinerr(x,lp,p,M_data,Mb_data)
     f = sqrterr'*sqrterr;
     dlpdp = diff(lp,p);
     % There must be a better way to msubs a matrix with spotless
-    dlpdp_val = zeros(size(dlpdp,2));
+    dlpdp_val = zeros(size(dlpdp,1),size(dlpdp,2));
     for i=1:size(dlpdp,2)
         dlpdp_val(:,i) = msubs(dlpdp(:,i),p,x);
     end
