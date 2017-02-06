@@ -86,14 +86,14 @@ p=obj.getParamFrame.getPoly;
 pobj = setParams(obj,p);
 
 if strcmp(options.robot,'Acrobot')
-    [H,C,B] = manipulatorDynamics(pobj,qt,qd);%[To be checked]
+    [H,C,B] = manipulatorDynamics(pobj,qt,qd);
 elseif strcmp(options.robot,'KukaArm')
-    [C,B] = manipulatorDynamics(pobj,qt,qd);%[To be checked]
+    [H,C,B] = manipulatorDynamics(pobj,qt,qd);
 end
 
 if strcmp(options.model,'dynamic')
     % Formulate equations of motion
-    err =+ C - B*u;% H*qdd 
+    err = H*qdd + C - B*u;
 elseif strcmp(options.model,'energetic')
     dt=msspoly('dt',1);
     q1=msspoly('qo',nq);
