@@ -4,7 +4,8 @@ clear all
 tmp = addpathTemporary(fullfile(pwd,'..'));
 
 %% read arm data
-path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/dynamic_test/J4_chirp';
+% some moment of inertia parameters are identified first.
+path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/dynamic_test/J5toJ7_chirp_larger_data_set';
 
 read_joint_status_file;
 joint_index = 6;

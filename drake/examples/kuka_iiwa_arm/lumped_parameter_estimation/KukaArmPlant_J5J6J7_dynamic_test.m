@@ -44,8 +44,8 @@ classdef KukaArmPlant_J5J6J7_dynamic_test < Manipulator
       obj.xG = Point(obj.getStateFrame,[0;0;0;0;0;0]);%[To Be Checked]
       obj.uG = Point(obj.getInputFrame,[0;0;0]);
 
-      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',8,'p',...
-        {'I4zz','I5zz','I6xx','I6yy','I6zz','I7xx','I7yy','I7zz'})); %
+      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',7,'p',...
+        {'I5zz','I6xx','I6yy','I6zz','I7xx','I7yy','I7zz'}));
       obj = setParamLimits(obj,zeros(obj.getParamFrame.dim,1));
     end
 
