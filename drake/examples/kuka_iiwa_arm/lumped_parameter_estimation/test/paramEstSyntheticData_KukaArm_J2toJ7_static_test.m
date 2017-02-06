@@ -58,7 +58,7 @@ parameterEstimationOptions.method = 'nonlinprog';
 parameterEstimationOptions.print_result = 'noprint';
 
 r = KukaArmPlant_J2toJ7_static_test;
-rCAD = KukaArmPlant_J2toJ7_static_test;
+rCAD = KukaArmCADPlant;
 
 outputFrameNames = r.getOutputFrame.getCoordinateNames();
 

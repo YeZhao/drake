@@ -1,7 +1,7 @@
 classdef KukaArmPlant_J5J6J7_dynamic_test < Manipulator 
   
   properties
-    % parameters from KUKA CAD Model 
+    % parameters from KUKA CAD Model with emperical tunning
     
     l5x = 0, l5y = 0.1845, l5z = 0;
     l6x = 0, l6y = 0, l6z = 0.2155;
@@ -21,10 +21,10 @@ classdef KukaArmPlant_J5J6J7_dynamic_test < Manipulator
     c6x = 0, c6y = 0.0006, c6z = 0.0004;
     c7x = 0, c7y = 0, c7z = 0.02;
     
-    I5xx= 0.01, I5xy= 0, I5xz= 0, I5yy= 0.0087, I5yz= 0.00309, I5zz= 0.010396;%0.00449;%
+    I5xx= 0.01, I5xy= 0, I5xz= 0, I5yy= 0.0087, I5yz= 0.00309, I5zz= 0.00449;%0.010396;%
     I6xx= 0.0049,%0.003848;% 
-    I6xy= 0, I6xz= 0, I6yy= 0.0047, I6yz= 0.000246, I6zz= 0.00657;%0.0036;%
-    I7xx= 0.0002, I7xy= 0, I7xz= 0, I7yy= 0.0002, I7yz= 0, I7zz= 0.000403;%0.0003;%
+    I6xy= 0, I6xz= 0, I6yy= 0.0047, I6yz= 0.000246, I6zz= 0.0036;%0.00657;%
+    I7xx= 0.0002, I7xy= 0, I7xz= 0, I7yy= 0.0002, I7yz= 0, I7zz= 0.0003;%0.000403;%
     % by a rough measurement (treat the 7th joint as a cylinder, I7zz is roughtly a number between 0.0004 and 0.0014)
    
     xG

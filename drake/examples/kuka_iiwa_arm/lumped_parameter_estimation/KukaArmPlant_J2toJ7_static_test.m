@@ -1,7 +1,7 @@
 classdef KukaArmPlant_J2toJ7_static_test < Manipulator 
   
   properties
-    % parameters from KUKA CAD Model 
+    % parameters from KUKA CAD Model with emperical tunning
         
     l1x = 0, l1y = 0, l1z = 0.1575;
     l2x = 0, l2y = 0, l2z = 0.2025;
@@ -12,11 +12,11 @@ classdef KukaArmPlant_J2toJ7_static_test < Manipulator
     l7x = 0,l7y = 0.081, l7z = 0;
     
     m1 = 5.76; 
-    m2 = 6.35; %3.95;
-    m3 = 3.5;%3.59;%3.18;%
-    m4 = 3.5;%4.32;%2.74;% 
+    m2 = 6.35; 
+    m3 = 3.5;
+    m4 = 3.5; 
     m5 = 3.5; 
-    m6 = 1.8; m7 = 1.2;%1.18;%
+    m6 = 1.8; m7 = 1.18;
     g = 9.81;
     
     % viscous coefficients of positive and negative directions
@@ -28,10 +28,8 @@ classdef KukaArmPlant_J2toJ7_static_test < Manipulator
     
     c1x = 0, c1y = -0.03, c1z = 0.12;
     c2x = 0.0003, c2y = 0.059, c2z = 0.042;
-    c3x = 0, c3y = 0.03, %0.057;%
-    c3z = 0.13;%0.0268;% 0.13;%
-    c4x = 0, c4y = 0.067,%0.055;% 
-    c4z = 0.034;%0.049;%
+    c3x = 0, c3y = 0.03, c3z = 0.13;
+    c4x = 0, c4y = 0.067, c4z = 0.034;
     c5x = 0.0001, c5y = 0.021, c5z = 0.076;
     c6x = 0, c6z = 0.0004;
     c7x = 0, c7y = 0;
@@ -65,8 +63,8 @@ classdef KukaArmPlant_J2toJ7_static_test < Manipulator
       obj.xG = Point(obj.getStateFrame,[pi/2;pi/2;pi/2;pi/2;pi/2;pi/2;0;0;0;0;0;0]);%[To Be Checked]
       obj.uG = Point(obj.getInputFrame,[0;0;0;0;0;0]);
 
-      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',9,'p',...
-        {'m2','m3','m4','c2x', 'c2y','c3y','c3z','c4y','c4z'})); %'m2','m3','m4','m1','m2','m3',,'m6','m7' 'c2x', 'c2y', 'c2z' 
+      obj = setParamFrame(obj,CoordinateFrame('KukaArmParams',10,'p',...
+        {'m2','m3','m4','m5','c2x', 'c2y','c3y','c3z','c4y','c4z'})); %'m2','m3','m4','m1','m2','m3',,'m6','m7' 'c2x', 'c2y', 'c2z' 
       obj = setParamLimits(obj,zeros(obj.getParamFrame.dim,1));
     end
 

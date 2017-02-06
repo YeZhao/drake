@@ -128,7 +128,7 @@ class RobotPlanRunner {
 
     //double traj_time_init_s = 0;
     Eigen::VectorXd joint_pos_init(num_joint_pose);
-    joint_pos_init << joint_5_pose_set(3), joint_6_pose_set(3), joint_7_pose_set(3);
+    joint_pos_init << joint_5_pose_set(2), joint_6_pose_set(4), joint_7_pose_set(1);
 
     Eigen::VectorXd q_meas(kNumJoints);
     Eigen::VectorXd qd_meas(kNumJoints);
@@ -143,8 +143,8 @@ class RobotPlanRunner {
 
     double SWEEP_FREQ_HZ_LOW = 0.001;
     Eigen::VectorXd SWEEP_FREQ_HZ_HIGH(num_of_joint);
-    SWEEP_FREQ_HZ_HIGH << 0.8, 0.7, 2;
-    double SWEEP_RATE = 0.03; //percent change of sweep range per second
+    SWEEP_FREQ_HZ_HIGH << 0.8, 1, 1;
+    double SWEEP_RATE = 0.015; //percent change of sweep range per second
     double SWEEP_SETPOINT_CURRENT_AMPLITUDE_A_DEFAULT = 0.5;
     double SWEEP_SETPOINT_MID_CURRENT_A = 0.0; 
 

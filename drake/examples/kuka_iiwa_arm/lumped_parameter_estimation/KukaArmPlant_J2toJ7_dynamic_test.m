@@ -1,7 +1,7 @@
 classdef KukaArmPlant_J2toJ7_dynamic_test < Manipulator 
   
   properties
-    % parameters from KUKA CAD Model 
+    % parameters from KUKA CAD Model with emperical tunning
         
     l1x = 0, l1y = 0, l1z = 0.1575;
     l2x = 0, l2y = 0, l2z = 0.2025;

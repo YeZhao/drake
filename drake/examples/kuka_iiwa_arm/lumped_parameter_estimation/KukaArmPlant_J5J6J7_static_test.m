@@ -1,7 +1,7 @@
 classdef KukaArmPlant_J5J6J7_static_test < Manipulator 
   
   properties
-    % parameters from KUKA CAD Model 
+    % parameters from KUKA CAD Model with emperical tunning 
     
     l5x = 0, l5y = 0.1845, l5z = 0;
     l6x = 0, l6y = 0, l6z = 0.2155;

@@ -107,7 +107,7 @@ class RobotController {
         // Computing inverse dynamics gravity torque command
         KinematicsCache<double> cache = tree_.doKinematics(jointPosState, jointVelState);
         const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-        Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
+        Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof);
         Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache, no_external_wrenches, z, false);
         torque_command -= gravity_torque;
 

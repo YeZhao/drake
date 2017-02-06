@@ -1,7 +1,7 @@
-classdef KukaArmPlant_J3toJ7 < Manipulator 
+classdef KukaArmPlant_J3toJ7_static_test < Manipulator 
   
   properties
-    % parameters from KUKA CAD Model 
+    % parameters from KUKA CAD Model with emperical tunning
     
     %(except inertias are now relative to the
     % joints)
@@ -51,7 +51,7 @@ classdef KukaArmPlant_J3toJ7 < Manipulator
   end
   
   methods
-    function obj = KukaArmPlant_J3toJ7
+    function obj = KukaArmPlant_J3toJ7_static_test
       obj = obj@Manipulator(5,5);%[To Be Checked]
       obj = setInputLimits(obj,-10,10);%[To Be Checked]
 

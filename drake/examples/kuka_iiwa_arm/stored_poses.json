@@ -59,6 +59,21 @@
       },
       "name": "2",
       "nominal_handedness": "left"
+    },
+    {
+      "allow_mirror": true,
+      "description": "",
+      "joints": {
+        "iiwa_joint_1": 7.148584700189531e-05,
+        "iiwa_joint_2": -0.0011251389514654875,
+        "iiwa_joint_3": -2.265022885694634e-05,
+        "iiwa_joint_4": -1.086133360862732,
+        "iiwa_joint_5": 2.0897035598754883,
+        "iiwa_joint_6": -1.2153781652450562,
+        "iiwa_joint_7": 2.0405468940734863
+      },
+      "name": "fix_pose1",
+      "nominal_handedness": "left"
     }
   ]
 }
