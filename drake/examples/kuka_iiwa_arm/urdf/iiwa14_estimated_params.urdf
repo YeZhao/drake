@@ -86,7 +86,7 @@
   <link name="iiwa_link_1">
     <inertial>
       <origin rpy="0 0 0" xyz="0 -0.03 0.12"/>
-      <mass value="5.76"/> <!--4-->
+      <mass value="5.76"/> <!--4 kuka CAD value-->
       <!--<inertia ixx="0.1" ixy="0" ixz="0" iyy="0.09" iyz="0" izz="0.02"/>--> <!--<original urdf value>-->
       <inertia ixx="0.033" ixy="0" ixz="0" iyy="0.0333" iyz="0.004887" izz="0.0123"/> <!--<TODO(YeZhao): lumped parameter estimation>-->
     </inertial>
@@ -117,7 +117,7 @@
   </joint>
   <link name="iiwa_link_2">
     <inertial>
-      <origin rpy="0 0 0" xyz="0.0152 0.0696 0.042"/> <!-- 0.0003 0.059 0.042 -->
+      <origin rpy="0 0 0" xyz="0.0152 0.0696 0.042"/> <!-- 0.0003 0.059 0.042 kuka CAD value-->
       <mass value="6.35"/> <!-- 6.35 value from static test, 3.95 kuka CAD value--> <!--4 original urdf value-->
       <!--<inertia ixx="0.05" ixy="0" ixz="0" iyy="0.018" iyz="0" izz="0.044"/>--> <!--<original urdf value>-->
       <inertia ixx="0.0305" ixy="0" ixz="0" iyy="0.0304" iyz="0.004887" izz="0.011"/>
@@ -149,7 +149,7 @@
   </joint>
   <link name="iiwa_link_3">
     <inertial>
-      <origin rpy="0 0 0" xyz="0 0.029 0.135"/> <!--"0 0.03 0.13"-->
+      <origin rpy="0 0 0" xyz="0 0.029 0.135"/> <!--"0 0.03 0.13" kuka CAD value-->
       <mass value="3.5"/> <!--3.5 value from static test, 3.18 kuka CAD value--> <!--4 original urdf value-->
       <!--<inertia ixx="0.08" ixy="0" ixz="0" iyy="0.075" iyz="0" izz="0.01"/>--> <!--<original urdf value>-->
       <inertia ixx="0.025" ixy="0" ixz="0" iyy="0.0238" iyz="0.00487" izz="0.0076"/>
@@ -181,7 +181,7 @@
   </joint>
   <link name="iiwa_link_4">
     <inertial>
-      <origin rpy="0 0 0" xyz="0 0.0649 0.0376"/> <!--"0 0.067 0.034"-->
+      <origin rpy="0 0 0" xyz="0 0.0649 0.0376"/> <!--"0 0.067 0.034" kuka CAD value-->
       <mass value="3.5"/> <!--3.5 value from static test, 2.74 kuka CAD value--> <!--4 original urdf value-->
       <!--<inertia ixx="0.03" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.029"/>--> <!--<original urdf value>-->
       <inertia ixx="0.017" ixy="0" ixz="0" iyy="0.0164" iyz="0.00284" izz="0.006"/>
@@ -277,8 +277,8 @@
   </joint>
   <link name="iiwa_link_7">
     <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0.0177"/> <!--"0 0 0.02"-->
-      <mass value="1.18"/> <!--1.2 value from static test, 0.31 kuka CAD value--> <!--0.3 original urdf value-->
+      <origin rpy="0 0 0" xyz="0 0 0.0177"/> <!--"0 0 0.02" kuka CAD value-->
+      <mass value="1.18"/> <!--1.18 value from static test, 0.31 kuka CAD value--> <!--0.3 original urdf value-->
       <!--<inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>--> <!--<original urdf value>-->
       <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0003"/>
     </inertial>
