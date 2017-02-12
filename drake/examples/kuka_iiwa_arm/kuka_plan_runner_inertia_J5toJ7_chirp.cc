@@ -269,7 +269,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
@@ -285,7 +285,7 @@ class RobotPlanRunner {
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
       _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);

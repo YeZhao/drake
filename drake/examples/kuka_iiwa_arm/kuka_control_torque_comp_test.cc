@@ -77,6 +77,7 @@ class RobotController {
 
     Eigen::VectorXd qd_meas_previous(kNumJoints); // 7DOF joint velocity at previous time sample
     qd_meas_previous.setZero();
+    Eigen::VectorXd z_previous = Eigen::VectorXd::Zero(kNumJoints); 
 
     while (true) {
       // Call lcm handle until at least one message is processed
@@ -115,9 +116,12 @@ class RobotController {
         //derive joint accelerations
         for (int joint = 0; joint < kNumJoints; joint++){
             z(joint) = (jointVelState(joint) - qd_meas_previous(joint))/0.001;
+            if (abs(z(joint)) < 1e-3)
+              z(joint) = z_previous(joint);
         }
         qd_meas_previous = jointVelState;
-
+        z_previous = z;
+        
         Eigen::VectorXd gravity_torque = tree_.inverseDynamics(cache, no_external_wrenches, z, false);
         torque_command -= gravity_torque;
 
@@ -130,8 +134,16 @@ class RobotController {
         for (int joint = 0; joint < kNumJoints; joint++) {
           iiwa_command.joint_torque[joint] = 0;
           iiwa_command.joint_torque[joint] = std::max(-150.0, std::min(150.0, iiwa_command.joint_torque[joint]));
-          iiwa_param.coefficients[joint] = torque_command(joint);
         }
+
+        iiwa_param.coefficients[0] = z(4);
+        iiwa_param.coefficients[1] = z(5);
+        iiwa_param.coefficients[2] = z(6);
+
+        iiwa_param.coefficients[3] = torque_command(3);
+        iiwa_param.coefficients[4] = torque_command(4);
+        iiwa_param.coefficients[5] = torque_command(5);
+        iiwa_param.coefficients[6] = torque_command(6);
 
         if (half_servo_rate_flag_){
           half_servo_rate_flag_ = false;
@@ -238,7 +250,7 @@ int DoMain(int argc, const char* argv[]) {
 
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params.urdf",
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_original_inertia.urdf",
       multibody::joints::kFixed, tree.get());
 
   RobotController runner(*tree);

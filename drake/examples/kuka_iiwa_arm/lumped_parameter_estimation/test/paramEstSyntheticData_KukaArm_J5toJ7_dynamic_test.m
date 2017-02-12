@@ -1,14 +1,15 @@
-function paramEstSyntheticData_KukaArm_J5J6J7_static_test
+function paramEstSyntheticData_KukaArm_J5toJ7_dynamic_test
 clear all
 
 tmp = addpathTemporary(fullfile(pwd,'..'));
 
 %% read arm data
-path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/static_test/J5toJ7';
-read_joint_status_file;
+% some moment of inertia parameters are identified first.
+path = '~/kuka-dev-estimation/drake/drake/examples/kuka_iiwa_arm/experiment_data/dynamic_test/J5toJ7_chirp_largest_data_set';
 
-% extract all the joint data
+read_joint_status_file;
 joint_index = 6;
+
 joint_begin_index = 5;
 joint_end_index = 7;
 
@@ -20,6 +21,13 @@ joint_position_measured = joint_position_measured_raw(joint_begin_index:joint_en
 joint_acceleration_measured = joint_acceleration_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
 joint_torque_measured = joint_torque_measured_raw(joint_begin_index:joint_end_index,beginning_index:ending_index);
 joint_torque_measured = -joint_torque_measured;
+
+span = 0.005;
+for i=1:joint_end_index-joint_begin_index+1
+    joint_acceleration_measured(i,:) = smooth(joint_acceleration_measured(i,:),span,'loess');
+    joint_velocity_measured(i,:) = smooth(joint_velocity_measured(i,:),span,'loess');
+    joint_torque_measured(i,:) = smooth(joint_torque_measured(i,:),span,'loess');
+end
 
 %%
 % Synthetic parameter estimation mode
@@ -59,8 +67,8 @@ parameterEstimationOptions.method = 'nonlinprog';
 % 'printAll'	= print estimated and original from parameterEstimation.m
 parameterEstimationOptions.print_result = 'noprint';
 
-r = KukaArmPlant_J5J6J7_static_test;
-rCAD = KukaArmCADPlant;
+r = KukaArmPlant_J5toJ7_dynamic_test;
+rCAD = KukaArmPlant_J5toJ7_dynamic_test;
 
 outputFrameNames = r.getOutputFrame.getCoordinateNames();
 
