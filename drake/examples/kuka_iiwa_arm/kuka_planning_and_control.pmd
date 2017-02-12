@@ -18,8 +18,8 @@ group "1.middleware-kuka-plan-and-torque-control" {
     host = "localhost";
   }
 
-  cmd "1.kuka_plan_runner_inertia_J5toJ7_chirp" {
-    exec = "build/drake/examples/kuka_iiwa_arm/kuka_plan_runner_inertia_J5toJ7_chirp";
+  cmd "1.kuka_plan_runner" {
+    exec = "build/drake/examples/kuka_iiwa_arm/kuka_plan_runner";
     host = "localhost";
   }
 
