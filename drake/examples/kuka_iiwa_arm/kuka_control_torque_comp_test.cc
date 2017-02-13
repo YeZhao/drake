@@ -134,7 +134,7 @@ class RobotController {
         for (int joint = 0; joint < kNumJoints; joint++) {
           iiwa_command.joint_torque[joint] = 0;
           iiwa_command.joint_torque[joint] = std::max(-150.0, std::min(150.0, iiwa_command.joint_torque[joint]));
-          iiwa_param.coefficients[joint] = torque_command(joint);
+          iiwa_param.coefficients[joint] = z(joint);
         }
 
         /*// debugging for dynamic tests of joint 5-7
