@@ -1,4 +1,4 @@
-function [phat,estimated_delay] = parameterEstimation(obj,data,varargin)
+function [phat,estimated_delay] = parameterEstimation_Kuka_dynamic_test(obj,data,varargin)
 %
 % Parameter estimation algorithm for manipulators
 %
@@ -189,7 +189,11 @@ if strcmp(options.method,'nonlinprog') || strcmp(options.method,'linprog')
     
     if strcmp(options.method,'nonlinprog')
         % % Only nonlinear least squares
-        nonlinfun = @(x) nonlinerr(x,lp,p,M_data,Mb_data);
+        if strcmp(options.joint_set,'J5J6J7')
+            nonlinfun = @(x) nonlinerr_J5J6J7(x,lp,p,M_data,Mb_data);
+        elseif strcmp(options.joint_set,'J2J3J4')
+            nonlinfun = @(x) nonlinerr_J2J3J4(x,lp,p,M_data,Mb_data);    
+        end
         prog=prog.addCost(FunctionHandleObjective(np,nonlinfun),1:np);
     end
     if strcmp(options.method,'linprog')
@@ -267,16 +271,9 @@ function [f,df] = lpconstraint_fun(x,lp,p)
     end
 end
 
-function [f,df] = nonlinerr(x,lp,p,M_data,Mb_data)
-    sqrterr = M_data*(msubs(lp,p,x))+Mb_data;
-    
-    I5xx= 0.02, I5xy= 0, I5xz= 0, I5yy= 0.018, I5yz= 0.00, I5zz= 0.005;
-    I6xx= 0.005, I6xy= 0, I6xz= 0, I6yy= 0.0036, I6yz= 0.000, I6zz= 0.0047;
-    I7xx= 0.001, I7xy= 0, I7xz= 0, I7yy= 0.001, I7yz= 0, I7zz= 0.001;
-    sqrterr_regulation = [x(1)-I5zz,x(2)-I6xx,x(3)-I6yy,x(4)-I6zz,x(5)-I7xx,x(6)-I7yy,x(7)-I7zz]';
-    cost_coeff = 1e7;
-    
-    f = sqrterr'*sqrterr + cost_coeff*sqrterr_regulation'*sqrterr_regulation;
+function [f,df] = nonlinerr_J5J6J7(x,lp,p,M_data,Mb_data)
+    sqrterr = M_data*(msubs(lp,p,x))+Mb_data;    
+    f = sqrterr'*sqrterr;
     dlpdp = diff(lp,p);
     % There must be a better way to msubs a matrix with spotless
     dlpdp_val = zeros(size(dlpdp,1),size(dlpdp,2));
@@ -284,5 +281,30 @@ function [f,df] = nonlinerr(x,lp,p,M_data,Mb_data)
         dlpdp_val(:,i) = msubs(dlpdp(:,i),p,x);
     end
     df = 2*(M_data*(msubs(lp,p,x))+Mb_data)'*M_data*dlpdp_val;
-    df = df + 2*cost_coeff*sqrterr_regulation';
+    
+    %regulation term
+    I5zz= 0.005; I6xx= 0.005; I6yy= 0.0036; I6zz= 0.0047; I7xx= 0.001; I7yy= 0.001; I7zz= 0.001;
+    sqrterr_regulation = [x(1)-I5zz,x(2)-I6xx,x(3)-I6yy,x(4)-I6zz,x(5)-I7xx,x(6)-I7yy,x(7)-I7zz]';
+    regulation_coeff = 1e9;
+    f = f + regulation_coeff*sqrterr_regulation'*sqrterr_regulation;
+    df = df + 2*regulation_coeff*sqrterr_regulation';
+end
+
+function [f,df] = nonlinerr_J2J3J4(x,lp,p,M_data,Mb_data)
+    sqrterr = M_data*(msubs(lp,p,x))+Mb_data;
+    f = sqrterr'*sqrterr;
+    dlpdp = diff(lp,p);
+    % There must be a better way to msubs a matrix with spotless
+    dlpdp_val = zeros(size(dlpdp,1),size(dlpdp,2));
+    for i=1:size(dlpdp,2)
+        dlpdp_val(:,i) = msubs(dlpdp(:,i),p,x);
+    end
+    df = 2*(M_data*(msubs(lp,p,x))+Mb_data)'*M_data*dlpdp_val;
+    
+    %regulation term
+    I2zz= 0.044; I3xx= 0.08; I3yy= 0.075; I3zz= 0.01; I4xx= 0.03; I4yy= 0.01; I4zz= 0.029; I5xx= 0.02; I5yy= 0.018;
+    sqrterr_regulation = [x(1)-I2zz,x(2)-I3xx,x(3)-I3yy,x(4)-I3zz,x(5)-I4xx,x(6)-I4yy,x(7)-I4zz,x(5)-I5xx,x(6)-I5yy]';
+    regulation_coeff = 1e8;
+    f = f + regulation_coeff*sqrterr_regulation'*sqrterr_regulation;
+    df = df + 2*regulation_coeff*sqrterr_regulation'; 
 end

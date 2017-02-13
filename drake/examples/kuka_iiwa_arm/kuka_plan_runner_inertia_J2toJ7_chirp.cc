@@ -272,8 +272,8 @@ class RobotPlanRunner {
   void saveVector(const Eigen::VectorXd & _vec, const char * _name){
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
-      _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      _file_name += ".dat";
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);
@@ -288,8 +288,8 @@ class RobotPlanRunner {
   void saveValue(double _value, const char * _name){
       std::string _file_name = KUKA_DATA_DIR;
       _file_name += _name;
-      _file_name += ".txt";
-      //clean_file(_name, _file_name);
+      _file_name += ".dat";
+      clean_file(_name, _file_name);
 
       std::ofstream save_file;
       save_file.open(_file_name, std::fstream::app);

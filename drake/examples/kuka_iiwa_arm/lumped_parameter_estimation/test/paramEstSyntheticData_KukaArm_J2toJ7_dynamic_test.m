@@ -66,6 +66,10 @@ qddmode = 'manipul';
 % 'lsqnonlin'   = use MATLAB's built-in nonlinear least squares solver (debugging)
 parameterEstimationOptions.method = 'nonlinprog';
 
+% Joint set to be identified
+% 'J5J6J7' or 'J2J3J4'
+parameterEstimationOptions.joint_set = 'J2J3J4';
+
 % Option to print from estimator
 % 'noprint'     = Do not print output from parameterEstimation.m, but will 
 %                 still print output of paramEstSyntheticData.m script
@@ -84,7 +88,7 @@ arm_input = joint_torque_measured';
 outputFrameNames = [outputFrameNames;'theta2doubledot';'theta3doubledot';'theta4doubledot';'theta5doubledot';'theta6doubledot';'theta7doubledot'];
 Ts = .01;
 data = iddata(arm_state,arm_input,Ts,'InputName',r.getInputFrame.getCoordinateNames(),'OutputName',outputFrameNames);
-[estimated_parameters, estimated_delay] = parameterEstimation(r,data,parameterEstimationOptions);
+[estimated_parameters, estimated_delay] = parameterEstimation_Kuka_dynamic_test(r,data,parameterEstimationOptions);
 
 %% Print out results
 coords = getCoordinateNames(r.getParamFrame);

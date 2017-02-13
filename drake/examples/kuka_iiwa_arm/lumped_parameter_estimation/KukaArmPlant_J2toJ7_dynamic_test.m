@@ -2,7 +2,7 @@ classdef KukaArmPlant_J2toJ7_dynamic_test < Manipulator
   
   properties
     % parameters from KUKA CAD Model with emperical tunning
-        
+    
     l1x = 0, l1y = 0, l1z = 0.1575;
     l2x = 0, l2y = 0, l2z = 0.2025;
     l3x = 0, l3y = 0.2045, l3z = 0;
@@ -40,14 +40,15 @@ classdef KukaArmPlant_J2toJ7_dynamic_test < Manipulator
     c7z = 0.0176;%0.02;
     c6y = 0.00055;%0.0006 
     
-    I1xx= 0.033, I1xy= 0, I1xz= 0, I1yy= 0.0333, I1yz= 0.004887, I1zz= 0.0123;
-    I2xx= 0.0305, I2xy= 0, I2xz= 0, I2yy= 0.0304, I2yz= 0.004887, I2zz= 0.011;
-    I3xx= 0.025, I3xy= 0, I3xz= 0, I3yy= 0.0238, I3yz= 0.00487, I3zz= 0.0076;
-    I4xx= 0.017, I4xy= 0, I4xz= 0, I4yy= 0.0164, I4yz= 0.00284, I4zz= 0.006;
-    I5xx= 0.01, I5xy= 0, I5xz= 0, I5yy= 0.0087, I5yz= 0.00309, I5zz= 0.00449;
-    I6xx= 0.0049, I6xy= 0, I6xz= 0, I6yy= 0.0047, I6yz= 0.000246, I6zz= 0.0036;
-    I7xx= 0.0002, I7xy= 0, I7xz= 0, I7yy= 0.0002, I7yz= 0, I7zz= 0.0003;
-    
+    I1xx= 0.1, I1xy= 0, I1xz= 0, I1yy= 0.09, I1yz= 0.00, I1zz= 0.02;
+    I2xx= 0.05, I2xy= 0, I2xz= 0, I2yy= 0.018, I2yz= 0.00, I2zz= 0.044;
+    I3xx= 0.08, I3xy= 0, I3xz= 0, I3yy= 0.075, I3yz= 0.00, I3zz= 0.01;
+    I4xx= 0.03, I4xy= 0, I4xz= 0, I4yy= 0.01, I4yz= 0.00, I4zz= 0.029;
+    I5xx= 0.02, I5xy= 0, I5xz= 0, I5yy= 0.018, I5yz= 0.00, I5zz= 0.005;
+    I6xx= 0.005, I6xy= 0, I6xz= 0, I6yy= 0.0036, I6yz= 0.000, I6zz= 0.0047;
+    I7xx= 0.001, I7xy= 0, I7xz= 0, I7yy= 0.001, I7yz= 0, I7zz= 0.001;
+    % by a rough measurement (treat the 7th joint as a cylinder, I7zz is roughtly a number between 0.0004 and 0.0014)
+
     xG
     uG
   end
@@ -116,7 +117,7 @@ classdef KukaArmPlant_J2toJ7_dynamic_test < Manipulator
       b(6,1) = bv7_positive * qd(6);
       
       % accumate total C and add a damping term:
-      C = C + G;
+      C = C + G + b;
       B = eye(6);
     end
     

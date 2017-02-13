@@ -117,7 +117,7 @@ class RobotController {
         for (int joint = 0; joint < kNumJoints; joint++){
             z(joint) = (jointVelState(joint) - qd_meas_previous(joint))/0.001;
             if (abs(z(joint)) < 1e-3)
-              z(joint) = z_previous(joint);
+              z(joint) = z_previous(joint); // avoid the zero issue caused by different planner and controller servo rates
         }
         qd_meas_previous = jointVelState;
         z_previous = z;
@@ -134,8 +134,10 @@ class RobotController {
         for (int joint = 0; joint < kNumJoints; joint++) {
           iiwa_command.joint_torque[joint] = 0;
           iiwa_command.joint_torque[joint] = std::max(-150.0, std::min(150.0, iiwa_command.joint_torque[joint]));
+          iiwa_param.coefficients[joint] = torque_command(joint);
         }
 
+        /*// debugging for dynamic tests of joint 5-7
         iiwa_param.coefficients[0] = z(4);
         iiwa_param.coefficients[1] = z(5);
         iiwa_param.coefficients[2] = z(6);
@@ -143,7 +145,7 @@ class RobotController {
         iiwa_param.coefficients[3] = torque_command(3);
         iiwa_param.coefficients[4] = torque_command(4);
         iiwa_param.coefficients[5] = torque_command(5);
-        iiwa_param.coefficients[6] = torque_command(6);
+        iiwa_param.coefficients[6] = torque_command(6);*/
 
         if (half_servo_rate_flag_){
           half_servo_rate_flag_ = false;
@@ -250,7 +252,7 @@ int DoMain(int argc, const char* argv[]) {
 
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_original_inertia.urdf",
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params.urdf",
       multibody::joints::kFixed, tree.get());
 
   RobotController runner(*tree);
