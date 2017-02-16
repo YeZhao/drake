@@ -51,10 +51,14 @@ const char* const kLcmControlRefChannel = "CONTROLLER_REFERENCE";
 const char* const kLcmCommandChannel = "IIWA_COMMAND";
 const char* const kLcmParamChannel = "IIWA_PARAM";
 
+
 const int kNumJoints = 7;
+const double joint_velocity_threthold = 0.05;
+const double joint_torque_threthold = 0.1;
+
 // 1: ID controller type 1, qddot_feedforward = PD position control + desired qddot, then send this qddot_feedforward to ID
 // 2: ID controller type 2, feedforward ID (purly based on desired qddot) + PD impedance control
-const int inverseDynamicsCtrlType = 2; 
+const int inverseDynamicsCtrlType = 1; 
 
 class RobotController {
  public:
@@ -90,6 +94,12 @@ class RobotController {
     Eigen::VectorXd joint_accel_desired(kNumJoints); 
 
     bool half_servo_rate_flag_ = true; // make the iiwa command get published every two servo loops
+
+    // friction model coefficients
+    Eigen::VectorXd viscous_coeff(kNumJoints);
+    Eigen::VectorXd Coulomb_coeff(kNumJoints);
+    viscous_coeff << 0.1915, 8.45, 0.0108, 1.4523, 0.0178, 0.1199, 0.05;
+    Coulomb_coeff << 1.7809, 1.9103, 0.0445, 0.2538, 0.1151, 0.0534, 0.4934;
 
     while (true) {
       // Call lcm handle until at least one message is processed
@@ -145,18 +155,16 @@ class RobotController {
           Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
           gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
           torque_command -= gravity_torque;
-          std::cout << "------new iteration--------" << std::endl;
 
-          // add friction model
-          if (fabs(iiwa_status_.joint_velocity_estimated[5]) < 0.05 && fabs(torque_command(5)) > 0.1){
-            torque_command(5) += 0.3*torque_command(5)/fabs(torque_command(5));
-          }else if (fabs(iiwa_status_.joint_velocity_estimated[5]) > 0.05){
-            torque_command(5) += 0.1*iiwa_status_.joint_velocity_estimated[5];
-          }
-        
+          // add Coulomb-viscous friction model to joint torque, there could be a better way to incorporate these friction parameters into URDF files
+          for(int joint = 0; joint < kNumJoints; joint++){
+            if (fabs(iiwa_status_.joint_velocity_estimated[joint]) < joint_velocity_threthold && fabs(torque_command(joint)) > joint_torque_threthold)
+              torque_command(joint) += Coulomb_coeff(joint)*torque_command(joint)/fabs(torque_command(joint));
+            else if (fabs(iiwa_status_.joint_velocity_estimated[joint]) > joint_velocity_threthold)
+              torque_command(joint) += viscous_coeff(joint)*iiwa_status_.joint_velocity_estimated[joint];
+          }          
         }else if (inverseDynamicsCtrlType == 2){
           // ------- torque control version 2: feedforward inverse dynamics + PD impedance control
-          //std::cout << "------ inverse dynamics controller type 2 ------" << std::endl;
           // Computing inverse dynamics torque command
           KinematicsCache<double> cache = tree_.doKinematics(q, qd);
           const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
@@ -172,15 +180,15 @@ class RobotController {
           
           // PD position control
           Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
-          Kp_pos_ctrl << 225, 361, 144, 150, 100, 20, 20;// very large gains after system id
+          //Kp_pos_ctrl << 225, 361, 144, 150, 100, 20, 20;// very large gains after system id
           //Kp_pos_ctrl << 225, 361, 144, 81, 80, 36, 20;// best gains after system id
           //Kp_pos_ctrl << 120, 120, 60, 60, 60, 30, 20;// medium gains
-          //Kp_pos_ctrl << 80, 80, 30, 30, 20, 20, 10;// test to reduce the gains as much as possible
+          Kp_pos_ctrl << 80, 80, 30, 30, 20, 20, 10;// test to reduce the gains as much as possible
           Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
-          Kd_pos_ctrl << 30, 35, 14, 15, 10, 3, 3;// very large gains after system id
+          //Kd_pos_ctrl << 30, 35, 14, 15, 10, 3, 3;// very large gains after system id
           //Kd_pos_ctrl << 25, 33, 20, 15, 3, 2, 3;// best gains after system id
           //Kd_pos_ctrl << 15, 15, 6, 6, 6, 4, 4;// medium gains after system id
-          //Kd_pos_ctrl << 10, 10, 3, 3, 3, 3, 3;// test to reduce the gains as much as possible
+          Kd_pos_ctrl << 10, 10, 3, 3, 3, 3, 3;// test to reduce the gains as much as possible
           // (TODOs) Add integral control (anti-windup)
           for (int joint = 0; joint < kNumJoints; joint++) {
             position_ctrl_torque_command(joint) = Kp_pos_ctrl(joint)*(joint_position_desired(joint) - iiwa_status_.joint_position_measured[joint])
