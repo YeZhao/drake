@@ -75,11 +75,13 @@ private:
     stateR_commandC_t B3;
     stateR_commandC_t B4;
 
+    stateVec_t Xp;
     stateVec_t Xp1;
     stateVec_t Xp2;
     stateVec_t Xp3;
     stateVec_t Xp4;
 
+    stateVec_t Xm;
     stateVec_t Xm1;
     stateVec_t Xm2;
     stateVec_t Xm3;
@@ -89,7 +91,8 @@ protected:
     // methods //
 public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
-    stateVec_t update(int nargout, double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& AA, stateMat_t& BB);
+    stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
+    void grad(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     stateVec_t computeNextState(double& dt, const stateVec_t& X,const stateVec_t& Xdes, const commandVec_t &U);
     void computeAllModelDeriv(double& dt, const stateVec_t& X,const stateVec_t& Xdes, const commandVec_t &U);
     stateMat_t computeTensorContxx(const stateVec_t& nextVx);

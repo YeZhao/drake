@@ -118,7 +118,7 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     return X_new;
 }
 
-stateVec_t CartPole::update(int nargout, double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& AA, stateMat_t& BB)
+stateVec_t CartPole::update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B)
 {
     // 4th-order Runge-Kutta step
     Xdot1 = cart_pole_dynamics(X, U);
@@ -180,6 +180,36 @@ stateVec_t CartPole::update(int nargout, double& dt, const stateVec_t& X, const 
         B = B4 * dt/6 + (IdentityMat + A4 * dt/6) * B3 * dt/3 + (IdentityMat + A4 * dt/6)*(IdentityMat + A3 * dt/3)* B2 * dt/3 + (IdentityMat + (dt/6)*A4)*(IdentityMat + (dt/3)*A3)*(IdentityMat + (dt/3)*A2)*(dt/6)*B1;
     }
     return X_new;
+}
+
+void CartPole::grad(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
+    int n = X.size();
+    int m = U.size();
+
+    double delta = 1e-7;
+    stateMat_t Dx;
+    commandMat_t Du;
+    Dx.setIdentity();
+    Dx = delta*Dx;
+    Du.setIdentity();
+    Du = delta*Du;
+
+    stateMat_t AA;
+    stateVec_t BB;
+    AA.setZero();
+    BB.setZero();
+
+    for(unsigned int i=0;i<n;i++){
+        Xp = update(nargout, dt, X+Dx.col(i), U, AA, BB);
+        Xm = update(nargout, dt, X-Dx.col(i), U, AA, BB);
+        A.col(i) = (Xp - Xm)/(2*delta);
+    }
+
+    for(unsigned int i=0;i<m;i++){
+        Xp = update(nargout, dt, X, U+Du.col(i), AA, BB);
+        Xm = update(nargout, dt, X, U-Du.col(i), AA, BB);
+        B.col(i) = (Xp - Xm)/(2*delta);
+    }
 }
 
 stateVec_t CartPole::computeNextState(double& dt, const stateVec_t& X,const stateVec_t& Xdes,const commandVec_t& U)
