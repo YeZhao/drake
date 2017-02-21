@@ -58,7 +58,7 @@ const double joint_torque_threthold = 0.1;
 
 // 1: ID controller type 1, qddot_feedforward = PD position control + desired qddot, then send this qddot_feedforward to ID
 // 2: ID controller type 2, feedforward ID (purly based on desired qddot) + PD impedance control
-const int inverseDynamicsCtrlType = 1; 
+const int inverseDynamicsCtrlType = 2; 
 
 class RobotController {
  public:
@@ -151,18 +151,19 @@ class RobotController {
           const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
           torque_command = tree_.inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
 
-          // gravity compensation without gripper (to cancel out the low-level kuka controller)
-          Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
-          gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
-          torque_command -= gravity_torque;
-
           // add Coulomb-viscous friction model to joint torque, there could be a better way to incorporate these friction parameters into URDF files
           for(int joint = 0; joint < kNumJoints; joint++){
             if (fabs(iiwa_status_.joint_velocity_estimated[joint]) < joint_velocity_threthold && fabs(torque_command(joint)) > joint_torque_threthold)
               torque_command(joint) += Coulomb_coeff(joint)*torque_command(joint)/fabs(torque_command(joint));
             else if (fabs(iiwa_status_.joint_velocity_estimated[joint]) > joint_velocity_threthold)
               torque_command(joint) += viscous_coeff(joint)*iiwa_status_.joint_velocity_estimated[joint];
-          }          
+          }
+
+          // gravity compensation without gripper (to cancel out the low-level kuka controller)
+          Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
+          gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
+          torque_command -= gravity_torque;
+          
         }else if (inverseDynamicsCtrlType == 2){
           // ------- torque control version 2: feedforward inverse dynamics + PD impedance control
           // Computing inverse dynamics torque command
@@ -170,25 +171,21 @@ class RobotController {
           const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
           torque_command = tree_.inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
 
-          if (fabs(iiwa_status_.joint_velocity_estimated[5]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[3]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[1]) > 0.1)
-            saveVector(torque_command, "feedforward_inverse_dynamics_command");
+          //debugging for feedforward and feedback torque components
+          /*if (fabs(iiwa_status_.joint_velocity_estimated[5]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[3]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[1]) > 0.1)
+            saveVector(torque_command, "feedforward_inverse_dynamics_command");*/
 
-          // gravity compensation without gripper (to cancel out the low-level kuka controller)
-          Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
-          gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
-          torque_command -= gravity_torque;
-          
           // PD position control
           Eigen::VectorXd Kp_pos_ctrl(kNumDof); // 7 joints
           //Kp_pos_ctrl << 225, 361, 144, 150, 100, 20, 20;// very large gains after system id
-          //Kp_pos_ctrl << 225, 361, 144, 81, 80, 36, 20;// best gains after system id
+          Kp_pos_ctrl << 225, 361, 144, 81, 80, 36, 20;// best gains (in terms of position accuracy) after system id
           //Kp_pos_ctrl << 120, 120, 60, 60, 60, 30, 20;// medium gains
-          Kp_pos_ctrl << 80, 80, 30, 30, 20, 20, 10;// test to reduce the gains as much as possible
+          //Kp_pos_ctrl << 80, 80, 30, 30, 20, 20, 10;// reduce the gains as much as possible while maintaining the position tracking performance
           Eigen::VectorXd Kd_pos_ctrl(kNumDof); // 7 joints
           //Kd_pos_ctrl << 30, 35, 14, 15, 10, 3, 3;// very large gains after system id
-          //Kd_pos_ctrl << 25, 33, 20, 15, 3, 2, 3;// best gains after system id
+          Kd_pos_ctrl << 25, 33, 20, 15, 3, 2, 3;// best gains (in terms of position accuracy) after system id
           //Kd_pos_ctrl << 15, 15, 6, 6, 6, 4, 4;// medium gains after system id
-          Kd_pos_ctrl << 10, 10, 3, 3, 3, 3, 3;// test to reduce the gains as much as possible
+          //Kd_pos_ctrl << 10, 10, 3, 3, 3, 2, 3;// reduce the gains as much as possible while maintaining the position tracking performance
           // (TODOs) Add integral control (anti-windup)
           for (int joint = 0; joint < kNumJoints; joint++) {
             position_ctrl_torque_command(joint) = Kp_pos_ctrl(joint)*(joint_position_desired(joint) - iiwa_status_.joint_position_measured[joint])
@@ -196,12 +193,18 @@ class RobotController {
           }
           //Combination of ID torque control and IK position control
           torque_command += position_ctrl_torque_command;
+
+          // gravity compensation without gripper (to cancel out the low-level kuka controller)
+          Eigen::VectorXd z = Eigen::VectorXd::Zero(kNumDof); 
+          gravity_torque = gravity_comp_no_gripper(cache, z, false, tree_);
+          torque_command -= gravity_torque;
         }
 
-        if (fabs(iiwa_status_.joint_velocity_estimated[5]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[3]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[1]) > 0.1){
+        //debugging for feedforward and feedback torque components
+        /*if (fabs(iiwa_status_.joint_velocity_estimated[5]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[3]) > 0.1 || fabs(iiwa_status_.joint_velocity_estimated[1]) > 0.1){
           saveVector(position_ctrl_torque_command, "PD_impedance_ctrl_command");
           saveVector(torque_command+gravity_torque, "total_torque_command");  
-        }
+        }*/
         
         // -------->(For Safety) Set up iiwa position command<----------
         for (int joint = 0; joint < kNumJoints; joint++) {
