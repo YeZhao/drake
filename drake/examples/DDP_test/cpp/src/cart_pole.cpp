@@ -182,7 +182,7 @@ stateVec_t CartPole::update(const int& nargout, const double& dt, const stateVec
     return X_new;
 }
 
-void CartPole::grad(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
+void CartPole::grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
     int n = X.size();
     int m = U.size();
 
@@ -199,6 +199,7 @@ void CartPole::grad(const int& nargout, const double& dt, const stateVec_t& X, c
     AA.setZero();
     BB.setZero();
 
+    int nargout = 1;
     for(unsigned int i=0;i<n;i++){
         Xp = update(nargout, dt, X+Dx.col(i), U, AA, BB);
         Xm = update(nargout, dt, X-Dx.col(i), U, AA, BB);
@@ -210,6 +211,51 @@ void CartPole::grad(const int& nargout, const double& dt, const stateVec_t& X, c
         Xm = update(nargout, dt, X, U-Du.col(i), AA, BB);
         B.col(i) = (Xp - Xm)/(2*delta);
     }
+}
+
+void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
+    int n = X.size();
+    int m = U.size();
+
+    double delta = 1e-5;
+    stateMat_t Dx;
+    commandMat_t Du;
+    Dx.setIdentity();
+    Dx = delta*Dx;
+    Du.setIdentity();
+    Du = delta*Du;
+
+    stateMat_t Ap;
+    Ap.setZero();
+    stateMat_t Am;
+    Am.setZero();
+    stateVec_t B;
+    B.setZero();
+
+    for(unsigned int i=0;i<n;i++){
+        fxx[i].setZero();
+        fxu[i].setZero();
+        fuu[i].setZero();
+    }
+
+    for(unsigned int i=0;i<n;i++){
+        grad(dt, X+Dx.col(i), U, Ap, B);
+        grad(dt, X-Dx.col(i), U, Am, B);
+        fxx[i] = (Ap - Am)/(2*delta);
+    }
+
+    stateVec_t Bp;
+    Bp.setZero();
+    stateVec_t Bm;
+    Bm.setZero();
+
+    for(unsigned int j=0;j<m;j++){
+        grad(dt, X, U+Du.col(j), Ap, Bp);
+        grad(dt, X, U-Du.col(j), Am, Bm);
+        fxu[j] = (Ap - Am)/(2*delta);
+        fuu[j] = (Bp - Bm)/(2*delta);
+    }
+
 }
 
 stateVec_t CartPole::computeNextState(double& dt, const stateVec_t& X,const stateVec_t& Xdes,const commandVec_t& U)

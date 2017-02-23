@@ -92,7 +92,8 @@ protected:
 public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
     stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
-    void grad(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
+    void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
+    void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);
     stateVec_t computeNextState(double& dt, const stateVec_t& X,const stateVec_t& Xdes, const commandVec_t &U);
     void computeAllModelDeriv(double& dt, const stateVec_t& X,const stateVec_t& Xdes, const commandVec_t &U);
     stateMat_t computeTensorContxx(const stateVec_t& nextVx);
@@ -106,4 +107,4 @@ public:
 
 };
 
-#endif // ROMEOSIMPLEACTUATOR_H
+#endif // CARTPOLE_H

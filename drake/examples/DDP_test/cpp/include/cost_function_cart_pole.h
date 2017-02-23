@@ -35,4 +35,4 @@ public:
 
 };
 
-#endif // COSTFUNCTIONROMEOACTUATOR_H
+#endif // COSTFUNCTIONCARTPOLE_H
