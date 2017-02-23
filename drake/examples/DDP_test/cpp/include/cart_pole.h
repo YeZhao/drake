@@ -93,10 +93,10 @@ private:
     CostFunctionCartPole* costFunction;
 
 protected:
-    // methods //
+    // methods
 public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
-    void cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, double& c);
+    void cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, stateMatTab_t& fx, stateR_commandC_tab_t& fu, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, stateR_commandC_tab_t& cxu, commandMatTab_t& cuu, double& c);
     stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);

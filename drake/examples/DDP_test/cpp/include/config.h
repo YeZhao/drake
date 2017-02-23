@@ -42,6 +42,7 @@ typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;   
 typedef std::vector<stateVec_t> stateVecTab_t;
 typedef std::vector<commandVec_t> commandVecTab_t;
 typedef std::vector<stateMat_t> stateMatTab_t;
+typedef std::vector<commandMat_t> commandMatTab_t;
 typedef std::vector<stateR_commandC_t> stateR_commandC_tab_t;
 typedef std::vector<commandR_stateC_t> commandR_stateC_tab_t;
 

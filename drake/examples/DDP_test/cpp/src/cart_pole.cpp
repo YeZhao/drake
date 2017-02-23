@@ -118,9 +118,10 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     return X_new;
 }
 
-void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, double& c){
+void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, 
+                                stateMatTab_t& fx, stateR_commandC_tab_t& fu, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, stateR_commandC_tab_t& cxu, commandMatTab_t& cuu, double& c){
     // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
-    int N = xList.size();//[to be checked]
+    int N = xList.size();//[TODO: to be checked]
     int n = xList[0].rows();
     int m = uList[0].rows();
     costFunction = &myCostFunction;
@@ -158,18 +159,30 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunct
             }
         }
 
-        // stateMatTab_t fx;
-        // stateR_commandC_tab_t fu;
-        // //stateVecTab_t cx;
-        // //stateVec_t cx_temp;
+        stateVec_t cx_temp;
+        
+        for(unsigned int k=0;k<N-1;k++){
+            fx[k] = A[k];
+            fu[k] = B[k];
+            cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
+            cx[k] = costFunction->getQ()*cx_temp;
+            cu[k] = costFunction->getR()*uList[k];
+            cxx[k] = costFunction->getQ();
+            cxu[k].setZero();
+            cuu[k] = costFunction->getR();
+        }
+        cx[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);
+        cu[N-1] = costFunction->getR()*uList[N-1];
+        cxx[N-1] = costFunction->getQf();
+        cxu[N-1].setZero();
+        cuu[N-1] = costFunction->getR();
 
-        // for(unsigned int k=0;k<N-1;k++){
-        //     fx[k] = A[k];
-        //     fu[k] = B[k];
-        //     //cx_temp << xList(0,k)-xgoal(0);xList(1,k)-xgoal(1);xList(2,k)-xgoal(2);xList(3,k)-xgoal(3);
-        //     //cx[k] << costFunction->getQ()*cx_temp;
-        // }
-        //[to be finalized]
+        // the following matrices and scalars are set to Zero instead of empty, not supported by Eigen.
+        //fxx, fxu, fuu are not defined since never used
+        for(unsigned int k=0;k<N;k++){
+            fList[k].setZero();
+        }    
+        c = 0;
     }
 }
 

@@ -14,10 +14,12 @@ FILE(
     src/*
 )
 
-ADD_EXECUTABLE(main test/main.cpp ${source_files})
+#ADD_EXECUTABLE(main test/main.cpp ${source_files})
 ADD_EXECUTABLE(main_cartpole test/main_cartpole.cpp ${source_files})
-ADD_EXECUTABLE(testModel test/testModel.cpp ${source_files})
+#ADD_EXECUTABLE(mainMPC test/mainMPC.cpp ${source_files})
+#ADD_EXECUTABLE(testModel test/testModel.cpp ${source_files})
 
-TARGET_LINK_LIBRARIES(main ${qpOASES_LIBRARIES})
+#TARGET_LINK_LIBRARIES(main ${qpOASES_LIBRARIES})
 TARGET_LINK_LIBRARIES(main_cartpole ${qpOASES_LIBRARIES})
-TARGET_LINK_LIBRARIES(testModel ${qpOASES_LIBRARIES})
+#TARGET_LINK_LIBRARIES(mainMPC ${qpOASES_LIBRARIES})
+#TARGET_LINK_LIBRARIES(testModel ${qpOASES_LIBRARIES})

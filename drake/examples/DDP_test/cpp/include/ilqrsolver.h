@@ -50,6 +50,8 @@ private:
     unsigned int iterMax;
     double stopCrit;
     double changeAmount;
+    double tolFun;
+    double tolGrad;
 
     stateVecTab_t xList;
     commandVecTab_t uList;
@@ -97,7 +99,7 @@ protected:
     // methods //
 public:
     void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myT,
-                    double& mydt, unsigned int& myiterMax,double& mystopCrit);
+                    double& mydt, unsigned int& myiterMax,double& mystopCrit, double& mytolFun, double& mytolGrad);
     void initSolver(stateVec_t& myxInit, stateVec_t& myxDes);
     void solveTrajectory();
     struct traj getLastSolvedTrajectory();

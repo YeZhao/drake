@@ -28,7 +28,6 @@ int main()
     unsigned int T = 50;
     double dt=1e-4;
 
-
 /*    xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
 
@@ -47,7 +46,7 @@ int main()
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
 
-    testSolverCartPole.FirstInitSolver(xinit,xgoal,T,dt,iterMax,stopCrit);
+    testSolverCartPole.FirstInitSolver(xinit,xgoal,T,dt,iterMax,stopCrit, tolFun, tolGrad);
 
     // run multiple times and then average
     int N = 1;//100

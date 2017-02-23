@@ -15,6 +15,13 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
     commandNb = myDynamicModel.getCommandNb();
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
+
+    if(enableQPBox) cout << "Box QP is enabled" << endl;
+    else cout << "Box QP is disabled" << endl;
+
+    if(enableFullDDP) cout << "Full DDP is enabled" << endl;
+    else cout << "Full DDP is disabled" << endl;
+
     if(QPBox)
     {
         qp = new QProblemB(commandNb);
@@ -33,14 +40,17 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
 }
 
 void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myT,
-                       double& mydt, unsigned int& myiterMax,double& mystopCrit)
+                       double& mydt, unsigned int& myiterMax, double& mystopCrit, double& mytolFun, double& mytolGrad)
 {
+    // TODO: double check opt params
     xInit = myxInit-myxDes;
     xDes = myxDes;
     T = myT;
     dt = mydt;
     iterMax = myiterMax;
     stopCrit = mystopCrit;
+    tolFun = mytolFun;
+    tolGrad = mytolGrad;
 
     xList.resize(myT+1);
     uList.resize(myT);
@@ -62,6 +72,7 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsign
     kList = new commandVec_t[myT];
     KList = new commandR_stateC_t[myT];*/
 
+    // parameters for line search
     alphaList[0] = 1.0;
     alphaList[1] = 0.8;
     alphaList[2] = 0.6;
@@ -83,7 +94,7 @@ void ILQRSolver::solveTrajectory()
     {
         backwardLoop();
         forwardLoop();
-        std::cout << "iteration:  " << iter << std::endl;
+        cout << "iteration:  " << iter << endl;
         if(changeAmount<stopCrit)
         {
             break;
@@ -197,7 +208,7 @@ void ILQRSolver::forwardLoop()
 {
     changeAmount = 0.0;
     updatedxList[0] = xInit;
-    // Line search to be implemented [to be checked]
+    // TODO: Line search to be implemented
     alpha = 1.0;
     for(unsigned int i=0;i<T;i++)
     {
