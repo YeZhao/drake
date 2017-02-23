@@ -118,8 +118,62 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     return X_new;
 }
 
-stateVec_t CartPole::update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B)
-{
+void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, double& c){
+    // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
+    int N = xList.size();//[to be checked]
+    int n = xList[0].rows();
+    int m = uList[0].rows();
+    costFunction = &myCostFunction;
+    c = 0;
+    double R = 0.1; //later, use costFunction->getR()
+    stateMat_t AA;
+    stateVec_t BB;
+    AA.setZero();
+    BB.setZero();
+
+    if(nargout == 2){
+        const int nargout_update1 = 1;        
+        for(unsigned int k=0;k<N;k++){
+            if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
+                c += 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
+            }else{
+                fList[k] = update(nargout_update1, dt, xList[k], uList[k], AA, BB);
+                c += 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
+                c += 0.5*uList[k].transpose()*R*uList[k];
+            }
+        }
+    }else{
+        stateMatTab_t A;
+        stateR_commandC_tab_t B;
+        const int nargout_update2 = 1;
+        for(unsigned int k=0;k<N;k++){
+            if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
+                c += 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
+            }else{
+                fList[k] = update(nargout_update2, dt, xList[k], uList[k], AA, BB);
+                c += 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
+                c += 0.5*uList[k].transpose()*R*uList[k];
+                A[k] = AA;
+                B[k] = BB;
+            }
+        }
+
+        // stateMatTab_t fx;
+        // stateR_commandC_tab_t fu;
+        // //stateVecTab_t cx;
+        // //stateVec_t cx_temp;
+
+        // for(unsigned int k=0;k<N-1;k++){
+        //     fx[k] = A[k];
+        //     fu[k] = B[k];
+        //     //cx_temp << xList(0,k)-xgoal(0);xList(1,k)-xgoal(1);xList(2,k)-xgoal(2);xList(3,k)-xgoal(3);
+        //     //cx[k] << costFunction->getQ()*cx_temp;
+        // }
+        //[to be finalized]
+    }
+}
+
+stateVec_t CartPole::update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
     // 4th-order Runge-Kutta step
     Xdot1 = cart_pole_dynamics(X, U);
     Xdot2 = cart_pole_dynamics(X + 0.5*dt*Xdot1, U);

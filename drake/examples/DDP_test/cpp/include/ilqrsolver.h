@@ -2,6 +2,7 @@
 #define ILQRSOLVER_H
 
 #include "config.h"
+#include "matrixUtil.h"
 
 #include "dynamicmodel.h"
 #include "costfunction.h"
@@ -56,6 +57,7 @@ private:
     commandVecTab_t updateduList;
     stateVecTab_t tmpxPtr;
     commandVecTab_t tmpuPtr;
+    stateVecTab_t fList;
     struct traj lastTraj;
 
     stateVec_t nextVx;

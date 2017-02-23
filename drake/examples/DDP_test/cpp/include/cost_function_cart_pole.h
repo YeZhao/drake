@@ -28,6 +28,10 @@ protected:
 public:
     void computeAllCostDeriv(const stateVec_t& X, const commandVec_t& U);
     void computeFinalCostDeriv(const stateVec_t& X);
+    stateMat_t getQ();
+    stateMat_t getQf();
+    commandMat_t getR();
+
 private:
 protected:
     // accessors //

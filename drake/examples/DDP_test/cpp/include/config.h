@@ -9,6 +9,7 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 
 #define stateSize 4
 #define commandSize 1
+//#define trajknotSize 50
 
 // typedef for stateSize types
 typedef Eigen::Matrix<double,stateSize,1> stateVec_t;                       // stateSize x 1
@@ -29,17 +30,19 @@ typedef Eigen::Matrix<double,stateSize,commandSize> stateR_commandC_commandD_t[c
 typedef Eigen::Matrix<double,commandSize,stateSize> commandR_stateC_t;                          // commandSize x stateSize
 typedef Eigen::Matrix<double,commandSize,stateSize> commandR_stateC_stateD_t[stateSize];        // commandSize x stateSize x stateSize
 typedef Eigen::Matrix<double,commandSize,stateSize> commandR_stateC_commandD_t[commandSize];    // commandSize x stateSize x commandSize
-typedef Eigen::Matrix<double,stateSize,stateSize> stateR_stateC_commandD_t[commandSize];    // stateSize x stateSize x commandSize
+typedef Eigen::Matrix<double,stateSize,stateSize> stateR_stateC_commandD_t[commandSize];        // stateSize x stateSize x commandSize
 typedef Eigen::Matrix<double,commandSize,commandSize> commandR_commandC_stateD_t[stateSize];    // commandSize x commandSize x stateSize
 
 // typedef for half commandSize and stateSize types
-typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                       // stateSize/2 x 1
+typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
 typedef Eigen::Matrix<double,stateSize/2,stateSize/2> stateMat_half_t;                          // stateSize/2 x stateSize/2
-typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                          // stateSize/2 x 1
-typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;                          // stateSize/2 x commandSize
+typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
+typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;                   // stateSize/2 x commandSize
 
 typedef std::vector<stateVec_t> stateVecTab_t;
 typedef std::vector<commandVec_t> commandVecTab_t;
+typedef std::vector<stateMat_t> stateMatTab_t;
+typedef std::vector<stateR_commandC_t> stateR_commandC_tab_t;
 typedef std::vector<commandR_stateC_t> commandR_stateC_tab_t;
 
 #endif // CONFIG_H

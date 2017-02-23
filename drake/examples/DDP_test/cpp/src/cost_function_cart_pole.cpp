@@ -39,3 +39,17 @@ void CostFunctionCartPole::computeFinalCostDeriv(const stateVec_t& X)
     lx = Qf*X;
 }
 
+commandMat_t CostFunctionCartPole::getQ()
+{
+    return Q;
+}
+
+stateMat_t CostFunctionCartPole::getQf()
+{
+    return Qf;
+}
+
+commandMat_t CostFunctionCartPole::getR()
+{
+    return R;
+}

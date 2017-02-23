@@ -2,6 +2,7 @@
 #include <fstream>
 
 #include "config.h"
+#include "matrixUtil.h"
 
 #include "ilqrsolver.h"
 #include "cart_pole.h"
@@ -9,7 +10,6 @@
 
 #include <time.h>
 #include <sys/time.h>
-
 
 using namespace std;
 using namespace Eigen;
@@ -20,18 +20,17 @@ int main()
 {
     struct timeval tbegin,tend;
     double texec = 0.0;
-    stateVec_t xinit,xDes;
-
+    stateVec_t xinit,xgoal;
 
     xinit << -3.0,0.0,0.0,0.0;
-    xDes << 0.0,0.0,0.0,0.0;
+    xgoal << 0.0,0.0,0.0,0.0;
 
     unsigned int T = 50;
     double dt=1e-4;
 
 
 /*    xinit << 0.0,0.0,0.0,0.0;
-    xDes << 0.0,pi,0.0,0.0;
+    xgoal << 0.0,pi,0.0,0.0;
 
     unsigned int T = 50;
     double dt = 0.1;*/
@@ -43,12 +42,12 @@ int main()
     stateVecTab_t xList;
     commandVecTab_t uList;
     ILQRSolver::traj lastTraj;
-
+    
     CartPole cartPoleModel(dt);
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
 
-    testSolverCartPole.FirstInitSolver(xinit,xDes,T,dt,iterMax,stopCrit);
+    testSolverCartPole.FirstInitSolver(xinit,xgoal,T,dt,iterMax,stopCrit);
 
     // run multiple times and then average
     int N = 1;//100
