@@ -42,7 +42,7 @@ int main()
     commandVecTab_t uList;
     ILQRSolver::traj lastTraj;
     
-    CartPole cartPoleModel(dt);
+    CartPole cartPoleModel(dt, T);
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
 

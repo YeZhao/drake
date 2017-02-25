@@ -10,12 +10,22 @@
 #include "dynamicmodel.h"
 #include <Eigen/Dense>
 
+#ifndef DEBUG_CART_POLE
+#define DEBUG_CART_POLE 1
+#else
+    #if PREFIX1(DEBUG_CART_POLE)==1
+    #define DEBUG_CART_POLE 1
+    #endif
+#endif
+
+#define TRACE_CART_POLE(x) do { if (DEBUG_CART_POLE) printf(x);} while (0)
+
 using namespace Eigen;
 
 class CartPole : public DynamicModel
 {
 public:
-    CartPole(double& mydt);
+    CartPole(double& mydt, unsigned int& myT);
 private:
 protected:
 
@@ -41,6 +51,7 @@ public:
 
     //commandVec_t lowerCommandBounds;
     //commandVec_t upperCommandBounds;
+    CostFunctionCartPole costFunction_cart_pole;
 private:
     stateVec_t Xreal;
     stateMat_t Id;
@@ -90,13 +101,12 @@ private:
     stateVec_t Xm3;
     stateVec_t Xm4;
 
-    CostFunctionCartPole* costFunction;
 
 protected:
     // methods
 public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
-    void cart_pole_dyn_cst(const int& nargout, const double& dt, CostFunctionCartPole& myCostFunction, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& fList, stateMatTab_t& fx, stateR_commandC_tab_t& fu, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, stateR_commandC_tab_t& cxu, commandMatTab_t& cuu, double& c);
+    void cart_pole_dyn_cst(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateMatTab_t& fx, stateR_commandC_tab_t& fu, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, stateR_commandC_tab_t& cxu, commandMatTab_t& cuu, double& c);
     stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);

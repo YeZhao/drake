@@ -2,8 +2,8 @@
 #define COSTFUNCTIONCARTPOLE_H
 
 #include "config.h"
-
 #include "costfunction.h"
+#include <iostream>
 
 #include <Eigen/Dense>
 
@@ -14,9 +14,6 @@ class CostFunctionCartPole : public CostFunction
 public:
     CostFunctionCartPole();
 private:
-    stateMat_t Q;
-    stateMat_t Qf;
-    commandMat_t R;
     double dt;
 protected:
     // attributes //
@@ -28,10 +25,6 @@ protected:
 public:
     void computeAllCostDeriv(const stateVec_t& X, const commandVec_t& U);
     void computeFinalCostDeriv(const stateVec_t& X);
-    stateMat_t getQ();
-    stateMat_t getQf();
-    commandMat_t getR();
-
 private:
 protected:
     // accessors //

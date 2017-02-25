@@ -2,6 +2,13 @@
 
 CostFunction::CostFunction()
 {
+	// Q << 100.0,0.0,0.0,0.0,
+ //                0.0,0.0,0.0,0.0,
+ //                0.0,0.0,0.0,0.0,
+ //                0.0,0.0,0.0,0.0;
+ //    R << 0.1;
+
+ //    Qf = Q;
 }
 
 stateVec_t& CostFunction::getlx()
@@ -32,4 +39,19 @@ commandR_stateC_t& CostFunction::getlux()
 stateR_commandC_t& CostFunction::getlxu()
 {
     return lxu;
+}
+
+stateMat_t& CostFunction::getQ()
+{
+    return Q;
+}
+
+stateMat_t& CostFunction::getQf()
+{
+    return Qf;
+}
+
+commandMat_t& CostFunction::getR()
+{
+    return R;
 }
