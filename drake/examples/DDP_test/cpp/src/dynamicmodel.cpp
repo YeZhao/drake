@@ -1,8 +1,8 @@
 #include "dynamicmodel.h"
 
-/*DynamicModel::DynamicModel()
-{
-}*/
+// DynamicModel::DynamicModel()
+// {
+// }
 unsigned int DynamicModel::getStateNb()
 {
     return stateNb;
@@ -51,4 +51,14 @@ stateR_stateC_commandD_t& DynamicModel::getfxu()
 stateR_commandC_stateD_t& DynamicModel::getfux()
 {
     return fux;
+}
+
+stateMatTab_t& DynamicModel::getfxList()
+{
+    return fxList;
+}
+
+stateR_commandC_tab_t& DynamicModel::getfuList()
+{
+    return fuList;
 }

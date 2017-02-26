@@ -61,30 +61,27 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     //Op = INIT_OPTSET;
     standard_parameters(&Op);
     Op.xInit = myxInit;
-    Op.n_hor = myT-1; // TODO: to be checked
+    Op.n_hor = T-1; // TODO: to be checked
     Op.tolFun = mytolFun;
     Op.tolGrad = mytolGrad;
     Op.max_iter = mymax_iter;
 
-    xList.resize(myT+1);
-    uList.resize(myT);
-    updatedxList.resize(myT+1);
-    updateduList.resize(myT);
-    tmpxPtr.resize(myT+1);
-    tmpuPtr.resize(myT);
+    xList.resize(T+1);
+    uList.resize(T);
+    updatedxList.resize(T+1);
+    updateduList.resize(T);
+    tmpxPtr.resize(T+1);
+    tmpuPtr.resize(T);
     k.setZero();
     K.setZero();
-    kList.resize(myT);
-    KList.resize(myT);
+    kList.resize(T);
+    KList.resize(T);
     
-    FList.resize(myT+1);
-    fx_new.resize(myT);
-    fu_new.resize(myT);
-    cx_new.resize(myT+1);
-    cu_new.resize(myT+1);
-    cxx_new.resize(myT+1);
-    cxu_new.resize(myT+1);
-    cuu_new.resize(myT+1);
+    FList.resize(T+1);
+    
+    Vx.resize(T);
+    Vxx.resize(T);
+    dV.setZero();
 
     /*xList = new stateVec_t[myT+1];
     uList = new commandVec_t[myT];
@@ -132,11 +129,40 @@ void ILQRSolver::solveTrajectory()
         //TRACE("STEP 1: differentiate dynamics and cost along new trajectory\n");
         if(newDeriv){
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
-            dynamicModel->cart_pole_dyn_cst(nargout, dt, xList, uList, xgoal, FList, fx_new, fu_new, cx_new, cu_new, cxx_new, cxu_new, cuu_new, c);
+            dynamicModel->cart_pole_dyn_cst(nargout, dt, xList, uList, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
             newDeriv = 0;
         }
         //TRACE("Finish STEP 1\n");
+
+        // ====== STEP 2: backward pass, compute optimal control law and cost-to-go
+        // backPassDone = 0;
+        // TRACE(("Back pass:\n"));
+        // while(!backPassDone) {
+        //     if(back_pass(o)) {
+        //         if(Op.debug_level>=1)
+        //             TRACE(("Back pass failed.\n"));
+
+        //         dlambda= max(dlambda * Op.lambdaFactor, Op.lambdaFactor);
+        //         Op.lambda= max(Op.lambda * dlambda, Op.lambdaMin);
+        //         if(Op.lambda > Op.lambdaMax)
+        //             break;
+        //     } else {
+        //         backPassDone= 1;
+        //         TRACE(("...done\n"));
+        //     }
+        // }
         
+        // // check for termination due to small gradient
+        // // TODO: add constraint tolerance check
+        // if(o->g_norm < o->tolGrad && o->lambda < 1e-5) {
+        //     dlambda= min(dlambda / o->lambdaFactor, 1.0/o->lambdaFactor);
+        //     o->lambda= o->lambda * dlambda * (o->lambda > o->lambdaMin);
+        //     if(o->debug_level>=1)
+        //         TRACE(("\nSUCCESS: gradient norm < tolGrad\n"));
+        //     break;
+        // }
+
+
         backwardLoop();
         forwardLoop(&Op);
         cout << "iteration:  " << iter << endl;
@@ -211,13 +237,23 @@ void ILQRSolver::backwardLoop()
     nextVx = costFunction->getlx();
     nextVxx = costFunction->getlxx();
 
-    mu = 0.0;
+    lambda = 0.0;
     completeBackwardFlag = 0;
 
     while(!completeBackwardFlag)
     {
         completeBackwardFlag = 1;
-        muEye = mu*stateMat_t::Zero();//[to be checked, change it One()]
+        if(Op.regType == 1)
+            lambdaEye = lambda*stateMat_t::Zero();//[to be checked, change it to One()]
+        else
+            lambdaEye = lambda*stateMat_t::Identity();
+        //std::cout << "lambdaEye: " << lambdaEye << std::endl;
+
+        diverge = 0;
+        
+        Vx[T] = costFunction->getcx()[T];
+        Vxx[T] = costFunction->getcxx()[T];
+
         for(int i=T-1;i>=0;i--)
         {
             x = xList[i];
@@ -226,17 +262,58 @@ void ILQRSolver::backwardLoop()
             dynamicModel->computeAllModelDeriv(dt,x,xgoal,u);
             costFunction->computeAllCostDeriv(x,u);
 
+            Qx = costFunction->getcx()[i] + dynamicModel->getfx().transpose() * nextVx;
+            Qu = costFunction->getcu()[i] + dynamicModel->getfu().transpose() * nextVx;
+            Qxx = costFunction->getcxx()[i] + dynamicModel->getfx().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfx();
+            Quu = costFunction->getcuu()[i] + dynamicModel->getfu().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfu();
+            Qux = costFunction->getcux()[i] + dynamicModel->getfu().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfx();
+
             Qx = costFunction->getlx() + dynamicModel->getfx().transpose() * nextVx;
             Qu = costFunction->getlu() + dynamicModel->getfu().transpose() * nextVx;
-            Qxx = costFunction->getlxx() + dynamicModel->getfx().transpose() * (nextVxx+muEye) * dynamicModel->getfx();
-            Quu = costFunction->getluu() + dynamicModel->getfu().transpose() * (nextVxx+muEye) * dynamicModel->getfu();
-            Qux = costFunction->getlux() + dynamicModel->getfu().transpose() * (nextVxx+muEye) * dynamicModel->getfx();
+            Qxx = costFunction->getlxx() + dynamicModel->getfx().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfx();
+            Quu = costFunction->getluu() + dynamicModel->getfu().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfu();
+            Qux = costFunction->getlux() + dynamicModel->getfu().transpose() * (nextVxx+lambdaEye) * dynamicModel->getfx();
 
+            //for debugging
+            if (i==T-1){
+                std::cout << "--------- new iteration ---------" << std::endl;
+                std::cout << "costFunction->getlx(): " << costFunction->getlx() << std::endl;
+                std::cout << "costFunction->getcx(): " << costFunction->getcx()[i] << std::endl;
+                
+                std::cout << "costFunction->getlu(): " << costFunction->getlu() <<std::endl;
+                std::cout << "costFunction->getcu(): " << costFunction->getcu()[i] << std::endl;
+                
+                std::cout << "costFunction->getlxx(): " << costFunction->getlxx() << std::endl;
+                std::cout << "costFunction->getcxx(): " << costFunction->getcxx()[i] << std::endl;
+                
+                std::cout << "costFunction->getluu(): " << costFunction->getluu() <<std::endl;
+                std::cout << "costFunction->getcuu(): " << costFunction->getcuu()[i] << std::endl;
+                
+                std::cout << "costFunction->getlux(): " << costFunction->getlux() <<std::endl;
+                std::cout << "costFunction->getcux(): " << costFunction->getcux()[i] << std::endl;
+            }
+
+            Qx = costFunction->getcx()[i] + dynamicModel->getfxList()[i].transpose()*Vx[i+1];
+            Qu = costFunction->getcu()[i] + dynamicModel->getfuList()[i].transpose()*Vx[i+1];
+            Qxx = costFunction->getcxx()[i] + dynamicModel->getfxList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
+            Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfuList()[i];
+            Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
+
+            if(Op.regType == 1)
+                QuuF = Quu + lambda*commandMat_t::Identity();
+            else
+                QuuF = Quu;
+            
             if(enableFullDDP)
             {
-                Qxx += dynamicModel->computeTensorContxx(nextVx);
-                Qux += dynamicModel->computeTensorContux(nextVx);
-                Quu += dynamicModel->computeTensorContuu(nextVx);
+                //Qxx += dynamicModel->computeTensorContxx(nextVx);
+                //Qux += dynamicModel->computeTensorContux(nextVx);
+                //Quu += dynamicModel->computeTensorContuu(nextVx);
+
+                Qxx += dynamicModel->computeTensorContxx(Vx[i+1]);
+                Qux += dynamicModel->computeTensorContux(Vx[i+1]);
+                Quu += dynamicModel->computeTensorContuu(Vx[i+1]);
+                QuuF += dynamicModel->computeTensorContuu(Vx[i+1]);
             }
 
             QuuInv = Quu.inverse();
@@ -246,8 +323,8 @@ void ILQRSolver::backwardLoop()
                 /*
                   To be Implemented : Regularization (is Quu definite positive ?)
                 */
-                if(mu==0.0) mu += 1e-4;
-                else mu *= 10;
+                if(lambda==0.0) lambda += 1e-4;
+                else lambda *= 10;
                 completeBackwardFlag = 0;
                 break;
             }
@@ -293,7 +370,7 @@ void ILQRSolver::forwardLoop(tOptSet *Op)
 {
     changeAmount = 0.0;
     updatedxList[0] = Op->xInit;
-    cout << "Op->lambdaInit: " << Op->lambdaInit << endl;
+    //cout << "Op->lambdaInit: " << Op->lambdaInit << endl;
     // TODO: Line search to be implemented
     alpha = 1.0;
     for(unsigned int i=0;i<T;i++)

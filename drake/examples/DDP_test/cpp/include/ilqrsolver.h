@@ -15,8 +15,8 @@
 
 #define ENABLE_QPBOX 1
 #define DISABLE_QPBOX 0
-#define ENABLE_FULLDDP 1
-#define DISABLE_FULLDDP 0
+#define ENABLE_FULLDDP 0
+#define DISABLE_FULLDDP 1
 
 #ifndef DEBUG_ILQR
 #define DEBUG_ILQR 1
@@ -156,16 +156,21 @@ private:
     commandVecTab_t uList;
     stateVecTab_t updatedxList;
     commandVecTab_t updateduList;
+    stateVecTab_t FList;
     stateVecTab_t tmpxPtr;
     commandVecTab_t tmpuPtr;
     struct traj lastTraj;
 
     stateVec_t nextVx;
     stateMat_t nextVxx;
+    stateVecTab_t Vx;
+    stateMatTab_t Vxx;
+
     stateVec_t Qx;
     stateMat_t Qxx;
     commandVec_t Qu;
     commandMat_t Quu;
+    commandMat_t QuuF;
     commandMat_t QuuInv;
     commandR_stateC_t Qux;
     commandVec_t k;
@@ -175,9 +180,10 @@ private:
     double alphaList[11];
     double alpha;
 
-    double mu;
-    stateMat_t muEye;
+    double lambda;
+    stateMat_t lambdaEye;
     unsigned char completeBackwardFlag;
+    unsigned int diverge;
 
     /* QP variables */
     QProblemB* qp;
@@ -195,16 +201,7 @@ private:
     tOptSet Op;
     //Eigen::VectorXd default_alpha;
     int verbosity;
-    stateVecTab_t FList;
-    stateMatTab_t fx_new;
-    stateR_commandC_tab_t fu_new;
-    stateVecTab_t cx_new; 
-    commandVecTab_t cu_new; 
-    stateMatTab_t cxx_new; 
-    stateR_commandC_tab_t cxu_new; 
-    commandMatTab_t cuu_new;
-    double c;
-
+    Eigen::Vector2d dV;
 protected:
     // methods //
 public:

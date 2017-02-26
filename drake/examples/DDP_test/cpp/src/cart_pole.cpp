@@ -63,6 +63,17 @@ CartPole::CartPole(double& mydt, unsigned int& myT)
     fux[0].setZero();
     fxu[0].setZero();
 
+    fxList.resize(T);
+    fuList.resize(T);
+    
+    fxx_new[0].setZero();
+    fxx_new[1].setZero();
+    fxx_new[2].setZero();
+    fxx_new[3].setZero();
+    fuu_new[0].setZero();
+    fux_new[0].setZero();
+    fxu_new[0].setZero();
+    
     QxxCont.setZero();
     QuuCont.setZero();
     QuxCont.setZero();
@@ -93,6 +104,7 @@ CartPole::CartPole(double& mydt, unsigned int& myT)
     Xm2.setZero();
     Xm3.setZero();
     Xm4.setZero();
+
 }
 
 stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)
@@ -120,7 +132,7 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
 }
 
 void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, 
-                                stateMatTab_t& fx, stateR_commandC_tab_t& fu, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, stateR_commandC_tab_t& cxu, commandMatTab_t& cuu, double& c){
+                                stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c){
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
     // costFunctionCartPole
     TRACE_CART_POLE("initialize dimensions\n");
@@ -193,21 +205,21 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
         TRACE_CART_POLE("compute dynamics and cost derivative\n");
 
         for(unsigned int k=0;k<N-1;k++){
-            fx[k] = A_temp[k];
-            fu[k] = B_temp[k];
+            fxList[k] = A_temp[k];
+            fuList[k] = B_temp[k];
             cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
             cx[k] = costFunctionCartPole->getQ()*cx_temp;
             cu[k] = costFunctionCartPole->getR()*uList[k];
             cxx[k] = costFunctionCartPole->getQ();
-            cxu[k].setZero();
+            cux[k].setZero();
             cuu[k] = costFunctionCartPole->getR();
         }
         TRACE_CART_POLE("update the final value of cost derivative \n");
 
-        cx[N-1] = costFunctionCartPole->getQf()*(xList[N-1]-xgoal);
+        cx[N-1] = costFunctionCartPole->getQf()*(xList[N-1]-xgoal);//[TODO: double check whether there is - xgoal]
         cu[N-1] = costFunctionCartPole->getR()*uList[N-1];
         cxx[N-1] = costFunctionCartPole->getQf();
-        cxu[N-1].setZero();
+        cux[N-1].setZero();
         cuu[N-1] = costFunctionCartPole->getR();
 
         TRACE_CART_POLE("set unused matrices to zero \n");
@@ -320,7 +332,7 @@ void CartPole::grad(const double& dt, const stateVec_t& X, const commandVec_t& U
     }
 }
 
-void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
+void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t& U){
     int n = X.size();
     int m = U.size();
 
@@ -340,15 +352,15 @@ void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t
     B.setZero();
 
     for(unsigned int i=0;i<n;i++){
-        fxx[i].setZero();
-        fxu[i].setZero();
-        fuu[i].setZero();
+        fxx_new[i].setZero();
+        fxu_new[i].setZero();
+        fuu_new[i].setZero();
     }
 
     for(unsigned int i=0;i<n;i++){
         grad(dt, X+Dx.col(i), U, Ap, B);
         grad(dt, X-Dx.col(i), U, Am, B);
-        fxx[i] = (Ap - Am)/(2*delta);
+        fxx_new[i] = (Ap - Am)/(2*delta);
     }
 
     stateVec_t Bp;
@@ -359,8 +371,8 @@ void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t
     for(unsigned int j=0;j<m;j++){
         grad(dt, X, U+Du.col(j), Ap, Bp);
         grad(dt, X, U-Du.col(j), Am, Bm);
-        fxu[j] = (Ap - Am)/(2*delta);
-        fuu[j] = (Bp - Bm)/(2*delta);
+        fxu_new[j] = (Ap - Am)/(2*delta);
+        fuu_new[j] = (Bp - Bm)/(2*delta);
     }
 
 }
@@ -386,6 +398,9 @@ void CartPole::computeAllModelDeriv(double& dt, const stateVec_t& X,const stateV
 
 stateMat_t CartPole::computeTensorContxx(const stateVec_t& nextVx)
 {
+    //std::cout << "nextVx[3]: " << nextVx[3] << std::endl;
+    //std::cout << "fxx[3]: " << fxx[3] << std::endl;
+    //std::cout << "nextVx: " << nextVx << std::endl;
     QxxCont = nextVx[3]*fxx[3];
     return QxxCont;
 }

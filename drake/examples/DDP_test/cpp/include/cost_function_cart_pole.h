@@ -15,6 +15,7 @@ public:
     CostFunctionCartPole();
 private:
     double dt;
+    //unsigned int T;
 protected:
     // attributes //
 public:
