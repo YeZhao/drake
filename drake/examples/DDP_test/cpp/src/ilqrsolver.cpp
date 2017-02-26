@@ -136,6 +136,7 @@ void ILQRSolver::solveTrajectory()
             newDeriv = 0;
         }
         //TRACE("Finish STEP 1\n");
+        
         backwardLoop();
         forwardLoop(&Op);
         cout << "iteration:  " << iter << endl;
@@ -172,7 +173,7 @@ void ILQRSolver::standard_parameters(tOptSet *o) {
     //o->alpha= default_alpha;
     o->n_alpha= 11;
     o->tolFun= 1e-4;
-    o->tolConstraint= 1e-7; // TODO: to be defined
+    o->tolConstraint= 1e-7; // TODO: to be modified
     o->tolGrad= 1e-4;
     o->max_iter= 500;
     o->lambdaInit= 1;
@@ -182,9 +183,9 @@ void ILQRSolver::standard_parameters(tOptSet *o) {
     o->lambdaMin= 1e-6;
     o->regType= 1;
     o->zMin= 0.0;
-    o->debug_level= 2; // TODO: to be defined
-    o->w_pen_init_l= 1.0; // TODO: to be defined
-    o->w_pen_init_f= 1.0; // TODO: to be defined
+    o->debug_level= 2; // TODO: to be modified
+    o->w_pen_init_l= 1.0; // TODO: to be modified
+    o->w_pen_init_f= 1.0; // TODO: to be modified
     o->w_pen_max_l= 1e100;//set to INF originally
     o->w_pen_max_f= 1e100;//set to INF originally
     o->w_pen_fact1= 4.0; // 4...10 Bertsekas p. 123

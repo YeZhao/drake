@@ -2,13 +2,6 @@
 
 CostFunction::CostFunction()
 {
-	// Q << 100.0,0.0,0.0,0.0,
- //                0.0,0.0,0.0,0.0,
- //                0.0,0.0,0.0,0.0,
- //                0.0,0.0,0.0,0.0;
- //    R << 0.1;
-
- //    Qf = Q;
 }
 
 stateVec_t& CostFunction::getlx()
