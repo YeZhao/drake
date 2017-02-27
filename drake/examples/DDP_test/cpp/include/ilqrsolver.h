@@ -10,11 +10,12 @@
 #include "costfunction.h"
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
+#include <Eigen/Cholesky>
 #include <qpOASES.hpp>
 #include <qpOASES/QProblemB.hpp>
 
-#define ENABLE_QPBOX 1
-#define DISABLE_QPBOX 0
+#define ENABLE_QPBOX 0
+#define DISABLE_QPBOX 1
 #define ENABLE_FULLDDP 0
 #define DISABLE_FULLDDP 1
 

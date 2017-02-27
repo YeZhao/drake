@@ -293,11 +293,11 @@ void ILQRSolver::backwardLoop()
                 std::cout << "costFunction->getcux(): " << costFunction->getcux()[i] << std::endl;
             }
 
-            Qx = costFunction->getcx()[i] + dynamicModel->getfxList()[i].transpose()*Vx[i+1];
-            Qu = costFunction->getcu()[i] + dynamicModel->getfuList()[i].transpose()*Vx[i+1];
-            Qxx = costFunction->getcxx()[i] + dynamicModel->getfxList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
-            Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfuList()[i];
-            Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
+            // Qx = costFunction->getcx()[i] + dynamicModel->getfxList()[i].transpose()*Vx[i+1];
+            // Qu = costFunction->getcu()[i] + dynamicModel->getfuList()[i].transpose()*Vx[i+1];
+            // Qxx = costFunction->getcxx()[i] + dynamicModel->getfxList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
+            // Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfuList()[i];
+            // Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1]+lambdaEye)*dynamicModel->getfxList()[i];
 
             if(Op.regType == 1)
                 QuuF = Quu + lambda*commandMat_t::Identity();
@@ -331,6 +331,7 @@ void ILQRSolver::backwardLoop()
 
             if(enableQPBox)
             {
+                //TRACE("Use Box QP");
                 nWSR = 10; //[to be checked]
                 H = Quu;
                 g = Qu;
@@ -350,8 +351,18 @@ void ILQRSolver::backwardLoop()
             }
             else
             {
-                k = -QuuInv*Qu;
-                K = -QuuInv*Qux;
+                // Cholesky decomposition by using upper triangular matrix
+                //TRACE("Use Cholesky decomposition");
+                Eigen::LLT<MatrixXd> lltOfQuuF(QuuF);
+                Eigen::MatrixXd L = lltOfQuuF.matrixU(); 
+                //assume QuuF is positive definite
+                //TODO: check the non-PD case
+
+                k = - L.inverse()*L.transpose().inverse()*Qu;
+                K = - L.inverse()*L.transpose().inverse()*Qux;
+
+                //k = -QuuInv*Qu;
+                //K = -QuuInv*Qux;
             }   
 
             /*nextVx = Qx - K.transpose()*Quu*k;
