@@ -315,7 +315,6 @@ void ILQRSolver::backwardLoop()
                 Quu += dynamicModel->computeTensorContuu(Vx[i+1]);
                 QuuF += dynamicModel->computeTensorContuu(Vx[i+1]);
             }
-
             QuuInv = Quu.inverse();
 
             if(!isQuudefinitePositive(Quu))
@@ -361,15 +360,26 @@ void ILQRSolver::backwardLoop()
                 k = - L.inverse()*L.transpose().inverse()*Qu;
                 K = - L.inverse()*L.transpose().inverse()*Qux;
 
+                // old version
                 //k = -QuuInv*Qu;
                 //K = -QuuInv*Qux;
             }   
 
+            // old version
             /*nextVx = Qx - K.transpose()*Quu*k;
             nextVxx = Qxx - K.transpose()*Quu*K;*/
             nextVx = Qx + K.transpose()*Quu*k + K.transpose()*Qu + Qux.transpose()*k;
             nextVxx = Qxx + K.transpose()*Quu*K+ K.transpose()*Qux + Qux.transpose()*K;
             nextVxx = 0.5*(nextVxx + nextVxx.transpose());
+
+            //update cost-to-go approximation
+            dV(0) += k.transpose()*Qu;
+            commandMat_t c_mat_to_scalar;
+            c_mat_to_scalar = 0.5*k.transpose()*Quu*k;
+            dV(1) += c_mat_to_scalar(0,0);
+            Vx[i] = Qx + K.transpose()*Quu*k + K.transpose()*Qu + Qux.transpose()*k;
+            Vxx[i] = Qxx + K.transpose()*Quu*K+ K.transpose()*Qux + Qux.transpose()*K;
+            Vxx[i] = 0.5*(Vxx[i] + Vxx[i].transpose());
 
             kList[i] = k;
             KList[i] = K;
