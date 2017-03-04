@@ -101,7 +101,7 @@ private:
     stateVec_t Xm2;
     stateVec_t Xm3;
     stateVec_t Xm4;
-    
+    bool debugging_print;
 protected:
     // methods
 public:

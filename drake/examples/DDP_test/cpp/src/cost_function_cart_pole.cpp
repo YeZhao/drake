@@ -38,8 +38,8 @@ void CostFunctionCartPole::computeAllCostDeriv(const stateVec_t& X, const comman
 void CostFunctionCartPole::computeFinalCostDeriv(const stateVec_t& X)
 {
     lx = Qf*X;
-    std::cout << "computeFinalCostDeriv: " << std::endl;
-    std::cout << "X: " << X << std::endl;
-    std::cout << "lx: " << lx << std::endl;
+    //std::cout << "computeFinalCostDeriv: " << std::endl;
+    //std::cout << "X: " << X << std::endl;
+    //std::cout << "lx: " << lx << std::endl;
 
 }

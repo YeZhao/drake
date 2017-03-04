@@ -5,6 +5,7 @@
 #include "matrixUtil.h"
 #include "cart_pole.h"
 #include "cost_function_cart_pole.h"
+#include <numeric>
 
 #include "dynamicmodel.h"
 #include "costfunction.h"
@@ -33,49 +34,6 @@
 
 //double default_alpha[8]= {1.0, 0.3727594, 0.1389495, 0.0517947, 0.0193070, 0.0071969, 0.0026827, 0.0010000};
 
-// typedef struct optSet {
-//             int n_hor;
-//             int debug_level;
-//             stateVec_t xInit;
-//             double new_cost, cost, dcost, lambda, g_norm, expected;
-//             double **p;
-//             const double *alpha;
-//             int n_alpha;
-//             double lambdaMax;
-//             double lambdaMin;
-//             double lambdaInit;
-//             double dlambdaInit;
-//             double lambdaFactor;
-//             int max_iter;
-//             double tolGrad;
-//             double tolFun;
-//             double tolConstraint;
-//             double zMin;
-//             int regType;
-//             int iterations;
-//             int *log_linesearch;
-//             double *log_z;
-//             double *log_cost;
-//             double dV[2];
-            
-//             double w_pen_l;
-//             double w_pen_f;
-//             double w_pen_max_l;
-//             double w_pen_max_f;
-//             double w_pen_init_l;
-//             double w_pen_init_f;
-//             double w_pen_fact1;
-//             double w_pen_fact2;
-            
-//             int print;
-//             // traj_t *nominal;
-//             // traj_t *candidates[NUMBER_OF_THREADS]; 
-            
-//             // traj_t trajectories[NUMBER_OF_THREADS+1];
-            
-//             // multipliers_t multipliers;
-// }tOptSet;
-
 using namespace Eigen;
 USING_NAMESPACE_QPOASES
 
@@ -93,7 +51,7 @@ public:
         int n_hor;
         int debug_level;
         stateVec_t xInit;
-        double new_cost, cost, dcost, lambda, g_norm, expected;
+        double new_cost, cost, dcost, lambda, dlambda, g_norm, expected;
         double **p;
         const double *alpha;
         int n_alpha;
@@ -124,6 +82,8 @@ public:
         double w_pen_fact2;
         
         int print;
+        double print_head; // print headings every print_head lines
+        double last_head;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
         
@@ -159,6 +119,7 @@ private:
     commandVecTab_t updateduList;
     stateVecTab_t FList;
     costVecTab_t costList;
+    costVecTab_t costListNew;
     stateVecTab_t tmpxPtr;
     commandVecTab_t tmpuPtr;
     struct traj lastTraj;
@@ -179,13 +140,12 @@ private:
     commandR_stateC_t K;
     commandVecTab_t kList;
     commandR_stateC_tab_t KList;
-    double alphaList[11];
+    std::vector<double> alphaList;
     double alpha;
 
-    double lambda;
-    double dlambda;
     stateMat_t lambdaEye;
-    unsigned char completeBackwardFlag;
+    unsigned int backPassDone;
+    unsigned int fwdPassDone;
     unsigned int diverge;
 
     /* QP variables */
@@ -205,7 +165,7 @@ private:
     //Eigen::VectorXd default_alpha;
     int verbosity;
     Eigen::Vector2d dV;
-    bool feedforwardCtrlflag;
+    bool debugging_print;    
 protected:
     // methods //
 public:
