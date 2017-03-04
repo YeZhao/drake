@@ -158,6 +158,7 @@ private:
     stateVecTab_t updatedxList;
     commandVecTab_t updateduList;
     stateVecTab_t FList;
+    costVecTab_t costList;
     stateVecTab_t tmpxPtr;
     commandVecTab_t tmpuPtr;
     struct traj lastTraj;
@@ -182,6 +183,7 @@ private:
     double alpha;
 
     double lambda;
+    double dlambda;
     stateMat_t lambdaEye;
     unsigned char completeBackwardFlag;
     unsigned int diverge;
@@ -203,19 +205,20 @@ private:
     //Eigen::VectorXd default_alpha;
     int verbosity;
     Eigen::Vector2d dV;
+    bool feedforwardCtrlflag;
 protected:
     // methods //
 public:
     void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myT,
                     double& mydt, unsigned int& mymax_iter,double& mystopCrit, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
-    void initializeTraj(tOptSet *Op);
+    void initializeTraj();
     void standard_parameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
 //private:
-    void initTrajectory(tOptSet *Op);
+    void initTrajectory();
     void backwardLoop();
-    void forwardLoop(tOptSet *Op);
+    void forwardLoop();
     bool isQuudefinitePositive(const commandMat_t & Quu); 
 protected:
 

@@ -61,7 +61,7 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     //Op = INIT_OPTSET;
     standard_parameters(&Op);
     Op.xInit = myxInit;
-    Op.n_hor = T-1; // TODO: to be checked
+    Op.n_hor = T; // TODO: to be checked, it was set to T-1
     Op.tolFun = mytolFun;
     Op.tolGrad = mytolGrad;
     Op.max_iter = mymax_iter;
@@ -70,6 +70,7 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     uList.resize(T);
     updatedxList.resize(T+1);
     updateduList.resize(T);
+    costList.resize(T+1);
     tmpxPtr.resize(T+1);
     tmpuPtr.resize(T);
     k.setZero();
@@ -111,11 +112,13 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
 
 void ILQRSolver::solveTrajectory()
 {
-    initializeTraj(&Op);
+    initializeTraj();
 
     int diverge, backPassDone, fwdPassDone, newDeriv;
-    double dlambda= Op.dlambdaInit;
-
+    
+    dlambda= Op.dlambdaInit;
+    lambda   = Op.lambda;
+    
     Op.lambda= Op.lambdaInit;
     Op.w_pen_l= Op.w_pen_init_l;
     Op.w_pen_f= Op.w_pen_init_f;
@@ -134,37 +137,13 @@ void ILQRSolver::solveTrajectory()
         }
         //TRACE("Finish STEP 1\n");
 
-        // ====== STEP 2: backward pass, compute optimal control law and cost-to-go
-        // backPassDone = 0;
-        // TRACE(("Back pass:\n"));
-        // while(!backPassDone) {
-        //     if(back_pass(o)) {
-        //         if(Op.debug_level>=1)
-        //             TRACE(("Back pass failed.\n"));
-
-        //         dlambda= max(dlambda * Op.lambdaFactor, Op.lambdaFactor);
-        //         Op.lambda= max(Op.lambda * dlambda, Op.lambdaMin);
-        //         if(Op.lambda > Op.lambdaMax)
-        //             break;
-        //     } else {
-        //         backPassDone= 1;
-        //         TRACE(("...done\n"));
-        //     }
-        // }
+        // STEP 2: backward pass, compute optimal control law and cost-to-go
         
-        // // check for termination due to small gradient
-        // // TODO: add constraint tolerance check
-        // if(o->g_norm < o->tolGrad && o->lambda < 1e-5) {
-        //     dlambda= min(dlambda / o->lambdaFactor, 1.0/o->lambdaFactor);
-        //     o->lambda= o->lambda * dlambda * (o->lambda > o->lambdaMin);
-        //     if(o->debug_level>=1)
-        //         TRACE(("\nSUCCESS: gradient norm < tolGrad\n"));
-        //     break;
-        // }
-
-
         backwardLoop();
-        forwardLoop(&Op);
+
+        // STEP 3: line-search to find new control sequence, trajectory, cost
+        feedforwardCtrlflag = 0;
+        forwardLoop();
         cout << "iteration:  " << iter << endl;
         if(changeAmount<stopCrit)
         {
@@ -179,12 +158,12 @@ void ILQRSolver::solveTrajectory()
     }
 }
 
-void ILQRSolver::initializeTraj(tOptSet *Op)
+void ILQRSolver::initializeTraj()
 {
-    xList[0] = Op->xInit;
+    xList[0] = Op.xInit;
     commandVec_t zeroCommand;
     zeroCommand.setZero();
-    verbosity = Op->print;
+    verbosity = Op.print;
     // (low priority) TODO: implement control limit selection
     // (low priority) TODO: initialize trace data structure
 
@@ -219,9 +198,9 @@ void ILQRSolver::standard_parameters(tOptSet *o) {
     o->print = 2;
 }
 
-void ILQRSolver::initTrajectory(tOptSet *Op)
+void ILQRSolver::initTrajectory()
 {
-    xList[0] = Op->xInit;
+    xList[0] = Op.xInit;
     commandVec_t zeroCommand;
     zeroCommand.setZero();
     for(unsigned int i=0;i<T;i++)
@@ -240,8 +219,7 @@ void ILQRSolver::backwardLoop()
     lambda = 0.0;
     completeBackwardFlag = 0;
 
-    while(!completeBackwardFlag)
-    {
+    while(!completeBackwardFlag){
         completeBackwardFlag = 1;
         if(Op.regType == 1)
             lambdaEye = lambda*stateMat_t::Zero();//[to be checked, change it to One()]
@@ -250,6 +228,7 @@ void ILQRSolver::backwardLoop()
         //std::cout << "lambdaEye: " << lambdaEye << std::endl;
 
         diverge = 0;
+        double g_norm_i, g_norm_max, g_norm_sum;
         
         Vx[T] = costFunction->getcx()[T];
         Vxx[T] = costFunction->getcxx()[T];
@@ -383,26 +362,74 @@ void ILQRSolver::backwardLoop()
 
             kList[i] = k;
             KList[i] = K;
+
+            g_norm_max= 0.0;
+            for(unsigned int j= 0; j<commandSize; j++) {
+                g_norm_i= fabs(kList[i](j,0)) / (fabs(uList[i](j,0))+1.0);
+                if(g_norm_i>g_norm_max) g_norm_max= g_norm_i;
+            }
+            g_norm_sum+= g_norm_max;
         }
+        Op.g_norm= g_norm_sum/((double)(Op.n_hor));
+
+        //TODO: handle Cholesky failure case
+        // while(!backPassDone) {
+        //     if(back_pass(o)) {
+        //         if(Op.debug_level>=1)
+        //             TRACE(("Back pass failed.\n"));
+
+        //         dlambda= max(dlambda * Op.lambdaFactor, Op.lambdaFactor);
+        //         Op.lambda= max(Op.lambda * dlambda, Op.lambdaMin);
+        //         if(Op.lambda > Op.lambdaMax)
+        //             break;
+        //     } else {
+        //         backPassDone= 1;
+        //         TRACE(("...done\n"));
+        //     }
+        // }
+        
+        // check for termination due to small gradient
+        // TODO: add constraint tolerance check
+        if(Op.g_norm < Op.tolGrad && Op.lambda < 1e-5){
+            dlambda= min(dlambda / Op.lambdaFactor, 1.0/Op.lambdaFactor);
+            Op.lambda= Op.lambda * dlambda * (Op.lambda > Op.lambdaMin);
+            if(Op.debug_level>=1){
+                TRACE(("\nSUCCESS: gradient norm < tolGrad\n"));
+            }
+            break;
+        }
+
     }
+
+    
 }
 
-void ILQRSolver::forwardLoop(tOptSet *Op)
+void ILQRSolver::forwardLoop()
 {
     changeAmount = 0.0;
-    updatedxList[0] = Op->xInit;
+    updatedxList[0] = Op.xInit;
     //cout << "Op->lambdaInit: " << Op->lambdaInit << endl;
     // TODO: Line search to be implemented
+    int nargout = 2;
     alpha = 1.0;
     for(unsigned int i=0;i<T;i++)
     {
         updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
-        updatedxList[i+1] = dynamicModel->computeNextState(dt,updatedxList[i],xgoal,updateduList[i]);
+        updatedxList[i+1] = dynamicModel->computeNextState(dt,updatedxList[i],xgoal,updateduList[i]); // [ToBeCommented]
+        //dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costList[i]);// [ToBeUnCommented]
+        //dynamicModel->cart_pole_dyn_cst(nargout, dt, updatedxList, updateduList, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+        // [ToBeUnCommented]
         for(unsigned int j=0;j<commandNb;j++)
         {
             changeAmount += abs(uList[i](j,0) - updateduList[i](j,0));
         }
     }
+    // [ToBeUnCommented]
+    // stateVec_t x_unused;
+    // x_unused.setZero();
+    // commandVec_t u_NAN;
+    // u_NAN << sqrt(-1.0);
+    // dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[T], u_NAN, xgoal, x_unused, costList[T]);
 }
 
 ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()

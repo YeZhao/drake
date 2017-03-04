@@ -170,11 +170,10 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
                 FList[k] = update(nargout_update1, dt, xList[k], uList[k], AA, BB);
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQf()*(xList[k] - xgoal);
                 TRACE_CART_POLE("after the update2\n");
-                c_mat_to_scalar += 0.5*uList[k].transpose()*R*uList[k];
+                c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
                 c += c_mat_to_scalar(0,0);
             }
         }
-
     }else{
         const int nargout_update2 = 1;
         for(unsigned int k=0;k<N;k++){
@@ -230,6 +229,50 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
             FList[k].setZero();
         }    
         c = 0;
+    }
+    TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+}
+
+void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const stateVec_t& xgoal, stateVec_t& xList_next, double& c){
+    // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
+    // costFunctionCartPole
+    TRACE_CART_POLE("initialize dimensions\n");
+    int N = xList_curr.size();//[TODO: to be checked, should be 1 in this case, the for loop only runs once, the code needs to be optimized]
+    int n = xList_curr.rows();
+    int m = uList_curr.rows();
+    CostFunctionCartPole *costFunctionCartPole_short = &costFunction_cart_pole;
+
+    c = 0;
+    stateMat_t AA;
+    stateVec_t BB;
+    AA.setZero();
+    BB.setZero();
+
+    TRACE_CART_POLE("compute cost function\n");
+
+    commandMat_t c_mat_to_scalar;
+
+    stateMatTab_t A_temp;
+    stateR_commandC_tab_t B_temp;
+    A_temp.resize(T);
+    B_temp.resize(T);
+    xList_next.setZero();
+
+    const int nargout_update1 = 1;        
+    for(unsigned int k=0;k<N;k++){
+        if(isNan(uList_curr)){ //[double check the type of c, scalar or 1x1 matirx]
+            TRACE_CART_POLE("before the update1\n");
+            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole_short->getQf() * (xList_curr - xgoal);
+            c += c_mat_to_scalar(0,0);
+            TRACE_CART_POLE("after the update1\n");
+        }else{
+            TRACE_CART_POLE("before the update2\n");
+            xList_next = update(nargout_update1, dt, xList_curr, uList_curr, AA, BB);
+            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunctionCartPole_short->getQf()*(xList_curr - xgoal);
+            TRACE_CART_POLE("after the update2\n");
+            c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunctionCartPole_short->getR()*uList_curr;
+            c += c_mat_to_scalar(0,0);
+        }
     }
     TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
 }
