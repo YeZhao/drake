@@ -2,23 +2,14 @@
 
 CostFunctionCartPole::CostFunctionCartPole()
 {
-    //T = myT;
-    // Q << 100.0,0.0,0.0,0.0,
-    //             0.0,0.0,0.0,0.0,
-    //             0.0,0.0,0.0,0.0,
-    //             0.0,0.0,0.0,0.0;
-    // R << 0.1;
-
-    // Qf = Q;
-
     Q << .1,0.0,0.0,0.0,
          0.0,0.1,0.0,0.0,
          0.0,0.0,0.1,0.0,
          0.0,0.0,0.0,0.1;
-    Qf << 500.0,0.0,0.0,0.0,
-          0.0,500,0.0,0.0,
-          0.0,0.0,500,0.0,
-          0.0,0.0,0.0,500;
+    Qf << 1000.0,0.0,0.0,0.0,
+          0.0,1000,0.0,0.0,
+          0.0,0.0,1000,0.0,
+          0.0,0.0,0.0,1000;
     R << 0.01;
 
     lxx = Q;
@@ -30,7 +21,6 @@ CostFunctionCartPole::CostFunctionCartPole()
 
 void CostFunctionCartPole::computeAllCostDeriv(const stateVec_t& X, const commandVec_t& U)
 {
-//    lx = Q*(X-Xdes);
     lx = Q*X;
     lu = R*U;
 }
@@ -38,8 +28,4 @@ void CostFunctionCartPole::computeAllCostDeriv(const stateVec_t& X, const comman
 void CostFunctionCartPole::computeFinalCostDeriv(const stateVec_t& X)
 {
     lx = Qf*X;
-    //std::cout << "computeFinalCostDeriv: " << std::endl;
-    //std::cout << "X: " << X << std::endl;
-    //std::cout << "lx: " << lx << std::endl;
-
 }

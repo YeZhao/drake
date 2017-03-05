@@ -141,10 +141,8 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
     int n = xList[0].rows();
     int m = uList[0].rows();
     CostFunctionCartPole *costFunctionCartPole = &costFunction_cart_pole;
-    std::cout << "size of big N: " << N << std::endl;
 
     c = 0;
-    double R = 0.1; //later, use costFunction->getR()
     stateMat_t AA;//not used
     stateVec_t BB;//not used
     AA.setZero();
@@ -162,7 +160,7 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
-            if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
+            if(isNan(uList[k])){
                 if(debugging_print) TRACE_CART_POLE("before the update1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunctionCartPole->getQf() * (xList[k] - xgoal);
                 c += c_mat_to_scalar(0,0);
@@ -179,7 +177,7 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
     }else{
         const int nargout_update2 = 3;
         for(unsigned int k=0;k<N;k++){
-            if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
+            if(isNan(uList[k])){
                 if(debugging_print) TRACE_CART_POLE("before the update3\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQf()*(xList[k] - xgoal);
                 c += c_mat_to_scalar(0,0);
@@ -269,16 +267,15 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
     B_temp.resize(T);
     xList_next.setZero();
 
-    //std::cout << "size of N: " << N << std::endl;
     const int nargout_update1 = 1;
     for(unsigned int k=0;k<N;k++){
-        if(isNan(uList_curr)){ //[double check the type of c, scalar or 1x1 matirx]
+        if(isNan(uList_curr)){ 
             if(debugging_print) TRACE_CART_POLE("before the update1\n");
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole_short->getQf() * (xList_curr - xgoal);
             // std::cout << "size of N: " << N << std::endl;
-            std::cout << "xList_curr: " << xList_curr.transpose() << std::endl;
+            //std::cout << "xList_curr: " << xList_curr.transpose() << std::endl;
             c += c_mat_to_scalar(0,0);
-            std::cout << "c: " << c << std::endl;
+            //std::cout << "c: " << c << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update1\n");
         }else{
             if(debugging_print) TRACE_CART_POLE("before the update2\n");
@@ -434,43 +431,4 @@ void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t
         fxu_new[j] = (Ap - Am)/(2*delta);
         fuu_new[j] = (Bp - Bm)/(2*delta);
     }
-
-}
-
-stateVec_t CartPole::computeNextState(double& dt, const stateVec_t& X,const stateVec_t& Xdes,const commandVec_t& U)
-{
-    stateVec_t result = Ad*X + Bd*U;
-    result(1,0)+=A13atan*atan(a*(X(3,0)+Xdes(3,0)));
-    result(3,0)+=A33atan*atan(a*(X(3,0)+Xdes(3,0)));
-
-    return result;
-}
-
-void CartPole::computeAllModelDeriv(double& dt, const stateVec_t& X,const stateVec_t& Xdes,const commandVec_t& U)
-{
-    Xreal = X + Xdes;
-    fx = fxBase;
-    fx(1,3) += A13atan*(a/(1+a*a*Xreal(3,0)*Xreal(3,0)));
-    fx(3,3) -= A33atan*(a/(1+(a*a*Xreal(3,0)*Xreal(3,0))));
-    fxx[3](1,3) = -((2*dt*Jm*R)/(pi*Jl))*Cf0*((2*a*a*a*Xreal(3,0))/((1+(a*a*Xreal(3,0)*Xreal(3,0)))*(1+(a*a*Xreal(3,0)*Xreal(3,0)))));
-    fxx[3](3,3) = +((2*dt*Cf0)/(pi*Jl))*((2*a*a*a*Xreal(3,0))/((1+(a*a*Xreal(3,0)*Xreal(3,0)))*(1+(a*a*Xreal(3,0)*Xreal(3,0)))));
-}
-
-stateMat_t CartPole::computeTensorContxx(const stateVec_t& nextVx)
-{
-    //std::cout << "nextVx[3]: " << nextVx[3] << std::endl;
-    //std::cout << "fxx[3]: " << fxx[3] << std::endl;
-    //std::cout << "nextVx: " << nextVx << std::endl;
-    QxxCont = nextVx[3]*fxx[3];
-    return QxxCont;
-}
-
-commandMat_t CartPole::computeTensorContuu(const stateVec_t& nextVx)
-{
-    return QuuCont;
-}
-
-commandR_stateC_t CartPole::computeTensorContux(const stateVec_t& nextVx)
-{
-    return QuxCont;
 }
