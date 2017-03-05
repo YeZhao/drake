@@ -141,11 +141,12 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
     int n = xList[0].rows();
     int m = uList[0].rows();
     CostFunctionCartPole *costFunctionCartPole = &costFunction_cart_pole;
+    std::cout << "size of big N: " << N << std::endl;
 
     c = 0;
     double R = 0.1; //later, use costFunction->getR()
-    stateMat_t AA;
-    stateVec_t BB;
+    stateMat_t AA;//not used
+    stateVec_t BB;//not used
     AA.setZero();
     BB.setZero();
 
@@ -153,13 +154,13 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
 
     commandMat_t c_mat_to_scalar;
 
-    stateMatTab_t A_temp;
-    stateR_commandC_tab_t B_temp;
+    stateMatTab_t A_temp;//not used
+    stateR_commandC_tab_t B_temp;//not used
     A_temp.resize(T);
     B_temp.resize(T);
     
     if(nargout == 2){
-        const int nargout_update1 = 1;        
+        const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
             if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
                 if(debugging_print) TRACE_CART_POLE("before the update1\n");
@@ -169,14 +170,14 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
             }else{
                 if(debugging_print) TRACE_CART_POLE("before the update2\n");
                 FList[k] = update(nargout_update1, dt, xList[k], uList[k], AA, BB);
-                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQf()*(xList[k] - xgoal);
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList[k] - xgoal);
                 if(debugging_print) TRACE_CART_POLE("after the update2\n");
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
                 c += c_mat_to_scalar(0,0);
             }
         }
     }else{
-        const int nargout_update2 = 1;
+        const int nargout_update2 = 3;
         for(unsigned int k=0;k<N;k++){
             if(isNan(uList[k])){ //[double check the type of c, scalar or 1x1 matirx]
                 if(debugging_print) TRACE_CART_POLE("before the update3\n");
@@ -185,9 +186,9 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
                 if(debugging_print) TRACE_CART_POLE("after the update3\n");
             }else{
                 if(debugging_print) TRACE_CART_POLE("before the update4\n");
-                FList[k] = update(nargout_update2, dt, xList[k], uList[k], AA, BB);
+                FList[k] = update(nargout_update2, dt, xList[k], uList[k], AA, BB);//assume three outputs, code needs to be optimized
                 if(debugging_print) TRACE_CART_POLE("before the update4-1\n");
-                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQf()*(xList[k] - xgoal);
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList[k] - xgoal);
                 if(debugging_print) TRACE_CART_POLE("after the update4\n");
 
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
@@ -206,12 +207,22 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
         for(unsigned int k=0;k<N-1;k++){
             fxList[k] = A_temp[k];
             fuList[k] = B_temp[k];
+            
             cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
             cx[k] = costFunctionCartPole->getQ()*cx_temp;
             cu[k] = costFunctionCartPole->getR()*uList[k];
             cxx[k] = costFunctionCartPole->getQ();
             cux[k].setZero();
             cuu[k] = costFunctionCartPole->getR();
+            
+            // if(k == 49) {
+            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
+            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
+            //     std::cout << "cx[49]: " << cx[k] << std::endl;
+            //     std::cout << "cu[49]: " << cu[k] << std::endl;
+            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
+            // }
+
         }
         if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
 
@@ -237,7 +248,7 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
     // costFunctionCartPole
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
-    int N = xList_curr.size();//[TODO: to be checked, should be 1 in this case, the for loop only runs once, the code needs to be optimized]
+    int N = xList_curr.cols();//[TODO: to be checked, should be 1 in this case, the for loop only runs once, the code needs to be optimized]
     int n = xList_curr.rows();
     int m = uList_curr.rows();
     CostFunctionCartPole *costFunctionCartPole_short = &costFunction_cart_pole;
@@ -258,19 +269,25 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
     B_temp.resize(T);
     xList_next.setZero();
 
-    const int nargout_update1 = 1;        
+    //std::cout << "size of N: " << N << std::endl;
+    const int nargout_update1 = 1;
     for(unsigned int k=0;k<N;k++){
         if(isNan(uList_curr)){ //[double check the type of c, scalar or 1x1 matirx]
             if(debugging_print) TRACE_CART_POLE("before the update1\n");
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole_short->getQf() * (xList_curr - xgoal);
+            // std::cout << "size of N: " << N << std::endl;
+            std::cout << "xList_curr: " << xList_curr.transpose() << std::endl;
             c += c_mat_to_scalar(0,0);
+            std::cout << "c: " << c << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update1\n");
         }else{
             if(debugging_print) TRACE_CART_POLE("before the update2\n");
             xList_next = update(nargout_update1, dt, xList_curr, uList_curr, AA, BB);
-            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunctionCartPole_short->getQf()*(xList_curr - xgoal);
+            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunctionCartPole_short->getQ()*(xList_curr - xgoal);
+            //if(k<5) std::cout << "c_mat_to_scalar1: " << c_mat_to_scalar << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update2\n");
             c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunctionCartPole_short->getR()*uList_curr;
+            //if(k<5) std::cout << "c_mat_to_scalar2: " << c_mat_to_scalar << std::endl;
             c += c_mat_to_scalar(0,0);
         }
     }
@@ -283,9 +300,9 @@ stateVec_t CartPole::update(const int& nargout, const double& dt, const stateVec
     Xdot1 = cart_pole_dynamics(X, U);
     Xdot2 = cart_pole_dynamics(X + 0.5*dt*Xdot1, U);
     Xdot3 = cart_pole_dynamics(X + 0.5*dt*Xdot2, U);
-    Xdot4 = cart_pole_dynamics(X + 0.5*dt*Xdot3, U);
+    Xdot4 = cart_pole_dynamics(X + dt*Xdot3, U);
     stateVec_t X_new;
-    X_new = X + (dt/6)*(Xdot1 + Xdot2 + Xdot3 + Xdot4);
+    X_new = X + (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
     
     if(debugging_print) TRACE_CART_POLE("update: X_new\n");
 

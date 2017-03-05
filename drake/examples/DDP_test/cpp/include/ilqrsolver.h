@@ -146,6 +146,7 @@ private:
     stateMat_t lambdaEye;
     unsigned int backPassDone;
     unsigned int fwdPassDone;
+    unsigned int initFwdPassDone;
     unsigned int diverge;
 
     /* QP variables */
@@ -166,6 +167,7 @@ private:
     int verbosity;
     Eigen::Vector2d dV;
     bool debugging_print;    
+    int newDeriv; //i.e., flgChange
 protected:
     // methods //
 public:
@@ -176,7 +178,7 @@ public:
     void standard_parameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
 //private:
-    void initTrajectory();
+    //void initTrajectory();
     void backwardLoop();
     void forwardLoop();
     bool isQuudefinitePositive(const commandMat_t & Quu); 

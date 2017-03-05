@@ -22,17 +22,16 @@ int main()
     double texec = 0.0;
     stateVec_t xinit,xgoal;
 
-    xinit << -3.0,0.0,0.0,0.0;
-    xgoal << 0.0,0.0,0.0,0.0;
+    // xinit << -3.0,0.0,0.0,0.0;
+    // xgoal << 0.0,0.0,0.0,0.0;
+    //unsigned int T = 50;
+    //double dt=1e-4;
 
-    unsigned int T = 50;
-    double dt=1e-4;
-
-/*    xinit << 0.0,0.0,0.0,0.0;
+    xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
 
     unsigned int T = 50;
-    double dt = 0.1;*/
+    double dt = 0.1;
     double stopCrit = 1e-5;
     double tolFun = 1e-10;
     double tolGrad = 1e-10;
