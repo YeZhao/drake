@@ -55,21 +55,7 @@ public:
     //commandVec_t upperCommandBounds;
     CostFunctionCartPole costFunction_cart_pole;
 private:
-    stateVec_t Xreal;
-    stateMat_t Id;
-    stateMat_t A;
-    stateMat_t Ad;
-    stateR_commandC_t B;
-    stateR_commandC_t Bd;
-    double A13atan;
-    double A33atan;
-    stateMat_t fxBase;
-    stateR_commandC_t fuBase;
-
-    stateMat_t QxxCont;
-    commandMat_t QuuCont;
-    commandR_stateC_t QuxCont;
-
+    
     stateMat_half_t H;
     stateMat_half_t C;
     stateVec_half_t G;

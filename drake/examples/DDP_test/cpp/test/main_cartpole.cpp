@@ -28,9 +28,8 @@ int main()
     double T = 5;
     double dt = 0.1;
     unsigned int N = (int)T/dt;
-    double stopCrit = 1e-5;
-    double tolFun = 1e-10;
-    double tolGrad = 1e-10;
+    double tolFun = 1e-5;//[relaxing default value: 1e-10];
+    double tolGrad = 1e-5;//[relaxing default value: 1e-10];
     unsigned int iterMax = 150;
 
     stateVecTab_t xList;
@@ -41,7 +40,7 @@ int main()
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
 
-    testSolverCartPole.FirstInitSolver(xinit,xgoal,N,dt,iterMax,stopCrit, tolFun, tolGrad);
+    testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);
 
     // run multiple times and then average
     int Num_run = 1;

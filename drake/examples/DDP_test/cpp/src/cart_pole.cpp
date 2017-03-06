@@ -14,7 +14,6 @@ CartPole::CartPole(double& mydt, unsigned int& myN)
     commandNb=1;
     dt = mydt;
     N = myN;
-    Id.setIdentity();
 
     fxList.resize(N);
     fuList.resize(N);

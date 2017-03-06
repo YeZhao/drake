@@ -92,9 +92,7 @@ public:
         Eigen::VectorXd time_backward, time_forward, time_derivative;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
-        
         // traj_t trajectories[NUMBER_OF_THREADS+1];
-        
         // multipliers_t multipliers;
     };
 
@@ -116,8 +114,6 @@ private:
     unsigned int N;
     unsigned int iter;
     double dt;
-    double stopCrit;
-    double changeAmount;
 
     stateVecTab_t xList;
     commandVecTab_t uList;
@@ -176,16 +172,14 @@ private:
     bool debugging_print;    
     int newDeriv; //i.e., flgChange
 protected:
-    // methods //
+    // methods
 public:
     void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
-                    double& mydt, unsigned int& mymax_iter,double& mystopCrit, double& mytolFun, double& mytolGrad);
+                    double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
     void initializeTraj();
     void standard_parameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
-//private:
-    //void initTrajectory();
     void backwardLoop();
     void forwardLoop();
     bool isQuudefinitePositive(const commandMat_t & Quu); 

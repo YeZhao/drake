@@ -44,14 +44,13 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
 }
 
 void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
-                       double& mydt, unsigned int& mymax_iter, double& mystopCrit, double& mytolFun, double& mytolGrad)
+                       double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad)
 {
     // TODO: double check opt params
     xInit = myxInit; // removed myxgoal. Double check whether this makes sense.
     xgoal = myxgoal;
     N = myN;
     dt = mydt;
-    stopCrit = mystopCrit;
     
     // Eigen::VectorXd default_alpha;
     // default_alpha.setZero();
@@ -159,15 +158,14 @@ void ILQRSolver::solveTrajectory()
             gettimeofday(&tend_time_bwd,NULL);
             Op.time_backward(iter) = ((double)(1000*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000)))/1000.0;
 
-            // if(diverge){//[Never entered, but entered here][Tobeuncommented]
-            //     printf("come herehere");
-            //     if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
-            //     Op.dlambda   = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
-            //     Op.lambda    = max(Op.lambda * Op.dlambda, Op.lambdaMin);
-            //     if(Op.lambda > Op.lambdaMax) break;
+            if(diverge){
+                if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
+                Op.dlambda   = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
+                Op.lambda    = max(Op.lambda * Op.dlambda, Op.lambdaMin);
+                if(Op.lambda > Op.lambdaMax) break;
 
-            //         continue;
-            // }
+                    continue;
+            }
             backPassDone = 1;
         }
 
