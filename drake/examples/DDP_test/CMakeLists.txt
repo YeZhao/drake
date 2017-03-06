@@ -7,7 +7,7 @@ SET(CXX_DISABLE_WERROR True)
 # SET(CMAKE_VERBOSE_MAKEFILE True)
 
 SET(PROJECT_NAME DDPsolver)
-SET(PROJECT_DESCRIPTION "DDP/iLQR solver for robotics actuators command")
+SET(PROJECT_DESCRIPTION "DDP/iLQR solver for robotic systems")
 SET(PROJECT_URL "")
 
 # ADD_REQUIRED_DEPENDENCY("eigen3 >= 3.0.5")
