@@ -45,6 +45,7 @@ drake/util/test/debugMexTest_mexdebug.mat
 *.class
 tmp_w.mat
 bin
+!drake/examples/DDP_test/qpOASES/
 drake.jar
 *.out
 pod-build
