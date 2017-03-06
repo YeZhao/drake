@@ -11,21 +11,4 @@ CostFunctionCartPole::CostFunctionCartPole()
           0.0,0.0,1000,0.0,
           0.0,0.0,0.0,1000;
     R << 0.01;
-
-    lxx = Q;
-    luu = R;
-    lux << 0.0,0.0,0.0,0.0;
-    lxu << 0.0,0.0,0.0,0.0;
-    lx.setZero();
-}
-
-void CostFunctionCartPole::computeAllCostDeriv(const stateVec_t& X, const commandVec_t& U)
-{
-    lx = Q*X;
-    lu = R*U;
-}
-
-void CostFunctionCartPole::computeFinalCostDeriv(const stateVec_t& X)
-{
-    lx = Qf*X;
 }

@@ -77,8 +77,6 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     updateduList.resize(N);
     costList.resize(N+1);
     costListNew.resize(N+1);
-    tmpxPtr.resize(N+1);
-    tmpuPtr.resize(N);
     k.setZero();
     K.setZero();
     kList.resize(N);
@@ -240,8 +238,6 @@ void ILQRSolver::solveTrajectory()
             Op.lambda = Op.lambda * Op.dlambda * (Op.lambda > Op.lambdaMin);
 
             // accept changes
-            tmpxPtr = xList;
-            tmpuPtr = uList;
             xList = updatedxList;
             uList = updateduList;
             costList = costListNew;
@@ -392,9 +388,6 @@ void ILQRSolver::backwardLoop()
 
     for(int i=N-1;i>=0;i--)
     {
-        x = xList[i];
-        u = uList[i];
-
         //for debugging
         if(debugging_print){
             if (i==N-1){
@@ -464,8 +457,8 @@ void ILQRSolver::backwardLoop()
             nWSR = 10; //[to be checked]
             H = Quu;
             g = Qu;
-            lb = lowerCommandBounds - u;
-            ub = upperCommandBounds - u;
+            lb = lowerCommandBounds - uList[i];
+            ub = upperCommandBounds - uList[i];
             qp->init(H.data(),g.data(),lb.data(),ub.data(),nWSR);
             qp->getPrimalSolution(xOpt);
             k = Map<commandVec_t>(xOpt);

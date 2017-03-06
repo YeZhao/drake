@@ -53,36 +53,20 @@ int main()
     uList = lastTraj.uList;
     unsigned int iter = lastTraj.iter;
 
-    double finalCost = lastTraj.finalCost;
-    double finalGrad = lastTraj.finalGrad;
-    double finalLambda = lastTraj.finalLambda;
-    Eigen::VectorXd time_backward, time_forward, time_derivative;
-    time_backward = lastTraj.time_backward;
-    //cout << "time_backward.size: " << time_backward.size() << endl;
-    double time_backward_sum = time_backward.sum();
-    time_forward = lastTraj.time_forward;
-    double time_forward_sum = time_forward.sum();
-    time_derivative = lastTraj.time_derivative;
-    double time_derivative_sum = time_derivative.sum();
-
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
     texec /= Num_run;
 
     cout << endl;
-    cout << "Final cost: " << finalCost << endl;
-    cout << "Final gradient: " << finalGrad << endl;
-    cout << "Final lambda: " << finalLambda << endl;
-
     cout << "Number of iterations: " << iter << endl;
-    cout << "Execution time by time step (second): ";
-    cout << texec/N << endl;
-    cout << "Execution time per iteration (second): ";
-    cout << texec/iter << endl;
-    cout << "Total execution time of the solver (second): ";
-    cout << texec << endl;
-    cout << "\tTime of derivative (second): " << time_derivative_sum << " (" << 100.0*time_derivative_sum/texec << "%)" << endl;
-    cout << "\tTime of backward pass (second): " << time_backward_sum << " (" << 100.0*time_backward_sum/texec << "%)" << endl;
-    cout << "\tTime of forward pass (second): " << time_forward_sum << " (" << 100.0*time_forward_sum/texec << "%)" << endl;
+    cout << "Final cost: " << lastTraj.finalCost << endl;
+    cout << "Final gradient: " << lastTraj.finalGrad << endl;
+    cout << "Final lambda: " << lastTraj.finalLambda << endl;
+    cout << "Execution time by time step (second): " << texec/N << endl;
+    cout << "Execution time per iteration (second): " << texec/iter << endl;
+    cout << "Total execution time of the solver (second): " << texec << endl;
+    cout << "\tTime of derivative (second): " << lastTraj.time_derivative.sum() << " (" << 100.0*lastTraj.time_derivative.sum()/texec << "%)" << endl;
+    cout << "\tTime of backward pass (second): " << lastTraj.time_backward.sum() << " (" << 100.0*lastTraj.time_backward.sum()/texec << "%)" << endl;
+    cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
     
     ofstream file("results.csv",ios::out | ios::trunc);
 

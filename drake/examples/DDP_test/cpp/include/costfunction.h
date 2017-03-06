@@ -14,13 +14,6 @@ public:
 private:
 
 protected:
-    double dt;
-    stateVec_t lx;
-    stateMat_t lxx;
-    commandVec_t lu;
-    commandMat_t luu;
-    commandR_stateC_t lux;
-    stateR_commandC_t lxu;
     stateMat_t Q;
     stateMat_t Qf;
     commandMat_t R;
@@ -31,8 +24,6 @@ protected:
     commandR_stateC_tab_t cux_new; 
     commandMatTab_t cuu_new;
     double c_new;
-
-    // methods //
 public:
 private:
 protected:

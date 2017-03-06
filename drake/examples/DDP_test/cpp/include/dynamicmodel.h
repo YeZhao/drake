@@ -41,10 +41,7 @@ protected:
     
 public:
 
-
 protected:
-
-
 // methods //
 public:
     virtual stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)=0;

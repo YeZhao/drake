@@ -107,8 +107,6 @@ private:
     CostFunction* costFunction;
     unsigned int stateNb;
     unsigned int commandNb;
-    stateVec_t x;
-    commandVec_t u;
     stateVec_t xInit;
     stateVec_t xgoal;
     unsigned int N;
@@ -122,13 +120,9 @@ private:
     stateVecTab_t FList;
     costVecTab_t costList;
     costVecTab_t costListNew;
-    stateVecTab_t tmpxPtr;
-    commandVecTab_t tmpuPtr;
     struct traj lastTraj;
     struct timeval tbegin_time_fwd, tend_time_fwd, tbegin_time_bwd, tend_time_bwd, tbegin_time_deriv, tend_time_deriv;
 
-    stateVec_t nextVx;
-    stateMat_t nextVxx;
     stateVecTab_t Vx;
     stateMatTab_t Vxx;
 
@@ -167,7 +161,6 @@ private:
 
     tOptSet Op;
     //Eigen::VectorXd default_alpha;
-    int verbosity;
     Eigen::Vector2d dV;
     bool debugging_print;    
     int newDeriv; //i.e., flgChange
