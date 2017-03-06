@@ -26,7 +26,7 @@ using namespace Eigen;
 class CartPole : public DynamicModel
 {
 public:
-    CartPole(double& mydt, unsigned int& myT);
+    CartPole(double& mydt, unsigned int& myN);
 private:
 protected:
 
@@ -34,7 +34,7 @@ protected:
 public:
 private:
     double dt;
-    unsigned int T;
+    unsigned int N;
     //static const unsigned int stateNb=4;
     //static const unsigned int commandNb=1;
 public:

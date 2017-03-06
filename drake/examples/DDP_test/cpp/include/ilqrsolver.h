@@ -113,7 +113,7 @@ private:
     commandVec_t u;
     stateVec_t xInit;
     stateVec_t xgoal;
-    unsigned int T;
+    unsigned int N;
     unsigned int iter;
     double dt;
     double stopCrit;
@@ -178,7 +178,7 @@ private:
 protected:
     // methods //
 public:
-    void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myT,
+    void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
                     double& mydt, unsigned int& mymax_iter,double& mystopCrit, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
     void initializeTraj();

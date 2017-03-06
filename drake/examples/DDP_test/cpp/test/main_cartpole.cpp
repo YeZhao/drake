@@ -25,8 +25,9 @@ int main()
     xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
 
-    unsigned int T = 50;
+    double T = 5;
     double dt = 0.1;
+    unsigned int N = (int)T/dt;
     double stopCrit = 1e-5;
     double tolFun = 1e-10;
     double tolGrad = 1e-10;
@@ -36,16 +37,16 @@ int main()
     commandVecTab_t uList;
     ILQRSolver::traj lastTraj;
     
-    CartPole cartPoleModel(dt, T);
+    CartPole cartPoleModel(dt, N);
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
 
-    testSolverCartPole.FirstInitSolver(xinit,xgoal,T,dt,iterMax,stopCrit, tolFun, tolGrad);
+    testSolverCartPole.FirstInitSolver(xinit,xgoal,N,dt,iterMax,stopCrit, tolFun, tolGrad);
 
     // run multiple times and then average
-    int N = 1;//100
+    int Num_run = 1;
     gettimeofday(&tbegin,NULL);
-    for(int i=0;i<N;i++) testSolverCartPole.solveTrajectory();
+    for(int i=0;i<Num_run;i++) testSolverCartPole.solveTrajectory();
     gettimeofday(&tend,NULL);
 
     lastTraj = testSolverCartPole.getLastSolvedTrajectory();
@@ -66,7 +67,7 @@ int main()
     double time_derivative_sum = time_derivative.sum();
 
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
-    texec /= N;
+    texec /= Num_run;
 
     cout << endl;
     cout << "Final cost: " << finalCost << endl;
@@ -75,7 +76,7 @@ int main()
 
     cout << "Number of iterations: " << iter << endl;
     cout << "Execution time by time step (second): ";
-    cout << texec/T << endl;
+    cout << texec/N << endl;
     cout << "Execution time per iteration (second): ";
     cout << texec/iter << endl;
     cout << "Total execution time of the solver (second): ";
@@ -89,8 +90,8 @@ int main()
     if(file)
     {
         file << "tau,tauDot,q,qDot,u" << endl;
-        for(int i=0;i<T;i++) file << xList[i](0,0) << "," << xList[i](1,0) << "," << xList[i](2,0) << "," << xList[i](3,0) << "," << uList[i](0,0) << endl;
-        file << xList[T](0,0) << "," << xList[T](1,0) << "," << xList[T](2,0) << "," << xList[T](3,0) << "," << 0.0 << endl;
+        for(int i=0;i<N;i++) file << xList[i](0,0) << "," << xList[i](1,0) << "," << xList[i](2,0) << "," << xList[i](3,0) << "," << uList[i](0,0) << endl;
+        file << xList[N](0,0) << "," << xList[N](1,0) << "," << xList[N](2,0) << "," << xList[N](3,0) << "," << 0.0 << endl;
         file.close();
     }
     else

@@ -8,16 +8,16 @@ const double CartPole::mp=1;
 const double CartPole::l=0.5;
 const double CartPole::g=9.81;
 
-CartPole::CartPole(double& mydt, unsigned int& myT)
+CartPole::CartPole(double& mydt, unsigned int& myN)
 {
     stateNb=4;
     commandNb=1;
     dt = mydt;
-    T = myT;
+    N = myN;
     Id.setIdentity();
 
-    fxList.resize(T);
-    fuList.resize(T);
+    fxList.resize(N);
+    fuList.resize(N);
     
     fxx_new[0].setZero();
     fxx_new[1].setZero();
@@ -103,8 +103,8 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
 
     stateMatTab_t A_temp;//not used
     stateR_commandC_tab_t B_temp;//not used
-    A_temp.resize(T);
-    B_temp.resize(T);
+    A_temp.resize(N);
+    B_temp.resize(N);
     
     if(nargout == 2){
         const int nargout_update1 = 3;        
@@ -212,8 +212,8 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
 
     stateMatTab_t A_temp;
     stateR_commandC_tab_t B_temp;
-    A_temp.resize(T);
-    B_temp.resize(T);
+    A_temp.resize(N);
+    B_temp.resize(N);
     xList_next.setZero();
 
     const int nargout_update1 = 1;
@@ -222,7 +222,7 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
             if(debugging_print) TRACE_CART_POLE("before the update1\n");
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole_short->getQf() * (xList_curr - xgoal);
             // std::cout << "size of N: " << N << std::endl;
-            //std::cout << "xList_curr: " << xList_curr.transpose() << std::endl;
+            //std::cout << "x_final_state: " << xList_curr.transpose() << std::endl;
             c += c_mat_to_scalar(0,0);
             //std::cout << "c: " << c << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update1\n");

@@ -43,13 +43,13 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
     //tOptSet Op = INIT_OPTSET;
 }
 
-void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myT,
+void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
                        double& mydt, unsigned int& mymax_iter, double& mystopCrit, double& mytolFun, double& mytolGrad)
 {
     // TODO: double check opt params
     xInit = myxInit; // removed myxgoal. Double check whether this makes sense.
     xgoal = myxgoal;
-    T = myT;
+    N = myN;
     dt = mydt;
     stopCrit = mystopCrit;
     
@@ -61,7 +61,7 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     //Op = INIT_OPTSET;
     standard_parameters(&Op);
     Op.xInit = myxInit;
-    Op.n_hor = T; // TODO: to be checked, it was set to T-1
+    Op.n_hor = N; // TODO: to be checked, it was set to N-1
     Op.tolFun = mytolFun;
     Op.tolGrad = mytolGrad;
     Op.max_iter = mymax_iter;
@@ -72,23 +72,23 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     Op.time_derivative.resize(Op.max_iter);
     Op.time_derivative.setZero();
 
-    xList.resize(T+1);
-    uList.resize(T);
-    updatedxList.resize(T+1);
-    updateduList.resize(T);
-    costList.resize(T+1);
-    costListNew.resize(T+1);
-    tmpxPtr.resize(T+1);
-    tmpuPtr.resize(T);
+    xList.resize(N+1);
+    uList.resize(N);
+    updatedxList.resize(N+1);
+    updateduList.resize(N);
+    costList.resize(N+1);
+    costListNew.resize(N+1);
+    tmpxPtr.resize(N+1);
+    tmpuPtr.resize(N);
     k.setZero();
     K.setZero();
-    kList.resize(T);
-    KList.resize(T);
+    kList.resize(N);
+    KList.resize(N);
     
-    FList.resize(T+1);
+    FList.resize(N+1);
     
-    Vx.resize(T);
-    Vxx.resize(T);
+    Vx.resize(N);
+    Vxx.resize(N);
     dV.setZero();
 
     // parameters for line search [TODO: to be optimized]
@@ -125,7 +125,7 @@ void ILQRSolver::solveTrajectory()
             //cout << "STEP 1" << endl;
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
             commandVecTab_t uListFull;
-            uListFull.resize(T+1);
+            uListFull.resize(N+1);
             commandVec_t u_NAN;
             for(unsigned int i=0;i<u_NAN.size();i++)
                 u_NAN(i,0) = sqrt(-1.0);
@@ -145,8 +145,8 @@ void ILQRSolver::solveTrajectory()
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
 
             newDeriv = 0;
-            // cout << "(initial position0) costFunction->getcx()[T]: " << costFunction->getcx()[T] << endl;
-            // cout << "(initial position0) costFunction->getcx()[T-1]: " << costFunction->getcx()[T-1] << endl;
+            // cout << "(initial position0) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
+            // cout << "(initial position0) costFunction->getcx()[N-1]: " << costFunction->getcx()[N-1] << endl;
         }
         //TRACE("Finish STEP 1\n");
 
@@ -310,7 +310,7 @@ void ILQRSolver::initializeTraj()
     diverge = 1;
     for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
         alpha = alphaList[alpha_index];    
-        for(unsigned int i=0;i<T;i++)
+        for(unsigned int i=0;i<N;i++)
         {
             uList[i] = zeroCommand;
         }
@@ -387,19 +387,19 @@ void ILQRSolver::backwardLoop()
     diverge = 0;
     double g_norm_i, g_norm_max, g_norm_sum;
     
-    //cout << "(initial position) costFunction->getcx()[T]: " << costFunction->getcx()[T] << endl;
-    Vx[T] = costFunction->getcx()[T];
-    Vxx[T] = costFunction->getcxx()[T];
+    //cout << "(initial position) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
+    Vx[N] = costFunction->getcx()[N];
+    Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
-    for(int i=T-1;i>=0;i--)
+    for(int i=N-1;i>=0;i--)
     {
         x = xList[i];
         u = uList[i];
 
         //for debugging
         if(debugging_print){
-            if (i==T-1){
+            if (i==N-1){
                 std::cout << "--------- new iteration ---------" << std::endl;
                 std::cout << "costFunction->getcx(): " << costFunction->getcx()[i] << std::endl;                
                 std::cout << "costFunction->getcu(): " << costFunction->getcu()[i] << std::endl;                
@@ -415,7 +415,7 @@ void ILQRSolver::backwardLoop()
         Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfuList()[i];
         Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfxList()[i];
 
-        // if(i > T-4){
+        // if(i > N-4){
         //     cout << "index i: " << i << endl;
         //     cout << "costFunction->getcx()[i]: " << costFunction->getcx()[i] << endl;
         //     cout << "costFunction->getcu()[i]: " << costFunction->getcu()[i] << endl;
@@ -440,7 +440,7 @@ void ILQRSolver::backwardLoop()
             // QuuF += dynamicModel->computeTensorContuu(Vx[i+1]);
         }
 
-        // if(i > T -4){
+        // if(i > N -4){
             //cout << "QuuF: " << QuuF << endl;
             //cout << "Qu: " << Qu << endl;
             //cout << "Qux: " << Qux << endl;
@@ -500,7 +500,7 @@ void ILQRSolver::backwardLoop()
             K = - L.inverse()*L.transpose().inverse()*Qux;
 
             //cout << "L: " << L << endl;
-            // if(i > T-4){
+            // if(i > N-4){
             //     //cout << "index i: " << i << endl;
             //     cout << "k: " << k << endl;
             //     cout << "K: " << K << endl;
@@ -561,7 +561,7 @@ void ILQRSolver::forwardLoop()
     //[TODO: to be optimized]
     if(!initFwdPassDone){
         cout << "init come here" << endl;
-        for(unsigned int i=0;i<T;i++)
+        for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
             dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costList[i]);
@@ -570,7 +570,7 @@ void ILQRSolver::forwardLoop()
         x_unused.setZero();
         commandVec_t u_NAN;
         u_NAN << sqrt(-1.0);
-        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[T], u_NAN, xgoal, x_unused, costList[T]);
+        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costList[N]);
     }else{
         // cout << "kList[5]: " << kList[5] << endl;
         // cout << "kList[10]: " << kList[10] << endl;
@@ -581,7 +581,7 @@ void ILQRSolver::forwardLoop()
         // cout << "KList[20]: " << KList[20] << endl;
         // cout << "KList[40]: " << KList[40] << endl;
 
-        for(unsigned int i=0;i<T;i++)
+        for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
             // if(i<3){
@@ -595,19 +595,19 @@ void ILQRSolver::forwardLoop()
             //     cout << "updatedxList[i]: " << updatedxList[i] << endl;
             // }
             dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costListNew[i]);
-        }    
+        }
         stateVec_t x_unused;
         x_unused.setZero();
         commandVec_t u_NAN;
         u_NAN << sqrt(-1.0);
-        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[T], u_NAN, xgoal, x_unused, costListNew[T]);
+        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costListNew[N]);
     }
 }
 
 ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()
 {
     lastTraj.xList = updatedxList;
-    for(int i=0;i<T+1;i++)lastTraj.xList[i] += xgoal;
+    for(int i=0;i<N+1;i++)lastTraj.xList[i] += xgoal;
     lastTraj.uList = updateduList;
     lastTraj.iter = iter;
     lastTraj.finalCost = accumulate(costList.begin(), costList.end(), 0.0);

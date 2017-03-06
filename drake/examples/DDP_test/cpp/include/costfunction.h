@@ -47,7 +47,7 @@ public:
     commandR_stateC_tab_t& getcux();
     commandMatTab_t& getcuu();
     double& getc();
-    unsigned int T;
+    unsigned int N;
 };
 
 #endif // COSTFUNCTION_H

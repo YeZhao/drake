@@ -2,12 +2,12 @@
 
 CostFunction::CostFunction()
 {
-	T = 50;
-	cx_new.resize(T+1);
-    cu_new.resize(T+1);
-    cxx_new.resize(T+1);
-    cux_new.resize(T+1);
-    cuu_new.resize(T+1);
+	N = 50;
+	cx_new.resize(N+1);
+    cu_new.resize(N+1);
+    cxx_new.resize(N+1);
+    cux_new.resize(N+1);
+    cuu_new.resize(N+1);
 }
 
 stateMat_t& CostFunction::getQ()
