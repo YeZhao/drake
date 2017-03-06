@@ -6,6 +6,7 @@
 
 #include "cost_function_cart_pole.h"
 
+#include <cstdio>
 #include <iostream>
 #include "dynamicmodel.h"
 #include <Eigen/Dense>

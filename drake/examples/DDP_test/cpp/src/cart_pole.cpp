@@ -8,14 +8,6 @@ const double CartPole::mp=1;
 const double CartPole::l=0.5;
 const double CartPole::g=9.81;
 
-const double CartPole::k=1000.0;
-const double CartPole::R=200.0;
-const double CartPole::Jm=138*1e-7;
-const double CartPole::Jl=0.1;
-const double CartPole::fvm=0.01;
-const double CartPole::Cf0=0.1;
-const double CartPole::a=10.0;
-
 CartPole::CartPole(double& mydt, unsigned int& myT)
 {
     stateNb=4;
@@ -23,45 +15,6 @@ CartPole::CartPole(double& mydt, unsigned int& myT)
     dt = mydt;
     T = myT;
     Id.setIdentity();
-
-    A.setZero();
-    A(0,1) = 1.0;
-    A(2,3) = 1.0;
-    A(1,0) = -((k/Jl)+(k/(Jm*R*R)));
-    A(1,1) = -(fvm/Jm);
-    A(1,3) = -((fvm*k)/Jm);
-    A(3,0) = 1.0/Jl;
-    Ad = (A*dt+Id);
-
-    A13atan = dt*(2.0*Jm*R/(pi*Jl))*Cf0;
-    A33atan = dt*(2.0/(pi*Jl))*Cf0;
-
-    B <<  0.0,
-          k/(R*Jm),
-          0.0,
-          0.0;
-    Bd = dt*B;
-
-    fxBase <<   1.0,      dt,      0.0,      0.0,
-                dt*(-(k/Jl)-(k/(Jm*R*R))),     1 - dt*(fvm/Jm),      0.0,      -dt*((fvm*k)/Jm),
-                0.0,      0.0,      1.0,      dt,
-                dt/Jl,      0.0,      0.0,      1.0;
-
-    fxx[0].setZero();
-    fxx[1].setZero();
-    fxx[2].setZero();
-    fxx[3].setZero();
-
-    fxu[0].setZero();
-    fxu[0].setZero();
-    fuBase << 0.0,
-              k/(R*Jm),
-              0.0,
-              0.0;
-    fu = dt* fuBase;
-    fuu[0].setZero();
-    fux[0].setZero();
-    fxu[0].setZero();
 
     fxList.resize(T);
     fuList.resize(T);
@@ -73,10 +26,6 @@ CartPole::CartPole(double& mydt, unsigned int& myT)
     fuu_new[0].setZero();
     fux_new[0].setZero();
     fxu_new[0].setZero();
-    
-    QxxCont.setZero();
-    QuuCont.setZero();
-    QuxCont.setZero();
 
     lowerCommandBounds << -50.0;
     upperCommandBounds << 50.0;

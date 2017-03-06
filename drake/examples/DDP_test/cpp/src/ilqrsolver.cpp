@@ -332,7 +332,6 @@ void ILQRSolver::initializeTraj()
     Op.print_head = 6;
     Op.last_head = Op.print_head;
     if(Op.debug_level > 0) TRACE("\n=========== begin iLQG ===========\n");
-
 }
 
 void ILQRSolver::standard_parameters(tOptSet *o) {

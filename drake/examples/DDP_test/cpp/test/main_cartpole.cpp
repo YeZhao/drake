@@ -22,11 +22,6 @@ int main()
     double texec = 0.0;
     stateVec_t xinit,xgoal;
 
-    // xinit << -3.0,0.0,0.0,0.0;
-    // xgoal << 0.0,0.0,0.0,0.0;
-    //unsigned int T = 50;
-    //double dt=1e-4;
-
     xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
 
