@@ -6,6 +6,7 @@
 #include "cart_pole.h"
 #include "cost_function_cart_pole.h"
 #include <numeric>
+#include <sys/time.h>
 
 #include "dynamicmodel.h"
 #include "costfunction.h"
@@ -45,6 +46,10 @@ public:
         stateVecTab_t xList;
         commandVecTab_t uList;
         unsigned int iter;
+        double finalCost;
+        double finalGrad;
+        double finalLambda;
+        Eigen::VectorXd time_forward, time_backward, time_derivative;
     };
 
     struct tOptSet {
@@ -84,6 +89,7 @@ public:
         int print;
         double print_head; // print headings every print_head lines
         double last_head;
+        Eigen::VectorXd time_backward, time_forward, time_derivative;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
         
@@ -123,6 +129,7 @@ private:
     stateVecTab_t tmpxPtr;
     commandVecTab_t tmpuPtr;
     struct traj lastTraj;
+    struct timeval tbegin_time_fwd, tend_time_fwd, tbegin_time_bwd, tend_time_bwd, tbegin_time_deriv, tend_time_deriv;
 
     stateVec_t nextVx;
     stateMat_t nextVxx;

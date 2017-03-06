@@ -65,6 +65,12 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     Op.tolFun = mytolFun;
     Op.tolGrad = mytolGrad;
     Op.max_iter = mymax_iter;
+    Op.time_backward.resize(Op.max_iter);
+    Op.time_backward.setZero();
+    Op.time_forward.resize(Op.max_iter);
+    Op.time_forward.setZero();
+    Op.time_derivative.resize(Op.max_iter);
+    Op.time_derivative.setZero();
 
     xList.resize(T+1);
     uList.resize(T);
@@ -133,7 +139,11 @@ void ILQRSolver::solveTrajectory()
             // cout << "uListFull[0]: " << uListFull[0] << endl;
             // cout << "uListFull[10]: " << uListFull[10] << endl;
 
+            gettimeofday(&tbegin_time_deriv,NULL);
             dynamicModel->cart_pole_dyn_cst(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+            gettimeofday(&tend_time_deriv,NULL);
+            Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
+
             newDeriv = 0;
             // cout << "(initial position0) costFunction->getcx()[T]: " << costFunction->getcx()[T] << endl;
             // cout << "(initial position0) costFunction->getcx()[T-1]: " << costFunction->getcx()[T-1] << endl;
@@ -143,7 +153,12 @@ void ILQRSolver::solveTrajectory()
         //====== STEP 2: backward pass, compute optimal control law and cost-to-go
         backPassDone = 0;
         while(!backPassDone){
+
+            gettimeofday(&tbegin_time_bwd,NULL);
             backwardLoop();
+            gettimeofday(&tend_time_bwd,NULL);
+            Op.time_backward(iter) = ((double)(1000*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000)))/1000.0;
+
             // if(diverge){//[Never entered, but entered here][Tobeuncommented]
             //     printf("come herehere");
             //     if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
@@ -170,6 +185,7 @@ void ILQRSolver::solveTrajectory()
         //====== STEP 3: line-search to find new control sequence, trajectory, cost
         fwdPassDone = 0;
         if(backPassDone){
+            gettimeofday(&tbegin_time_fwd,NULL);
             //only implement serial backtracking line-search
             for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
                 alpha = alphaList[alpha_index];
@@ -201,7 +217,10 @@ void ILQRSolver::solveTrajectory()
                     break;
                 }
             }
-            if(!fwdPassDone) alpha = sqrt(-1.0);    
+            if(!fwdPassDone) alpha = sqrt(-1.0);
+            gettimeofday(&tend_time_fwd,NULL);
+            Op.time_forward(iter) = ((double)(1000*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000)))/1000.0;
+    
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
@@ -591,6 +610,12 @@ ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()
     for(int i=0;i<T+1;i++)lastTraj.xList[i] += xgoal;
     lastTraj.uList = updateduList;
     lastTraj.iter = iter;
+    lastTraj.finalCost = accumulate(costList.begin(), costList.end(), 0.0);
+    lastTraj.finalGrad = Op.g_norm;
+    lastTraj.finalLambda = log10(Op.lambda);
+    lastTraj.time_forward = Op.time_forward;
+    lastTraj.time_backward = Op.time_backward;
+    lastTraj.time_derivative = Op.time_derivative;
     return lastTraj;
 }
 
