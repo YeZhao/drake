@@ -2,7 +2,7 @@
 
 CostFunction::CostFunction()
 {
-	N = 50;
+	N = TimeHorizon/TimeStep;
 	cx_new.resize(N+1);
     cu_new.resize(N+1);
     cxx_new.resize(N+1);

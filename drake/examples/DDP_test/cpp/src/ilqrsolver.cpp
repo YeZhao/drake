@@ -551,7 +551,7 @@ void ILQRSolver::forwardLoop()
 
     //[TODO: to be optimized]
     if(!initFwdPassDone){
-        cout << "init come here" << endl;
+        //cout << "initial forward pass" << endl;
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];

@@ -9,6 +9,8 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 
 #define stateSize 4
 #define commandSize 1
+#define TimeHorizon 5
+#define TimeStep 0.001
 
 // typedef for stateSize types
 typedef Eigen::Matrix<double,stateSize,1> stateVec_t;                       // stateSize x 1

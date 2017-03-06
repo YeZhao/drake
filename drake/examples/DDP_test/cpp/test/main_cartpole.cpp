@@ -25,8 +25,8 @@ int main()
     xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
 
-    double T = 5;
-    double dt = 0.1;
+    double T = TimeHorizon;
+    double dt = TimeStep;
     unsigned int N = (int)T/dt;
     double tolFun = 1e-5;//[relaxing default value: 1e-10];
     double tolGrad = 1e-5;//[relaxing default value: 1e-10];
@@ -39,10 +39,9 @@ int main()
     CartPole cartPoleModel(dt, N);
     CostFunctionCartPole costCartPole;
     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-
     testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);
 
-    // run multiple times and then average
+    // run one or multiple times and then average
     int Num_run = 1;
     gettimeofday(&tbegin,NULL);
     for(int i=0;i<Num_run;i++) testSolverCartPole.solveTrajectory();
@@ -72,7 +71,7 @@ int main()
 
     if(file)
     {
-        file << "tau,tauDot,q,qDot,u" << endl;
+        file << "x,theta,xDot,thetaDot,u" << endl;
         for(int i=0;i<N;i++) file << xList[i](0,0) << "," << xList[i](1,0) << "," << xList[i](2,0) << "," << xList[i](3,0) << "," << uList[i](0,0) << endl;
         file << xList[N](0,0) << "," << xList[N](1,0) << "," << xList[N](2,0) << "," << xList[N](3,0) << "," << 0.0 << endl;
         file.close();
