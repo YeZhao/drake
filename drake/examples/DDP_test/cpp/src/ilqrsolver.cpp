@@ -549,6 +549,11 @@ void ILQRSolver::forwardLoop()
     // TODO: Line search to be implemented
     int nargout = 2;
 
+    stateVec_t x_unused;
+    x_unused.setZero();
+    commandVec_t u_NAN;
+    u_NAN << sqrt(-1.0);
+
     //[TODO: to be optimized]
     if(!initFwdPassDone){
         //cout << "initial forward pass" << endl;
@@ -557,10 +562,6 @@ void ILQRSolver::forwardLoop()
             updateduList[i] = uList[i];
             dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costList[i]);
         }
-        stateVec_t x_unused;
-        x_unused.setZero();
-        commandVec_t u_NAN;
-        u_NAN << sqrt(-1.0);
         dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costList[N]);
     }else{
         // cout << "kList[5]: " << kList[5] << endl;
@@ -587,10 +588,6 @@ void ILQRSolver::forwardLoop()
             // }
             dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costListNew[i]);
         }
-        stateVec_t x_unused;
-        x_unused.setZero();
-        commandVec_t u_NAN;
-        u_NAN << sqrt(-1.0);
         dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costListNew[N]);
     }
 }
@@ -598,7 +595,7 @@ void ILQRSolver::forwardLoop()
 ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()
 {
     lastTraj.xList = updatedxList;
-    for(int i=0;i<N+1;i++)lastTraj.xList[i] += xgoal;
+    for(int i=0;i<N+1;i++)lastTraj.xList[i] += xgoal;//retrieve original state with xgoal
     lastTraj.uList = updateduList;
     lastTraj.iter = iter;
     lastTraj.finalCost = accumulate(costList.begin(), costList.end(), 0.0);
@@ -612,9 +609,8 @@ ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()
 
 bool ILQRSolver::isQuudefinitePositive(const commandMat_t & Quu)
 {
-    /*
-      Todo : check if Quu is definite positive
-    */
+    
+    //[TODO : check if Quu is definite positive]
     //Eigen::JacobiSVD<commandMat_t> svd_Quu (Quu, ComputeThinU | ComputeThinV);
     Eigen::VectorXcd singular_values = Quu.eigenvalues();
 
@@ -622,7 +618,7 @@ bool ILQRSolver::isQuudefinitePositive(const commandMat_t & Quu)
     {
         if (singular_values[i].real() < 0.)
         {
-            std::cout << "not SDP" << std::endl;
+            std::cout << "Matrix is not SDP" << std::endl;
             return false;
         }
     }

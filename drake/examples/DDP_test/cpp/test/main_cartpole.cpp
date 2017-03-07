@@ -30,10 +30,8 @@ int main()
     unsigned int N = (int)T/dt;
     double tolFun = 1e-5;//[relaxing default value: 1e-10];
     double tolGrad = 1e-5;//[relaxing default value: 1e-10];
-    unsigned int iterMax = 150;
+    unsigned int iterMax = 150;// custermorized for this example
 
-    stateVecTab_t xList;
-    commandVecTab_t uList;
     ILQRSolver::traj lastTraj;
     
     CartPole cartPoleModel(dt, N);
@@ -48,20 +46,17 @@ int main()
     gettimeofday(&tend,NULL);
 
     lastTraj = testSolverCartPole.getLastSolvedTrajectory();
-    xList = lastTraj.xList;
-    uList = lastTraj.uList;
-    unsigned int iter = lastTraj.iter;
 
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
     texec /= Num_run;
 
     cout << endl;
-    cout << "Number of iterations: " << iter << endl;
+    cout << "Number of iterations: " << lastTraj.iter << endl;
     cout << "Final cost: " << lastTraj.finalCost << endl;
     cout << "Final gradient: " << lastTraj.finalGrad << endl;
     cout << "Final lambda: " << lastTraj.finalLambda << endl;
     cout << "Execution time by time step (second): " << texec/N << endl;
-    cout << "Execution time per iteration (second): " << texec/iter << endl;
+    cout << "Execution time per iteration (second): " << texec/lastTraj.iter << endl;
     cout << "Total execution time of the solver (second): " << texec << endl;
     cout << "\tTime of derivative (second): " << lastTraj.time_derivative.sum() << " (" << 100.0*lastTraj.time_derivative.sum()/texec << "%)" << endl;
     cout << "\tTime of backward pass (second): " << lastTraj.time_backward.sum() << " (" << 100.0*lastTraj.time_backward.sum()/texec << "%)" << endl;
@@ -72,8 +67,8 @@ int main()
     if(file)
     {
         file << "x,theta,xDot,thetaDot,u" << endl;
-        for(int i=0;i<N;i++) file << xList[i](0,0) << "," << xList[i](1,0) << "," << xList[i](2,0) << "," << xList[i](3,0) << "," << uList[i](0,0) << endl;
-        file << xList[N](0,0) << "," << xList[N](1,0) << "," << xList[N](2,0) << "," << xList[N](3,0) << "," << 0.0 << endl;
+        for(int i=0;i<N;i++) file << lastTraj.xList[i](0,0) << "," << lastTraj.xList[i](1,0) << "," << lastTraj.xList[i](2,0) << "," << lastTraj.xList[i](3,0) << "," << lastTraj.uList[i](0,0) << endl;
+        file << lastTraj.xList[N](0,0) << "," << lastTraj.xList[N](1,0) << "," << lastTraj.xList[N](2,0) << "," << lastTraj.xList[N](3,0) << "," << 0.0 << endl;
         file.close();
     }
     else
