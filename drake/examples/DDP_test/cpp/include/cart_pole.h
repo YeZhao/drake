@@ -30,7 +30,7 @@ public:
 private:
 protected:
 
-    // attributes //
+    // attributes
 public:
 private:
     double dt;
@@ -43,17 +43,10 @@ public:
     static const double l;
     static const double g;
 
-    static const double k;
-    static const double R;
-    static const double Jm;
-    static const double Jl;
-    static const double fvm;
-    static const double Cf0;
-    static const double a;
-
     //commandVec_t lowerCommandBounds;
     //commandVec_t upperCommandBounds;
     CostFunctionCartPole costFunction_cart_pole;
+    CostFunctionCartPole *costFunctionCartPole;
 private:
     
     stateMat_half_t H;
@@ -95,9 +88,11 @@ public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
     void cart_pole_dyn_cst(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
     void cart_pole_dyn_cst_short(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const stateVec_t& xgoal, stateVec_t& xList_next, double& c);
+    void cart_pole_dyn_cst_udp(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
+    void cart_pole_dyn_cst_v3(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
     stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
     void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
-    void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U);
+    void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);
     
 private:
 protected:

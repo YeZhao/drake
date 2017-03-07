@@ -10,6 +10,7 @@ const double CartPole::g=9.81;
 
 CartPole::CartPole(double& mydt, unsigned int& myN)
 {
+    costFunctionCartPole = &costFunction_cart_pole;
     stateNb=4;
     commandNb=1;
     dt = mydt;
@@ -17,14 +18,24 @@ CartPole::CartPole(double& mydt, unsigned int& myN)
 
     fxList.resize(N);
     fuList.resize(N);
-    
-    fxx_new[0].setZero();
-    fxx_new[1].setZero();
-    fxx_new[2].setZero();
-    fxx_new[3].setZero();
-    fuu_new[0].setZero();
-    fux_new[0].setZero();
-    fxu_new[0].setZero();
+
+    fxxList.resize(stateSize);
+    for(unsigned int i=0;i<stateSize;i++)
+        fxxList[i].resize(N);
+    fxuList.resize(commandSize);
+    fuuList.resize(commandSize);
+    for(unsigned int i=0;i<commandSize;i++){
+        fxuList[i].resize(N);
+        fuuList[i].resize(N);
+    }
+
+    fxx[0].setZero();
+    fxx[1].setZero();
+    fxx[2].setZero();
+    fxx[3].setZero();
+    fuu[0].setZero();
+    fux[0].setZero();
+    fxu[0].setZero();
 
     lowerCommandBounds << -50.0;
     upperCommandBounds << 50.0;
@@ -88,8 +99,7 @@ void CartPole::cart_pole_dyn_cst(const int& nargout, const double& dt, const sta
     int N = xList.size();//[TODO: to be checked]
     int n = xList[0].rows();
     int m = uList[0].rows();
-    CostFunctionCartPole *costFunctionCartPole = &costFunction_cart_pole;
-
+    
     c = 0;
     stateMat_t AA;//not used
     stateVec_t BB;//not used
@@ -197,7 +207,6 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
     int N = xList_curr.cols();//[TODO: to be checked, should be 1 in this case, the for loop only runs once, the code needs to be optimized]
     int n = xList_curr.rows();
     int m = uList_curr.rows();
-    CostFunctionCartPole *costFunctionCartPole_short = &costFunction_cart_pole;
 
     c = 0;
     stateMat_t AA;
@@ -219,7 +228,7 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
     for(unsigned int k=0;k<N;k++){
         if(isNan(uList_curr)){ 
             if(debugging_print) TRACE_CART_POLE("before the update1\n");
-            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole_short->getQf() * (xList_curr - xgoal);
+            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunctionCartPole->getQf() * (xList_curr - xgoal);
             // std::cout << "size of N: " << N << std::endl;
             //std::cout << "x_final_state: " << xList_curr.transpose() << std::endl;
             c += c_mat_to_scalar(0,0);
@@ -228,13 +237,211 @@ void CartPole::cart_pole_dyn_cst_short(const int& nargout, const double& dt, con
         }else{
             if(debugging_print) TRACE_CART_POLE("before the update2\n");
             xList_next = update(nargout_update1, dt, xList_curr, uList_curr, AA, BB);
-            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunctionCartPole_short->getQ()*(xList_curr - xgoal);
+            c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList_curr - xgoal);
             //if(k<5) std::cout << "c_mat_to_scalar1: " << c_mat_to_scalar << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update2\n");
-            c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunctionCartPole_short->getR()*uList_curr;
+            c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunctionCartPole->getR()*uList_curr;
             //if(k<5) std::cout << "c_mat_to_scalar2: " << c_mat_to_scalar << std::endl;
             c += c_mat_to_scalar(0,0);
         }
+    }
+    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+}
+
+void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList,
+                                stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c){
+    // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
+    // costFunctionCartPole
+    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+    int N = xList.size();//[TODO: to be checked]
+    int n = xList[0].rows();
+    int m = uList[0].rows();
+    
+    c = 0;
+    stateMat_t AA;//not used
+    stateVec_t BB;//not used
+    AA.setZero();
+    BB.setZero();
+
+    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+
+    commandMat_t c_mat_to_scalar;
+
+    stateMatTab_t A_temp;//not used
+    stateR_commandC_tab_t B_temp;//not used
+    A_temp.resize(N);
+    B_temp.resize(N);
+    
+    if(nargout == 2){
+        const int nargout_update1 = 3;        
+        for(unsigned int k=0;k<N;k++){
+            if(isNan(uList[k])){
+                if(debugging_print) TRACE_CART_POLE("before the update1\n");
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunctionCartPole->getQf() * (xList[k] - xgoal);
+                c += c_mat_to_scalar(0,0);
+                if(debugging_print) TRACE_CART_POLE("after the update1\n");
+            }else{
+                if(debugging_print) TRACE_CART_POLE("before the update2\n");
+                FList[k] = update(nargout_update1, dt, xList[k], uList[k], AA, BB);
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList[k] - xgoal);
+                if(debugging_print) TRACE_CART_POLE("after the update2\n");
+                c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
+                c += c_mat_to_scalar(0,0);
+            }
+        }
+    }else{
+        const int nargout_update2 = 1;
+        for(unsigned int k=0;k<N;k++){
+            if(isNan(uList[k])){
+                if(debugging_print) TRACE_CART_POLE("before the update3\n");
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQf()*(xList[k] - xgoal);
+                c += c_mat_to_scalar(0,0);
+                if(debugging_print) TRACE_CART_POLE("after the update3\n");
+            }else{
+                if(debugging_print) TRACE_CART_POLE("before the update4\n");
+                FList[k] = update(nargout_update2, dt, xList[k], uList[k], AA, BB);//assume one output, code needs to be optimized
+                grad(dt, xList[k], uList[k], AA, BB);
+                hessian(dt, xList[k], uList[k],fxx,fxu,fuu);
+                for(unsigned int j;j<stateSize;j++)
+                    fxxList[j][k] = fxx[j];
+                for(unsigned int j;j<commandSize;j++){
+                    fxuList[j][k] = fxu[j];
+                    fuuList[j][k] = fuu[j];
+                }
+                
+                if(debugging_print) TRACE_CART_POLE("before the update4-1\n");
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList[k] - xgoal);
+                if(debugging_print) TRACE_CART_POLE("after the update4\n");
+
+                c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
+                c += c_mat_to_scalar(0,0); // TODO: to be checked
+                if(debugging_print) TRACE_CART_POLE("after the update5\n");
+                
+                A_temp[k] = AA;
+                B_temp[k] = BB;
+            }
+        }
+
+        stateVec_t cx_temp;
+        
+        if(debugging_print) TRACE_CART_POLE("compute dynamics and cost derivative\n");
+
+        for(unsigned int k=0;k<N-1;k++){
+            fxList[k] = A_temp[k];
+            fuList[k] = B_temp[k];
+            
+            cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
+            cx[k] = costFunctionCartPole->getQ()*cx_temp;
+            cu[k] = costFunctionCartPole->getR()*uList[k];
+            cxx[k] = costFunctionCartPole->getQ();
+            cux[k].setZero();
+            cuu[k] = costFunctionCartPole->getR();
+            
+            // if(k == 49) {
+            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
+            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
+            //     std::cout << "cx[49]: " << cx[k] << std::endl;
+            //     std::cout << "cu[49]: " << cu[k] << std::endl;
+            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
+            // }
+
+        }
+        if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
+
+        cx[N-1] = costFunctionCartPole->getQf()*(xList[N-1]-xgoal);//[TODO: double check whether there is - xgoal]
+        cu[N-1] = costFunctionCartPole->getR()*uList[N-1];
+        cxx[N-1] = costFunctionCartPole->getQf();
+        cux[N-1].setZero();
+        cuu[N-1] = costFunctionCartPole->getR();
+
+        if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+
+        // the following matrices and scalars are set to Zero instead of empty, not supported by Eigen.
+        for(unsigned int k=0;k<N;k++){
+            FList[k].setZero();
+        }    
+        c = 0;
+    }
+    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+}
+
+void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList,
+                                stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c){
+    // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
+    // costFunctionCartPole
+    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+    int N = xList.size();//[TODO: to be checked]
+    int n = xList[0].rows();
+    int m = uList[0].rows();
+    
+    c = 0;
+    stateMat_t AA;//not used
+    stateVec_t BB;//not used
+    AA.setZero();
+    BB.setZero();
+
+    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+
+    commandMat_t c_mat_to_scalar;
+
+    stateMatTab_t A_temp;//not used
+    stateR_commandC_tab_t B_temp;//not used
+    A_temp.resize(N);
+    B_temp.resize(N);
+    
+    if(nargout == 2){
+        const int nargout_update1 = 3;        
+        for(unsigned int k=0;k<N;k++){
+            if(isNan(uList[k])){
+                if(debugging_print) TRACE_CART_POLE("before the update1\n");
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunctionCartPole->getQf() * (xList[k] - xgoal);
+                c += c_mat_to_scalar(0,0);
+                if(debugging_print) TRACE_CART_POLE("after the update1\n");
+            }else{
+                if(debugging_print) TRACE_CART_POLE("before the update2\n");
+                FList[k] = update(nargout_update1, dt, xList[k], uList[k], AA, BB);
+                c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunctionCartPole->getQ()*(xList[k] - xgoal);
+                if(debugging_print) TRACE_CART_POLE("after the update2\n");
+                c_mat_to_scalar += 0.5*uList[k].transpose()*costFunctionCartPole->getR()*uList[k];
+                c += c_mat_to_scalar(0,0);
+            }
+        }
+    }else{
+        stateVec_t cx_temp;
+        if(debugging_print) TRACE_CART_POLE("compute cost derivative\n");
+
+        for(unsigned int k=0;k<N-1;k++){
+            cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
+            cx[k] = costFunctionCartPole->getQ()*cx_temp;
+            cu[k] = costFunctionCartPole->getR()*uList[k];
+            cxx[k] = costFunctionCartPole->getQ();
+            cux[k].setZero();
+            cuu[k] = costFunctionCartPole->getR();
+            
+            // if(k == 49) {
+            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
+            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
+            //     std::cout << "cx[49]: " << cx[k] << std::endl;
+            //     std::cout << "cu[49]: " << cu[k] << std::endl;
+            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
+            // }
+
+        }
+        if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
+
+        cx[N-1] = costFunctionCartPole->getQf()*(xList[N-1]-xgoal);//[TODO: double check whether there is - xgoal]
+        cu[N-1] = costFunctionCartPole->getR()*uList[N-1];
+        cxx[N-1] = costFunctionCartPole->getQf();
+        cux[N-1].setZero();
+        cuu[N-1] = costFunctionCartPole->getR();
+
+        if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+
+        // the following matrices and scalars are set to Zero instead of empty, not supported by Eigen.
+        for(unsigned int k=0;k<N;k++){
+            FList[k].setZero();
+        }    
+        c = 0;
     }
     if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
 }
@@ -337,7 +544,7 @@ void CartPole::grad(const double& dt, const stateVec_t& X, const commandVec_t& U
     }
 }
 
-void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t& U){
+void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
     int n = X.size();
     int m = U.size();
 
@@ -357,15 +564,15 @@ void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t
     B.setZero();
 
     for(unsigned int i=0;i<n;i++){
-        fxx_new[i].setZero();
-        fxu_new[i].setZero();
-        fuu_new[i].setZero();
+        fxx[i].setZero();
+        fxu[i].setZero();
+        fuu[i].setZero();
     }
 
     for(unsigned int i=0;i<n;i++){
         grad(dt, X+Dx.col(i), U, Ap, B);
         grad(dt, X-Dx.col(i), U, Am, B);
-        fxx_new[i] = (Ap - Am)/(2*delta);
+        fxx[i] = (Ap - Am)/(2*delta);
     }
 
     stateVec_t Bp;
@@ -376,7 +583,7 @@ void CartPole::hessian(const double& dt, const stateVec_t& X, const commandVec_t
     for(unsigned int j=0;j<m;j++){
         grad(dt, X, U+Du.col(j), Ap, Bp);
         grad(dt, X, U-Du.col(j), Am, Bm);
-        fxu_new[j] = (Ap - Am)/(2*delta);
-        fuu_new[j] = (Bp - Bm)/(2*delta);
+        fxu[j] = (Ap - Am)/(2*delta);
+        fuu[j] = (Bp - Bm)/(2*delta);
     }
 }

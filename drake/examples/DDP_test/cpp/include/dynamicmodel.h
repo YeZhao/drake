@@ -34,22 +34,22 @@ protected:
 
     stateMatTab_t fxList;
     stateR_commandC_tab_t fuList;
-    stateTens_t fxx_new;
-    stateR_commandC_commandD_t fuu_new;
-    stateR_stateC_commandD_t fxu_new;
-    stateR_commandC_stateD_t fux_new;
-    
+    stateTensTab_t fxxList;
+    stateTensTab_t fxuList;
+    stateR_commandC_Tens_t fuuList;
 public:
 
 protected:
-// methods //
+// methods 
 public:
     virtual stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)=0;
     virtual void cart_pole_dyn_cst(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c)=0;
     virtual void cart_pole_dyn_cst_short(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const stateVec_t& xgoal, stateVec_t& xList_next, double& c)=0;
+    virtual void cart_pole_dyn_cst_v3(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c)=0;
+    virtual void cart_pole_dyn_cst_udp(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c)=0;
     virtual stateVec_t update(const int& nargout, const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B)=0;
     virtual void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B)=0;
-    virtual void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U)=0;
+    virtual void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu)=0;
 private:
 protected:
     // accessors //
