@@ -7,6 +7,7 @@ SET(${PROJECT_NAME}_HEADERS
     romeoactuatorpos.h
     costfunction.h
     ilqrsolver.h
+    udpsolver.h
 )
 
 INSTALL(FILES ${${PROJECT_NAME}_HEADER} DESTINATION include)

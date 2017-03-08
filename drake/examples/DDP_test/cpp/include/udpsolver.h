@@ -112,6 +112,7 @@ private:
     unsigned int N;
     unsigned int iter;
     double dt;
+    double scale;
 
     stateVecTab_t xList;
     commandVecTab_t uList;
@@ -164,18 +165,24 @@ private:
     Eigen::Vector2d dV;
     bool debugging_print;    
     int newDeriv; //i.e., flgChange
+
+    stateVec_t Xdot1;
+    stateVec_t Xdot2;
+    stateVec_t Xdot3;
+    stateVec_t Xdot4;
 protected:
     // methods
 public:
     void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
-                    double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
+                    double& mydt, double& myscale, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
     void initializeTraj();
     void standard_parameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
     void backwardLoop();
     void forwardLoop();
-    bool isQuudefinitePositive(const commandMat_t & Quu); 
+    bool isQuudefinitePositive(const commandMat_t & Quu);
+    stateVec_t rkstep_b(stateAug_t augX, double& dt);
 protected:
 
 };

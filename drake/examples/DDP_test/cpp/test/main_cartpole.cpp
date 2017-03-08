@@ -5,6 +5,7 @@
 #include "matrixUtil.h"
 
 #include "ilqrsolver.h"
+#include "udpsolver.h"
 #include "cart_pole.h"
 #include "cost_function_cart_pole.h"
 
@@ -15,6 +16,7 @@ using namespace std;
 using namespace Eigen;
 
 #define pi M_PI
+#define solverSelection 2 //ILQR: 1, UDP: 2
 
 int main()
 {
@@ -31,14 +33,23 @@ int main()
     double tolFun = 1e-5;//[relaxing default value: 1e-10];
     double tolGrad = 1e-5;//[relaxing default value: 1e-10];
     unsigned int iterMax = 150;// custermorized for this example
+    cout << "solverSelection: " << solverSelection << endl;
+    // if(solverSelection == 1){
+    //     ILQRSolver::traj lastTraj;
+    //     CartPole cartPoleModel(dt, N);
+    //     CostFunctionCartPole costCartPole;
+    //     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
+    //     testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
+    // }else{
+        double scale = 0.01;
+        UDPSolver::traj lastTraj;
+        CartPole cartPoleModel(dt, N);
+        CostFunctionCartPole costCartPole;
+        UDPSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
+        testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
+    //}
 
-    ILQRSolver::traj lastTraj;
     
-    CartPole cartPoleModel(dt, N);
-    CostFunctionCartPole costCartPole;
-    ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-    testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);
-
     // run one or multiple times and then average
     int Num_run = 1;
     gettimeofday(&tbegin,NULL);

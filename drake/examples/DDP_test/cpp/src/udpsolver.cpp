@@ -44,14 +44,15 @@ UDPSolver::UDPSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunction,
 }
 
 void UDPSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
-                       double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad)
+                       double& mydt, double& myscale, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad)
 {
     // TODO: double check opt params
     xInit = myxInit; // removed myxgoal. Double check whether this makes sense.
     xgoal = myxgoal;
     N = myN;
     dt = mydt;
-    
+    scale = myscale;
+
     // Eigen::VectorXd default_alpha;
     // default_alpha.setZero();
     // default_alpha << 1.0, 0.5012, 0.2512, 0.1259, 0.0631, 0.0316, 0.0158, 0.0079, 0.0040, 0.0020, 0.0010;
@@ -117,7 +118,7 @@ void UDPSolver::solveTrajectory()
 
     for(iter=0;iter<Op.max_iter;iter++)
     {
-        //TRACE("STEP 1: differentiate dynamics and cost along new trajectory\n");
+        //TRACE("STEP 1: differentiate cost along new trajectory\n");
         if(newDeriv){
             //cout << "STEP 1" << endl;
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
@@ -137,7 +138,7 @@ void UDPSolver::solveTrajectory()
             // cout << "uListFull[10]: " << uListFull[10] << endl;
 
             gettimeofday(&tbegin_time_deriv,NULL);
-            dynamicModel->cart_pole_dyn_cst(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+            dynamicModel->cart_pole_dyn_cst_udp(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
 
@@ -199,8 +200,8 @@ void UDPSolver::solveTrajectory()
                 //std::cout << "accumulate(costList): " << accumulate(costList.begin(), costList.end(), 0.0) << std::endl;
                 //std::cout << "Op.dcost: " << Op.dcost << std::endl;
                 //std::cout << "Op.expected: " << Op.expected << std::endl;
-                //std::cout << "alpha: " << alpha << std::endl;
-                //std::cout << "dV: " << dV << std::endl;
+                std::cout << "alpha: " << alpha << std::endl;
+                std::cout << "dV: " << dV << std::endl;
                 double z;
                 if(Op.expected > 0) {
                     z = Op.dcost/Op.expected;
@@ -216,7 +217,6 @@ void UDPSolver::solveTrajectory()
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
             Op.time_forward(iter) = ((double)(1000*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000)))/1000.0;
-    
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
@@ -270,11 +270,12 @@ void UDPSolver::solveTrajectory()
 
             // terminate ?
             if(Op.lambda > Op.lambdaMax) {
-                if(Op.debug_level >= 1)
+                if(Op.debug_level >= 0)
                     TRACE(("\nEXIT: lambda > lambdaMax\n"));
                 break;
             }
         }
+        cout << "final alpha: " << alpha << endl;
     }
 
     Op.iterations = iter;
@@ -285,7 +286,7 @@ void UDPSolver::solveTrajectory()
         
         return;    
     } else if(iter >= Op.max_iter) {
-        if(Op.debug_level >= 1)
+        if(Op.debug_level >= 0)
             TRACE(("\nEXIT: Maximum iterations reached.\n"));
         
         return;
@@ -344,7 +345,7 @@ void UDPSolver::initializeTraj()
     Op.expected = 0;
     Op.print_head = 6;
     Op.last_head = Op.print_head;
-    if(Op.debug_level > 0) TRACE("\n=========== begin iLQG ===========\n");
+    if(Op.debug_level > 0) TRACE("\n=========== begin UDF ===========\n");
 }
 
 void UDPSolver::standard_parameters(tOptSet *o) {
@@ -373,6 +374,7 @@ void UDPSolver::standard_parameters(tOptSet *o) {
 
 void UDPSolver::backwardLoop()
 {    
+    //Perform the Ricatti-Mayne backward pass with unscented transform
     if(Op.regType == 1)
         lambdaEye = Op.lambda*stateMat_t::Identity();//[to be checked, change it to One()]
     else
@@ -386,8 +388,7 @@ void UDPSolver::backwardLoop()
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
-    for(int i=N-1;i>=0;i--)
-    {
+    for(int i=N-1;i>=0;i--){
         //for debugging
         if(debugging_print){
             if (i==N-1){
@@ -400,11 +401,140 @@ void UDPSolver::backwardLoop()
             }    
         }
         
-        Qx = costFunction->getcx()[i] + dynamicModel->getfxList()[i].transpose()*Vx[i+1];
-        Qu = costFunction->getcu()[i] + dynamicModel->getfuList()[i].transpose()*Vx[i+1];
-        Qxx = costFunction->getcxx()[i] + dynamicModel->getfxList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfxList()[i];
-        Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfuList()[i];
-        Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfxList()[i];
+        //Generate sigma points from Vxx(i+1) and cuu(i+1)
+        Eigen::MatrixXd augMatrix(stateSize+commandSize, stateSize+commandSize);
+        commandR_stateC_t ZeroLowerLeftMatrix;
+        stateR_commandC_t ZeroUpperRightMatrix;
+        ZeroLowerLeftMatrix.setZero();
+        ZeroUpperRightMatrix.setZero();
+        augMatrix << Vxx[i+1].inverse(), ZeroUpperRightMatrix, 
+                ZeroLowerLeftMatrix, costFunction->getcuu()[i].inverse();
+
+        Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
+        Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
+        //assume augMatrix is positive definite
+        
+        // if(i > N - 2){
+        //     cout << "index i: " << i << endl;
+        //     cout << "augMatrix: " << augMatrix << endl;
+        //     cout << "S: " << S << endl;
+        // }
+        
+        //A temporary solution: check the non-PD case
+        if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
+        {
+            diverge = i;
+            TRACE("Possibly non semi-positive definitie matrix!");
+            return;
+        }
+        S = scale*S;
+
+        Eigen::MatrixXd Sig(stateSize+commandSize, 2*(stateSize+commandSize));
+        Sig.setZero();
+        Sig << S, -S;
+
+        // if(i > N-2){
+        //     cout << "index i: " << i << endl;
+        //     cout << "S: " << S << endl;
+        //     cout << "Vxx[i+1]: " << Vxx[i+1] << endl;
+        //     cout << "costFunction->getcuu()[i]: " << costFunction->getcuu()[i] << endl;
+        // }
+
+        Eigen::MatrixXd augState(stateSize+commandSize, 1);
+        for(unsigned int j=0;j<2*(stateSize+commandSize);j++){
+            augState << xList[i+1], uList[i];//TODO: make sure state and control are correct
+            Sig.col(j) += augState;
+        }
+
+        // Project Vx(i+1) onto sigma points
+        Eigen::MatrixXd g(2*(stateSize+commandSize), 1);
+        g.setZero();
+        for(unsigned int j=0;j<stateSize+commandSize;j++){
+            g(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);//TODO: double make sure its correctness
+            g(j+stateSize+commandSize) = -g(j);
+        }
+        // if(i > N-2){
+        //     cout << "Vx[i+1].transpose(): " << Vx[i+1].transpose() << endl;
+        //     cout << "S.col(1).head(stateSize): " << S.col(1).head(stateSize) << endl;
+        //     cout << "Vx[i+1].transpose()*S.col(1).head(stateSize): " << Vx[i+1].transpose()*S.col(1).head(stateSize) << endl;
+        //     cout << "index ii: " << i << endl;
+        //     cout << "Sig: " << Sig << endl;
+        // }
+
+        //Propagate sigma points through backwards dynamics
+        for(unsigned int j=0;j<2*(stateSize+commandSize);j++){
+            Sig.col(j).head(stateSize) = rkstep_b(Sig.col(j), dt);
+        }
+
+        // if(i > N-2){
+        //     cout << "index iii: " << i << endl;
+        //     cout << "Sig: " << Sig << endl;
+        // }
+
+        //Calculate [Qu; Qx] from sigma points
+        Eigen::MatrixXd D(stateSize+commandSize, stateSize+commandSize);
+        D.setZero();
+        Eigen::MatrixXd df(stateSize+commandSize, 1);
+        df.setZero();
+        for(unsigned int j=0;j<stateSize+commandSize;j++){
+            D.row(j) =  Sig.col(j).transpose() - Sig.col(j+stateSize+commandSize).transpose();
+            df(j) = g(j) - g(stateSize+commandSize+j);
+        }
+
+        // if(i > N-2){
+        //     cout << "index i: " << i << endl;
+        //     //cout << "Sig.col(j).transpose(): " << Sig.col(1).transpose() << endl;
+        //     //cout << "Sig.col(j+stateSize+commandSize).transpose(): " << Sig.col(1+stateSize+commandSize).transpose() << endl;
+        //     //cout << "Sig.col(j).transpose() - Sig.col(j+stateSize+commandSize).transpose(): " << Sig.col(1).transpose() - Sig.col(1+stateSize+commandSize).transpose() << endl;
+        //     cout << "g: " << g << endl;
+        //     cout << "Sig: " << Sig << endl;
+        //     cout << "D: " << D << endl;
+        //     cout << "df: " << df << endl;
+        // }
+
+        stateAug_t QxQu;
+        QxQu.setZero();
+        QxQu = D.inverse()*df;
+        Qx = QxQu.head(stateSize) + costFunction->getcx()[i]; //add on one-step cost
+        Qu = QxQu.tail(commandSize) + costFunction->getcu()[i]; //add on one-step cost
+        
+        //Calculate Hessian w.r.t. [x_k; u_k] from sigma points
+        stateAug_t mu;
+        mu.setZero();
+        for(unsigned int j=0;j<2*(stateSize+commandSize);j++){
+            mu += 1.0/(2.0*(stateSize+commandSize))*Sig.col(j);
+        }
+
+        Eigen::MatrixXd M(stateSize+commandSize, stateSize+commandSize);
+        M.setZero();
+        for(unsigned int j=0;j<2*(stateSize+commandSize);j++){
+            M += (0.5/pow(scale, 2.0))*(Sig.col(j) - mu)*(Sig.col(j).transpose() - mu.transpose());
+        }
+        Eigen::MatrixXd H(stateSize+commandSize, stateSize+commandSize);
+        H.setZero();
+        H = M.inverse();
+        H.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
+        
+        Qxx = H.block(0,0,stateSize,stateSize);
+        Quu = H.block(stateSize,stateSize,commandSize,commandSize);
+        Qux = H.block(stateSize,0,commandSize,stateSize);
+            
+        // if(i > N-2){
+        //     cout << "index i: " << i << endl;
+        //     cout << "mu: " << mu << endl;
+        //     cout << "M: " << M << endl;
+        //     cout << "H: " << H << endl;
+        //     cout << "QxQu: " << QxQu << endl;
+        //     cout << "Qx: " << Qx << endl;
+        //     cout << "Qu: " << Qu << endl;
+        //     cout << "costFunction->getcx()[i]: " << costFunction->getcx()[i] << endl;
+        //     cout << "costFunction->getcu()[i]: " << costFunction->getcu()[i] << endl;
+        //     cout << "costFunction->getcxx()[i]: " << costFunction->getcxx()[i] << endl;
+        // }
+
+        if(Op.regType == 1){
+            QuuF = Quu + Op.lambda*commandMat_t::Identity(); //cuu(:,:,i)  + fu(:,:,i)'*Vxx_reg*fu(:,:,i) + lambda*eye(m);
+        }
 
         // if(i > N-4){
         //     cout << "index i: " << i << endl;
@@ -413,11 +543,6 @@ void UDPSolver::backwardLoop()
         //     cout << "dynamicModel->getfxList()[i]: " << dynamicModel->getfxList()[i] << endl;
         //     cout << "Vx[i+1]: " << Vx[i+1] << endl;
         // }
-
-        if(Op.regType == 1)
-            QuuF = Quu + Op.lambda*commandMat_t::Identity();
-        else
-            QuuF = Quu;
         
         if(enableFullDDP)
         {
@@ -432,9 +557,9 @@ void UDPSolver::backwardLoop()
         }
 
         // if(i > N -4){
-            //cout << "QuuF: " << QuuF << endl;
-            //cout << "Qu: " << Qu << endl;
-            //cout << "Qux: " << Qux << endl;
+        //     cout << "QuuF: " << QuuF << endl;
+        //     cout << "Qu: " << Qu << endl;
+        //     cout << "Qux: " << Qux << endl;
         // }
         
         QuuInv = QuuF.inverse();
@@ -478,6 +603,11 @@ void UDPSolver::backwardLoop()
             Eigen::LLT<MatrixXd> lltOfQuuF(QuuF);
             Eigen::MatrixXd L = lltOfQuuF.matrixU(); 
             //assume QuuF is positive definite
+
+            // if(i > N - 3){
+            //     cout << "QuuF: " << QuuF << endl;
+            //     cout << "L: " << L << endl;
+            // }
             
             //A temporary solution: check the non-PD case
             if(lltOfQuuF.info() == Eigen::NumericalIssue)
@@ -501,9 +631,8 @@ void UDPSolver::backwardLoop()
             //     cout << "Qux: " << Qux << endl;
             //     cout << "QuuF: " << QuuF << endl;
             //     cout << "Op.lambda: " << Op.lambda << endl;
-            //     cout << "L: " << L << endl;
             // }
-        }   
+        }
 
         //update cost-to-go approximation
         dV(0) += k.transpose()*Qu;
@@ -514,6 +643,13 @@ void UDPSolver::backwardLoop()
         Vxx[i] = Qxx + K.transpose()*Quu*K+ K.transpose()*Qux + Qux.transpose()*K;
         Vxx[i] = 0.5*(Vxx[i] + Vxx[i].transpose());
 
+        // if(i > N - 2){
+        //     cout << "Qxx: " << Qxx << endl;
+        //     cout << "K_i: " << K << endl;
+        //     cout << "Quu: " << Quu << endl;
+        //     cout << "Qux: " << Qux << endl;
+        //     cout << "Quu: " << Quu << endl;
+        // }
         kList[i] = k;
         KList[i] = K;
 
@@ -623,4 +759,17 @@ bool UDPSolver::isQuudefinitePositive(const commandMat_t & Quu)
         }
     }
     return true;
+}
+
+
+stateVec_t UDPSolver::rkstep_b(stateAug_t augX, double& dt){
+    //[TODO: make sure that these variables are not interwealved with original ones in cart_pole]
+    // Backwards 4th order Runge-Kutta step from x_{k+1} to x_k
+    Xdot1 = dynamicModel->cart_pole_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    Xdot2 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, augX.tail(commandSize));
+    Xdot3 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2, augX.tail(commandSize));
+    Xdot4 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - dt*Xdot3, augX.tail(commandSize));
+    stateVec_t X_new;
+    X_new = augX.head(stateSize) - (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
+    return X_new;
 }
