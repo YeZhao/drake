@@ -167,17 +167,16 @@ private:
 protected:
     // methods
 public:
-    void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
+    void firstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
                     double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
     void initializeTraj();
-    void standard_parameters(tOptSet *o);
+    void standardizeParameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
-    void backwardLoop();
-    void forwardLoop();
-    bool isQuudefinitePositive(const commandMat_t & Quu); 
+    void doBackwardPass();
+    void doForwardPass();
+    bool isPositiveDefinite(const commandMat_t & Quu); 
 protected:
-
 };
 
 #endif // ILQRSOLVER_H

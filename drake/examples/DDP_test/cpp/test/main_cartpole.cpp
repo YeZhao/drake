@@ -16,7 +16,8 @@ using namespace std;
 using namespace Eigen;
 
 #define pi M_PI
-#define solverSelection 2 //ILQR: 1, UDP: 2
+#define useILQRSolver 1
+#define useUDPSolver 0
 
 int main()
 {
@@ -29,27 +30,26 @@ int main()
 
     double T = TimeHorizon;
     double dt = TimeStep;
-    unsigned int N = (int)T/dt;
-    double tolFun = 1e-5;//[relaxing default value: 1e-10];
-    double tolGrad = 1e-5;//[relaxing default value: 1e-10];
-    unsigned int iterMax = 150;// custermorized for this example
-    cout << "solverSelection: " << solverSelection << endl;
-    // if(solverSelection == 1){
-    //     ILQRSolver::traj lastTraj;
-    //     CartPole cartPoleModel(dt, N);
-    //     CostFunctionCartPole costCartPole;
-    //     ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-    //     testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
-    // }else{
+    unsigned int N = (int)(T/dt);
+    double tolFun = 1e-5;//relaxing default value: 1e-10;
+    double tolGrad = 1e-5;//relaxing default value: 1e-10;
+    unsigned int iterMax = 150;
+    #if useILQRSolver
+        ILQRSolver::traj lastTraj;
+        CartPole cartPoleModel(dt, N);
+        CostFunctionCartPole costCartPole;
+        ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
+        testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
+    #endif
+    #if useUDPSolver    
         double scale = 0.01;
         UDPSolver::traj lastTraj;
         CartPole cartPoleModel(dt, N);
         CostFunctionCartPole costCartPole;
         UDPSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-        testSolverCartPole.FirstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
-    //}
+        testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
+    #endif
 
-    
     // run one or multiple times and then average
     int Num_run = 1;
     gettimeofday(&tbegin,NULL);
@@ -86,5 +86,4 @@ int main()
         cerr << "error in open file" << endl;
 
     return 0;
-
 }

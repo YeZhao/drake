@@ -43,7 +43,7 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
     //tOptSet Op = INIT_OPTSET;
 }
 
-void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
+void ILQRSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
                        double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad)
 {
     // TODO: double check opt params
@@ -58,7 +58,7 @@ void ILQRSolver::FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
 
     //TRACE("initialize option parameters\n");
     //Op = INIT_OPTSET;
-    standard_parameters(&Op);
+    standardizeParameters(&Op);
     Op.xInit = myxInit;
     Op.n_hor = N; // TODO: to be checked, it was set to N-1
     Op.tolFun = mytolFun;
@@ -152,10 +152,11 @@ void ILQRSolver::solveTrajectory()
         while(!backPassDone){
 
             gettimeofday(&tbegin_time_bwd,NULL);
-            backwardLoop();
+            doBackwardPass();
             gettimeofday(&tend_time_bwd,NULL);
             Op.time_backward(iter) = ((double)(1000*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000)))/1000.0;
 
+            //TRACE("handle Cholesky failure case");
             if(diverge){
                 if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
                 Op.dlambda   = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
@@ -186,7 +187,7 @@ void ILQRSolver::solveTrajectory()
             for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
                 alpha = alphaList[alpha_index];
                 //cout << "STEP3: forward loop" << endl;
-                forwardLoop();
+                doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
                 // std::cout << "costListNew[2]: " << costListNew[2] << std::endl;
@@ -308,7 +309,7 @@ void ILQRSolver::initializeTraj()
         {
             uList[i] = zeroCommand;
         }
-        forwardLoop();
+        doForwardPass();
         //simplistic divergence test
         int diverge_element_flag = 0;
         for(unsigned int i = 0; i < xList.size(); i++){
@@ -347,7 +348,7 @@ void ILQRSolver::initializeTraj()
     if(Op.debug_level > 0) TRACE("\n=========== begin iLQG ===========\n");
 }
 
-void ILQRSolver::standard_parameters(tOptSet *o) {
+void ILQRSolver::standardizeParameters(tOptSet *o) {
     //o->alpha= default_alpha;
     o->n_alpha = 11;
     o->tolFun = 1e-4;
@@ -371,7 +372,7 @@ void ILQRSolver::standard_parameters(tOptSet *o) {
     o->print = 2;
 }
 
-void ILQRSolver::backwardLoop()
+void ILQRSolver::doBackwardPass()
 {    
     if(Op.regType == 1)
         lambdaEye = Op.lambda*stateMat_t::Identity();//[to be checked, change it to One()]
@@ -439,7 +440,7 @@ void ILQRSolver::backwardLoop()
         
         QuuInv = QuuF.inverse();
 
-        if(!isQuudefinitePositive(Quu))
+        if(!isPositiveDefinite(Quu))
         {
             /*
               To be Implemented : Regularization (is Quu definite positive ?)
@@ -525,28 +526,11 @@ void ILQRSolver::backwardLoop()
         g_norm_sum+= g_norm_max;
     }
     Op.g_norm= g_norm_sum/((double)(Op.n_hor));
-
-    //TODO: handle Cholesky failure case
-    // while(!backPassDone) {
-    //     if(back_pass(o)) {
-    //         if(Op.debug_level>=1)
-    //             TRACE(("Back pass failed.\n"));
-
-    //         Op.dlambda= max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
-    //         Op.lambda= max(Op.lambda * Op.dlambda, Op.lambdaMin);
-    //         if(Op.lambda > Op.lambdaMax)
-    //             break;
-    //     } else {
-    //         backPassDone= 1;
-    //         TRACE(("...done\n"));
-    //     }
-    // }
 }
 
-void ILQRSolver::forwardLoop()
+void ILQRSolver::doForwardPass()
 {
     updatedxList[0] = Op.xInit;
-    // TODO: Line search to be implemented
     int nargout = 2;
 
     stateVec_t x_unused;
@@ -556,7 +540,7 @@ void ILQRSolver::forwardLoop()
 
     //[TODO: to be optimized]
     if(!initFwdPassDone){
-        //cout << "initial forward pass" << endl;
+        //TRACE("initial forward pass");
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
@@ -607,10 +591,8 @@ ILQRSolver::traj ILQRSolver::getLastSolvedTrajectory()
     return lastTraj;
 }
 
-bool ILQRSolver::isQuudefinitePositive(const commandMat_t & Quu)
+bool ILQRSolver::isPositiveDefinite(const commandMat_t & Quu)
 {
-    
-    //[TODO : check if Quu is definite positive]
     //Eigen::JacobiSVD<commandMat_t> svd_Quu (Quu, ComputeThinU | ComputeThinV);
     Eigen::VectorXcd singular_values = Quu.eigenvalues();
 

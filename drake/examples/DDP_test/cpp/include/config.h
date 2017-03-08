@@ -9,7 +9,8 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 
 #define stateSize 4
 #define commandSize 1
-#define TimeHorizon 5
+#define fullstatecommandSize 5
+#define TimeHorizon 0.5
 #define TimeStep 0.01
 
 // typedef for stateSize types
@@ -41,6 +42,7 @@ typedef Eigen::Matrix<double,stateSize/2,stateSize/2> stateMat_half_t;          
 typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
 typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;                   // stateSize/2 x commandSize
 
+// typedef for vectorized state and command matrix (over the horizon)
 typedef std::vector<stateVec_t> stateVecTab_t;
 typedef std::vector<double> costVecTab_t;
 typedef std::vector<commandVec_t> commandVecTab_t;

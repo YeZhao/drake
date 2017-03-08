@@ -29,7 +29,7 @@
     #endif
 #endif
 
-#define TRACE(x) do { if (DEBUG_UDP) printf(x);} while (0)
+#define TRACE_UDP(x) do { if (DEBUG_UDP) printf(x);} while (0)
 
 #define INIT_OPTSET {0, 0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0, NULL, NULL, NULL, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0} // NULL, NULL
 
@@ -173,16 +173,16 @@ private:
 protected:
     // methods
 public:
-    void FirstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
+    void firstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
                     double& mydt, double& myscale, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
     void solveTrajectory();
     void initializeTraj();
-    void standard_parameters(tOptSet *o);
+    void standardizeParameters(tOptSet *o);
     struct traj getLastSolvedTrajectory();
-    void backwardLoop();
-    void forwardLoop();
-    bool isQuudefinitePositive(const commandMat_t & Quu);
-    stateVec_t rkstep_b(stateAug_t augX, double& dt);
+    void doBackwardPass();
+    void doForwardPass();
+    bool isPositiveDefinite(const commandMat_t & Quu);
+    stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt);
 protected:
 
 };
