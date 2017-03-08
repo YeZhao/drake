@@ -18,11 +18,11 @@ UDPSolver::UDPSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunction,
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
 
-    if(enableQPBox) cout << "Box QP is enabled" << endl;
-    else cout << "Box QP is disabled" << endl;
+    if(enableQPBox) TRACE_UDP("Box QP is enabled");
+    else TRACE_UDP("Box QP is disabled");
 
-    if(enableFullDDP) cout << "Full DDP is enabled" << endl;
-    else cout << "Full DDP is disabled" << endl;
+    if(enableFullDDP) TRACE_UDP("Full DDP is enabled");
+    else TRACE_UDP("Full DDP is disabled");
 
     if(QPBox)
     {
@@ -104,6 +104,16 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     alphaList[10] = 0.0010;
 
     debugging_print = 0;
+
+    // initialization in doBackwardPass
+    augMatrix.resize(fullstatecommandSize, fullstatecommandSize);
+    Sig.resize(fullstatecommandSize, 2*fullstatecommandSize);
+    augState.resize(fullstatecommandSize, 1);
+    G.resize(2*fullstatecommandSize, 1);
+    D.resize(fullstatecommandSize, fullstatecommandSize);
+    df.resize(fullstatecommandSize, 1);
+    M.resize(fullstatecommandSize, fullstatecommandSize);
+    HH.resize(fullstatecommandSize, fullstatecommandSize);
 }
 
 void UDPSolver::solveTrajectory()
@@ -120,7 +130,6 @@ void UDPSolver::solveTrajectory()
     {
         //TRACE_UDP("STEP 1: differentiate cost along new trajectory\n");
         if(newDeriv){
-            //cout << "STEP 1" << endl;
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
             commandVecTab_t uListFull;
             uListFull.resize(N+1);
@@ -133,9 +142,10 @@ void UDPSolver::solveTrajectory()
             uListFull[uList.size()] = u_NAN;
 
             gettimeofday(&tbegin_time_deriv,NULL);
-            dynamicModel->cart_pole_dyn_cst_udp(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+            dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
+            //cout << "Op.time_derivative(iter): " << Op.time_derivative(iter) << endl;
 
             newDeriv = 0;
         }
@@ -180,7 +190,6 @@ void UDPSolver::solveTrajectory()
             //only implement serial backtracking line-search
             for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
                 alpha = alphaList[alpha_index];
-                //cout << "STEP3: forward loop" << endl;
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
@@ -199,6 +208,7 @@ void UDPSolver::solveTrajectory()
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
             Op.time_forward(iter) = ((double)(1000*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000)))/1000.0;
+            cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
@@ -345,21 +355,18 @@ void UDPSolver::doBackwardPass()
 {    
     //Perform the Ricatti-Mayne backward pass with unscented transform
     if(Op.regType == 1)
-        lambdaEye = Op.lambda*stateMat_t::Identity();//[to be checked, change it to One()]
-    else
         lambdaEye = Op.lambda*stateMat_t::Identity();
+    else
+        lambdaEye = Op.lambda*stateMat_t::Zero();
 
     diverge = 0;
-    double g_norm_i, g_norm_max, g_norm_sum;
-    
-    //cout << "(initial position) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
+    g_norm_sum = 0;
     Vx[N] = costFunction->getcx()[N];
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
-        Eigen::MatrixXd augMatrix(fullstatecommandSize, fullstatecommandSize);
         commandR_stateC_t ZeroLowerLeftMatrix;
         stateR_commandC_t ZeroUpperRightMatrix;
         ZeroLowerLeftMatrix.setZero();
@@ -370,7 +377,7 @@ void UDPSolver::doBackwardPass()
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
         Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
         //assume augMatrix is positive definite
-                
+
         //A temporary solution: check the non-PD case
         if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
         {
@@ -379,23 +386,17 @@ void UDPSolver::doBackwardPass()
             return;
         }
         S = scale*S;
-
-        Eigen::MatrixXd Sig(fullstatecommandSize, 2*fullstatecommandSize);
-        Sig.setZero();
         Sig << S, -S;
 
-        Eigen::MatrixXd augState(fullstatecommandSize, 1);
         for(unsigned int j=0;j<2*fullstatecommandSize;j++){
-            augState << xList[i+1], uList[i];//TODO: make sure state and control are correct
+            augState << xList[i+1], uList[i];
             Sig.col(j) += augState;
         }
 
         // Project Vx(i+1) onto sigma points
-        Eigen::MatrixXd g(2*fullstatecommandSize, 1);
-        g.setZero();
         for(unsigned int j=0;j<fullstatecommandSize;j++){
-            g(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);//TODO: double make sure its correctness
-            g(j+fullstatecommandSize) = -g(j);
+            G(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);//TODO: double make sure its correctness
+            G(j+fullstatecommandSize) = -G(j);
         }
 
         //Propagate sigma points through backwards dynamics
@@ -403,40 +404,30 @@ void UDPSolver::doBackwardPass()
             Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
 
         //Calculate [Qu; Qx] from sigma points
-        Eigen::MatrixXd D(fullstatecommandSize, fullstatecommandSize);
-        D.setZero();
-        Eigen::MatrixXd df(fullstatecommandSize, 1);
-        df.setZero();
         for(unsigned int j=0;j<fullstatecommandSize;j++){
             D.row(j) =  Sig.col(j).transpose() - Sig.col(j+fullstatecommandSize).transpose();
-            df(j) = g(j) - g(fullstatecommandSize+j);
+            df(j) = G(j) - G(fullstatecommandSize+j);
         }
 
-        stateAug_t QxQu;
-        QxQu.setZero();
         QxQu = D.inverse()*df;
         Qx = QxQu.head(stateSize) + costFunction->getcx()[i]; //add on one-step cost
         Qu = QxQu.tail(commandSize) + costFunction->getcu()[i]; //add on one-step cost
         
-        //Calculate Hessian w.r.t. [x_k; u_k] from sigma points
-        stateAug_t mu;
         mu.setZero();
+        //Calculate Hessian w.r.t. [xList[i]; uList[i]] from sigma points
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             mu += 1.0/(2.0*fullstatecommandSize)*Sig.col(j);
 
-        Eigen::MatrixXd M(fullstatecommandSize, fullstatecommandSize);
         M.setZero();
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             M += (0.5/pow(scale, 2.0))*(Sig.col(j) - mu)*(Sig.col(j).transpose() - mu.transpose());
 
-        Eigen::MatrixXd H(fullstatecommandSize, fullstatecommandSize);
-        H.setZero();
-        H = M.inverse();
-        H.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
+        HH = M.inverse();
+        HH.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
         
-        Qxx = H.block(0,0,stateSize,stateSize);
-        Quu = H.block(stateSize,stateSize,commandSize,commandSize);
-        Qux = H.block(stateSize,0,commandSize,stateSize);
+        Qxx = HH.block(0,0,stateSize,stateSize);
+        Quu = HH.block(stateSize,stateSize,commandSize,commandSize);
+        Qux = HH.block(stateSize,0,commandSize,stateSize);
 
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
@@ -445,8 +436,7 @@ void UDPSolver::doBackwardPass()
 
         if(!isPositiveDefinite(Quu))
         {
-            //To be Implemented : Regularization (is Quu definite positive ?)
-            cout << "Quu is not positive definite" << endl;
+            TRACE_UDP("Quu is not positive definite");
             if(Op.lambda==0.0) Op.lambda += 1e-4;
             else Op.lambda *= 10;
             backPassDone = 0;
@@ -506,13 +496,13 @@ void UDPSolver::doBackwardPass()
         KList[i] = K;
 
         g_norm_max= 0.0;
-        for(unsigned int j= 0; j<commandSize; j++) {
-            g_norm_i= fabs(kList[i](j,0)) / (fabs(uList[i](j,0))+1.0);
-            if(g_norm_i>g_norm_max) g_norm_max= g_norm_i;
+        for(unsigned int j=0; j<commandSize; j++) {
+            g_norm_i = fabs(kList[i](j,0)) / (fabs(uList[i](j,0))+1.0);
+            if(g_norm_i > g_norm_max) g_norm_max = g_norm_i;
         }
-        g_norm_sum+= g_norm_max;
+        g_norm_sum += g_norm_max;
     }
-    Op.g_norm= g_norm_sum/((double)(Op.n_hor));
+    Op.g_norm = g_norm_sum/((double)(Op.n_hor));
 }
 
 void UDPSolver::doForwardPass()
@@ -567,7 +557,7 @@ bool UDPSolver::isPositiveDefinite(const commandMat_t & Quu)
     {
         if (singular_values[i].real() < 0.)
         {
-            std::cout << "Matrix is not SDP" << std::endl;
+            TRACE_UDP("Matrix is not SDP");
             return false;
         }
     }

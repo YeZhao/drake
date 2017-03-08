@@ -16,8 +16,8 @@ using namespace std;
 using namespace Eigen;
 
 #define pi M_PI
-#define useILQRSolver 1
-#define useUDPSolver 0
+#define useILQRSolver 0
+#define useUDPSolver 1
 
 int main()
 {

@@ -18,11 +18,11 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
 
-    if(enableQPBox) cout << "Box QP is enabled" << endl;
-    else cout << "Box QP is disabled" << endl;
+    if(enableQPBox) TRACE("Box QP is enabled");
+    else TRACE("Box QP is disabled");
 
-    if(enableFullDDP) cout << "Full DDP is enabled" << endl;
-    else cout << "Full DDP is disabled" << endl;
+    if(enableFullDDP) TRACE("Full DDP is enabled");
+    else TRACE("Full DDP is disabled");
 
     if(QPBox)
     {
@@ -119,7 +119,6 @@ void ILQRSolver::solveTrajectory()
     {
         //TRACE("STEP 1: differentiate dynamics and cost along new trajectory\n");
         if(newDeriv){
-            //cout << "STEP 1" << endl;
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
             commandVecTab_t uListFull;
             uListFull.resize(N+1);
@@ -186,7 +185,6 @@ void ILQRSolver::solveTrajectory()
             //only implement serial backtracking line-search
             for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
                 alpha = alphaList[alpha_index];
-                //cout << "STEP3: forward loop" << endl;
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
@@ -221,8 +219,6 @@ void ILQRSolver::solveTrajectory()
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
-        //cout << "iteration:  " << iter << endl;
-
         if (Op.debug_level > 1 && Op.last_head == Op.print_head){
             Op.last_head = 0;
             TRACE("iteration,\t cost, \t reduction, \t expected, \t gradient, \t log10(lambda) \n");
@@ -375,9 +371,9 @@ void ILQRSolver::standardizeParameters(tOptSet *o) {
 void ILQRSolver::doBackwardPass()
 {    
     if(Op.regType == 1)
-        lambdaEye = Op.lambda*stateMat_t::Identity();//[to be checked, change it to One()]
-    else
         lambdaEye = Op.lambda*stateMat_t::Identity();
+    else
+        lambdaEye = Op.lambda*stateMat_t::Zero();
 
     diverge = 0;
     double g_norm_i, g_norm_max, g_norm_sum;
@@ -442,10 +438,9 @@ void ILQRSolver::doBackwardPass()
 
         if(!isPositiveDefinite(Quu))
         {
-            /*
-              To be Implemented : Regularization (is Quu definite positive ?)
-            */
-            cout << "Quu is not positive definite" << endl;
+            
+            //To be Implemented : Regularization (is Quu definite positive ?)
+            TRACE("Quu is not positive definite");
             if(Op.lambda==0.0) Op.lambda += 1e-4;
             else Op.lambda *= 10;
             backPassDone = 0;
@@ -519,13 +514,13 @@ void ILQRSolver::doBackwardPass()
         KList[i] = K;
 
         g_norm_max= 0.0;
-        for(unsigned int j= 0; j<commandSize; j++) {
-            g_norm_i= fabs(kList[i](j,0)) / (fabs(uList[i](j,0))+1.0);
-            if(g_norm_i>g_norm_max) g_norm_max= g_norm_i;
+        for(unsigned int j=0; j<commandSize; j++) {
+            g_norm_i = fabs(kList[i](j,0)) / (fabs(uList[i](j,0))+1.0);
+            if(g_norm_i > g_norm_max) g_norm_max = g_norm_i;
         }
-        g_norm_sum+= g_norm_max;
+        g_norm_sum += g_norm_max;
     }
-    Op.g_norm= g_norm_sum/((double)(Op.n_hor));
+    Op.g_norm = g_norm_sum/((double)(Op.n_hor));
 }
 
 void ILQRSolver::doForwardPass()
@@ -600,7 +595,7 @@ bool ILQRSolver::isPositiveDefinite(const commandMat_t & Quu)
     {
         if (singular_values[i].real() < 0.)
         {
-            std::cout << "Matrix is not SDP" << std::endl;
+            TRACE("Matrix is not SDP");
             return false;
         }
     }

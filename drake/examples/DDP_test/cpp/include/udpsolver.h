@@ -142,21 +142,16 @@ private:
     double alpha;
 
     stateMat_t lambdaEye;
-    unsigned int backPassDone;
-    unsigned int fwdPassDone;
-    unsigned int initFwdPassDone;
+    unsigned int backPassDone, fwdPassDone, initFwdPassDone;
     unsigned int diverge;
 
     /* QP variables */
     QProblemB* qp;
-    bool enableQPBox;
-    bool enableFullDDP;
+    bool enableQPBox, enableFullDDP;
     commandMat_t H;
     commandVec_t g;
-    commandVec_t lowerCommandBounds;
-    commandVec_t upperCommandBounds;
-    commandVec_t lb;
-    commandVec_t ub;
+    commandVec_t lowerCommandBounds, upperCommandBounds;
+    commandVec_t lb, ub;
     int nWSR;
     real_t* xOpt;
 
@@ -164,12 +159,14 @@ private:
     //Eigen::VectorXd default_alpha;
     Eigen::Vector2d dV;
     bool debugging_print;    
-    int newDeriv; //i.e., flgChange
+    int newDeriv;
 
-    stateVec_t Xdot1;
-    stateVec_t Xdot2;
-    stateVec_t Xdot3;
-    stateVec_t Xdot4;
+    stateVec_t Xdot1, Xdot2, Xdot3, Xdot4;
+    double g_norm_i, g_norm_max, g_norm_sum;
+
+    /* matrix in doBackwardPass() */
+    Eigen::MatrixXd augMatrix, Sig, augState, G, D, df, M, HH;
+    stateAug_t QxQu, mu;
 protected:
     // methods
 public:
@@ -184,7 +181,6 @@ public:
     bool isPositiveDefinite(const commandMat_t & Quu);
     stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt);
 protected:
-
 };
 
 #endif // UDPSOLVER_H
