@@ -33,12 +33,12 @@ include(FindPackageHandleStandardArgs)
 
 find_path(qpOASES_INCLUDEDIR
           NAMES qpOASES.hpp
-          HINTS "${qpOASES_SOURCE_DIR}" "/home/yezhao/DDP-master/qpOASES-3.2.0/include"
+          HINTS "${qpOASES_SOURCE_DIR}" "/path/to/DDP_test/qpOASES/include"
                 ENV qpOASES_SOURCE_DIR
           PATH_SUFFIXES include)
 find_library(qpOASES_LIB
              NAMES qpOASES
-             HINTS "${qpOASES_BINARY_DIR}" "/home/yezhao/DDP-master/qpOASES-3.2.0/bin"
+             HINTS "${qpOASES_BINARY_DIR}" "/path/to/DDP_test/qpOASES/build/libs"
                    ENV qpOASES_BINARY_DIR
              PATH_SUFFIXES lib
                            libs)
