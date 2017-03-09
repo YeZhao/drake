@@ -61,7 +61,7 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     //Op = INIT_OPTSET;
     standardizeParameters(&Op);
     Op.xInit = myxInit;
-    Op.n_hor = N; // TODO: to be checked, it was set to N-1
+    Op.n_hor = N;
     Op.tolFun = mytolFun;
     Op.tolGrad = mytolGrad;
     Op.max_iter = mymax_iter;
@@ -89,19 +89,9 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     Vxx.resize(N);
     dV.setZero();
 
-    // parameters for line search [TODO: to be optimized]
-    alphaList.resize(11);
-    alphaList[0] = 1.0;
-    alphaList[1] = 0.5012;
-    alphaList[2] = 0.2512;
-    alphaList[3] = 0.1259;
-    alphaList[4] = 0.0631;
-    alphaList[5] = 0.0316;
-    alphaList[6] = 0.0158;
-    alphaList[7] = 0.0079;
-    alphaList[8] = 0.0040;
-    alphaList[9] = 0.0020;
-    alphaList[10] = 0.0010;
+    // parameters for line search
+    Op.alphaList.resize(11);
+    Op.alphaList << 1.0, 0.5012, 0.2512, 0.1259, 0.0631, 0.0316, 0.0158, 0.0079, 0.0040, 0.0020, 0.0010;
 
     debugging_print = 0;
 
@@ -142,7 +132,7 @@ void UDPSolver::solveTrajectory()
             uListFull[uList.size()] = u_NAN;
 
             gettimeofday(&tbegin_time_deriv,NULL);
-            dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+            dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, FList, costFunction);
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
             //cout << "Op.time_derivative(iter): " << Op.time_derivative(iter) << endl;
@@ -188,8 +178,8 @@ void UDPSolver::solveTrajectory()
         if(backPassDone){
             gettimeofday(&tbegin_time_fwd,NULL);
             //only implement serial backtracking line-search
-            for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
-                alpha = alphaList[alpha_index];
+            for(int alpha_index = 0; alpha_index < Op.alphaList.size(); alpha_index++){
+                alpha = Op.alphaList[alpha_index];
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
@@ -293,8 +283,8 @@ void UDPSolver::initializeTraj()
     
     initFwdPassDone = 0;
     diverge = 1;
-    for(int alpha_index = 0; alpha_index < alphaList.size(); alpha_index++){
-        alpha = alphaList[alpha_index];    
+    for(int alpha_index = 0; alpha_index < Op.alphaList.size(); alpha_index++){
+        alpha = Op.alphaList[alpha_index];    
         for(unsigned int i=0;i<N;i++)
         {
             uList[i] = zeroCommand;
@@ -521,15 +511,19 @@ void UDPSolver::doForwardPass()
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
-            dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costList[i]);
+            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], updatedxList[i+1], costFunction);
+            costList[i] = costFunction->getc();
         }
-        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costList[N]);
+        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, x_unused, costFunction);
+        costList[N] = costFunction->getc();
     }else{
         for(unsigned int i=0;i<N;i++){
             updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
-            dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[i], updateduList[i], xgoal, updatedxList[i+1], costListNew[i]);
+            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], updatedxList[i+1], costFunction);
+            costListNew[i] = costFunction->getc();
         }
-        dynamicModel->cart_pole_dyn_cst_short(nargout, dt, updatedxList[N], u_NAN, xgoal, x_unused, costListNew[N]);
+        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, x_unused, costFunction);
+        costListNew[N] = costFunction->getc();
     }
 }
 

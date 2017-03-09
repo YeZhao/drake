@@ -90,6 +90,7 @@ public:
         double print_head; // print headings every print_head lines
         double last_head;
         Eigen::VectorXd time_backward, time_forward, time_derivative;
+        Eigen::VectorXd alphaList;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
         // traj_t trajectories[NUMBER_OF_THREADS+1];
@@ -137,7 +138,6 @@ private:
     commandR_stateC_t K;
     commandVecTab_t kList;
     commandR_stateC_tab_t KList;
-    std::vector<double> alphaList;
     double alpha;
 
     stateMat_t lambdaEye;

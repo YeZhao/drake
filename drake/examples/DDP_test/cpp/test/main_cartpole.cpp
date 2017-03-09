@@ -36,7 +36,7 @@ int main()
     unsigned int iterMax = 150;
     #if useILQRSolver
         ILQRSolver::traj lastTraj;
-        CartPole cartPoleModel(dt, N);
+        CartPole cartPoleModel(dt, N, xgoal);
         CostFunctionCartPole costCartPole;
         ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
         testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
@@ -44,7 +44,7 @@ int main()
     #if useUDPSolver    
         double scale = 0.01;
         UDPSolver::traj lastTraj;
-        CartPole cartPoleModel(dt, N);
+        CartPole cartPoleModel(dt, N, xgoal);
         CostFunctionCartPole costCartPole;
         UDPSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
         testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    

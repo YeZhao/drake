@@ -18,7 +18,7 @@ protected:
     stateMat_t Qf;
     commandMat_t R;
 
-    stateVecTab_t cx_new; 
+    stateVecTab_t cx_new;
     commandVecTab_t cu_new; 
     stateMatTab_t cxx_new; 
     commandR_stateC_tab_t cux_new; 

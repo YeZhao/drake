@@ -25,7 +25,7 @@ using namespace Eigen;
 class CartPole : public DynamicModel
 {
 public:
-    CartPole(double& mydt, unsigned int& myN);
+    CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal);
 private:
 protected:
     // attributes
@@ -35,9 +35,6 @@ private:
     unsigned int N;
 public:
     static const double mc, mp, l, g;
-
-    CostFunctionCartPole costFunction_cart_pole;
-    CostFunctionCartPole *costFunctionCartPole;
 private:
     
     stateMat_half_t H, C;
@@ -48,19 +45,19 @@ private:
     stateMat_t A1, A2, A3, A4, IdentityMat;
     stateR_commandC_t B1, B2, B3, B4;
     stateVec_t Xp, Xp1, Xp2, Xp3, Xp4, Xm, Xm1, Xm2, Xm3, Xm4;
+    stateVec_t xgoal;
     bool debugging_print;
 protected:
     // methods
 public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
-    void cart_pole_dyn_cst(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
-    void cart_pole_dyn_cst_short(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const stateVec_t& xgoal, stateVec_t& xList_next, double& c);
-    void cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
-    void cart_pole_dyn_cst_v3(const int& nargout, const double& dt, const stateVecTab_t& xList, const commandVecTab_t& uList, const stateVec_t& xgoal, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList, stateVecTab_t& cx, commandVecTab_t& cu, stateMatTab_t& cxx, commandR_stateC_tab_t& cux, commandMatTab_t& cuu, double& c);
+    void cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunction*& costFunction);
+    void cart_pole_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, stateVec_t& xList_next, CostFunction*& costFunction);
+    void cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunction*& costFunction);
+    void cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList, CostFunction*& costFunction);
     stateVec_t update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
-    void grad(const double& dt, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
-    void hessian(const double& dt, const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);
-    
+    void grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B);
+    void hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);    
 private:
 protected:
         // accessors //
