@@ -116,6 +116,8 @@ private:
 
     stateVecTab_t xList;
     commandVecTab_t uList;
+    commandVecTab_t uListFull;
+    commandVec_t u_NAN;
     stateVecTab_t updatedxList;
     commandVecTab_t updateduList;
     stateVecTab_t FList;
@@ -163,7 +165,9 @@ private:
     //Eigen::VectorXd default_alpha;
     Eigen::Vector2d dV;
     bool debugging_print;    
-    int newDeriv; //i.e., flgChange
+    int newDeriv;
+    double g_norm_i, g_norm_max, g_norm_sum;
+
 protected:
     // methods
 public:

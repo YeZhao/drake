@@ -74,6 +74,7 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
 
     xList.resize(N+1);
     uList.resize(N);
+    uListFull.resize(N+1);
     updatedxList.resize(N+1);
     updateduList.resize(N);
     costList.resize(N+1);
@@ -121,22 +122,17 @@ void UDPSolver::solveTrajectory()
         //TRACE_UDP("STEP 1: differentiate cost along new trajectory\n");
         if(newDeriv){
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
-            commandVecTab_t uListFull;
-            uListFull.resize(N+1);
-            commandVec_t u_NAN;
             for(unsigned int i=0;i<u_NAN.size();i++)
                 u_NAN(i,0) = sqrt(-1.0);
-            
             for(unsigned int i=0;i<uList.size();i++)
                 uListFull[i] = uList[i];
+
             uListFull[uList.size()] = u_NAN;
 
             gettimeofday(&tbegin_time_deriv,NULL);
             dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, FList, costFunction);
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
-            //cout << "Op.time_derivative(iter): " << Op.time_derivative(iter) << endl;
-
             newDeriv = 0;
         }
         //TRACE_UDP("Finish STEP 1\n");
@@ -144,7 +140,6 @@ void UDPSolver::solveTrajectory()
         //====== STEP 2: backward pass, compute optimal control law and cost-to-go
         backPassDone = 0;
         while(!backPassDone){
-
             gettimeofday(&tbegin_time_bwd,NULL);
             doBackwardPass();
             gettimeofday(&tend_time_bwd,NULL);
@@ -228,7 +223,7 @@ void UDPSolver::solveTrajectory()
             if(Op.dcost < Op.tolFun) {
                 if(Op.debug_level >= 1)
                     TRACE_UDP(("\nSUCCESS: cost change < tolFun\n"));
-            
+
                 break;
             }
         }else { // no cost improvement
@@ -364,9 +359,11 @@ void UDPSolver::doBackwardPass()
         augMatrix << Vxx[i+1].inverse(), ZeroUpperRightMatrix, 
                 ZeroLowerLeftMatrix, costFunction->getcuu()[i].inverse();
 
+        gettimeofday(&tbegin_test,NULL);        
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
         Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
         //assume augMatrix is positive definite
+        gettimeofday(&tend_test,NULL);
 
         //A temporary solution: check the non-PD case
         if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
@@ -455,12 +452,14 @@ void UDPSolver::doBackwardPass()
         }
         else
         {
+            gettimeofday(&tbegin_test2,NULL);
             // Cholesky decomposition by using upper triangular matrix
             //TRACE_UDP("Use Cholesky decomposition");
             Eigen::LLT<MatrixXd> lltOfQuuF(QuuF);
             Eigen::MatrixXd L = lltOfQuuF.matrixU(); 
             //assume QuuF is positive definite
-            
+            gettimeofday(&tend_test2,NULL);
+
             //A temporary solution: check the non-PD case
             if(lltOfQuuF.info() == Eigen::NumericalIssue)
                 {
@@ -471,6 +470,19 @@ void UDPSolver::doBackwardPass()
 
             k = - L.inverse()*L.transpose().inverse()*Qu;
             K = - L.inverse()*L.transpose().inverse()*Qux;
+
+            // if(i > N-4){
+            //     cout << "index i: " << i << endl;
+            //     cout << "k: " << k << endl;
+            //     cout << "K: " << K << endl;
+            //     cout << "Qx: " << Qx << endl;
+            //     cout << "Qu: " << Qu << endl;
+            //     cout << "Quu: " << Quu << endl;
+            //     cout << "Qux: " << Qux << endl;
+            //     cout << "QuuF: " << QuuF << endl;
+            //     cout << "Op.lambda: " << Op.lambda << endl;
+            //     cout << "L: " << L << endl;
+            // }
         }
 
         //update cost-to-go approximation

@@ -73,6 +73,7 @@ void ILQRSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
 
     xList.resize(N+1);
     uList.resize(N);
+    uListFull.resize(N+1);
     updatedxList.resize(N+1);
     updateduList.resize(N);
     costList.resize(N+1);
@@ -110,9 +111,6 @@ void ILQRSolver::solveTrajectory()
         //TRACE("STEP 1: differentiate dynamics and cost along new trajectory\n");
         if(newDeriv){
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
-            commandVecTab_t uListFull;
-            uListFull.resize(N+1);
-            commandVec_t u_NAN;
             for(unsigned int i=0;i<u_NAN.size();i++)
                 u_NAN(i,0) = sqrt(-1.0);
             
@@ -150,7 +148,7 @@ void ILQRSolver::solveTrajectory()
 
             //TRACE("handle Cholesky failure case");
             if(diverge){
-                if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
+                if(Op.debug_level > 1) printf("Cholesky failed at timestep %d.\n",diverge);
                 Op.dlambda   = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
                 Op.lambda    = max(Op.lambda * Op.dlambda, Op.lambdaMin);
                 if(Op.lambda > Op.lambdaMax) break;
@@ -191,7 +189,7 @@ void ILQRSolver::solveTrajectory()
                 //std::cout << "accumulate(costList): " << accumulate(costList.begin(), costList.end(), 0.0) << std::endl;
                 //std::cout << "Op.dcost: " << Op.dcost << std::endl;
                 //std::cout << "Op.expected: " << Op.expected << std::endl;
-                //std::cout << "alpha: " << alpha << std::endl;
+                std::cout << "alpha: " << alpha << std::endl;
                 //std::cout << "dV: " << dV << std::endl;
                 double z;
                 if(Op.expected > 0) {
@@ -208,7 +206,6 @@ void ILQRSolver::solveTrajectory()
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
             Op.time_forward(iter) = ((double)(1000*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000)))/1000.0;
-    
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
@@ -226,6 +223,7 @@ void ILQRSolver::solveTrajectory()
 
             Op.dlambda = min(Op.dlambda / Op.lambdaFactor, 1.0/Op.lambdaFactor);
             Op.lambda = Op.lambda * Op.dlambda * (Op.lambda > Op.lambdaMin);
+            cout << "first: " << Op.lambda << endl;
 
             // accept changes
             xList = updatedxList;
@@ -245,6 +243,7 @@ void ILQRSolver::solveTrajectory()
             // increase lambda
             Op.dlambda= max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
             Op.lambda= max(Op.lambda * Op.dlambda, Op.lambdaMin);
+            cout << "second: " << Op.lambda << endl;
 
             // if(o->w_pen_fact2>1.0) {
             //     o->w_pen_l= min(o->w_pen_max_l, o->w_pen_l*o->w_pen_fact2);
@@ -369,9 +368,9 @@ void ILQRSolver::doBackwardPass()
         lambdaEye = Op.lambda*stateMat_t::Zero();
 
     diverge = 0;
-    double g_norm_i, g_norm_max, g_norm_sum;
     
     //cout << "(initial position) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
+    g_norm_sum = 0.0;
     Vx[N] = costFunction->getcx()[N];
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
@@ -492,7 +491,7 @@ void ILQRSolver::doBackwardPass()
             //     cout << "Op.lambda: " << Op.lambda << endl;
             //     cout << "L: " << L << endl;
             // }
-        }   
+        }
 
         //update cost-to-go approximation
         dV(0) += k.transpose()*Qu;

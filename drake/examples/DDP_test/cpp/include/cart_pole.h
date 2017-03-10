@@ -21,6 +21,7 @@
 #define TRACE_CART_POLE(x) do { if (DEBUG_CART_POLE) printf(x);} while (0)
 
 using namespace Eigen;
+using namespace std;
 
 class CartPole : public DynamicModel
 {
@@ -47,6 +48,11 @@ private:
     stateVec_t Xp, Xp1, Xp2, Xp3, Xp4, Xm, Xm1, Xm2, Xm3, Xm4;
     stateVec_t xgoal;
     bool debugging_print;
+    stateMat_t AA;
+    stateVec_t BB;
+    stateMatTab_t A_temp;//dummy matrix
+    stateR_commandC_tab_t B_temp;//dummy matrix
+    
 protected:
     // methods
 public:

@@ -63,6 +63,11 @@ CartPole::CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)
     Xm3.setZero();
     Xm4.setZero();
 
+    AA.setZero();
+    BB.setZero();
+    A_temp.resize(N);
+    B_temp.resize(N);
+    
     debugging_print = 0;
 }
 
@@ -95,12 +100,10 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
     int N = xList.size();
-    int n = xList[0].rows();
+    int n = xList[0].rows(); 
     int m = uList[0].rows();
     
     costFunction->getc() = 0;
-    stateMat_t AA;//dummy matrix
-    stateVec_t BB;//dummy matrix
     AA.setZero();
     BB.setZero();
 
@@ -108,11 +111,6 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
 
     commandMat_t c_mat_to_scalar;
 
-    stateMatTab_t A_temp;//dummy matrix
-    stateR_commandC_tab_t B_temp;//dummy matrix
-    A_temp.resize(N);
-    B_temp.resize(N);
-    
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
@@ -205,19 +203,12 @@ void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt
     int m = uList_curr.rows();
 
     costFunction->getc() = 0;
-    stateMat_t AA;
-    stateVec_t BB;
     AA.setZero();
     BB.setZero();
 
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
     commandMat_t c_mat_to_scalar;
-
-    stateMatTab_t A_temp;
-    stateR_commandC_tab_t B_temp;
-    A_temp.resize(N);
-    B_temp.resize(N);
     xList_next.setZero();
 
     const int nargout_update1 = 1;
@@ -253,20 +244,12 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
     int m = uList[0].rows();
     
     costFunction->getc() = 0;
-    stateMat_t AA;//dummy matrix
-    stateVec_t BB;//dummy matrix
     AA.setZero();
     BB.setZero();
 
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
     commandMat_t c_mat_to_scalar;
-
-    stateMatTab_t A_temp;//dummy matrix
-    stateR_commandC_tab_t B_temp;//dummy matrix
-    A_temp.resize(N);
-    B_temp.resize(N);
-    
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
@@ -367,20 +350,15 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
     int n = xList[0].rows();
     int m = uList[0].rows();
     
+    cout << "N: " << N << endl;
     costFunction->getc() = 0;
-    stateMat_t AA;
-    stateVec_t BB;
     AA.setZero();
     BB.setZero();
-
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
     commandMat_t c_mat_to_scalar;
-    stateMatTab_t A_temp;//dummy matrix
-    stateR_commandC_tab_t B_temp;//dummy matrix
-    A_temp.resize(N);
-    B_temp.resize(N);
-    
+    c_mat_to_scalar.setZero();
+
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
@@ -417,7 +395,6 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
             //     std::cout << "cu[49]: " << cu[k] << std::endl;
             //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
             // }
-
         }
         if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
         costFunction->getcx()[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);
@@ -425,13 +402,12 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
         costFunction->getcxx()[N-1] = costFunction->getQf();
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
-
         if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
 
         // the following useless matrices and scalars are set to Zero.
         for(unsigned int k=0;k<N;k++){
             FList[k].setZero();
-        }    
+        }
         costFunction->getc() = 0;
     }
     if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
@@ -516,8 +492,6 @@ void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, s
     Du.setIdentity();
     Du = delta*Du;
 
-    stateMat_t AA;
-    stateVec_t BB;
     AA.setZero();
     BB.setZero();
 

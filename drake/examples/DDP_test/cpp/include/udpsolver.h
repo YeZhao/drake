@@ -117,6 +117,8 @@ private:
 
     stateVecTab_t xList;
     commandVecTab_t uList;
+    commandVecTab_t uListFull;
+    commandVec_t u_NAN;
     stateVecTab_t updatedxList;
     commandVecTab_t updateduList;
     stateVecTab_t FList;
@@ -124,6 +126,7 @@ private:
     costVecTab_t costListNew;
     struct traj lastTraj;
     struct timeval tbegin_time_fwd, tend_time_fwd, tbegin_time_bwd, tend_time_bwd, tbegin_time_deriv, tend_time_deriv;
+    struct timeval tbegin_test, tend_test, tbegin_test2, tend_test2, tbegin_test3, tend_test3;
 
     stateVecTab_t Vx;
     stateMatTab_t Vxx;
