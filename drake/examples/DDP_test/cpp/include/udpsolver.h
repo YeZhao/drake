@@ -170,6 +170,12 @@ private:
     /* matrix in doBackwardPass() */
     Eigen::MatrixXd augMatrix, Sig, augState, G, D, df, M, HH;
     stateAug_t QxQu, mu;
+    commandR_stateC_t ZeroLowerLeftMatrix;
+    stateR_commandC_t ZeroUpperRightMatrix;
+    stateMat_t Vxx_next_inverse;
+    commandMat_t cuu_inverse;
+        
+
 protected:
     // methods
 public:

@@ -85,8 +85,8 @@ void ILQRSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsig
     
     FList.resize(N+1);
     
-    Vx.resize(N);
-    Vxx.resize(N);
+    Vx.resize(N+1);
+    Vxx.resize(N+1);
     dV.setZero();
 
     // parameters for line search
@@ -333,7 +333,7 @@ void ILQRSolver::initializeTraj()
     Op.expected = 0;
     Op.print_head = 6;
     Op.last_head = Op.print_head;
-    if(Op.debug_level > 0) TRACE("\n=========== begin iLQG ===========\n");
+    if(Op.debug_level > 0) TRACE("\n=========== begin iLQR ===========\n");
 }
 
 void ILQRSolver::standardizeParameters(tOptSet *o) {
@@ -475,8 +475,9 @@ void ILQRSolver::doBackwardPass()
                     return;
                 }
 
-            k = - L.inverse()*L.transpose().inverse()*Qu;
-            K = - L.inverse()*L.transpose().inverse()*Qux;
+            Eigen::MatrixXd L_inverse = L.inverse();
+            k = - L_inverse*L.transpose().inverse()*Qu;
+            K = - L_inverse*L.transpose().inverse()*Qux;
 
             //cout << "L: " << L << endl;
             // if(i > N-4){

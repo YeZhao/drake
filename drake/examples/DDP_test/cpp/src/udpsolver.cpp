@@ -18,11 +18,11 @@ UDPSolver::UDPSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunction,
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
 
-    if(enableQPBox) TRACE_UDP("Box QP is enabled");
-    else TRACE_UDP("Box QP is disabled");
+    if(enableQPBox) TRACE_UDP("Box QP is enabledDD\n");
+    else TRACE_UDP("Box QP is disabled\n");
 
-    if(enableFullDDP) TRACE_UDP("Full DDP is enabled");
-    else TRACE_UDP("Full DDP is disabled");
+    if(enableFullDDP) TRACE_UDP("Full DDP is enabled\n");
+    else TRACE_UDP("Full DDP is disabled\n");
 
     if(QPBox)
     {
@@ -86,8 +86,8 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     
     FList.resize(N+1);
     
-    Vx.resize(N);
-    Vxx.resize(N);
+    Vx.resize(N+1);
+    Vxx.resize(N+1);
     dV.setZero();
 
     // parameters for line search
@@ -105,6 +105,10 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     df.resize(fullstatecommandSize, 1);
     M.resize(fullstatecommandSize, fullstatecommandSize);
     HH.resize(fullstatecommandSize, fullstatecommandSize);
+    ZeroLowerLeftMatrix.setZero();
+    ZeroUpperRightMatrix.setZero();
+    Vxx_next_inverse.setZero();
+    cuu_inverse.setZero();
 }
 
 void UDPSolver::solveTrajectory()
@@ -352,12 +356,12 @@ void UDPSolver::doBackwardPass()
 
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
-        commandR_stateC_t ZeroLowerLeftMatrix;
-        stateR_commandC_t ZeroUpperRightMatrix;
         ZeroLowerLeftMatrix.setZero();
         ZeroUpperRightMatrix.setZero();
-        augMatrix << Vxx[i+1].inverse(), ZeroUpperRightMatrix, 
-                ZeroLowerLeftMatrix, costFunction->getcuu()[i].inverse();
+        Vxx_next_inverse = Vxx[i+1].inverse();
+        cuu_inverse = costFunction->getcuu()[i].inverse();
+        augMatrix << Vxx_next_inverse, ZeroUpperRightMatrix, 
+                ZeroLowerLeftMatrix, cuu_inverse;
 
         gettimeofday(&tbegin_test,NULL);        
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);

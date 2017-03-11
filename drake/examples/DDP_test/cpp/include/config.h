@@ -10,7 +10,7 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 #define stateSize 4
 #define commandSize 1
 #define fullstatecommandSize 5
-#define TimeHorizon 5
+#define TimeHorizon 1
 #define TimeStep 0.01
 
 // typedef for stateSize types
