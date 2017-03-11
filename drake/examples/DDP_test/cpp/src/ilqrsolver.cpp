@@ -18,11 +18,11 @@ ILQRSolver::ILQRSolver(DynamicModel& myDynamicModel, CostFunction& myCostFunctio
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
 
-    if(enableQPBox) TRACE("Box QP is enabled");
-    else TRACE("Box QP is disabled");
+    if(enableQPBox) TRACE("Box QP is enabled\n");
+    else TRACE("Box QP is disabled\n");
 
-    if(enableFullDDP) TRACE("Full DDP is enabled");
-    else TRACE("Full DDP is disabled");
+    if(enableFullDDP) TRACE("Full DDP is enabled\n");
+    else TRACE("Full DDP is disabled\n");
 
     if(QPBox)
     {

@@ -49,7 +49,7 @@ public:
         double finalCost;
         double finalGrad;
         double finalLambda;
-        Eigen::VectorXd time_forward, time_backward, time_derivative;
+        Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2;
     };
 
     struct tOptSet {
@@ -89,7 +89,7 @@ public:
         int print;
         double print_head; // print headings every print_head lines
         double last_head;
-        Eigen::VectorXd time_backward, time_forward, time_derivative;
+        Eigen::VectorXd time_backward, time_forward, time_derivative, time_range1, time_range2;
         Eigen::VectorXd alphaList;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
@@ -174,7 +174,7 @@ private:
     stateR_commandC_t ZeroUpperRightMatrix;
     stateMat_t Vxx_next_inverse;
     commandMat_t cuu_inverse;
-        
+    stateVec_t X_new;
 
 protected:
     // methods
@@ -189,6 +189,7 @@ public:
     void doForwardPass();
     bool isPositiveDefinite(const commandMat_t & Quu);
     stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt);
+    stateVec_t eulerStepBackward(stateAug_t augX, double& dt);
 protected:
 };
 

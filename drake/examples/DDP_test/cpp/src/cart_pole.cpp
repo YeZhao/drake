@@ -43,6 +43,10 @@ CartPole::CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)
     C.setZero();
     G.setZero();
     Bu.setZero();
+    velocity.setZero();
+    accel.setZero();
+    X_new.setZero();
+
     A1.setZero();
     A2.setZero();
     A3.setZero();
@@ -81,12 +85,10 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
          mp*g*l*sin(X(1,0));
     Bu << 1,
          0;     
-    stateVec_half_t velocity;
     velocity << X(2),
                 X(3);
-    stateVec_half_t accel = - H.inverse() * (C*velocity + G - Bu*U);
+    accel = - H.inverse() * (C*velocity + G - Bu*U);
 
-    stateVec_t X_new;
     X_new << velocity(0),
              velocity(1),
              accel(0),

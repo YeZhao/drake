@@ -41,6 +41,9 @@ private:
     stateMat_half_t H, C;
     stateVec_half_t G;
     stateR_half_commandC_t Bu;
+    stateVec_half_t velocity;
+    stateVec_half_t accel;
+    stateVec_t X_new;
     
     stateVec_t Xdot1, Xdot2, Xdot3, Xdot4;
     stateMat_t A1, A2, A3, A4, IdentityMat;

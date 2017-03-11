@@ -71,7 +71,12 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     Op.time_forward.setZero();
     Op.time_derivative.resize(Op.max_iter);
     Op.time_derivative.setZero();
-
+    Op.time_derivative.resize(Op.max_iter);
+    Op.time_range1.setZero();
+    Op.time_range1.resize(Op.max_iter);
+    Op.time_range2.setZero();
+    Op.time_range2.resize(Op.max_iter);
+    
     xList.resize(N+1);
     uList.resize(N);
     uListFull.resize(N+1);
@@ -136,7 +141,7 @@ void UDPSolver::solveTrajectory()
             gettimeofday(&tbegin_time_deriv,NULL);
             dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, FList, costFunction);
             gettimeofday(&tend_time_deriv,NULL);
-            Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
+            Op.time_derivative(iter) = ((double)(1000.0*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000.0)))/1000.0;
             newDeriv = 0;
         }
         //TRACE_UDP("Finish STEP 1\n");
@@ -147,7 +152,7 @@ void UDPSolver::solveTrajectory()
             gettimeofday(&tbegin_time_bwd,NULL);
             doBackwardPass();
             gettimeofday(&tend_time_bwd,NULL);
-            Op.time_backward(iter) = ((double)(1000*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000)))/1000.0;
+            Op.time_backward(iter) = ((double)(1000.0*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000.0)))/1000.0;
 
             //TRACE("handle Cholesky failure case");
             if(diverge){
@@ -196,7 +201,7 @@ void UDPSolver::solveTrajectory()
             }
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
-            Op.time_forward(iter) = ((double)(1000*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000)))/1000.0;
+            Op.time_forward(iter) = ((double)(1000.0*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000.0)))/1000.0;
             cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
         }
         
@@ -347,15 +352,19 @@ void UDPSolver::doBackwardPass()
         lambdaEye = Op.lambda*stateMat_t::Identity();
     else
         lambdaEye = Op.lambda*stateMat_t::Zero();
-
+ 
     diverge = 0;
     g_norm_sum = 0;
     Vx[N] = costFunction->getcx()[N];
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
+    Op.time_range1(iter) = 0;
+    Op.time_range2(iter) = 0;
+
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
+        gettimeofday(&tbegin_test,NULL);        
         ZeroLowerLeftMatrix.setZero();
         ZeroUpperRightMatrix.setZero();
         Vxx_next_inverse = Vxx[i+1].inverse();
@@ -363,11 +372,9 @@ void UDPSolver::doBackwardPass()
         augMatrix << Vxx_next_inverse, ZeroUpperRightMatrix, 
                 ZeroLowerLeftMatrix, cuu_inverse;
 
-        gettimeofday(&tbegin_test,NULL);        
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
         Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
         //assume augMatrix is positive definite
-        gettimeofday(&tend_test,NULL);
 
         //A temporary solution: check the non-PD case
         if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
@@ -386,13 +393,18 @@ void UDPSolver::doBackwardPass()
 
         // Project Vx(i+1) onto sigma points
         for(unsigned int j=0;j<fullstatecommandSize;j++){
-            G(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);//TODO: double make sure its correctness
+            G(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);
             G(j+fullstatecommandSize) = -G(j);
         }
 
         //Propagate sigma points through backwards dynamics
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+
+        gettimeofday(&tend_test,NULL);
+        Op.time_range1(iter) += ((double)(1000.0*(tend_test.tv_sec-tbegin_test.tv_sec)+((tend_test.tv_usec-tbegin_test.tv_usec)/1000.0)))/1000.0;
+        
+        gettimeofday(&tbegin_test2,NULL);
 
         //Calculate [Qu; Qx] from sigma points
         for(unsigned int j=0;j<fullstatecommandSize;j++){
@@ -412,13 +424,16 @@ void UDPSolver::doBackwardPass()
         M.setZero();
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             M += (0.5/pow(scale, 2.0))*(Sig.col(j) - mu)*(Sig.col(j).transpose() - mu.transpose());
-
+        
         HH = M.inverse();
         HH.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
         
         Qxx = HH.block(0,0,stateSize,stateSize);
         Quu = HH.block(stateSize,stateSize,commandSize,commandSize);
         Qux = HH.block(stateSize,0,commandSize,stateSize);
+        
+        gettimeofday(&tend_test2,NULL);
+        Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
@@ -456,14 +471,12 @@ void UDPSolver::doBackwardPass()
         }
         else
         {
-            gettimeofday(&tbegin_test2,NULL);
             // Cholesky decomposition by using upper triangular matrix
             //TRACE_UDP("Use Cholesky decomposition");
             Eigen::LLT<MatrixXd> lltOfQuuF(QuuF);
             Eigen::MatrixXd L = lltOfQuuF.matrixU(); 
             //assume QuuF is positive definite
-            gettimeofday(&tend_test2,NULL);
-
+            
             //A temporary solution: check the non-PD case
             if(lltOfQuuF.info() == Eigen::NumericalIssue)
                 {
@@ -472,21 +485,9 @@ void UDPSolver::doBackwardPass()
                     return;
                 }
 
-            k = - L.inverse()*L.transpose().inverse()*Qu;
-            K = - L.inverse()*L.transpose().inverse()*Qux;
-
-            // if(i > N-4){
-            //     cout << "index i: " << i << endl;
-            //     cout << "k: " << k << endl;
-            //     cout << "K: " << K << endl;
-            //     cout << "Qx: " << Qx << endl;
-            //     cout << "Qu: " << Qu << endl;
-            //     cout << "Quu: " << Quu << endl;
-            //     cout << "Qux: " << Qux << endl;
-            //     cout << "QuuF: " << QuuF << endl;
-            //     cout << "Op.lambda: " << Op.lambda << endl;
-            //     cout << "L: " << L << endl;
-            // }
+            Eigen::MatrixXd L_inverse = L.inverse();
+            k = - L_inverse*L.transpose().inverse()*Qu;
+            K = - L_inverse*L.transpose().inverse()*Qux;
         }
 
         //update cost-to-go approximation
@@ -507,8 +508,12 @@ void UDPSolver::doBackwardPass()
             if(g_norm_i > g_norm_max) g_norm_max = g_norm_i;
         }
         g_norm_sum += g_norm_max;
+        
     }
+    
     Op.g_norm = g_norm_sum/((double)(Op.n_hor));
+    cout <<  "Op.time_range1(iter): " << Op.time_range1(iter) << endl;
+    cout <<  "Op.time_range2(iter): " << Op.time_range2(iter) << endl;
 }
 
 void UDPSolver::doForwardPass()
@@ -555,6 +560,8 @@ UDPSolver::traj UDPSolver::getLastSolvedTrajectory()
     lastTraj.time_forward = Op.time_forward;
     lastTraj.time_backward = Op.time_backward;
     lastTraj.time_derivative = Op.time_derivative;
+    lastTraj.time_range1 = Op.time_range1;
+    lastTraj.time_range2 = Op.time_range2;
     return lastTraj;
 }
 
@@ -580,7 +587,11 @@ stateVec_t UDPSolver::rungeKuttaStepBackward(stateAug_t augX, double& dt){
     Xdot2 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, augX.tail(commandSize));
     Xdot3 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2, augX.tail(commandSize));
     Xdot4 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - dt*Xdot3, augX.tail(commandSize));
-    stateVec_t X_new;
-    X_new = augX.head(stateSize) - (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
-    return X_new;
+    return augX.head(stateSize) - (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
+}
+
+stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt){
+    // Backwards Euler step from X_{k+1} to X_k
+    Xdot1 = dynamicModel->cart_pole_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    return augX.head(stateSize) - dt*Xdot1;
 }
