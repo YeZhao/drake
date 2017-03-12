@@ -551,7 +551,7 @@ void UDPSolver::doForwardPass()
 UDPSolver::traj UDPSolver::getLastSolvedTrajectory()
 {
     lastTraj.xList = updatedxList;
-    for(int i=0;i<N+1;i++)lastTraj.xList[i] += xgoal;//retrieve original state with xgoal
+    for(unsigned int i=0;i<N+1;i++)lastTraj.xList[i] += xgoal;//retrieve original state with xgoal
     lastTraj.uList = updateduList;
     lastTraj.iter = iter;
     lastTraj.finalCost = accumulate(costList.begin(), costList.end(), 0.0);

@@ -65,7 +65,7 @@ public:
         double lambdaInit;
         double dlambdaInit;
         double lambdaFactor;
-        int max_iter;
+        unsigned int max_iter;
         double tolGrad;
         double tolFun;
         double tolConstraint;

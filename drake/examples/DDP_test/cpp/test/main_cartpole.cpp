@@ -51,9 +51,9 @@ int main()
     #endif
 
     // run one or multiple times and then average
-    int Num_run = 1;
+    unsigned int Num_run = 1;
     gettimeofday(&tbegin,NULL);
-    for(int i=0;i<Num_run;i++) testSolverCartPole.solveTrajectory();
+    for(unsigned int i=0;i<Num_run;i++) testSolverCartPole.solveTrajectory();
     gettimeofday(&tend,NULL);
 
     lastTraj = testSolverCartPole.getLastSolvedTrajectory();
@@ -80,7 +80,7 @@ int main()
     if(file)
     {
         file << "x,theta,xDot,thetaDot,u" << endl;
-        for(int i=0;i<N;i++) file << lastTraj.xList[i](0,0) << "," << lastTraj.xList[i](1,0) << "," << lastTraj.xList[i](2,0) << "," << lastTraj.xList[i](3,0) << "," << lastTraj.uList[i](0,0) << endl;
+        for(unsigned int i=0;i<N;i++) file << lastTraj.xList[i](0,0) << "," << lastTraj.xList[i](1,0) << "," << lastTraj.xList[i](2,0) << "," << lastTraj.xList[i](3,0) << "," << lastTraj.uList[i](0,0) << endl;
         file << lastTraj.xList[N](0,0) << "," << lastTraj.xList[N](1,0) << "," << lastTraj.xList[N](2,0) << "," << lastTraj.xList[N](3,0) << "," << 0.0 << endl;
         file.close();
     }

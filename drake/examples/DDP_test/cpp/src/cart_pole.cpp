@@ -101,9 +101,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
                                 CostFunction*& costFunction){
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
-    int N = xList.size();
-    int n = xList[0].rows(); 
-    int m = uList[0].rows();
+    unsigned int N = xList.size();
     
     costFunction->getc() = 0;
     AA.setZero();
@@ -200,9 +198,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
 
 void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, stateVec_t& xList_next, CostFunction*& costFunction){
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
-    int N = xList_curr.cols();
-    int n = xList_curr.rows();
-    int m = uList_curr.rows();
+    unsigned int N = xList_curr.cols();
 
     costFunction->getc() = 0;
     AA.setZero();
@@ -241,9 +237,7 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
                                 CostFunction*& costFunction){
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
-    int N = xList.size();//[TODO: to be checked]
-    int n = xList[0].rows();
-    int m = uList[0].rows();
+    unsigned int N = xList.size();//[TODO: to be checked]
     
     costFunction->getc() = 0;
     AA.setZero();
@@ -348,11 +342,8 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
 void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList,
                                 CostFunction*& costFunction){
     if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
-    int N = xList.size();
-    int n = xList[0].rows();
-    int m = uList[0].rows();
+    unsigned int N = xList.size();
     
-    cout << "N: " << N << endl;
     costFunction->getc() = 0;
     AA.setZero();
     BB.setZero();
@@ -428,8 +419,8 @@ stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const comma
     if(debugging_print) TRACE_CART_POLE("update: X_new\n");
 
     if(nargout > 1){
-        int n = X.size();
-        int m = U.size();
+        unsigned int n = X.size();
+        unsigned int m = U.size();
 
         double delta = 1e-7;
         stateMat_t Dx;
@@ -483,8 +474,8 @@ stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const comma
 }
 
 void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
-    int n = X.size();
-    int m = U.size();
+    unsigned int n = X.size();
+    unsigned int m = U.size();
 
     double delta = 1e-7;
     stateMat_t Dx;
@@ -512,8 +503,8 @@ void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, s
 }
 
 void CartPole::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
-    int n = X.size();
-    int m = U.size();
+    unsigned int n = X.size();
+    unsigned int m = U.size();
 
     double delta = 1e-5;
     stateMat_t Dx;

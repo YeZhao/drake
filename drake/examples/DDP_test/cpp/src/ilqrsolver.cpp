@@ -375,20 +375,8 @@ void ILQRSolver::doBackwardPass()
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
-    for(int i=N-1;i>=0;i--)
-    {
-        //for debugging
-        if(debugging_print){
-            if (i==N-1){
-                std::cout << "--------- new iteration ---------" << std::endl;
-                std::cout << "costFunction->getcx(): " << costFunction->getcx()[i] << std::endl;                
-                std::cout << "costFunction->getcu(): " << costFunction->getcu()[i] << std::endl;                
-                std::cout << "costFunction->getcxx(): " << costFunction->getcxx()[i] << std::endl;                
-                std::cout << "costFunction->getcuu(): " << costFunction->getcuu()[i] << std::endl;                
-                std::cout << "costFunction->getcux(): " << costFunction->getcux()[i] << std::endl;
-            }    
-        }
-        
+    for(int i=(int)N-1;i>=0;i--)
+    {        
         Qx = costFunction->getcx()[i] + dynamicModel->getfxList()[i].transpose()*Vx[i+1];
         Qu = costFunction->getcu()[i] + dynamicModel->getfuList()[i].transpose()*Vx[i+1];
         Qxx = costFunction->getcxx()[i] + dynamicModel->getfxList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfxList()[i];
