@@ -15,75 +15,23 @@ const double CartPole::g=9.81;
 
 CartPole::CartPole(){}
 
-CartPole::CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)
-{
-    stateNb=4;
-    commandNb=1;
-    dt = mydt;
-    N = myN;
-    xgoal = myxgoal;
-    fxList.resize(N);
-    fuList.resize(N);
-
-    fxxList.resize(stateSize);
-    for(unsigned int i=0;i<stateSize;i++)
-        fxxList[i].resize(N);
-    fxuList.resize(commandSize);
-    fuuList.resize(commandSize);
-    for(unsigned int i=0;i<commandSize;i++){
-        fxuList[i].resize(N);
-        fuuList[i].resize(N);
-    }
-
-    fxx[0].setZero();
-    fxx[1].setZero();
-    fxx[2].setZero();
-    fxx[3].setZero();
-    fuu[0].setZero();
-    fux[0].setZero();
-    fxu[0].setZero();
-
-    lowerCommandBounds << -50.0;
-    upperCommandBounds << 50.0;
-
-    H.setZero();
-    C.setZero();
-    G.setZero();
-    Bu.setZero();
-    velocity.setZero();
-    accel.setZero();
-    X_new.setZero();
-
-    A1.setZero();
-    A2.setZero();
-    A3.setZero();
-    A4.setZero();
-    B1.setZero();
-    B2.setZero();
-    B3.setZero();
-    B4.setZero();
-    IdentityMat.setIdentity();
-
-    Xp1.setZero();
-    Xp2.setZero();
-    Xp3.setZero();
-    Xp4.setZero();
-
-    Xm1.setZero();
-    Xm2.setZero();
-    Xm3.setZero();
-    Xm4.setZero();
-
-    AA.setZero();
-    BB.setZero();
-    A_temp.resize(N);
-    B_temp.resize(N);
-    
-    debugging_print = 0;
-}
-
 stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)
 {
+
+    int kNumDof = 7;
+    Eigen::VectorXd torque_command(kNumDof);
+    Eigen::VectorXd joint_accel_desired(kNumDof);
+    Eigen::VectorXd q(kNumDof);
+    Eigen::VectorXd qd(kNumDof);
+    joint_accel_desired.setZero();
+    q.setZero();
+    qd.setZero();
+
+    // Computing inverse dynamics torque command
+    KinematicsCache<double> cache = tree->doKinematics(q, qd);
+    const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
+    torque_command = tree->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
+
     H << mc + mp, mp*l*cos(X(1,0)),
          mp*l*cos(X(1,0)), mp*pow(l,2.0);
     C << 0, -mp*X(3,0)*l*sin(X(1,0)),

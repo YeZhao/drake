@@ -4,6 +4,15 @@
 #include "config.h"
 #include "cost_function_cart_pole.h"
 
+#include "robotlocomotion/robot_plan_t.hpp"
+
+#include "drake/common/drake_assert.h"
+#include "drake/common/drake_path.h"
+#include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/multibody/parsers/urdf_parser.h"
+#include "drake/multibody/rigid_body_tree.h"
+#include "drake/util/drakeGeometryUtil.h"
+
 #include <cstdio>
 #include <iostream>
 #include <Eigen/Dense>
@@ -30,7 +39,80 @@ class CartPole
 {
 public:
     CartPole();
-    CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal);
+    //CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal);
+    explicit CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal) //, const RigidBodyTree<double>& tree : tree_(tree)
+    {
+        stateNb=4;
+        commandNb=1;
+        dt = mydt;
+        N = myN;
+        xgoal = myxgoal;
+        fxList.resize(N);
+        fuList.resize(N);
+
+        fxxList.resize(stateSize);
+        for(unsigned int i=0;i<stateSize;i++)
+            fxxList[i].resize(N);
+        fxuList.resize(commandSize);
+        fuuList.resize(commandSize);
+        for(unsigned int i=0;i<commandSize;i++){
+            fxuList[i].resize(N);
+            fuuList[i].resize(N);
+        }
+
+        fxx[0].setZero();
+        fxx[1].setZero();
+        fxx[2].setZero();
+        fxx[3].setZero();
+        fuu[0].setZero();
+        fux[0].setZero();
+        fxu[0].setZero();
+
+        lowerCommandBounds << -50.0;
+        upperCommandBounds << 50.0;
+
+        H.setZero();
+        C.setZero();
+        G.setZero();
+        Bu.setZero();
+        velocity.setZero();
+        accel.setZero();
+        X_new.setZero();
+
+        A1.setZero();
+        A2.setZero();
+        A3.setZero();
+        A4.setZero();
+        B1.setZero();
+        B2.setZero();
+        B3.setZero();
+        B4.setZero();
+        IdentityMat.setIdentity();
+
+        Xp1.setZero();
+        Xp2.setZero();
+        Xp3.setZero();
+        Xp4.setZero();
+
+        Xm1.setZero();
+        Xm2.setZero();
+        Xm3.setZero();
+        Xm4.setZero();
+
+        AA.setZero();
+        BB.setZero();
+        A_temp.resize(N);
+        B_temp.resize(N);
+        
+        debugging_print = 0;
+        
+        tree = std::make_unique<RigidBodyTree<double>>();
+
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+            multibody::joints::kFixed, tree.get());
+    }
+
     ~CartPole(){};
 private:
 protected:
@@ -52,6 +134,9 @@ protected:
     stateTensTab_t fxxList;
     stateTensTab_t fxuList;
     stateR_commandC_Tens_t fuuList;
+
+    //const RigidBodyTree<double>& tree_;
+    std::unique_ptr<RigidBodyTree<double>> tree;
 public:
 private:
     double dt;
@@ -70,7 +155,6 @@ public:
         Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2;
     };
     stateVec_t xgoal;
-    
 private:
     
     stateMat_half_t H, C;
@@ -92,7 +176,6 @@ private:
     stateR_commandC_tab_t B_temp;//dummy matrix
     
     struct traj_test lastTraj;
-
 protected:
     // methods
 public:    

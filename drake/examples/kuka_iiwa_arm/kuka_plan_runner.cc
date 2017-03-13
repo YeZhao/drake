@@ -132,7 +132,7 @@ class RobotPlanRunner {
 
     xinit << 0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi,0.0,0.0;
-    cout << "xinit: " << xinit << endl;
+
     double T = TimeHorizon;
     double dt = TimeStep;
     unsigned int N = (int)(T/dt);
@@ -146,7 +146,7 @@ class RobotPlanRunner {
         ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
         testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
     #endif
-    #if useUDPSolver    
+    #if useUDPSolver
         double scale = 0.01;
         UDPSolver::traj lastTraj;
         CartPole cartPoleModel(dt, N, xgoal);

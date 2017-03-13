@@ -51,7 +51,6 @@ const char* const kLcmControlRefChannel = "CONTROLLER_REFERENCE";
 const char* const kLcmCommandChannel = "IIWA_COMMAND";
 const char* const kLcmParamChannel = "IIWA_PARAM";
 
-
 const int kNumJoints = 7;
 const double joint_velocity_threthold = 0.05;
 const double joint_torque_threthold = 0.1;
