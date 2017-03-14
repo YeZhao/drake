@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef COSTFUNCTIONCARTPOLE_H
 #define COSTFUNCTIONCARTPOLE_H
 

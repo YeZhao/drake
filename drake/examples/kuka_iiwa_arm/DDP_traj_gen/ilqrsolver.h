@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ILQRSOLVER_H
 #define ILQRSOLVER_H
 

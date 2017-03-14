@@ -1,7 +1,4 @@
 #include "cart_pole.h"
-#include <math.h>
-
-#define pi M_PI
 
 namespace drake {
 namespace examples {
@@ -27,10 +24,18 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     q.setZero();
     qd.setZero();
 
+    if(iiwa_time_ == 1){
+        tree_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, tree_.get());
+        iiwa_time_ = 0;          
+    }
+   
     // Computing inverse dynamics torque command
-    // KinematicsCache<double> cache = tree.doKinematics(q, qd);
-    // const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    // torque_command = tree->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
+    KinematicsCache<double> cache = tree_->doKinematics(q, qd);
+    const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
+    torque_command = tree_->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
 
     H << mc + mp, mp*l*cos(X(1,0)),
          mp*l*cos(X(1,0)), mp*pow(l,2.0);

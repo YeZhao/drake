@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef CARTPOLE_H
 #define CARTPOLE_H
 
@@ -14,6 +16,9 @@
 #include <cstdio>
 #include <iostream>
 #include <Eigen/Dense>
+#include <math.h>
+
+#define pi M_PI
 
 #ifndef DEBUG_CART_POLE
 #define DEBUG_CART_POLE 1
@@ -37,11 +42,10 @@ class CartPole
 {
 public:
     CartPole();
-    //CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal);
-    CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)//, const RigidBodyTree<double>& tree
+    explicit CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)
     {
-        stateNb=4;
-        commandNb=1;
+        stateNb = 4;
+        commandNb = 1;
         dt = mydt;
         N = myN;
         xgoal = myxgoal;
@@ -103,14 +107,7 @@ public:
         B_temp.resize(N);
         
         debugging_print = 0;
-        
-        //*tree_ = tree;
-        // tree_ = std::make_unique<RigidBodyTree<double>>();
-        // unique_ptr<RigidBodyTree<double>> tree_;
-        //tree_ = tree.get();
-        // parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-        //     GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
-        //     multibody::joints::kFixed, tree_.get());
+        iiwa_time_ = 1;
     }
 
     ~CartPole(){};
@@ -135,14 +132,11 @@ protected:
     stateTensTab_t fxuList;
     stateR_commandC_Tens_t fuuList;
 
-    //RigidBodyTree<double>* tree_{nullptr};
-    //std::unique_ptr<RigidBodyTree<double>> tree;
-
 public:
 private:
     double dt;
     unsigned int N;
-    
+    bool iiwa_time_;
 public:
     static const double mc, mp, l, g;
 
@@ -157,8 +151,6 @@ public:
         Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2;
     };
     stateVec_t xgoal;
-    // const RigidBodyTree<double>* tree_{nullptr};
-    // /const RigidBodyTree<double>& tree_;
 private:
     
     stateMat_half_t H, C;
@@ -180,6 +172,7 @@ private:
     stateR_commandC_tab_t B_temp;//dummy matrix
     
     struct traj_test lastTraj;
+    std::unique_ptr<RigidBodyTree<double>> tree_{nullptr};
 protected:
     // methods
 public:

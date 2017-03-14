@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef UDPSOLVER_H
 #define UDPSOLVER_H
 

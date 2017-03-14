@@ -180,7 +180,7 @@ if(lcm_FOUND)
 #      drakeLCMSystem
 #      gflags)
 
-  add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
+add_executable(iiwa_wsg_simulation iiwa_wsg_simulation.cc)
   target_link_libraries(iiwa_wsg_simulation
     drakeKukaIiwaArmCommon
     drakeKukaIiwaWorld
