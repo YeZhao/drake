@@ -207,7 +207,7 @@ void UDPSolver::solveTrajectory()
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
             Op.time_forward(iter) = ((double)(1000.0*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000.0)))/1000.0;
-            cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
+            //cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
         }
         
         //====== STEP 4: accept step (or not), draw graphics, print status
@@ -369,7 +369,6 @@ void UDPSolver::doBackwardPass()
 
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
-        gettimeofday(&tbegin_test,NULL);        
         ZeroLowerLeftMatrix.setZero();
         ZeroUpperRightMatrix.setZero();
         Vxx_next_inverse = Vxx[i+1].inverse();
@@ -402,6 +401,7 @@ void UDPSolver::doBackwardPass()
             G(j+fullstatecommandSize) = -G(j);
         }
 
+        gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
@@ -517,8 +517,8 @@ void UDPSolver::doBackwardPass()
     }
     
     Op.g_norm = g_norm_sum/((double)(Op.n_hor));
-    cout <<  "Op.time_range1(iter): " << Op.time_range1(iter) << endl;
-    cout <<  "Op.time_range2(iter): " << Op.time_range2(iter) << endl;
+    //cout <<  "Op.time_range1(iter): " << Op.time_range1(iter) << endl;
+    //cout <<  "Op.time_range2(iter): " << Op.time_range2(iter) << endl;
 }
 
 void UDPSolver::doForwardPass()

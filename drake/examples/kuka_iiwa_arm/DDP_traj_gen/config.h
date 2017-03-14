@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+//#include <Eigen/Dense>
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 
@@ -10,7 +11,7 @@
 #define stateSize 4
 #define commandSize 1
 #define fullstatecommandSize 5
-#define TimeHorizon 1
+#define TimeHorizon 2
 #define TimeStep 0.01
 
 namespace drake {

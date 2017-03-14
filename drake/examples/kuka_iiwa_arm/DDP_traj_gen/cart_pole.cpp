@@ -28,9 +28,9 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     qd.setZero();
 
     // Computing inverse dynamics torque command
-    KinematicsCache<double> cache = tree->doKinematics(q, qd);
-    const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    torque_command = tree->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
+    // KinematicsCache<double> cache = tree.doKinematics(q, qd);
+    // const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
+    // torque_command = tree->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
 
     H << mc + mp, mp*l*cos(X(1,0)),
          mp*l*cos(X(1,0)), mp*pow(l,2.0);

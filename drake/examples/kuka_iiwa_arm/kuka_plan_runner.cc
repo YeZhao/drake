@@ -78,6 +78,8 @@ class RobotPlanRunner {
   }
 
   void Run() {
+    cout << "-------- Waiting for trajectory to be sent out! --------" << endl;
+
     int cur_plan_number = plan_number_;
     int64_t cur_time_us = -1;
     int64_t start_time_us = -1;
@@ -176,8 +178,8 @@ class RobotPlanRunner {
     cout << "Total execution time of the solver (second): " << texec << endl;
     cout << "\tTime of derivative (second): " << lastTraj.time_derivative.sum() << " (" << 100.0*lastTraj.time_derivative.sum()/texec << "%)" << endl;
     cout << "\tTime of backward pass (second): " << lastTraj.time_backward.sum() << " (" << 100.0*lastTraj.time_backward.sum()/texec << "%)" << endl;
-    cout << "\t\tTime range 1 (second): " << lastTraj.time_range1.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
-    cout << "\t\tTime range 2 (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
+    //cout << "\t\tTime range 1 (second): " << lastTraj.time_range1.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
+    //cout << "\t\tTime range 2 (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
     cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
     
     ofstream file("results.csv",ios::out | ios::trunc);

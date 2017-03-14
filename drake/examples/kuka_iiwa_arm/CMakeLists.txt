@@ -196,10 +196,9 @@ endif()
 
 add_subdirectory(controlled_kuka)
 add_subdirectory(iiwa_world)
+add_subdirectory(DDP_traj_gen)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-#CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-#ADD_SUBDIRECTORY(DDP_traj_gen)

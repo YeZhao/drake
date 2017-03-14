@@ -4,8 +4,6 @@
 #include "config.h"
 #include "cost_function_cart_pole.h"
 
-#include "robotlocomotion/robot_plan_t.hpp"
-
 #include "drake/common/drake_assert.h"
 #include "drake/common/drake_path.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
@@ -40,7 +38,7 @@ class CartPole
 public:
     CartPole();
     //CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal);
-    explicit CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal) //, const RigidBodyTree<double>& tree : tree_(tree)
+    CartPole(double& mydt, unsigned int& myN, stateVec_t& myxgoal)//, const RigidBodyTree<double>& tree
     {
         stateNb=4;
         commandNb=1;
@@ -106,11 +104,13 @@ public:
         
         debugging_print = 0;
         
-        tree = std::make_unique<RigidBodyTree<double>>();
-
-        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
-            multibody::joints::kFixed, tree.get());
+        //*tree_ = tree;
+        // tree_ = std::make_unique<RigidBodyTree<double>>();
+        // unique_ptr<RigidBodyTree<double>> tree_;
+        //tree_ = tree.get();
+        // parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+        //     GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        //     multibody::joints::kFixed, tree_.get());
     }
 
     ~CartPole(){};
@@ -135,12 +135,14 @@ protected:
     stateTensTab_t fxuList;
     stateR_commandC_Tens_t fuuList;
 
-    //const RigidBodyTree<double>& tree_;
-    std::unique_ptr<RigidBodyTree<double>> tree;
+    //RigidBodyTree<double>* tree_{nullptr};
+    //std::unique_ptr<RigidBodyTree<double>> tree;
+
 public:
 private:
     double dt;
     unsigned int N;
+    
 public:
     static const double mc, mp, l, g;
 
@@ -155,6 +157,8 @@ public:
         Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2;
     };
     stateVec_t xgoal;
+    // const RigidBodyTree<double>* tree_{nullptr};
+    // /const RigidBodyTree<double>& tree_;
 private:
     
     stateMat_half_t H, C;
@@ -178,7 +182,7 @@ private:
     struct traj_test lastTraj;
 protected:
     // methods
-public:    
+public:
     stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
     void cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionCartPole*& costFunction);
     void cart_pole_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr,  const bool& isUNan, stateVec_t& xList_next, CostFunctionCartPole*& costFunction);
