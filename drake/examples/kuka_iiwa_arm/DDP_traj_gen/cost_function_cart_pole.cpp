@@ -7,6 +7,7 @@ namespace {
 	
 CostFunctionCartPole::CostFunctionCartPole()
 {
+    /*
     Q << .1,0.0,0.0,0.0,
          0.0,0.1,0.0,0.0,
          0.0,0.0,0.1,0.0,
@@ -16,6 +17,10 @@ CostFunctionCartPole::CostFunctionCartPole()
           0.0,0.0,1000,0.0,
           0.0,0.0,0.0,1000;
     R << 0.01;
+    */
+    Q = .1*stateMat_t::Identity();
+    Qf = 1000*stateMat_t::Identity();
+    R = .01*commandMat_t::Identity();
 
     N = TimeHorizon/TimeStep;
     cx_new.resize(N+1);

@@ -15,6 +15,8 @@ CartPole::CartPole(){}
 stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)
 {
 
+    //cout << "cart_pole_dynamics" << endl;
+
     int kNumDof = 7;
     Eigen::VectorXd torque_command(kNumDof);
     Eigen::VectorXd joint_accel_desired(kNumDof);
@@ -33,10 +35,21 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     }
    
     // Computing inverse dynamics torque command
-    KinematicsCache<double> cache = tree_->doKinematics(q, qd);
+    KinematicsCache<double> cache_ = tree_->doKinematics(q, qd);
     const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    torque_command = tree_->inverseDynamics(cache, no_external_wrenches, joint_accel_desired, false);
+    MatrixX<double> M_ = tree_->massMatrix(cache_); // Inertial matrix
 
+    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
+    VectorX<double> bias_term_ = tree_->dynamicsBiasTerm(cache_, f_ext);  ///< Bias term: M * vd + h = tau + J^T * lambda
+
+    torque_command = tree_->inverseDynamics(cache_, no_external_wrenches, joint_accel_desired, false);
+
+    vd = M_.inverse()*(torque_command - bias_term_);
+    X_new << X.head(stateSize/2), vd; 
+    //cout << "X_new: " << X_new.size() << endl;
+    //cout << "vd: " << vd.size() << endl;
+    //cout << "cart_pole_dynamics2" << endl;
+    /*
     H << mc + mp, mp*l*cos(X(1,0)),
          mp*l*cos(X(1,0)), mp*pow(l,2.0);
     C << 0, -mp*X(3,0)*l*sin(X(1,0)),
@@ -53,7 +66,7 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
              velocity(1),
              accel(0),
              accel(1);
-
+    */
     return X_new;
 }
 
@@ -69,7 +82,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
 
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
-    commandMat_t c_mat_to_scalar;
+    scalar_t c_mat_to_scalar;
 
     if(nargout == 2){
         const int nargout_update1 = 3;        
@@ -166,7 +179,7 @@ void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt
 
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
-    commandMat_t c_mat_to_scalar;
+    scalar_t c_mat_to_scalar;
     xList_next.setZero();
 
     const int nargout_update1 = 1;
@@ -205,7 +218,7 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
 
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
-    commandMat_t c_mat_to_scalar;
+    scalar_t c_mat_to_scalar;
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
@@ -309,7 +322,7 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
     BB.setZero();
     if(debugging_print) TRACE_CART_POLE("compute cost function\n");
 
-    commandMat_t c_mat_to_scalar;
+    scalar_t c_mat_to_scalar;
     c_mat_to_scalar.setZero();
 
     if(nargout == 2){
@@ -366,7 +379,7 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
     if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
 }
 
-stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
+stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
     // 4th-order Runge-Kutta step
     if(debugging_print) TRACE_CART_POLE("update: 4th-order Runge-Kutta step\n");
     Xdot1 = cart_pole_dynamics(X, U);
@@ -433,7 +446,7 @@ stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const comma
     return X_new;
 }
 
-void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateVec_t& B){
+void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
     unsigned int n = X.size();
     unsigned int m = U.size();
 
@@ -478,7 +491,7 @@ void CartPole::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& 
     Ap.setZero();
     stateMat_t Am;
     Am.setZero();
-    stateVec_t B;
+    stateR_commandC_t B;
     B.setZero();
 
     for(unsigned int i=0;i<n;i++){
@@ -493,9 +506,9 @@ void CartPole::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& 
         fxx[i] = (Ap - Am)/(2*delta);
     }
 
-    stateVec_t Bp;
+    stateR_commandC_t Bp;
     Bp.setZero();
-    stateVec_t Bm;
+    stateR_commandC_t Bm;
     Bm.setZero();
 
     for(unsigned int j=0;j<m;j++){

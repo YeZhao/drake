@@ -10,10 +10,10 @@
 //EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::MatrixXd)
 //EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 
-#define stateSize 4
-#define commandSize 1
-#define fullstatecommandSize 5
-#define TimeHorizon 2
+#define stateSize 14
+#define commandSize 7
+#define fullstatecommandSize 21
+#define TimeHorizon 1
 #define TimeStep 0.01
 
 namespace drake {
@@ -43,6 +43,7 @@ typedef Eigen::Matrix<double,commandSize,stateSize> commandR_stateC_commandD_t[c
 typedef Eigen::Matrix<double,stateSize,stateSize> stateR_stateC_commandD_t[commandSize];        // stateSize x stateSize x commandSize
 typedef Eigen::Matrix<double,commandSize,commandSize> commandR_commandC_stateD_t[stateSize];    // commandSize x commandSize x stateSize
 typedef Eigen::Matrix<double,stateSize+commandSize,1> stateAug_t;                          // stateSize + commandSize x 1
+typedef Eigen::Matrix<double,1,1> scalar_t;                          // 1 x 1
 
 // typedef for half commandSize and stateSize types
 typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1

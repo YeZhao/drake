@@ -489,7 +489,7 @@ void ILQRSolver::doBackwardPass()
 
         //update cost-to-go approximation
         dV(0) += k.transpose()*Qu;
-        commandMat_t c_mat_to_scalar;
+        scalar_t c_mat_to_scalar;
         c_mat_to_scalar = 0.5*k.transpose()*Quu*k;
         dV(1) += c_mat_to_scalar(0,0);
         Vx[i] = Qx + K.transpose()*Quu*k + K.transpose()*Qu + Qux.transpose()*k;

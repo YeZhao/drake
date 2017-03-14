@@ -133,7 +133,7 @@ void UDPSolver::solveTrajectory()
 
     for(iter=0;iter<Op.max_iter;iter++)
     {
-        //TRACE_UDP("STEP 1: differentiate cost along new trajectory\n");
+        TRACE_UDP("STEP 1: differentiate cost along new trajectory\n");
         if(newDeriv){
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
             for(unsigned int i=0;i<u_NAN.size();i++)
@@ -151,7 +151,7 @@ void UDPSolver::solveTrajectory()
         }
         //TRACE_UDP("Finish STEP 1\n");
 
-        //====== STEP 2: backward pass, compute optimal control law and cost-to-go
+        TRACE_UDP("STEP 2: backward pass, compute optimal control law and cost-to-go\n");
         backPassDone = 0;
         while(!backPassDone){
             gettimeofday(&tbegin_time_bwd,NULL);
@@ -159,7 +159,7 @@ void UDPSolver::solveTrajectory()
             gettimeofday(&tend_time_bwd,NULL);
             Op.time_backward(iter) = ((double)(1000.0*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000.0)))/1000.0;
 
-            //TRACE("handle Cholesky failure case");
+            //TRACE_UDP("handle Cholesky failure case");
             if(diverge){
                 if(Op.debug_level > 2) printf("Cholesky failed at timestep %d.\n",diverge);
                 Op.dlambda   = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
@@ -182,7 +182,7 @@ void UDPSolver::solveTrajectory()
             break;
         }
 
-        //====== STEP 3: line-search to find new control sequence, trajectory, cost
+        TRACE_UDP("STEP 3: line-search to find new control sequence, trajectory, cost");
         fwdPassDone = 0;
         if(backPassDone){
             gettimeofday(&tbegin_time_fwd,NULL);
@@ -210,7 +210,7 @@ void UDPSolver::solveTrajectory()
             //cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
         }
         
-        //====== STEP 4: accept step (or not), draw graphics, print status
+        TRACE_UDP("STEP 4: accept step (or not), draw graphics, print status"); 
         if (Op.debug_level > 1 && Op.last_head == Op.print_head){
             Op.last_head = 0;
             TRACE_UDP("iteration,\t cost, \t reduction, \t expected, \t gradient, \t log10(lambda) \n");
@@ -366,19 +366,36 @@ void UDPSolver::doBackwardPass()
 
     Op.time_range1(iter) = 0;
     Op.time_range2(iter) = 0;
-
+    cout << "here: doBackwardPass" << endl;
+    cout << "N: " << N << endl;
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
         ZeroLowerLeftMatrix.setZero();
         ZeroUpperRightMatrix.setZero();
+        cout << "here: doBackwardPass0.0" << endl;
+
         Vxx_next_inverse = Vxx[i+1].inverse();
+        cout << "here: doBackwardPass0.0" << endl;
+
         cuu_inverse = costFunction->getcuu()[i].inverse();
+        cout << "here: doBackwardPass0.0" << endl;
+        cout << "Vxx_next_inverse: " << Vxx_next_inverse.size() << endl;
+        cout << "ZeroUpperRightMatrix: " << ZeroUpperRightMatrix.size() << endl;
+        cout << "ZeroLowerLeftMatrix: " << ZeroLowerLeftMatrix.size() << endl;
+        cout << "cuu_inverse: " << cuu_inverse.size() << endl;
+
         augMatrix << Vxx_next_inverse, ZeroUpperRightMatrix, 
                 ZeroLowerLeftMatrix, cuu_inverse;
 
+        cout << "here: doBackwardPass0.0" << endl;
+        cout << "augMatrix: " << augMatrix.size() << endl;
+
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
+        cout << "here: doBackwardPass0.0.1" << endl;
+
         Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
         //assume augMatrix is positive definite
+        cout << "here: doBackwardPass0.0" << endl;
 
         //A temporary solution: check the non-PD case
         if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
@@ -389,6 +406,7 @@ void UDPSolver::doBackwardPass()
         }
         S = scale*S;
         Sig << S, -S;
+        cout << "here: doBackwardPass0.1" << endl;
 
         for(unsigned int j=0;j<2*fullstatecommandSize;j++){
             augState << xList[i+1], uList[i];
@@ -400,6 +418,7 @@ void UDPSolver::doBackwardPass()
             G(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);
             G(j+fullstatecommandSize) = -G(j);
         }
+        cout << "here: doBackwardPass0.2" << endl;
 
         gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
@@ -416,27 +435,38 @@ void UDPSolver::doBackwardPass()
             D.row(j) =  Sig.col(j).transpose() - Sig.col(j+fullstatecommandSize).transpose();
             df(j) = G(j) - G(fullstatecommandSize+j);
         }
+        cout << "here: doBackwardPass1.0" << endl;
+        cout << "D.inverse(): " << D.inverse().size() << endl;
 
         QxQu = D.inverse()*df;
         Qx = QxQu.head(stateSize) + costFunction->getcx()[i]; //add on one-step cost
         Qu = QxQu.tail(commandSize) + costFunction->getcu()[i]; //add on one-step cost
-        
+        cout << "here: doBackwardPass1.0.1" << endl;
+
         mu.setZero();
         //Calculate Hessian w.r.t. [xList[i]; uList[i]] from sigma points
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             mu += 1.0/(2.0*fullstatecommandSize)*Sig.col(j);
+        cout << "here: doBackwardPass1.0.2" << endl;
 
+        cout << "Sig: " << Sig.size() << endl;
+        cout << "mu: " << mu.size() << endl;
         M.setZero();
+        cout << "here: doBackwardPass1.0.2.0" << endl;
+
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             M += (0.5/pow(scale, 2.0))*(Sig.col(j) - mu)*(Sig.col(j).transpose() - mu.transpose());
-        
+        cout << "here: doBackwardPass1.0.3" << endl;
+
         HH = M.inverse();
         HH.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
-        
+        cout << "here: doBackwardPass1.0.4" << endl;
+
         Qxx = HH.block(0,0,stateSize,stateSize);
         Quu = HH.block(stateSize,stateSize,commandSize,commandSize);
         Qux = HH.block(stateSize,0,commandSize,stateSize);
-        
+        cout << "here: doBackwardPass1.0.2" << endl;
+
         gettimeofday(&tend_test2,NULL);
         Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
@@ -453,6 +483,7 @@ void UDPSolver::doBackwardPass()
             backPassDone = 0;
             break;
         }
+        cout << "here: doBackwardPass1.1" << endl;
 
         // if(enableQPBox)
         // {
@@ -494,10 +525,11 @@ void UDPSolver::doBackwardPass()
             k = - L_inverse*L.transpose().inverse()*Qu;
             K = - L_inverse*L.transpose().inverse()*Qux;
         }
+        cout << "here: doBackwardPass1.2" << endl;
 
         //update cost-to-go approximation
         dV(0) += k.transpose()*Qu;
-        commandMat_t c_mat_to_scalar;
+        scalar_t c_mat_to_scalar;
         c_mat_to_scalar = 0.5*k.transpose()*Quu*k;
         dV(1) += c_mat_to_scalar(0,0);
         Vx[i] = Qx + K.transpose()*Quu*k + K.transpose()*Qu + Qux.transpose()*k;
