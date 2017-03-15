@@ -5,11 +5,6 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-const double CartPole::mc=10;
-const double CartPole::mp=1;
-const double CartPole::l=0.5;
-const double CartPole::g=9.81;
-
 CartPole::CartPole(){}
 
 stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& tau)
@@ -26,7 +21,6 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
         initial_phase_flag_ = 0;          
     }
     
-    // Computing inverse dynamics torque command
     KinematicsCache<double> cache_ = tree_->doKinematics(q, qd, true);
     const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
     MatrixX<double> M_ = tree_->massMatrix(cache_); // Inertial matrix
@@ -36,39 +30,6 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd; 
     
-    // cout << "-----------------" << endl;
-    // cout << "q: " << q << endl;
-    // cout << "qd: " << qd << endl;
-
-    // cout << "tau: " << tau << endl;
-    // cout << "bias_term_: " << bias_term_ << endl;
-
-    // cout << "Xdot_new: " << Xdot_new << endl;
-    // cout << "M_.inverse(): " << M_.inverse() << endl;
-
-
-    // H << mc + mp, mp*l*cos(X(1,0)),
-    //      mp*l*cos(X(1,0)), mp*pow(l,2.0);
-    // C << 0, -mp*X(3,0)*l*sin(X(1,0)),
-    //      0, 0;
-    // G << 0,
-    //      mp*g*l*sin(X(1,0));
-    // Bu << 1,
-    //      0;     
-    // velocity << X(2),
-    //             X(3);
-    // accel = - H.inverse() * (C*velocity + G - Bu*tau);
-
-    // Xdot_new << velocity(0),
-    //             velocity(1),
-    //             accel(0),
-    //             accel(1);
-
-    // // cout << "-----------------" << endl;
-    // cout << "tau: " << tau << endl;
-    // cout << "Xdot_new: " << Xdot_new << endl;
-    // cout << "H.inverse(): " << H.inverse() << endl;
-
     return Xdot_new;
 }
 
@@ -140,16 +101,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
             costFunction->getcu()[k] = costFunction->getR()*uList[k];
             costFunction->getcxx()[k] = costFunction->getQ();
             costFunction->getcux()[k].setZero();
-            costFunction->getcuu()[k] = costFunction->getR();
-            
-            // if(k == 49) {
-            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
-            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
-            //     std::cout << "cx[49]: " << cx[k] << std::endl;
-            //     std::cout << "cu[49]: " << cu[k] << std::endl;
-            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
-            // }
-
+            costFunction->getcuu()[k] = costFunction->getR();            
         }
         if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
 
@@ -189,19 +141,14 @@ void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt
         if (isUNan){ 
             if(debugging_print) TRACE_CART_POLE("before the update1\n");
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunction->getQf() * (xList_curr - xgoal);
-            // std::cout << "size of N: " << N << std::endl;
-            //std::cout << "x_final_state: " << xList_curr.transpose() << std::endl;
             costFunction->getc() += c_mat_to_scalar(0,0);
-            //std::cout << "c: " << c << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update1\n");
         }else{
             if(debugging_print) TRACE_CART_POLE("before the update2\n");
             xList_next = update(nargout_update1, xList_curr, uList_curr, AA, BB);
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunction->getQ()*(xList_curr - xgoal);
-            //if(k<5) std::cout << "c_mat_to_scalar1: " << c_mat_to_scalar << std::endl;
             if(debugging_print) TRACE_CART_POLE("after the update2\n");
             c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunction->getR()*uList_curr;
-            //if(k<5) std::cout << "c_mat_to_scalar2: " << c_mat_to_scalar << std::endl;
             costFunction->getc() += c_mat_to_scalar(0,0);
         }
     }
@@ -370,10 +317,6 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
         if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
-
-        //cout << "xList[N-1]: " << xList[N-1] << endl;
-        //cout << "N::: " << N << endl;
-        //cout << "costFunction->getcx()[N-1]:: " << costFunction->getcx()[N-1] << endl;
 
         // the following useless matrices and scalars are set to Zero.
         for(unsigned int k=0;k<N;k++){

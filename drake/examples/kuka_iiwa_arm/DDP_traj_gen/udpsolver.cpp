@@ -211,36 +211,9 @@ void UDPSolver::solveTrajectory()
             for(int alpha_index = 0; alpha_index < Op.alphaList.size(); alpha_index++){
                 alpha = Op.alphaList[alpha_index];
 
-                // for(unsigned int i=0; i<kList.size();i++){
-                //     std::cout << "kList[i]: " << kList[i] << std::endl;
-                // }
-
-                // for(unsigned int i=0; i<KList.size();i++){
-                //     std::cout << "KList[i]: " << KList[i] << std::endl;
-                // }
-
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
-                //std::cout << "alpha: " << alpha << std::endl;
-                // std::cout << "uList[20]: " << uList[20] << std::endl;
-                // std::cout << "uList[40]: " << uList[40] << std::endl;
-                // std::cout << "uList[60]: " << uList[60] << std::endl;
-                // std::cout << "uList[80]: " << uList[80] << std::endl;
-                // std::cout << "uList[99]: " << uList[99] << std::endl;
-
-                // for(unsigned int i=0; i<costListNew.size();i++){
-                //     std::cout << "costListNew[i]: " << costListNew[i] << std::endl;
-                // }
-
-                // for(unsigned int i=0; i<costList.size();i++){
-                //     std::cout << "costList[i]: " << costList[i] << std::endl;
-                // }
-
-                //std::cout << "accumulate(costListNew): " << accumulate(costListNew.begin(), costListNew.end(), 0.0) << std::endl;
-                //std::cout << "accumulate(costList): " << accumulate(costList.begin(), costList.end(), 0.0) << std::endl;
-                //std::cout << "Op.dcost: " << Op.dcost << std::endl;
-                //std::cout << "Op.expected: " << Op.expected << std::endl;
                 double z;
                 if(Op.expected > 0) {
                     z = Op.dcost/Op.expected;
@@ -256,16 +229,8 @@ void UDPSolver::solveTrajectory()
             if(!fwdPassDone) alpha = sqrt(-1.0);
             gettimeofday(&tend_time_fwd,NULL);
             Op.time_forward(iter) = ((double)(1000.0*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000.0)))/1000.0;
-            //cout << "Op.time_forward(iter): " << Op.time_forward(iter) << endl;
         }
         
-        // cout << endl;
-        // cout << "uList: ";
-        // for (unsigned int i=0;i<N;i++)
-        //     cout << " " << uList[i];
-
-        // cout << endl;
-
         //TRACE_UDP("STEP 4: accept step (or not), draw graphics, print status"); 
         if (Op.debug_level > 1 && Op.last_head == Op.print_head){
             Op.last_head = 0;
@@ -300,10 +265,6 @@ void UDPSolver::solveTrajectory()
             // increase lambda
             Op.dlambda = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
             Op.lambda = max(Op.lambda * Op.dlambda, Op.lambdaMin);
-
-            // cout << "no cost improvement: " << endl;
-            // cout << "Op.dlambda: " << Op.dlambda << endl;
-            // cout << "Op.lambda: " << Op.lambda << endl;
 
             // if(o->w_pen_fact2>1.0) {
             //     o->w_pen_l= min(o->w_pen_max_l, o->w_pen_l*o->w_pen_fact2);
@@ -424,41 +385,22 @@ void UDPSolver::doBackwardPass()
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
-    //cout << "Vx[N]: " << Vx[N] << endl;
-    //cout << "Vxx[N]: " << Vxx[N] << endl;
-
     Op.time_range1(iter) = 0;
     Op.time_range2(iter) = 0;
-    // cout << "here: doBackwardPass" << endl;
-    // cout << "N: " << N << endl;
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
         ZeroLowerLeftMatrix.setZero();
         ZeroUpperRightMatrix.setZero();
-        // cout << "here: doBackwardPass0.0" << endl;
-
         Vxx_next_inverse = Vxx[i+1].inverse();
-        // cout << "here: doBackwardPass0.0" << endl;
-
         cuu_inverse = costFunction->getcuu()[i].inverse();
-        // cout << "here: doBackwardPass0.0" << endl;
-        // cout << "Vxx_next_inverse: " << Vxx_next_inverse.size() << endl;
-        // cout << "ZeroUpperRightMatrix: " << ZeroUpperRightMatrix.size() << endl;
-        // cout << "ZeroLowerLeftMatrix: " << ZeroLowerLeftMatrix.size() << endl;
-        // cout << "cuu_inverse: " << cuu_inverse.size() << endl;
 
         augMatrix << Vxx_next_inverse, ZeroUpperRightMatrix, 
                 ZeroLowerLeftMatrix, cuu_inverse;
 
-        // cout << "here: doBackwardPass0.0" << endl;
-        // cout << "augMatrix: " << augMatrix.size() << endl;
-
         Eigen::LLT<MatrixXd> lltOfaugMatrix(augMatrix);
-        // cout << "here: doBackwardPass0.0.1" << endl;
 
         Eigen::MatrixXd S = lltOfaugMatrix.matrixL(); 
         //assume augMatrix is positive definite
-        // cout << "here: doBackwardPass0.0" << endl;
 
         //A temporary solution: check the non-PD case
         if(lltOfaugMatrix.info() == Eigen::NumericalIssue)
@@ -469,7 +411,6 @@ void UDPSolver::doBackwardPass()
         }
         S = scale*S;
         Sig << S, -S;
-        // cout << "here: doBackwardPass0.1" << endl;
 
         for(unsigned int j=0;j<2*fullstatecommandSize;j++){
             augState << xList[i+1], uList[i];
@@ -481,7 +422,6 @@ void UDPSolver::doBackwardPass()
             G(j) = Vx[i+1].transpose()*S.col(j).head(stateSize);
             G(j+fullstatecommandSize) = -G(j);
         }
-        // cout << "here: doBackwardPass0.2" << endl;
 
         gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
@@ -498,46 +438,33 @@ void UDPSolver::doBackwardPass()
             D.row(j) =  Sig.col(j).transpose() - Sig.col(j+fullstatecommandSize).transpose();
             df(j) = G(j) - G(fullstatecommandSize+j);
         }
-        // cout << "here: doBackwardPass1.0" << endl;
-        //cout << "D.inverse(): " << D.inverse().size() << endl;
 
         QxQu = D.inverse()*df;
         Qx = QxQu.head(stateSize) + costFunction->getcx()[i]; //add on one-step cost
         Qu = QxQu.tail(commandSize) + costFunction->getcu()[i]; //add on one-step cost
-        // cout << "here: doBackwardPass1.0.1" << endl;
 
         mu.setZero();
         //Calculate Hessian w.r.t. [xList[i]; uList[i]] from sigma points
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             mu += 1.0/(2.0*fullstatecommandSize)*Sig.col(j);
-        // cout << "here: doBackwardPass1.0.2" << endl;
 
-        // cout << "Sig: " << Sig.size() << endl;
-        // cout << "mu: " << mu.size() << endl;
         M.setZero();
-        // cout << "here: doBackwardPass1.0.2.0" << endl;
 
         for(unsigned int j=0;j<2*fullstatecommandSize;j++)
             M += (0.5/pow(scale, 2.0))*(Sig.col(j) - mu)*(Sig.col(j).transpose() - mu.transpose());
-        // cout << "here: doBackwardPass1.0.3" << endl;
 
         HH = M.inverse();
         HH.block(0,0,stateSize,stateSize) += costFunction->getcxx()[i]; //add in one-step state cost for this timestep
-        // cout << "here: doBackwardPass1.0.4" << endl;
 
         Qxx = HH.block(0,0,stateSize,stateSize);
         Quu = HH.block(stateSize,stateSize,commandSize,commandSize);
         Qux = HH.block(stateSize,0,commandSize,stateSize);
-        // cout << "here: doBackwardPass1.0.2" << endl;
 
         gettimeofday(&tend_test2,NULL);
         Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
-
-        //cout << "match Op.lambda: " << Op.lambda << endl;
-
 
         QuuInv = QuuF.inverse();
 
@@ -549,7 +476,6 @@ void UDPSolver::doBackwardPass()
             backPassDone = 0;
             break;
         }
-        // cout << "here: doBackwardPass1.1" << endl;
 
         // if(enableQPBox)
         // {
@@ -591,7 +517,6 @@ void UDPSolver::doBackwardPass()
             k = - L_inverse*L.transpose().inverse()*Qu;
             K = - L_inverse*L.transpose().inverse()*Qux;
         }
-        // cout << "here: doBackwardPass1.2" << endl;
 
         //update cost-to-go approximation
         dV(0) += k.transpose()*Qu;
@@ -615,8 +540,6 @@ void UDPSolver::doBackwardPass()
     }
     
     Op.g_norm = g_norm_sum/((double)(Op.n_hor));
-    //cout <<  "Op.time_range1(iter): " << Op.time_range1(iter) << endl;
-    //cout <<  "Op.time_range2(iter): " << Op.time_range2(iter) << endl;
 }
 
 void UDPSolver::doForwardPass()
@@ -629,30 +552,20 @@ void UDPSolver::doForwardPass()
     u_NAN << sqrt(-1.0);
     isUNan = 0;
 
-
-    //cout << "initFwdPassDone: " << initFwdPassDone << endl;
-    //cout << "NN: " << N << endl;
-
     //[TODO: to be optimized]
     if(!initFwdPassDone){
         //TRACE("initial forward pass\n");
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
-            //cout << "updateduList[i]: " << updateduList[i] << endl;
-            //cout << "updatedxList[i]: " << updatedxList[i] << endl;
-
             dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costList[i] = costFunction->getc();
         }
         isUNan = 1;
         dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
-        costList[N] = costFunction->getc();
-        //cout << "costList[N]:::::::: " << costList[N] << endl;
-        //cout << "updatedxList[i]: " << updatedxList[N] << endl;
-        
+        costList[N] = costFunction->getc();        
     }else{
-        //TRACE("regular forward pass in STEP 3\n");
+        //TRACE("forward pass in STEP 3\n");
         for(unsigned int i=0;i<N;i++){
             updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
             dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
@@ -661,8 +574,6 @@ void UDPSolver::doForwardPass()
         isUNan = 1;
         dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costListNew[N] = costFunction->getc();
-        //cout << "costListNew[N]::::::: " << costListNew[N] << endl;
-
     }
 }
 

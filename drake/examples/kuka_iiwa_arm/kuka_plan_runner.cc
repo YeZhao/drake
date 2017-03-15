@@ -188,10 +188,10 @@ class RobotPlanRunner {
 
     //debugging trajectory and control outputs
     for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.xList[i]:" << lastTraj.xList[i].transpose() << endl;
+      cout << "lastTraj.uList[" << i << "]:" << lastTraj.xList[i].transpose() << endl;
     }
     for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.xList[i]:" << lastTraj.uList[i].transpose() << endl;
+      cout << "lastTraj.xList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
     }
 
 

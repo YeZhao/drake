@@ -6,12 +6,8 @@
 #include "config.h"
 #include "cost_function_cart_pole.h"
 
-#include "drake/common/drake_assert.h"
-#include "drake/common/drake_path.h"
-#include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
-#include "drake/util/drakeGeometryUtil.h"
 
 #include <cstdio>
 #include <iostream>
