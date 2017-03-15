@@ -18,7 +18,7 @@
 #include <Eigen/Dense>
 #include <math.h>
 
-#define pi M_PI
+#define pi 3.141592653
 
 #ifndef DEBUG_CART_POLE
 #define DEBUG_CART_POLE 1

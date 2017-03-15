@@ -15,7 +15,6 @@ CartPole::CartPole(){}
 stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& tau)
 {
 
-    //cout << "cart_pole_dynamics" << endl;    
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
 
@@ -348,7 +347,6 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
     }else{
         stateVec_t cx_temp;
         if(debugging_print) TRACE_CART_POLE("compute cost derivative\n");
-
         for(unsigned int k=0;k<N-1;k++){
             cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
             costFunction->getcx()[k] = costFunction->getQ()*cx_temp;
@@ -358,11 +356,11 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
             costFunction->getcuu()[k] = costFunction->getR();
             
             // if(k == 49) {
-            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
-            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
-            //     std::cout << "cx[49]: " << cx[k] << std::endl;
-            //     std::cout << "cu[49]: " << cu[k] << std::endl;
-            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
+                // std::cout << "fxList[49]: " << fxList[k] << std::endl; 
+                // std::cout << "fuList[49]: " << fuList[k] << std::endl;   
+                // std::cout << "cx[49]: " << cx[k] << std::endl;
+                // std::cout << "cu[49]: " << cu[k] << std::endl;
+                // std::cout << "cxx[49]: " << costFunction->getcxx()[k] << std::endl;
             // }
         }
         if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
@@ -372,6 +370,10 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
         if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+
+        //cout << "xList[N-1]: " << xList[N-1] << endl;
+        //cout << "N::: " << N << endl;
+        //cout << "costFunction->getcx()[N-1]:: " << costFunction->getcx()[N-1] << endl;
 
         // the following useless matrices and scalars are set to Zero.
         for(unsigned int k=0;k<N;k++){

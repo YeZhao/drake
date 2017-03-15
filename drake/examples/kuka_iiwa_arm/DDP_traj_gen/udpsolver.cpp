@@ -89,15 +89,37 @@ void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsign
     updateduList.resize(N);
     costList.resize(N+1);
     costListNew.resize(N+1);
-    k.setZero();
-    K.setZero();
     kList.resize(N);
     KList.resize(N);
-    
-    FList.resize(N+1);
-    
+    FList.resize(N+1);    
     Vx.resize(N+1);
     Vxx.resize(N+1);
+
+    for(unsigned int i=0;i<N;i++){
+        xList[i].setZero();
+        uList[i].setZero();
+        uListFull[i].setZero();
+        updatedxList[i].setZero();
+        updateduList[i].setZero();
+        costList[i] = 0;
+        costListNew[i] = 0;
+        kList[i].setZero();
+        KList[i].setZero();
+        FList[i].setZero();    
+        Vx[i].setZero();
+        Vxx[i].setZero();
+    }
+    xList[N].setZero();
+    uListFull[N].setZero();
+    updatedxList[N].setZero();
+    costList[N] = 0;
+    costListNew[N] = 0;
+    FList[N].setZero();
+    Vx[N].setZero();
+    Vxx[N].setZero();
+
+    k.setZero();
+    K.setZero();
     dV.setZero();
 
     // parameters for line search
@@ -188,10 +210,33 @@ void UDPSolver::solveTrajectory()
             //only implement serial backtracking line-search
             for(int alpha_index = 0; alpha_index < Op.alphaList.size(); alpha_index++){
                 alpha = Op.alphaList[alpha_index];
+
+                // for(unsigned int i=0; i<kList.size();i++){
+                //     std::cout << "kList[i]: " << kList[i] << std::endl;
+                // }
+
+                // for(unsigned int i=0; i<KList.size();i++){
+                //     std::cout << "KList[i]: " << KList[i] << std::endl;
+                // }
+
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
-                std::cout << "alpha: " << alpha << std::endl;
+                //std::cout << "alpha: " << alpha << std::endl;
+                // std::cout << "uList[20]: " << uList[20] << std::endl;
+                // std::cout << "uList[40]: " << uList[40] << std::endl;
+                // std::cout << "uList[60]: " << uList[60] << std::endl;
+                // std::cout << "uList[80]: " << uList[80] << std::endl;
+                // std::cout << "uList[99]: " << uList[99] << std::endl;
+
+                // for(unsigned int i=0; i<costListNew.size();i++){
+                //     std::cout << "costListNew[i]: " << costListNew[i] << std::endl;
+                // }
+
+                // for(unsigned int i=0; i<costList.size();i++){
+                //     std::cout << "costList[i]: " << costList[i] << std::endl;
+                // }
+
                 //std::cout << "accumulate(costListNew): " << accumulate(costListNew.begin(), costListNew.end(), 0.0) << std::endl;
                 //std::cout << "accumulate(costList): " << accumulate(costList.begin(), costList.end(), 0.0) << std::endl;
                 //std::cout << "Op.dcost: " << Op.dcost << std::endl;
@@ -253,8 +298,12 @@ void UDPSolver::solveTrajectory()
             }
         }else { // no cost improvement
             // increase lambda
-            Op.dlambda= max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
-            Op.lambda= max(Op.lambda * Op.dlambda, Op.lambdaMin);
+            Op.dlambda = max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
+            Op.lambda = max(Op.lambda * Op.dlambda, Op.lambdaMin);
+
+            // cout << "no cost improvement: " << endl;
+            // cout << "Op.dlambda: " << Op.dlambda << endl;
+            // cout << "Op.lambda: " << Op.lambda << endl;
 
             // if(o->w_pen_fact2>1.0) {
             //     o->w_pen_l= min(o->w_pen_max_l, o->w_pen_l*o->w_pen_fact2);
@@ -375,6 +424,9 @@ void UDPSolver::doBackwardPass()
     Vxx[N] = costFunction->getcxx()[N];
     dV.setZero();
 
+    //cout << "Vx[N]: " << Vx[N] << endl;
+    //cout << "Vxx[N]: " << Vxx[N] << endl;
+
     Op.time_range1(iter) = 0;
     Op.time_range2(iter) = 0;
     // cout << "here: doBackwardPass" << endl;
@@ -484,6 +536,9 @@ void UDPSolver::doBackwardPass()
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
 
+        //cout << "match Op.lambda: " << Op.lambda << endl;
+
+
         QuuInv = QuuF.inverse();
 
         if(!isPositiveDefinite(Quu))
@@ -568,12 +623,15 @@ void UDPSolver::doForwardPass()
 {
     updatedxList[0] = Op.xInit;
     int nargout = 2;
-
     stateVec_t x_unused;
     x_unused.setZero();
     commandVec_t u_NAN;
     u_NAN << sqrt(-1.0);
     isUNan = 0;
+
+
+    //cout << "initFwdPassDone: " << initFwdPassDone << endl;
+    //cout << "NN: " << N << endl;
 
     //[TODO: to be optimized]
     if(!initFwdPassDone){
@@ -581,12 +639,18 @@ void UDPSolver::doForwardPass()
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
+            //cout << "updateduList[i]: " << updateduList[i] << endl;
+            //cout << "updatedxList[i]: " << updatedxList[i] << endl;
+
             dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costList[i] = costFunction->getc();
         }
         isUNan = 1;
         dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costList[N] = costFunction->getc();
+        //cout << "costList[N]:::::::: " << costList[N] << endl;
+        //cout << "updatedxList[i]: " << updatedxList[N] << endl;
+        
     }else{
         //TRACE("regular forward pass in STEP 3\n");
         for(unsigned int i=0;i<N;i++){
@@ -597,7 +661,7 @@ void UDPSolver::doForwardPass()
         isUNan = 1;
         dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costListNew[N] = costFunction->getc();
-        //cout << "costListNew[N]: " << costListNew[N] << endl;
+        //cout << "costListNew[N]::::::: " << costListNew[N] << endl;
 
     }
 }

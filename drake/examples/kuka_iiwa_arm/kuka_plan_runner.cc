@@ -46,7 +46,6 @@ using Eigen::Vector3d;
 using namespace std;
 using namespace Eigen;
 
-#define pi M_PI
 #define useILQRSolver 0
 #define useUDPSolver 1
 /* DDP trajectory generation */
@@ -133,10 +132,10 @@ class RobotPlanRunner {
     stateVec_t xinit,xgoal;
 
     xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-    xgoal << 0.0,pi/6,0.0,pi/6,0.0,pi/6,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+    xgoal << 0.0,pi/3,0.0,pi/2,0.0,pi/4,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
 
-    // xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-    // xgoal << 0.0,pi,0.0,0.0,0.0,0.0,0.0;
+    // xinit << 0.0,0.0,0.0,0.0;
+    // xgoal << 0.0,pi,0.0,0.0;
 
     double T = TimeHorizon;
     double dt = TimeStep;
@@ -172,7 +171,7 @@ class RobotPlanRunner {
     texec /= Num_run;
 
     cout << endl;
-    cout << "Number of iterations: " << lastTraj.iter << endl;
+    cout << "Number of iterations: " << lastTraj.iter + 1 << endl;
     cout << "Final cost: " << lastTraj.finalCost << endl;
     cout << "Final gradient: " << lastTraj.finalGrad << endl;
     cout << "Final lambda: " << lastTraj.finalLambda << endl;
@@ -186,6 +185,15 @@ class RobotPlanRunner {
     cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
     
     ofstream file("results.csv",ios::out | ios::trunc);
+
+    //debugging trajectory and control outputs
+    for(unsigned int i=0;i<=N;i++){
+      cout << "lastTraj.xList[i]:" << lastTraj.xList[i].transpose() << endl;
+    }
+    for(unsigned int i=0;i<=N;i++){
+      cout << "lastTraj.xList[i]:" << lastTraj.uList[i].transpose() << endl;
+    }
+
 
     if(file)
     {

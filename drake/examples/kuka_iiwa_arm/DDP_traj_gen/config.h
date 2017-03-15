@@ -13,8 +13,8 @@
 #define stateSize 14
 #define commandSize 7
 #define fullstatecommandSize 21
-#define TimeHorizon 1
-#define TimeStep 0.01
+#define TimeHorizon 0.1
+#define TimeStep 0.001
 
 namespace drake {
 namespace examples {
