@@ -6,6 +6,7 @@
 #include "config.h"
 #include "cost_function_kuka_arm.h"
 
+#include "drake/common/drake_path.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
