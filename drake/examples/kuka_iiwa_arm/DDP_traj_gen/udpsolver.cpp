@@ -13,7 +13,7 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-UDPSolver::UDPSolver(CartPole& myDynamicModel, CostFunctionCartPole& myCostFunction, bool fullDDP, bool QPBox)
+UDPSolver::UDPSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction, bool fullDDP, bool QPBox)
 {
     //TRACE_UDP("initialize dynamic model and cost function\n");
     dynamicModel = &myDynamicModel;
@@ -166,7 +166,7 @@ void UDPSolver::solveTrajectory()
             uListFull[uList.size()] = u_NAN;
 
             gettimeofday(&tbegin_time_deriv,NULL);
-            dynamicModel->cart_pole_dyn_cst_udp(nargout, xList, uListFull, FList, costFunction);
+            dynamicModel->kuka_arm_dyn_cst_udp(nargout, xList, uListFull, FList, costFunction);
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000.0*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000.0)))/1000.0;
             newDeriv = 0;
@@ -558,21 +558,21 @@ void UDPSolver::doForwardPass()
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
-            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
+            dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costList[i] = costFunction->getc();
         }
         isUNan = 1;
-        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
+        dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costList[N] = costFunction->getc();        
     }else{
         //TRACE("forward pass in STEP 3\n");
         for(unsigned int i=0;i<N;i++){
             updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
-            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
+            dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costListNew[i] = costFunction->getc();
         }
         isUNan = 1;
-        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
+        dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costListNew[N] = costFunction->getc();
     }
 }
@@ -612,16 +612,16 @@ bool UDPSolver::isPositiveDefinite(const commandMat_t & Quu)
 
 stateVec_t UDPSolver::rungeKuttaStepBackward(stateAug_t augX, double& dt){
     // Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    Xdot1 = dynamicModel->cart_pole_dynamics(augX.head(stateSize), augX.tail(commandSize));
-    Xdot2 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, augX.tail(commandSize));
-    Xdot3 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2, augX.tail(commandSize));
-    Xdot4 = dynamicModel->cart_pole_dynamics(augX.head(stateSize) - dt*Xdot3, augX.tail(commandSize));
+    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    Xdot2 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, augX.tail(commandSize));
+    Xdot3 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2, augX.tail(commandSize));
+    Xdot4 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - dt*Xdot3, augX.tail(commandSize));
     return augX.head(stateSize) - (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
 }
 
 stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt){
     // Backwards Euler step from X_{k+1} to X_k
-    Xdot1 = dynamicModel->cart_pole_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
     return augX.head(stateSize) - dt*Xdot1;
 }
 

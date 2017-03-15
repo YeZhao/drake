@@ -13,7 +13,7 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
     
-ILQRSolver::ILQRSolver(CartPole& myDynamicModel, CostFunctionCartPole& myCostFunction, bool fullDDP, bool QPBox)
+ILQRSolver::ILQRSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction, bool fullDDP, bool QPBox)
 {
     //TRACE("initialize dynamic model and cost function\n");
     dynamicModel = &myDynamicModel;
@@ -129,8 +129,8 @@ void ILQRSolver::solveTrajectory()
             // cout << "uListFull[10]: " << uListFull[10] << endl;
 
             gettimeofday(&tbegin_time_deriv,NULL);
-            dynamicModel->cart_pole_dyn_cst_ilqr(nargout, xList, uListFull, FList, costFunction);
-            //dynamicModel->cart_pole_dyn_cst(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
+            dynamicModel->kuka_arm_dyn_cst_ilqr(nargout, xList, uListFull, FList, costFunction);
+            //dynamicModel->kuka_arm_dyn_cst(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
             //cout << "Op.time_derivative(iter): " << Op.time_derivative(iter) << endl;
@@ -526,11 +526,11 @@ void ILQRSolver::doForwardPass()
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i];
-            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
+            dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costList[i] = costFunction->getc();
         }
         isUNan = 1;
-        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
+        dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costList[N] = costFunction->getc();
     }else{
         // cout << "kList[5]: " << kList[5] << endl;
@@ -555,11 +555,11 @@ void ILQRSolver::doForwardPass()
             //     cout << "updateduList[i]: " << updateduList[i] << endl;
             //     cout << "updatedxList[i]: " << updatedxList[i] << endl;
             // }
-            dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
+            dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costListNew[i] = costFunction->getc();
         }
         isUNan = 1;
-        dynamicModel->cart_pole_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
+        dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costListNew[N] = costFunction->getc();
     }
 }

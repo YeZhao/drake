@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef COSTFUNCTIONCARTPOLE_H
-#define COSTFUNCTIONCARTPOLE_H
+#ifndef COSTFUNCTIONKUKAARM_H
+#define COSTFUNCTIONKUKAARM_H
 
 #include "config.h"
 #include <iostream>
@@ -15,10 +15,10 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-class CostFunctionCartPole
+class CostFunctionKukaArm
 {
 public:
-    CostFunctionCartPole();
+    CostFunctionKukaArm();
 private:
 protected:
 	stateMat_t Q;
@@ -65,4 +65,4 @@ public:
 }  // namespace examples
 }  // namespace drake
 
-#endif // COSTFUNCTIONCARTPOLE_H
+#endif // COSTFUNCTIONKUKAARM_H

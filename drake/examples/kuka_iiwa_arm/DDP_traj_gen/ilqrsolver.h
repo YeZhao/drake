@@ -4,8 +4,8 @@
 #define ILQRSOLVER_H
 
 #include "config.h"
-#include "cart_pole.h"
-#include "cost_function_cart_pole.h"
+#include "kuka_arm.h"
+#include "cost_function_kuka_arm.h"
 #include <numeric>
 #include <sys/time.h>
 
@@ -102,14 +102,14 @@ public:
     };
 
 public:
-    ILQRSolver(CartPole& myDynamicModel, CostFunctionCartPole& myCostFunction, bool fullDDP=0,bool QPBox=0);
+    ILQRSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction, bool fullDDP=0,bool QPBox=0);
 private:
 protected:
     // attributes //
 public:
 private:
-    CartPole* dynamicModel;
-    CostFunctionCartPole* costFunction;
+    KukaArm* dynamicModel;
+    CostFunctionKukaArm* costFunction;
     unsigned int stateNb;
     unsigned int commandNb;
     stateVec_t xInit;

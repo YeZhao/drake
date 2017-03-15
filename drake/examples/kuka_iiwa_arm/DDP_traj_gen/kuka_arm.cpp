@@ -1,13 +1,13 @@
-#include "cart_pole.h"
+#include "kuka_arm.h"
 
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-CartPole::CartPole(){}
+KukaArm::KukaArm(){}
 
-stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& tau)
+stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& tau)
 {
 
     q << X.head(stateSize/2);
@@ -33,17 +33,17 @@ stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t&
     return Xdot_new;
 }
 
-void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, 
-                                CostFunctionCartPole*& costFunction){
+void KukaArm::kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, 
+                                CostFunctionKukaArm*& costFunction){
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
-    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+    if(debugging_print) TRACE_KUKA_ARM("initialize dimensions\n");
     unsigned int N = xList.size();
     
     costFunction->getc() = 0;
     AA.setZero();
     BB.setZero();
 
-    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+    if(debugging_print) TRACE_KUKA_ARM("compute cost function\n");
 
     scalar_t c_mat_to_scalar;
 
@@ -51,15 +51,15 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
             if(k == N-1){//isNanVec(uList[k])
-                if(debugging_print) TRACE_CART_POLE("before the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunction->getQf() * (xList[k] - xgoal);
                 costFunction->getc() += c_mat_to_scalar(0,0);
-                if(debugging_print) TRACE_CART_POLE("after the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update1\n");
             }else{
-                if(debugging_print) TRACE_CART_POLE("before the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update2\n");
                 FList[k] = update(nargout_update1, xList[k], uList[k], AA, BB);
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQ()*(xList[k] - xgoal);
-                if(debugging_print) TRACE_CART_POLE("after the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update2\n");
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunction->getR()*uList[k];
                 costFunction->getc() += c_mat_to_scalar(0,0);
             }
@@ -68,20 +68,20 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
         const int nargout_update2 = 3;
         for(unsigned int k=0;k<N;k++){
             if(k == N-1){//isNanVec(uList[k])
-                if(debugging_print) TRACE_CART_POLE("before the update3\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update3\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
                 costFunction->getc() += c_mat_to_scalar(0,0);
-                if(debugging_print) TRACE_CART_POLE("after the update3\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update3\n");
             }else{
-                if(debugging_print) TRACE_CART_POLE("before the update4\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update4\n");
                 FList[k] = update(nargout_update2, xList[k], uList[k], AA, BB);//assume three outputs, code needs to be optimized
-                if(debugging_print) TRACE_CART_POLE("before the update4-1\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update4-1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQ()*(xList[k] - xgoal);
-                if(debugging_print) TRACE_CART_POLE("after the update4\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update4\n");
 
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunction->getR()*uList[k];
                 costFunction->getc() += c_mat_to_scalar(0,0); // TODO: to be checked
-                if(debugging_print) TRACE_CART_POLE("after the update5\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update5\n");
                 
                 A_temp[k] = AA;
                 B_temp[k] = BB;
@@ -90,7 +90,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
 
         stateVec_t cx_temp;
         
-        if(debugging_print) TRACE_CART_POLE("compute dynamics and cost derivative\n");
+        if(debugging_print) TRACE_KUKA_ARM("compute dynamics and cost derivative\n");
 
         for(unsigned int k=0;k<N-1;k++){
             fxList[k] = A_temp[k];
@@ -103,7 +103,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
             costFunction->getcux()[k].setZero();
             costFunction->getcuu()[k] = costFunction->getR();            
         }
-        if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
+        if(debugging_print) TRACE_KUKA_ARM("update the final value of cost derivative \n");
 
         costFunction->getcx()[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);
         costFunction->getcu()[N-1] = costFunction->getR()*uList[N-1];
@@ -111,7 +111,7 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
 
-        if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+        if(debugging_print) TRACE_KUKA_ARM("set unused matrices to zero \n");
 
         // the following useless matrices are set to Zero.
         //fxx, fxu, fuu are not defined since never used
@@ -120,18 +120,18 @@ void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& x
         }    
         costFunction->getc() = 0;
     }
-    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+    if(debugging_print) TRACE_KUKA_ARM("finish kuka_arm_dyn_cst\n");
 }
 
-void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const bool& isUNan, stateVec_t& xList_next, CostFunctionCartPole*& costFunction){
-    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+void KukaArm::kuka_arm_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr, const bool& isUNan, stateVec_t& xList_next, CostFunctionKukaArm*& costFunction){
+    if(debugging_print) TRACE_KUKA_ARM("initialize dimensions\n");
     unsigned int N = xList_curr.cols();
 
     costFunction->getc() = 0;
     AA.setZero();
     BB.setZero();
 
-    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+    if(debugging_print) TRACE_KUKA_ARM("compute cost function\n");
 
     scalar_t c_mat_to_scalar;
     xList_next.setZero();
@@ -139,48 +139,48 @@ void CartPole::cart_pole_dyn_cst_min_output(const int& nargout, const double& dt
     const int nargout_update1 = 1;
     for(unsigned int k=0;k<N;k++){
         if (isUNan){ 
-            if(debugging_print) TRACE_CART_POLE("before the update1\n");
+            if(debugging_print) TRACE_KUKA_ARM("before the update1\n");
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose()) * costFunction->getQf() * (xList_curr - xgoal);
             costFunction->getc() += c_mat_to_scalar(0,0);
-            if(debugging_print) TRACE_CART_POLE("after the update1\n");
+            if(debugging_print) TRACE_KUKA_ARM("after the update1\n");
         }else{
-            if(debugging_print) TRACE_CART_POLE("before the update2\n");
+            if(debugging_print) TRACE_KUKA_ARM("before the update2\n");
             xList_next = update(nargout_update1, xList_curr, uList_curr, AA, BB);
             c_mat_to_scalar = 0.5*(xList_curr.transpose() - xgoal.transpose())*costFunction->getQ()*(xList_curr - xgoal);
-            if(debugging_print) TRACE_CART_POLE("after the update2\n");
+            if(debugging_print) TRACE_KUKA_ARM("after the update2\n");
             c_mat_to_scalar += 0.5*uList_curr.transpose()*costFunction->getR()*uList_curr;
             costFunction->getc() += c_mat_to_scalar(0,0);
         }
     }
-    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+    if(debugging_print) TRACE_KUKA_ARM("finish kuka_arm_dyn_cst\n");
 }
 
-void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList,
-                                CostFunctionCartPole*& costFunction){
+void KukaArm::kuka_arm_dyn_cst_v3(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, stateTensTab_t& fxxList, stateTensTab_t& fxuList, stateR_commandC_Tens_t& fuuList,
+                                CostFunctionKukaArm*& costFunction){
     // // for a positive-definite quadratic, no control cost (indicated by the iLQG function using nans), is equivalent to u=0
-    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+    if(debugging_print) TRACE_KUKA_ARM("initialize dimensions\n");
     unsigned int N = xList.size();//[TODO: to be checked]
     
     costFunction->getc() = 0;
     AA.setZero();
     BB.setZero();
 
-    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+    if(debugging_print) TRACE_KUKA_ARM("compute cost function\n");
 
     scalar_t c_mat_to_scalar;
     if(nargout == 2){
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
             if (k == N-1){//[TODO: to be double checked, original condition is if(isNanVec(uList[k])){}]
-                if(debugging_print) TRACE_CART_POLE("before the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunction->getQf() * (xList[k] - xgoal);
                 costFunction->getc() += c_mat_to_scalar(0,0);
-                if(debugging_print) TRACE_CART_POLE("after the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update1\n");
             }else{
-                if(debugging_print) TRACE_CART_POLE("before the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update2\n");
                 FList[k] = update(nargout_update1, xList[k], uList[k], AA, BB);
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQ()*(xList[k] - xgoal);
-                if(debugging_print) TRACE_CART_POLE("after the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update2\n");
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunction->getR()*uList[k];
                 costFunction->getc() += c_mat_to_scalar(0,0);
             }
@@ -189,12 +189,12 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
         const int nargout_update2 = 1;
         for(unsigned int k=0;k<N;k++){
             if (k == N-1){ //[TODO: to be double checked, original condition is if(isNanVec(uList[k])){}]
-                if(debugging_print) TRACE_CART_POLE("before the update3\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update3\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQf()*(xList[k] - xgoal);
                 costFunction->getc() += c_mat_to_scalar(0,0);
-                if(debugging_print) TRACE_CART_POLE("after the update3\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update3\n");
             }else{
-                if(debugging_print) TRACE_CART_POLE("before the update4\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update4\n");
                 FList[k] = update(nargout_update2, xList[k], uList[k], AA, BB);//assume one output, code needs to be optimized
                 grad(xList[k], uList[k], AA, BB);
                 hessian(xList[k], uList[k],fxx,fxu,fuu);
@@ -205,13 +205,13 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
                     fuuList[j][k] = fuu[j];
                 }
                 
-                if(debugging_print) TRACE_CART_POLE("before the update4-1\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update4-1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQ()*(xList[k] - xgoal);
-                if(debugging_print) TRACE_CART_POLE("after the update4\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update4\n");
 
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunction->getR()*uList[k];
                 costFunction->getc() += c_mat_to_scalar(0,0); // TODO: to be checked
-                if(debugging_print) TRACE_CART_POLE("after the update5\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update5\n");
                 
                 A_temp[k] = AA;
                 B_temp[k] = BB;
@@ -220,7 +220,7 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
 
         stateVec_t cx_temp;
         
-        if(debugging_print) TRACE_CART_POLE("compute dynamics and cost derivative\n");
+        if(debugging_print) TRACE_KUKA_ARM("compute dynamics and cost derivative\n");
 
         for(unsigned int k=0;k<N-1;k++){
             fxList[k] = A_temp[k];
@@ -242,7 +242,7 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
             // }
 
         }
-        if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
+        if(debugging_print) TRACE_KUKA_ARM("update the final value of cost derivative \n");
 
         costFunction->getcx()[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);//[TODO: double check whether there is - xgoal]
         costFunction->getcu()[N-1] = costFunction->getR()*uList[N-1];
@@ -250,7 +250,7 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
 
-        if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+        if(debugging_print) TRACE_KUKA_ARM("set unused matrices to zero \n");
 
         // the following useless matrices and scalars are set to Zero.
         for(unsigned int k=0;k<N;k++){
@@ -258,18 +258,18 @@ void CartPole::cart_pole_dyn_cst_v3(const int& nargout, const stateVecTab_t& xLi
         }
         costFunction->getc() = 0;
     }
-    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+    if(debugging_print) TRACE_KUKA_ARM("finish kuka_arm_dyn_cst\n");
 }
 
-void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList,
-                                CostFunctionCartPole*& costFunction){
-    if(debugging_print) TRACE_CART_POLE("initialize dimensions\n");
+void KukaArm::kuka_arm_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList,
+                                CostFunctionKukaArm*& costFunction){
+    if(debugging_print) TRACE_KUKA_ARM("initialize dimensions\n");
     unsigned int N = xList.size();
     
     costFunction->getc() = 0;
     AA.setZero();
     BB.setZero();
-    if(debugging_print) TRACE_CART_POLE("compute cost function\n");
+    if(debugging_print) TRACE_KUKA_ARM("compute cost function\n");
 
     scalar_t c_mat_to_scalar;
     c_mat_to_scalar.setZero();
@@ -278,22 +278,22 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
         const int nargout_update1 = 3;        
         for(unsigned int k=0;k<N;k++){
             if (k == N-1){
-                if(debugging_print) TRACE_CART_POLE("before the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update1\n");
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose()) * costFunction->getQf() * (xList[k] - xgoal);
                 costFunction->getc() += c_mat_to_scalar(0,0);
-                if(debugging_print) TRACE_CART_POLE("after the update1\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update1\n");
             }else{
-                if(debugging_print) TRACE_CART_POLE("before the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("before the update2\n");
                 FList[k] = update(nargout_update1, xList[k], uList[k], AA, BB);
                 c_mat_to_scalar = 0.5*(xList[k].transpose() - xgoal.transpose())*costFunction->getQ()*(xList[k] - xgoal);
-                if(debugging_print) TRACE_CART_POLE("after the update2\n");
+                if(debugging_print) TRACE_KUKA_ARM("after the update2\n");
                 c_mat_to_scalar += 0.5*uList[k].transpose()*costFunction->getR()*uList[k];
                 costFunction->getc() += c_mat_to_scalar(0,0);
             }
         }
     }else{
         stateVec_t cx_temp;
-        if(debugging_print) TRACE_CART_POLE("compute cost derivative\n");
+        if(debugging_print) TRACE_KUKA_ARM("compute cost derivative\n");
         for(unsigned int k=0;k<N-1;k++){
             cx_temp << xList[k](0,0)-xgoal(0), xList[k](1,0)-xgoal(1), xList[k](2,0)-xgoal(2), xList[k](3,0)-xgoal(3);
             costFunction->getcx()[k] = costFunction->getQ()*cx_temp;
@@ -310,13 +310,13 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
                 // std::cout << "cxx[49]: " << costFunction->getcxx()[k] << std::endl;
             // }
         }
-        if(debugging_print) TRACE_CART_POLE("update the final value of cost derivative \n");
+        if(debugging_print) TRACE_KUKA_ARM("update the final value of cost derivative \n");
         costFunction->getcx()[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);
         costFunction->getcu()[N-1] = costFunction->getR()*uList[N-1];
         costFunction->getcxx()[N-1] = costFunction->getQf();
         costFunction->getcux()[N-1].setZero();
         costFunction->getcuu()[N-1] = costFunction->getR();
-        if(debugging_print) TRACE_CART_POLE("set unused matrices to zero \n");
+        if(debugging_print) TRACE_KUKA_ARM("set unused matrices to zero \n");
 
         // the following useless matrices and scalars are set to Zero.
         for(unsigned int k=0;k<N;k++){
@@ -324,20 +324,20 @@ void CartPole::cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xL
         }
         costFunction->getc() = 0;
     }
-    if(debugging_print) TRACE_CART_POLE("finish cart_pole_dyn_cst\n");
+    if(debugging_print) TRACE_KUKA_ARM("finish kuka_arm_dyn_cst\n");
 }
 
-stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
+stateVec_t KukaArm::update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
     // 4th-order Runge-Kutta step
-    if(debugging_print) TRACE_CART_POLE("update: 4th-order Runge-Kutta step\n");
-    Xdot1 = cart_pole_dynamics(X, U);
-    Xdot2 = cart_pole_dynamics(X + 0.5*dt*Xdot1, U);
-    Xdot3 = cart_pole_dynamics(X + 0.5*dt*Xdot2, U);
-    Xdot4 = cart_pole_dynamics(X + dt*Xdot3, U);
+    if(debugging_print) TRACE_KUKA_ARM("update: 4th-order Runge-Kutta step\n");
+    Xdot1 = kuka_arm_dynamics(X, U);
+    Xdot2 = kuka_arm_dynamics(X + 0.5*dt*Xdot1, U);
+    Xdot3 = kuka_arm_dynamics(X + 0.5*dt*Xdot2, U);
+    Xdot4 = kuka_arm_dynamics(X + dt*Xdot3, U);
     stateVec_t X_new;
     X_new = X + (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
     
-    if(debugging_print) TRACE_CART_POLE("update: X_new\n");
+    if(debugging_print) TRACE_KUKA_ARM("update: X_new\n");
 
     if(nargout > 1){
         unsigned int n = X.size();
@@ -352,49 +352,49 @@ stateVec_t CartPole::update(const int& nargout, const stateVec_t& X, const comma
         Du = delta*Du;
 
         for(unsigned int i=0;i<n;i++){
-            Xp1 = cart_pole_dynamics(X+Dx.col(i),U);
-            Xm1 = cart_pole_dynamics(X-Dx.col(i),U);
+            Xp1 = kuka_arm_dynamics(X+Dx.col(i),U);
+            Xm1 = kuka_arm_dynamics(X-Dx.col(i),U);
             A1.col(i) = (Xp1 - Xm1)/(2*delta);
 
-            Xp2 = cart_pole_dynamics(X+0.5*dt*Xdot1+Dx.col(i),U);
-            Xm2 = cart_pole_dynamics(X+0.5*dt*Xdot1-Dx.col(i),U);
+            Xp2 = kuka_arm_dynamics(X+0.5*dt*Xdot1+Dx.col(i),U);
+            Xm2 = kuka_arm_dynamics(X+0.5*dt*Xdot1-Dx.col(i),U);
             A2.col(i) = (Xp2 - Xm2)/(2*delta);
 
-            Xp3 = cart_pole_dynamics(X+0.5*dt*Xdot2+Dx.col(i),U);
-            Xm3 = cart_pole_dynamics(X+0.5*dt*Xdot2-Dx.col(i),U);
+            Xp3 = kuka_arm_dynamics(X+0.5*dt*Xdot2+Dx.col(i),U);
+            Xm3 = kuka_arm_dynamics(X+0.5*dt*Xdot2-Dx.col(i),U);
             A3.col(i) = (Xp3 - Xm3)/(2*delta);
 
-            Xp4 = cart_pole_dynamics(X+0.5*dt*Xdot3+Dx.col(i),U);
-            Xm4 = cart_pole_dynamics(X+0.5*dt*Xdot3-Dx.col(i),U);
+            Xp4 = kuka_arm_dynamics(X+0.5*dt*Xdot3+Dx.col(i),U);
+            Xm4 = kuka_arm_dynamics(X+0.5*dt*Xdot3-Dx.col(i),U);
             A4.col(i) = (Xp4 - Xm4)/(2*delta);
         }
 
         for(unsigned int i=0;i<m;i++){
-            Xp1 = cart_pole_dynamics(X,U+Du.col(i));
-            Xm1 = cart_pole_dynamics(X,U-Du.col(i));
+            Xp1 = kuka_arm_dynamics(X,U+Du.col(i));
+            Xm1 = kuka_arm_dynamics(X,U-Du.col(i));
             B1.col(i) = (Xp1 - Xm1)/(2*delta);
 
-            Xp2 = cart_pole_dynamics(X+0.5*dt*Xdot1,U+Du.col(i));
-            Xm2 = cart_pole_dynamics(X+0.5*dt*Xdot1,U-Du.col(i));
+            Xp2 = kuka_arm_dynamics(X+0.5*dt*Xdot1,U+Du.col(i));
+            Xm2 = kuka_arm_dynamics(X+0.5*dt*Xdot1,U-Du.col(i));
             B2.col(i) = (Xp2 - Xm2)/(2*delta);
 
-            Xp3 = cart_pole_dynamics(X+0.5*dt*Xdot2,U+Du.col(i));
-            Xm3 = cart_pole_dynamics(X+0.5*dt*Xdot2,U-Du.col(i));
+            Xp3 = kuka_arm_dynamics(X+0.5*dt*Xdot2,U+Du.col(i));
+            Xm3 = kuka_arm_dynamics(X+0.5*dt*Xdot2,U-Du.col(i));
             B3.col(i) = (Xp3 - Xm3)/(2*delta);
 
-            Xp4 = cart_pole_dynamics(X+0.5*dt*Xdot3,U+Du.col(i));
-            Xm4 = cart_pole_dynamics(X+0.5*dt*Xdot3,U-Du.col(i));
+            Xp4 = kuka_arm_dynamics(X+0.5*dt*Xdot3,U+Du.col(i));
+            Xm4 = kuka_arm_dynamics(X+0.5*dt*Xdot3,U-Du.col(i));
             B4.col(i) = (Xp4 - Xm4)/(2*delta);
         }
 
         A = (IdentityMat + A4 * dt/6)*(IdentityMat + A3 * dt/3)*(IdentityMat + A2 * dt/3)*(IdentityMat + A1 * dt/6);
         B = B4 * dt/6 + (IdentityMat + A4 * dt/6) * B3 * dt/3 + (IdentityMat + A4 * dt/6)*(IdentityMat + A3 * dt/3)* B2 * dt/3 + (IdentityMat + (dt/6)*A4)*(IdentityMat + (dt/3)*A3)*(IdentityMat + (dt/3)*A2)*(dt/6)*B1;
     }
-    if(debugging_print) TRACE_CART_POLE("update: X_new\n");
+    if(debugging_print) TRACE_KUKA_ARM("update: X_new\n");
     return X_new;
 }
 
-void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
+void KukaArm::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
     unsigned int n = X.size();
     unsigned int m = U.size();
 
@@ -423,7 +423,7 @@ void CartPole::grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, s
     }
 }
 
-void CartPole::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
+void KukaArm::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu){
     unsigned int n = X.size();
     unsigned int m = U.size();
 
@@ -467,32 +467,32 @@ void CartPole::hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& 
     }
 }
 
-unsigned int CartPole::getStateNb()
+unsigned int KukaArm::getStateNb()
 {
     return stateNb;
 }
 
-unsigned int CartPole::getCommandNb()
+unsigned int KukaArm::getCommandNb()
 {
     return commandNb;
 }
 
-commandVec_t& CartPole::getLowerCommandBounds()
+commandVec_t& KukaArm::getLowerCommandBounds()
 {
     return lowerCommandBounds;
 }
 
-commandVec_t& CartPole::getUpperCommandBounds()
+commandVec_t& KukaArm::getUpperCommandBounds()
 {
     return upperCommandBounds;
 }
 
-stateMatTab_t& CartPole::getfxList()
+stateMatTab_t& KukaArm::getfxList()
 {
     return fxList;
 }
 
-stateR_commandC_tab_t& CartPole::getfuList()
+stateR_commandC_tab_t& KukaArm::getfuList()
 {
     return fuList;
 }

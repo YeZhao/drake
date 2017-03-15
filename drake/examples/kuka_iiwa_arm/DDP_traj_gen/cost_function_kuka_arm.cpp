@@ -1,11 +1,11 @@
-#include "cost_function_cart_pole.h"
+#include "cost_function_kuka_arm.h"
 
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 	
-CostFunctionCartPole::CostFunctionCartPole()
+CostFunctionKukaArm::CostFunctionKukaArm()
 {
     
     // Q << .1,0.0,0.0,0.0,
@@ -34,47 +34,47 @@ CostFunctionCartPole::CostFunctionCartPole()
     cuu_new.resize(N+1);
 }
 
-stateMat_t& CostFunctionCartPole::getQ()
+stateMat_t& CostFunctionKukaArm::getQ()
 {
     return Q;
 }
 
-stateMat_t& CostFunctionCartPole::getQf()
+stateMat_t& CostFunctionKukaArm::getQf()
 {
     return Qf;
 }
 
-commandMat_t& CostFunctionCartPole::getR()
+commandMat_t& CostFunctionKukaArm::getR()
 {
     return R;
 }
 
-stateVecTab_t& CostFunctionCartPole::getcx()
+stateVecTab_t& CostFunctionKukaArm::getcx()
 {
     return cx_new;
 }
 
-commandVecTab_t& CostFunctionCartPole::getcu()
+commandVecTab_t& CostFunctionKukaArm::getcu()
 {
     return cu_new;
 }
 
-stateMatTab_t& CostFunctionCartPole::getcxx()
+stateMatTab_t& CostFunctionKukaArm::getcxx()
 {
     return cxx_new;
 }
 
-commandR_stateC_tab_t& CostFunctionCartPole::getcux()
+commandR_stateC_tab_t& CostFunctionKukaArm::getcux()
 {
     return cux_new;
 }
 
-commandMatTab_t& CostFunctionCartPole::getcuu()
+commandMatTab_t& CostFunctionKukaArm::getcuu()
 {
     return cuu_new;
 }
 
-double& CostFunctionCartPole::getc()
+double& CostFunctionKukaArm::getc()
 {
     return c_new;
 }

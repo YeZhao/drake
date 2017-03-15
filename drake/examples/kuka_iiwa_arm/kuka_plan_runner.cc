@@ -37,8 +37,8 @@ using Eigen::Vector3d;
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/config.h"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/ilqrsolver.cpp"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/udpsolver.cpp"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cart_pole.cpp"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_cart_pole.cpp"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/kuka_arm.cpp"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_kuka_arm.cpp"
 
 #include <time.h>
 #include <sys/time.h>
@@ -145,27 +145,27 @@ class RobotPlanRunner {
     unsigned int iterMax = 150;
     #if useILQRSolver
         ILQRSolver::traj lastTraj;
-        CartPole cartPoleModel(dt, N, xgoal);
-        CostFunctionCartPole costCartPole;
-        ILQRSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-        testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
+        KukaArm KukaArmModel(dt, N, xgoal);
+        CostFunctionKukaArm costKukaArm;
+        ILQRSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
+        testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
     #endif
     #if useUDPSolver
         double scale = 0.01;
         UDPSolver::traj lastTraj;
-        CartPole cartPoleModel(dt, N, xgoal);
-        CostFunctionCartPole costCartPole;
-        UDPSolver testSolverCartPole(cartPoleModel,costCartPole,ENABLE_FULLDDP,ENABLE_QPBOX);
-        testSolverCartPole.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
+        KukaArm KukaArmModel(dt, N, xgoal);
+        CostFunctionKukaArm costKukaArm;
+        UDPSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
+        testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
     #endif
 
     // run one or multiple times and then average
     unsigned int Num_run = 1;
     gettimeofday(&tbegin,NULL);
-    for(unsigned int i=0;i<Num_run;i++) testSolverCartPole.solveTrajectory();
+    for(unsigned int i=0;i<Num_run;i++) testSolverKukaArm.solveTrajectory();
     gettimeofday(&tend,NULL);
 
-    lastTraj = testSolverCartPole.getLastSolvedTrajectory();
+    lastTraj = testSolverKukaArm.getLastSolvedTrajectory();
 
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
     texec /= Num_run;
