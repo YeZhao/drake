@@ -12,62 +12,65 @@ const double CartPole::g=9.81;
 
 CartPole::CartPole(){}
 
-stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U)
+stateVec_t CartPole::cart_pole_dynamics(const stateVec_t& X, const commandVec_t& tau)
 {
 
-    //cout << "cart_pole_dynamics" << endl;
+    //cout << "cart_pole_dynamics" << endl;    
+    q << X.head(stateSize/2);
+    qd << X.tail(stateSize/2);
 
-    int kNumDof = 7;
-    Eigen::VectorXd torque_command(kNumDof);
-    Eigen::VectorXd joint_accel_desired(kNumDof);
-    Eigen::VectorXd q(kNumDof);
-    Eigen::VectorXd qd(kNumDof);
-    joint_accel_desired.setZero();
-    q.setZero();
-    qd.setZero();
-
-    if(iiwa_time_ == 1){
+    if(initial_phase_flag_ == 1){
         tree_ = std::make_unique<RigidBodyTree<double>>();
         parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
             GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
         multibody::joints::kFixed, tree_.get());
-        iiwa_time_ = 0;          
+        initial_phase_flag_ = 0;          
     }
-   
+    
     // Computing inverse dynamics torque command
-    KinematicsCache<double> cache_ = tree_->doKinematics(q, qd);
+    KinematicsCache<double> cache_ = tree_->doKinematics(q, qd, true);
     const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
     MatrixX<double> M_ = tree_->massMatrix(cache_); // Inertial matrix
 
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
-    VectorX<double> bias_term_ = tree_->dynamicsBiasTerm(cache_, f_ext);  ///< Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_ = tree_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
+    vd = M_.inverse()*(tau - bias_term_);
+    Xdot_new << qd, vd; 
+    
+    // cout << "-----------------" << endl;
+    // cout << "q: " << q << endl;
+    // cout << "qd: " << qd << endl;
 
-    torque_command = tree_->inverseDynamics(cache_, no_external_wrenches, joint_accel_desired, false);
+    // cout << "tau: " << tau << endl;
+    // cout << "bias_term_: " << bias_term_ << endl;
 
-    vd = M_.inverse()*(torque_command - bias_term_);
-    X_new << X.head(stateSize/2), vd; 
-    //cout << "X_new: " << X_new.size() << endl;
-    //cout << "vd: " << vd.size() << endl;
-    //cout << "cart_pole_dynamics2" << endl;
-    /*
-    H << mc + mp, mp*l*cos(X(1,0)),
-         mp*l*cos(X(1,0)), mp*pow(l,2.0);
-    C << 0, -mp*X(3,0)*l*sin(X(1,0)),
-         0, 0;
-    G << 0,
-         mp*g*l*sin(X(1,0));
-    Bu << 1,
-         0;     
-    velocity << X(2),
-                X(3);
-    accel = - H.inverse() * (C*velocity + G - Bu*U);
+    // cout << "Xdot_new: " << Xdot_new << endl;
+    // cout << "M_.inverse(): " << M_.inverse() << endl;
 
-    X_new << velocity(0),
-             velocity(1),
-             accel(0),
-             accel(1);
-    */
-    return X_new;
+
+    // H << mc + mp, mp*l*cos(X(1,0)),
+    //      mp*l*cos(X(1,0)), mp*pow(l,2.0);
+    // C << 0, -mp*X(3,0)*l*sin(X(1,0)),
+    //      0, 0;
+    // G << 0,
+    //      mp*g*l*sin(X(1,0));
+    // Bu << 1,
+    //      0;     
+    // velocity << X(2),
+    //             X(3);
+    // accel = - H.inverse() * (C*velocity + G - Bu*tau);
+
+    // Xdot_new << velocity(0),
+    //             velocity(1),
+    //             accel(0),
+    //             accel(1);
+
+    // // cout << "-----------------" << endl;
+    // cout << "tau: " << tau << endl;
+    // cout << "Xdot_new: " << Xdot_new << endl;
+    // cout << "H.inverse(): " << H.inverse() << endl;
+
+    return Xdot_new;
 }
 
 void CartPole::cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, 

@@ -79,7 +79,7 @@ public:
         Bu.setZero();
         velocity.setZero();
         accel.setZero();
-        X_new.setZero();
+        Xdot_new.setZero();
 
         A1.setZero();
         A2.setZero();
@@ -107,7 +107,10 @@ public:
         B_temp.resize(N);
         
         debugging_print = 0;
-        iiwa_time_ = 1;
+        
+        initial_phase_flag_ = 1;
+        q.resize(stateSize/2);
+        qd.resize(stateSize/2);
     }
 
     ~CartPole(){};
@@ -136,7 +139,7 @@ public:
 private:
     double dt;
     unsigned int N;
-    bool iiwa_time_;
+    bool initial_phase_flag_;
 public:
     static const double mc, mp, l, g;
 
@@ -158,9 +161,9 @@ private:
     stateR_half_commandC_t Bu;
     stateVec_half_t velocity;
     stateVec_half_t accel;
-    stateVec_t X_new;
+    stateVec_t Xdot_new;
     stateVec_half_t vd;
-    
+
     stateVec_t Xdot1, Xdot2, Xdot3, Xdot4;
     stateMat_t A1, A2, A3, A4, IdentityMat;
     stateR_commandC_t B1, B2, B3, B4;
@@ -174,10 +177,12 @@ private:
     
     struct traj_test lastTraj;
     std::unique_ptr<RigidBodyTree<double>> tree_{nullptr};
+    Eigen::VectorXd q;
+    Eigen::VectorXd qd;
 protected:
     // methods
 public:
-    stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& U);
+    stateVec_t cart_pole_dynamics(const stateVec_t& X, const commandVec_t& tau);
     void cart_pole_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionCartPole*& costFunction);
     void cart_pole_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr,  const bool& isUNan, stateVec_t& xList_next, CostFunctionCartPole*& costFunction);
     void cart_pole_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionCartPole*& costFunction);

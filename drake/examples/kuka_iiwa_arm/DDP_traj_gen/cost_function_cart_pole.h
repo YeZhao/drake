@@ -25,6 +25,10 @@ protected:
 	stateMat_t Qf;
 	commandMat_t R;
 
+	stateVec_t QDiagElementVec;
+	stateVec_t QfDiagElementVec;
+	commandVec_t RDiagElementVec;
+
 	stateVecTab_t cx_new;
 	commandVecTab_t cu_new; 
 	stateMatTab_t cxx_new; 

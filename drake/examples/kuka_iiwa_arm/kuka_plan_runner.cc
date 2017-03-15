@@ -132,8 +132,11 @@ class RobotPlanRunner {
     double texec = 0.0;
     stateVec_t xinit,xgoal;
 
-    xinit << 0.0,0.0,0.0,0.0;
-    xgoal << 0.0,pi,0.0,0.0;
+    xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+    xgoal << 0.0,pi/6,0.0,pi/6,0.0,pi/6,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+
+    // xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+    // xgoal << 0.0,pi,0.0,0.0,0.0,0.0,0.0;
 
     double T = TimeHorizon;
     double dt = TimeStep;

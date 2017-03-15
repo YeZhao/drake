@@ -18,9 +18,18 @@ CostFunctionCartPole::CostFunctionCartPole()
           0.0,0.0,0.0,1000;
     R << 0.01;
     */
-    Q = .1*stateMat_t::Identity();
-    Qf = 1000*stateMat_t::Identity();
-    R = .01*commandMat_t::Identity();
+    
+    // QDiagElementVec << .1, .1, .1, .1, .1, .1, .1,   .2, .2, .2, .1, .1, .05, .05;
+    // QfDiagElementVec << 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0,    2000.0, 2000.0, 2000.0, 1000.0, 1000.0, 500.0, 500.0;
+    // RDiagElementVec << 0.005, 0.005, 0.007, 0.007, 0.02, 0.02, 0.05;
+
+    QDiagElementVec << 100, 100, 100, 100, 100, 100, 100,  10, 10, 10, 10, 10, 10, 10;
+    QfDiagElementVec << 500.0, 500.0, 500.0, 500.0, 500.0, 500.0, 500.0,    50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0;
+    RDiagElementVec << 0.005, 0.005, 0.007, 0.007, 0.02, 0.02, 0.05;
+
+    Q = QDiagElementVec.asDiagonal();
+    Qf = QfDiagElementVec.asDiagonal();
+    R = RDiagElementVec.asDiagonal();
 
     N = TimeHorizon/TimeStep;
     cx_new.resize(N+1);
