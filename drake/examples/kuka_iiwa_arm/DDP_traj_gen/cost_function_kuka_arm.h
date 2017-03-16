@@ -28,6 +28,10 @@ protected:
 	stateVec_t QDiagElementVec;
 	stateVec_t QfDiagElementVec;
 	commandVec_t RDiagElementVec;
+	double pos_scale;
+    double vel_scale;
+    double pos_f_scale;
+    double vel_f_scale;
 
 	stateVecTab_t cx_new;
 	commandVecTab_t cu_new; 

@@ -5,7 +5,91 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
+const double KukaArm::mc=10;
+const double KukaArm::mp=1;
+const double KukaArm::l=0.5;
+const double KukaArm::g=9.81;
+
 KukaArm::KukaArm(){}
+
+KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
+{
+    stateNb = 4;
+    commandNb = 1;
+    dt = iiwa_dt;
+    N = iiwa_N;
+    xgoal = iiwa_xgoal;
+    fxList.resize(N);
+    fuList.resize(N);
+
+    fxxList.resize(stateSize);
+    for(unsigned int i=0;i<stateSize;i++)
+        fxxList[i].resize(N);
+    fxuList.resize(commandSize);
+    fuuList.resize(commandSize);
+    for(unsigned int i=0;i<commandSize;i++){
+        fxuList[i].resize(N);
+        fuuList[i].resize(N);
+    }
+
+    fxx[0].setZero();
+    fxx[1].setZero();
+    fxx[2].setZero();
+    fxx[3].setZero();
+    fuu[0].setZero();
+    fux[0].setZero();
+    fxu[0].setZero();
+
+    lowerCommandBounds << -50.0;
+    upperCommandBounds << 50.0;
+
+    H.setZero();
+    C.setZero();
+    G.setZero();
+    Bu.setZero();
+    velocity.setZero();
+    accel.setZero();
+    Xdot_new.setZero();
+
+    A1.setZero();
+    A2.setZero();
+    A3.setZero();
+    A4.setZero();
+    B1.setZero();
+    B2.setZero();
+    B3.setZero();
+    B4.setZero();
+    IdentityMat.setIdentity();
+
+    Xp1.setZero();
+    Xp2.setZero();
+    Xp3.setZero();
+    Xp4.setZero();
+
+    Xm1.setZero();
+    Xm2.setZero();
+    Xm3.setZero();
+    Xm4.setZero();
+
+    AA.setZero();
+    BB.setZero();
+    A_temp.resize(N);
+    B_temp.resize(N);
+    
+    debugging_print = 0;
+    
+    initial_phase_flag_ = 1;
+    q.resize(stateSize/2);
+    qd.resize(stateSize/2);
+
+    if(initial_phase_flag_ == 1){
+        robot_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_.get());
+        initial_phase_flag_ = 0;
+    }
+}
 
 stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& tau)
 {
@@ -13,23 +97,42 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
 
-    if(initial_phase_flag_ == 1){
-        tree_ = std::make_unique<RigidBodyTree<double>>();
-        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
-        multibody::joints::kFixed, tree_.get());
-        initial_phase_flag_ = 0;          
-    }
-    
-    KinematicsCache<double> cache_ = tree_->doKinematics(q, qd, true);
+    KinematicsCache<double> cache_ = robot_->doKinematics(q, qd, true);
     const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    MatrixX<double> M_ = tree_->massMatrix(cache_); // Inertial matrix
+    MatrixX<double> M_ = robot_->massMatrix(cache_); // Inertial matrix
 
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
-    VectorX<double> bias_term_ = tree_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_ = robot_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd; 
     
+    // cout << "-----------------" << endl;
+    // cout << "q: " << q << endl;
+    // cout << "qd: " << qd << endl;
+
+    // cout << "tau: " << tau << endl;
+    // cout << "bias_term_: " << bias_term_ << endl;
+
+    // cout << "Xdot_new: " << Xdot_new << endl;
+    // cout << "M_.inverse(): " << M_.inverse() << endl;
+
+    // H << mc + mp, mp*l*cos(X(1,0)),
+    //          mp*l*cos(X(1,0)), mp*pow(l,2.0);
+    // C << 0, -mp*X(3,0)*l*sin(X(1,0)),
+    //      0, 0;
+    // G << 0,
+    //      mp*g*l*sin(X(1,0));
+    // Bu << 1,
+    //      0;     
+    // velocity << X(2),
+    //             X(3);
+    // accel = - H.inverse() * (C*velocity + G - Bu*tau);
+
+    // Xdot_new << velocity(0),
+    //             velocity(1),
+    //             accel(0),
+    //             accel(1);
+
     return Xdot_new;
 }
 

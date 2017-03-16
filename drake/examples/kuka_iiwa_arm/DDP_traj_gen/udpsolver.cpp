@@ -13,13 +13,13 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-UDPSolver::UDPSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction, bool fullDDP, bool QPBox)
+UDPSolver::UDPSolver(KukaArm& iiwaDynamicModel, CostFunctionKukaArm& iiwaCostFunction, bool fullDDP, bool QPBox)
 {
     //TRACE_UDP("initialize dynamic model and cost function\n");
-    dynamicModel = &myDynamicModel;
-    costFunction = &myCostFunction;
-    stateNb = myDynamicModel.getStateNb();
-    commandNb = myDynamicModel.getCommandNb();
+    dynamicModel = &iiwaDynamicModel;
+    costFunction = &iiwaCostFunction;
+    stateNb = iiwaDynamicModel.getStateNb();
+    commandNb = iiwaDynamicModel.getCommandNb();
     enableQPBox = QPBox;
     enableFullDDP = fullDDP;
 
@@ -32,44 +32,40 @@ UDPSolver::UDPSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunctio
     // if(QPBox)
     // {
     //     qp = new QProblemB(commandNb);
-    //     Options myOptions;
-    //     myOptions.printLevel = PL_LOW;
-    //     myOptions.enableRegularisation = BT_TRUE;
-    //     myOptions.initialStatusBounds = ST_INACTIVE;
-    //     myOptions.numRefinementSteps = 1;
-    //     myOptions.enableCholeskyRefactorisation = 1;
-    //     qp->setOptions(myOptions);
+    //     Options iiwaOptions;
+    //     iiwaOptions.printLevel = PL_LOW;
+    //     iiwaOptions.enableRegularisation = BT_TRUE;
+    //     iiwaOptions.initialStatusBounds = ST_INACTIVE;
+    //     iiwaOptions.numRefinementSteps = 1;
+    //     iiwaOptions.enableCholeskyRefactorisation = 1;
+    //     qp->setOptions(iiwaOptions);
 
     //     xOpt = new real_t[commandNb];
-    //     lowerCommandBounds = myDynamicModel.getLowerCommandBounds();
-    //     upperCommandBounds = myDynamicModel.getUpperCommandBounds();
+    //     lowerCommandBounds = iiwaDynamicModel.getLowerCommandBounds();
+    //     upperCommandBounds = iiwaDynamicModel.getUpperCommandBounds();
     // }
 
     //tOptSet Op = INIT_OPTSET;
 }
 
-void UDPSolver::firstInitSolver(stateVec_t& myxInit, stateVec_t& myxgoal, unsigned int& myN,
-                       double& mydt, double& myscale, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad)
+void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, unsigned int& iiwaN,
+                       double& iiwadt, double& iiwascale, unsigned int& iiwamax_iter, double& iiwatolFun, double& iiwatolGrad)
 {
     // TODO: double check opt params
-    xInit = myxInit; // removed myxgoal. Double check whether this makes sense.
-    xgoal = myxgoal;
-    N = myN;
-    dt = mydt;
-    scale = myscale;
-
-    // Eigen::VectorXd default_alpha;
-    // default_alpha.setZero();
-    // default_alpha << 1.0, 0.5012, 0.2512, 0.1259, 0.0631, 0.0316, 0.0158, 0.0079, 0.0040, 0.0020, 0.0010;
+    xInit = iiwaxInit; // removed iiwaxgoal. Double check whether this makes sense.
+    xgoal = iiwaxgoal;
+    N = iiwaN;
+    dt = iiwadt;
+    scale = iiwascale;
 
     //TRACE_UDP("initialize option parameters\n");
     //Op = INIT_OPTSET;
     standardizeParameters(&Op);
-    Op.xInit = myxInit;
+    Op.xInit = iiwaxInit;
     Op.n_hor = N;
-    Op.tolFun = mytolFun;
-    Op.tolGrad = mytolGrad;
-    Op.max_iter = mymax_iter;
+    Op.tolFun = iiwatolFun;
+    Op.tolGrad = iiwatolGrad;
+    Op.max_iter = iiwamax_iter;
     Op.time_backward.resize(Op.max_iter);
     Op.time_backward.setZero();
     Op.time_forward.resize(Op.max_iter);
@@ -348,7 +344,6 @@ void UDPSolver::initializeTraj()
 }
 
 void UDPSolver::standardizeParameters(tOptSet *o) {
-    //o->alpha= default_alpha;
     o->n_alpha = 11;
     o->tolFun = 1e-4;
     o->tolConstraint = 1e-7; // TODO: to be modified
@@ -378,7 +373,7 @@ void UDPSolver::doBackwardPass()
         lambdaEye = Op.lambda*stateMat_t::Identity();
     else
         lambdaEye = Op.lambda*stateMat_t::Zero();
- 
+
     diverge = 0;
     g_norm_sum = 0;
     Vx[N] = costFunction->getcx()[N];
@@ -425,8 +420,23 @@ void UDPSolver::doBackwardPass()
 
         gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
-        for(unsigned int j=0;j<2*fullstatecommandSize;j++)
-            Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+        // 
+        if(BACKWARD_INTEGRATION_METHOD == 1){
+           for(unsigned int j=0;j<2*fullstatecommandSize;j++)
+                Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+        }else if(BACKWARD_INTEGRATION_METHOD == 2){
+            for(unsigned int j=0;j<2*fullstatecommandSize;j++)
+                 Sig.col(j).head(stateSize) = eulerStepBackward(Sig.col(j), dt);
+        }else if(BACKWARD_INTEGRATION_METHOD == 3){
+            if (i > 0){
+                for(unsigned int j=0;j<2*fullstatecommandSize;j++)
+                    Sig.col(j).head(stateSize) = rungeKutta3StepBackward(Sig.col(j), uList[i-1], dt);
+            }else{
+                for(unsigned int j=0;j<2*fullstatecommandSize;j++)// the last knot point
+                    Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+            }    
+        }
+        
 
         gettimeofday(&tend_test,NULL);
         Op.time_range1(iter) += ((double)(1000.0*(tend_test.tv_sec-tbegin_test.tv_sec)+((tend_test.tv_usec-tbegin_test.tv_usec)/1000.0)))/1000.0;
@@ -623,6 +633,14 @@ stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt){
     // Backwards Euler step from X_{k+1} to X_k
     Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
     return augX.head(stateSize) - dt*Xdot1;
+}
+
+stateVec_t UDPSolver::rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt){
+    // Backwards Euler step from X_{k+1} to X_k
+    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    Xdot2 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, (augX.tail(commandSize) + U_previous)/2.0);
+    Xdot3 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) + dt*Xdot1 - 2*dt*Xdot2, U_previous);
+    return augX.head(stateSize) - (dt/6)*(Xdot1 + 4*Xdot2 + Xdot3);
 }
 
 }  // namespace

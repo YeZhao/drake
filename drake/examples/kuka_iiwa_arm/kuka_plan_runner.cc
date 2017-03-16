@@ -151,7 +151,7 @@ class RobotPlanRunner {
         testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
     #endif
     #if useUDPSolver
-        double scale = 0.01;
+        double scale = 1e-4;//0.1;
         UDPSolver::traj lastTraj;
         KukaArm KukaArmModel(dt, N, xgoal);
         CostFunctionKukaArm costKukaArm;
@@ -184,16 +184,18 @@ class RobotPlanRunner {
     //cout << "\t\tTime range 2 (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
     cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
     
+    // debugging trajectory and control outputs
+    cout << "--------- final joint state trajectory ---------" << endl;
+    for(unsigned int i=0;i<=N;i++){
+      cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
+    }
+    cout << "--------- final joint torque trajectory ---------" << endl;
+    
+    for(unsigned int i=0;i<=N;i++){
+      cout << "lastTraj.uList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
+    }
+
     ofstream file("results.csv",ios::out | ios::trunc);
-
-    //debugging trajectory and control outputs
-    for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.uList[" << i << "]:" << lastTraj.xList[i].transpose() << endl;
-    }
-    for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.xList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
-    }
-
 
     if(file)
     {

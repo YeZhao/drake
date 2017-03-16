@@ -3,18 +3,15 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-//#include <Eigen/Dense>
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
-
-//EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::MatrixXd)
-//EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(Eigen::VectorXd)
 
 #define stateSize 14
 #define commandSize 7
 #define fullstatecommandSize 21
-#define TimeHorizon 0.1
-#define TimeStep 0.001
+
+#define TimeHorizon 3
+#define TimeStep 0.01
 
 namespace drake {
 namespace examples {

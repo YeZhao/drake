@@ -18,8 +18,15 @@ CostFunctionKukaArm::CostFunctionKukaArm()
     //       0.0,0.0,0.0,1000;
     // R << 0.01;
     
-    QDiagElementVec << 100, 100, 100, 100, 100, 100, 100,  10, 10, 10, 10, 10, 10, 10;
-    QfDiagElementVec << 500.0, 500.0, 500.0, 500.0, 500.0, 500.0, 500.0,    50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0;
+    pos_scale = 2;
+    vel_scale = 1;
+    pos_f_scale = 5;
+    vel_f_scale = 5;
+    
+    QDiagElementVec << pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500,  
+                        vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50;
+    QfDiagElementVec << pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0,
+                        vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0;
     RDiagElementVec << 0.005, 0.005, 0.007, 0.007, 0.02, 0.02, 0.05;
 
     Q = QDiagElementVec.asDiagonal();

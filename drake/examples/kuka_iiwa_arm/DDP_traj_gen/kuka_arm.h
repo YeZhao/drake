@@ -39,77 +39,7 @@ class KukaArm
 {
 public:
     KukaArm();
-    explicit KukaArm(double& mydt, unsigned int& myN, stateVec_t& myxgoal)
-    {
-        stateNb = 4;
-        commandNb = 1;
-        dt = mydt;
-        N = myN;
-        xgoal = myxgoal;
-        fxList.resize(N);
-        fuList.resize(N);
-
-        fxxList.resize(stateSize);
-        for(unsigned int i=0;i<stateSize;i++)
-            fxxList[i].resize(N);
-        fxuList.resize(commandSize);
-        fuuList.resize(commandSize);
-        for(unsigned int i=0;i<commandSize;i++){
-            fxuList[i].resize(N);
-            fuuList[i].resize(N);
-        }
-
-        fxx[0].setZero();
-        fxx[1].setZero();
-        fxx[2].setZero();
-        fxx[3].setZero();
-        fuu[0].setZero();
-        fux[0].setZero();
-        fxu[0].setZero();
-
-        lowerCommandBounds << -50.0;
-        upperCommandBounds << 50.0;
-
-        H.setZero();
-        C.setZero();
-        G.setZero();
-        Bu.setZero();
-        velocity.setZero();
-        accel.setZero();
-        Xdot_new.setZero();
-
-        A1.setZero();
-        A2.setZero();
-        A3.setZero();
-        A4.setZero();
-        B1.setZero();
-        B2.setZero();
-        B3.setZero();
-        B4.setZero();
-        IdentityMat.setIdentity();
-
-        Xp1.setZero();
-        Xp2.setZero();
-        Xp3.setZero();
-        Xp4.setZero();
-
-        Xm1.setZero();
-        Xm2.setZero();
-        Xm3.setZero();
-        Xm4.setZero();
-
-        AA.setZero();
-        BB.setZero();
-        A_temp.resize(N);
-        B_temp.resize(N);
-        
-        debugging_print = 0;
-        
-        initial_phase_flag_ = 1;
-        q.resize(stateSize/2);
-        qd.resize(stateSize/2);
-    }
-
+    KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal);
     ~KukaArm(){};
 private:
 protected:
@@ -173,7 +103,7 @@ private:
     stateR_commandC_tab_t B_temp;
     
     struct traj_test lastTraj;
-    std::unique_ptr<RigidBodyTree<double>> tree_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_{nullptr};
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
 protected:

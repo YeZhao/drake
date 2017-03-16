@@ -15,6 +15,7 @@
 //#include <qpOASES.hpp>
 //#include <qpOASES/QProblemB.hpp>
 
+#define BACKWARD_INTEGRATION_METHOD 1 // 1: 4^th-order RK, 2: simple Euler method, 3: 3^rd-order RK with middle point on u (analogous to dircol)
 #define ENABLE_QPBOX 0
 #define DISABLE_QPBOX 1
 #define ENABLE_FULLDDP 0
@@ -31,8 +32,6 @@
 #define TRACE_UDP(x) do { if (DEBUG_UDP) printf(x);} while (0)
 
 #define INIT_OPTSET {0, 0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0, NULL, NULL, NULL, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0} // NULL, NULL
-
-//double default_alpha[8]= {1.0, 0.3727594, 0.1389495, 0.0517947, 0.0193070, 0.0071969, 0.0026827, 0.0010000};
 
 using namespace Eigen;
 //USING_NAMESPACE_QPOASES
@@ -102,7 +101,7 @@ public:
     };
 
 public:
-    UDPSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction,bool fullDDP=0,bool QPBox=0);
+    UDPSolver(KukaArm& iiwaDynamicModel, CostFunctionKukaArm& iiwaCostFunction,bool fullDDP=0,bool QPBox=0);
 private:
 protected:
     // attributes //
@@ -163,7 +162,6 @@ private:
     //real_t* xOpt;
 
     tOptSet Op;
-    //Eigen::VectorXd default_alpha;
     Eigen::Vector2d dV;
     bool debugging_print;    
     int newDeriv;
@@ -183,8 +181,8 @@ private:
 protected:
     // methods
 public:
-    void firstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
-                    double& mydt, double& myscale, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
+    void firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxDes, unsigned int& iiwaN,
+                    double& iiwadt, double& iiwascale, unsigned int& iiwamax_iter, double& iiwatolFun, double& iiwatolGrad);
     void solveTrajectory();
     void initializeTraj();
     void standardizeParameters(tOptSet *o);
@@ -194,6 +192,8 @@ public:
     bool isPositiveDefinite(const commandMat_t & Quu);
     stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt);
     stateVec_t eulerStepBackward(stateAug_t augX, double& dt);
+    stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt);
+
 protected:
 };
 

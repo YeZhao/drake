@@ -32,8 +32,6 @@
 
 #define INIT_OPTSET {0, 0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0, NULL, NULL, NULL, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0} // NULL, NULL
 
-//double default_alpha[8]= {1.0, 0.3727594, 0.1389495, 0.0517947, 0.0193070, 0.0071969, 0.0026827, 0.0010000};
-
 using namespace Eigen;
 //USING_NAMESPACE_QPOASES
 
@@ -102,7 +100,7 @@ public:
     };
 
 public:
-    ILQRSolver(KukaArm& myDynamicModel, CostFunctionKukaArm& myCostFunction, bool fullDDP=0,bool QPBox=0);
+    ILQRSolver(KukaArm& iiwaDynamicModel, CostFunctionKukaArm& iiwaCostFunction, bool fullDDP=0,bool QPBox=0);
 private:
 protected:
     // attributes //
@@ -166,7 +164,6 @@ private:
     //real_t* xOpt;
 
     tOptSet Op;
-    //Eigen::VectorXd default_alpha;
     Eigen::Vector2d dV;
     bool debugging_print;    
     int newDeriv;
@@ -175,8 +172,8 @@ private:
 protected:
     // methods
 public:
-    void firstInitSolver(stateVec_t& myxInit, stateVec_t& myxDes, unsigned int& myN,
-                    double& mydt, unsigned int& mymax_iter, double& mytolFun, double& mytolGrad);
+    void firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxDes, unsigned int& iiwaN,
+                    double& iiwadt, unsigned int& iiwamax_iter, double& iiwatolFun, double& iiwatolGrad);
     void solveTrajectory();
     void initializeTraj();
     void standardizeParameters(tOptSet *o);

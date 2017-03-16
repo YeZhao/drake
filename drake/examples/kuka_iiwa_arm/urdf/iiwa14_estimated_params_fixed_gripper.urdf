@@ -224,7 +224,8 @@
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0.0177"/> <!--"0 0 0.02" kuka CAD value-->
       <mass value="1.18"/> <!--1.18 value from static test, 0.31 kuka CAD value--> <!--0.3 original urdf value-->
-      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0009" iyz="0" izz="0.0008"/> <!--<estimated values from dynamic test>-->
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/> <!--updated for DDP trajectory generation-->
+      <!--<inertia ixx="0.001" ixy="0" ixz="0" iyy="0.0009" iyz="0" izz="0.0008"/> --> <!--<estimated values from dynamic test>-->
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
