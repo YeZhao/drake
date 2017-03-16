@@ -6,20 +6,12 @@
 #include "config.h"
 #include "kuka_arm.h"
 #include "cost_function_kuka_arm.h"
-#include <numeric>
-#include <sys/time.h>
 
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 #include <Eigen/Cholesky>
 //#include <qpOASES.hpp>
 //#include <qpOASES/QProblemB.hpp>
-
-#define BACKWARD_INTEGRATION_METHOD 1 // 1: 4^th-order RK, 2: simple Euler method, 3: 3^rd-order RK with middle point on u (analogous to dircol)
-#define ENABLE_QPBOX 0
-#define DISABLE_QPBOX 1
-#define ENABLE_FULLDDP 0
-#define DISABLE_FULLDDP 1
 
 #ifndef DEBUG_UDP
 #define DEBUG_UDP 1
@@ -129,7 +121,7 @@ private:
     costVecTab_t costListNew;
     struct traj lastTraj;
     struct timeval tbegin_time_fwd, tend_time_fwd, tbegin_time_bwd, tend_time_bwd, tbegin_time_deriv, tend_time_deriv;
-    struct timeval tbegin_test, tend_test, tbegin_test2, tend_test2, tbegin_test3, tend_test3;
+    struct timeval tbegin_test, tend_test, tbegin_test2, tend_test2;
 
     stateVecTab_t Vx;
     stateMatTab_t Vxx;

@@ -77,7 +77,7 @@ class RobotPlanRunner {
   }
 
   void Run() {
-    cout << "-------- Waiting for trajectory to be sent out! --------" << endl;
+    cout << "-------- Waiting for sending out the trajectory! --------" << endl;
 
     int cur_plan_number = plan_number_;
     int64_t cur_time_us = -1;
@@ -154,6 +154,7 @@ class RobotPlanRunner {
         double scale = 1e-4;//0.1;
         UDPSolver::traj lastTraj;
         KukaArm KukaArmModel(dt, N, xgoal);
+        KukaArm::timeprofile finalTimeProfile;
         CostFunctionKukaArm costKukaArm;
         UDPSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
         testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
@@ -166,6 +167,7 @@ class RobotPlanRunner {
     gettimeofday(&tend,NULL);
 
     lastTraj = testSolverKukaArm.getLastSolvedTrajectory();
+    finalTimeProfile = KukaArmModel.getFinalTimeProfile();
 
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
     texec /= Num_run;
@@ -180,20 +182,28 @@ class RobotPlanRunner {
     cout << "Total execution time of the solver (second): " << texec << endl;
     cout << "\tTime of derivative (second): " << lastTraj.time_derivative.sum() << " (" << 100.0*lastTraj.time_derivative.sum()/texec << "%)" << endl;
     cout << "\tTime of backward pass (second): " << lastTraj.time_backward.sum() << " (" << 100.0*lastTraj.time_backward.sum()/texec << "%)" << endl;
-    //cout << "\t\tTime range 1 (second): " << lastTraj.time_range1.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
-    //cout << "\t\tTime range 2 (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
+    cout << "\t\tUDP backward propogation (second): " << lastTraj.time_range1.sum() << " (" << 100.0*lastTraj.time_range1.sum()/texec << "%)" << endl;
+    cout << "\t\tTime range 2 (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
     cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
+    cout << "-----------" << endl;
+    cout << "\tTime of RBT doKinematics (second): " << finalTimeProfile.time_period1 << " (" << 100.0*finalTimeProfile.time_period1/texec << "%)" << endl;
+    cout << "\tTime of RBT massMatrix.inverse (second): " << finalTimeProfile.time_period2 << " (" << 100.0*finalTimeProfile.time_period2/texec << "%)" << endl;
+    cout << "\tTime of RBT f_ext instantiation (second): " << finalTimeProfile.time_period3 << " (" << 100.0*finalTimeProfile.time_period3/texec << "%)" << endl;
+    cout << "\tTime of RBT dynamicsBiasTerm (second): " << finalTimeProfile.time_period4 << " (" << 100.0*finalTimeProfile.time_period4/texec << "%)" << endl;
     
     // debugging trajectory and control outputs
-    cout << "--------- final joint state trajectory ---------" << endl;
-    for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
-    }
-    cout << "--------- final joint torque trajectory ---------" << endl;
+    // cout << "--------- final joint state trajectory ---------" << endl;
+    // for(unsigned int i=0;i<=N;i++){
+    //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
+    // }
+    // cout << "--------- final joint torque trajectory ---------" << endl;
     
-    for(unsigned int i=0;i<=N;i++){
-      cout << "lastTraj.uList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
-    }
+    // for(unsigned int i=0;i<=N;i++){
+    //   cout << "lastTraj.uList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
+    // }
+
+    cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() - xgoal.transpose() << endl;
+    cout << "lastTraj.uList[" << N << "]:" << lastTraj.uList[N].transpose() << endl;
 
     ofstream file("results.csv",ios::out | ios::trunc);
 

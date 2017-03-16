@@ -82,6 +82,8 @@ KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
     q.resize(stateSize/2);
     qd.resize(stateSize/2);
 
+    finalTimeProfile.time_period1 = 0;
+
     if(initial_phase_flag_ == 1){
         robot_ = std::make_unique<RigidBodyTree<double>>();
         parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
@@ -97,12 +99,28 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
 
-    KinematicsCache<double> cache_ = robot_->doKinematics(q, qd, true);
-    const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    MatrixX<double> M_ = robot_->massMatrix(cache_); // Inertial matrix
+    gettimeofday(&tbegin_period,NULL);
+    KinematicsCache<double> cache_ = robot_->doKinematics(q, qd);
+    gettimeofday(&tend_period,NULL);
+    finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
+    //const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
+    gettimeofday(&tbegin_period,NULL);
+    MatrixX<double> M_ = robot_->massMatrix(cache_); // Inertial matrix
+    gettimeofday(&tend_period,NULL);
+    finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+
+    gettimeofday(&tbegin_period,NULL);
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
+    gettimeofday(&tend_period,NULL);
+    finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    
+    gettimeofday(&tbegin_period,NULL);
     VectorX<double> bias_term_ = robot_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
+    gettimeofday(&tend_period,NULL);
+    finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    
+
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd; 
     
@@ -123,7 +141,7 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     // G << 0,
     //      mp*g*l*sin(X(1,0));
     // Bu << 1,
-    //      0;     
+    //      0;
     // velocity << X(2),
     //             X(3);
     // accel = - H.inverse() * (C*velocity + G - Bu*tau);
@@ -134,6 +152,11 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     //             accel(1);
 
     return Xdot_new;
+}
+
+KukaArm::timeprofile KukaArm::getFinalTimeProfile()
+{    
+    return finalTimeProfile;
 }
 
 void KukaArm::kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, 
@@ -220,7 +243,7 @@ void KukaArm::kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xLi
         //fxx, fxu, fuu are not defined since never used
         for(unsigned int k=0;k<N;k++){
             FList[k].setZero();
-        }    
+        }
         costFunction->getc() = 0;
     }
     if(debugging_print) TRACE_KUKA_ARM("finish kuka_arm_dyn_cst\n");

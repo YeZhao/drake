@@ -5,6 +5,14 @@
 
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
+#include <numeric>
+#include <sys/time.h>
+
+#define UDP_BACKWARD_INTEGRATION_METHOD 3 // 1: 4^th-order RK, 2: simple Euler method, 3: 3^rd-order RK with FOH on u (same as dircol)
+#define ENABLE_QPBOX 0
+#define DISABLE_QPBOX 1
+#define ENABLE_FULLDDP 0
+#define DISABLE_FULLDDP 1
 
 #define stateSize 14
 #define commandSize 7

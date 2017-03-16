@@ -421,16 +421,16 @@ void UDPSolver::doBackwardPass()
         gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
         // 
-        if(BACKWARD_INTEGRATION_METHOD == 1){
+        if(UDP_BACKWARD_INTEGRATION_METHOD == 1){
            for(unsigned int j=0;j<2*fullstatecommandSize;j++)
                 Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
-        }else if(BACKWARD_INTEGRATION_METHOD == 2){
+        }else if(UDP_BACKWARD_INTEGRATION_METHOD == 2){
             for(unsigned int j=0;j<2*fullstatecommandSize;j++)
                  Sig.col(j).head(stateSize) = eulerStepBackward(Sig.col(j), dt);
-        }else if(BACKWARD_INTEGRATION_METHOD == 3){
-            if (i > 0){
+        }else if(UDP_BACKWARD_INTEGRATION_METHOD == 3){
+            if (i < (int)N-1){
                 for(unsigned int j=0;j<2*fullstatecommandSize;j++)
-                    Sig.col(j).head(stateSize) = rungeKutta3StepBackward(Sig.col(j), uList[i-1], dt);
+                    Sig.col(j).head(stateSize) = rungeKutta3StepBackward(Sig.col(j), uList[i+1], dt);
             }else{
                 for(unsigned int j=0;j<2*fullstatecommandSize;j++)// the last knot point
                     Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);

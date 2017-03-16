@@ -63,23 +63,21 @@ protected:
     stateR_commandC_Tens_t fuuList;
 
 public:
+    struct timeprofile
+    {
+        double time_period1, time_period2, time_period3, time_period4;
+    };
+
 private:
     double dt;
     unsigned int N;
     bool initial_phase_flag_;
+    struct timeprofile finalTimeProfile;
+    struct timeval tbegin_period, tend_period, tbegin_period2, tend_period2, tbegin_period3, tend_period3;
+
 public:
     static const double mc, mp, l, g;
 
-    struct traj_test
-    {
-        stateVecTab_t xList;
-        commandVecTab_t uList;
-        unsigned int iter;
-        double finalCost;
-        double finalGrad;
-        double finalLambda;
-        Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2;
-    };
     stateVec_t xgoal;
 private:
     
@@ -102,7 +100,6 @@ private:
     stateMatTab_t A_temp;
     stateR_commandC_tab_t B_temp;
     
-    struct traj_test lastTraj;
     std::unique_ptr<RigidBodyTree<double>> robot_{nullptr};
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
@@ -117,6 +114,7 @@ public:
     stateVec_t update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B);
     void grad(const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B);
     void hessian(const stateVec_t& X, const commandVec_t& U, stateTens_t& fxx, stateR_stateC_commandD_t& fxu, stateR_commandC_commandD_t& fuu);    
+    struct timeprofile getFinalTimeProfile();
 
     unsigned int getStateNb();
     unsigned int getCommandNb();

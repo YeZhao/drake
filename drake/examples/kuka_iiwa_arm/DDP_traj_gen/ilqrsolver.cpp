@@ -79,15 +79,37 @@ void ILQRSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, u
     updateduList.resize(N);
     costList.resize(N+1);
     costListNew.resize(N+1);
-    k.setZero();
-    K.setZero();
     kList.resize(N);
     KList.resize(N);
-    
     FList.resize(N+1);
-    
     Vx.resize(N+1);
     Vxx.resize(N+1);
+    
+    for(unsigned int i=0;i<N;i++){
+        xList[i].setZero();
+        uList[i].setZero();
+        uListFull[i].setZero();
+        updatedxList[i].setZero();
+        updateduList[i].setZero();
+        costList[i] = 0;
+        costListNew[i] = 0;
+        kList[i].setZero();
+        KList[i].setZero();
+        FList[i].setZero();    
+        Vx[i].setZero();
+        Vxx[i].setZero();
+    }
+    xList[N].setZero();
+    uListFull[N].setZero();
+    updatedxList[N].setZero();
+    costList[N] = 0;
+    costListNew[N] = 0;
+    FList[N].setZero();
+    Vx[N].setZero();
+    Vxx[N].setZero();
+    
+    k.setZero();
+    K.setZero();
     dV.setZero();
 
     // parameters for line search
