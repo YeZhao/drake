@@ -33,12 +33,20 @@ using Eigen::Vector3d;
 /* DDP trajectory generation */
 #include <iostream>
 #include <fstream>
+#include <cmath>
+#include <vector>
+#include <stdio.h>
+#include <fstream>
+#include <string>
+#include <list>
 
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/config.h"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/spline.h"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/ilqrsolver.cpp"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/udpsolver.cpp"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/kuka_arm.cpp"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_kuka_arm.cpp"
+#define UDP_TRAJ_DIR "/home/yezhao/kuka-dev/drake/drake/examples/kuka_iiwa_arm/DDP_traj_gen/trajectory/"
 
 #include <time.h>
 #include <sys/time.h>
@@ -49,6 +57,9 @@ using namespace Eigen;
 #define useILQRSolver 0
 #define useUDPSolver 1
 /* DDP trajectory generation */
+
+static std::list< const char*> gs_fileName;
+static std::list< std::string > gs_fileName_string;
 
 namespace drake {
 namespace examples {
@@ -81,7 +92,7 @@ class RobotPlanRunner {
 
     int cur_plan_number = plan_number_;
     int64_t cur_time_us = -1;
-    int64_t start_time_us = -1;
+    // int64_t start_time_us = -1;
 
     // Initialize the timestamp to an invalid number so we can detect the first message.
     iiwa_status_.utime = cur_time_us;
@@ -93,6 +104,8 @@ class RobotPlanRunner {
     robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
     robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
 
+    traj_knot_number_ = 0;
+
     while (true) {
       // Call lcm handle until at least one message is processed
       while (0 == lcm_.handleTimeout(10)) { }
@@ -103,14 +116,23 @@ class RobotPlanRunner {
       if (qtraj_) {
         if (plan_number_ != cur_plan_number) {
           std::cout << "Starting new plan." << std::endl;
-          start_time_us = cur_time_us;
+          // start_time_us = cur_time_us;
           cur_plan_number = plan_number_;
         }
-        const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
+        // const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
+        
+        // const auto q_ref = qtraj_->value(cur_traj_time_s);
+        // const auto qd_ref = qdtraj_->value(cur_traj_time_s);
+        // const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
 
-        const auto q_ref = qtraj_->value(cur_traj_time_s);
-        const auto qd_ref = qdtraj_->value(cur_traj_time_s);
-        const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
+        const auto q_ref = joint_state_traj_interp[traj_knot_number_].head(stateSize/2);
+        const auto qd_ref = joint_state_traj_interp[traj_knot_number_].tail(stateSize/2);
+        const auto qdd_ref = stateVec_half_t::Zero();
+
+        if (traj_knot_number_ < NumberofKnotPt*InterpolationScale){
+          traj_knot_number_ += 1;
+          // cout << traj_knot_number_ << " q_ref(0): " << q_ref(0) << endl;
+        }
 
         robot_controller_reference.utime = iiwa_status_.utime;
 
@@ -132,14 +154,13 @@ class RobotPlanRunner {
     stateVec_t xinit,xgoal;
 
     xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-    xgoal << 0.0,pi/3,0.0,pi/2,0.0,pi/4,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+    xgoal << 0.0,pi/6,0.0,-pi/4,0.0,pi/4,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
 
     // xinit << 0.0,0.0,0.0,0.0;
     // xgoal << 0.0,pi,0.0,0.0;
 
-    double T = TimeHorizon;
     double dt = TimeStep;
-    unsigned int N = (int)(T/dt);
+    unsigned int N = NumberofKnotPt;
     double tolFun = 1e-5;//relaxing default value: 1e-10;
     double tolGrad = 1e-5;//relaxing default value: 1e-10;
     unsigned int iterMax = 150;
@@ -169,6 +190,43 @@ class RobotPlanRunner {
     lastTraj = testSolverKukaArm.getLastSolvedTrajectory();
     finalTimeProfile = KukaArmModel.getFinalTimeProfile();
 
+    joint_state_traj.resize(N+1);
+    joint_state_traj_interp.resize(N*InterpolationScale+1);
+    for(unsigned int i=0;i<=N;i++){
+      joint_state_traj[i] = lastTraj.xList[i] - xgoal;
+    }
+    torque_traj = lastTraj.uList;
+
+    // cubic spline
+    // vector<double> time(N+1), traj_value(N);
+    // iota(time.begin(), time.end(), 0);    
+    // double time_interp = 0.0;
+
+    // for(unsigned int i=0;i<1;i++){
+    //   for(unsigned int j=0;j<=NumberofKnotPt;j++){
+    //     traj_value[j] = lastTraj.xList[j](i,0) - xgoal[i];
+    //     cout << "time[j]: " << time[j] << endl;
+    //     cout << "traj_value[j]: " << traj_value[j] << endl;
+    //   }
+    //   tk::spline spline;
+    //   spline.set_points(time,traj_value); // time is required to be sorted
+
+    //   for(unsigned int j=0;j<=N*InterpolationScale;j++){
+    //     time_interp = (double)j/((double)InterpolationScale);
+    //    printf("spline at %f is %f\n", time_interp, spline(time_interp));
+    //    joint_state_traj_interp[j](i,0) =  spline(time_interp);
+    //   }
+    // }
+
+    //linear interpolation to 1ms
+    for(unsigned int i=0;i<stateSize;i++){
+      for(unsigned int j=0;j<N*InterpolationScale;j++){
+       unsigned int index = j/10;
+       joint_state_traj_interp[j](i,0) =  joint_state_traj[index](i,0) + ((double)j-(double)index*10.0)*(joint_state_traj[index+1](i,0) - joint_state_traj[index](i,0))/10.0;
+      }
+      joint_state_traj_interp[N*InterpolationScale](i,0) = joint_state_traj[N](i,0);
+    }
+
     texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
     texec /= Num_run;
 
@@ -191,7 +249,7 @@ class RobotPlanRunner {
     cout << "\tTime of RBT f_ext instantiation (second): " << finalTimeProfile.time_period3 << " (" << 100.0*finalTimeProfile.time_period3/texec << "%)" << endl;
     cout << "\tTime of RBT dynamicsBiasTerm (second): " << finalTimeProfile.time_period4 << " (" << 100.0*finalTimeProfile.time_period4/texec << "%)" << endl;
     
-    // debugging trajectory and control outputs
+    // // debugging trajectory and control outputs
     // cout << "--------- final joint state trajectory ---------" << endl;
     // for(unsigned int i=0;i<=N;i++){
     //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
@@ -205,6 +263,19 @@ class RobotPlanRunner {
     cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() - xgoal.transpose() << endl;
     cout << "lastTraj.uList[" << N << "]:" << lastTraj.uList[N].transpose() << endl;
 
+    for(unsigned int i=0;i<N;i++){
+      saveVector(joint_state_traj[i] - xgoal, "joint_trajectory");
+      saveVector(torque_traj[i], "joint_torque_command");
+    }
+    saveVector(lastTraj.xList[N] - xgoal, "joint_trajectory");
+
+    cout << "joint_state_traj_interp: " << joint_state_traj_interp.size() << endl;
+    for(unsigned int i=0;i<=N*InterpolationScale;i++){
+      saveVector(joint_state_traj_interp[i], "joint_trajectory_interpolated");
+      //saveVector(lastTraj.uList[i], "joint_torque_command");
+    }
+
+
     ofstream file("results.csv",ios::out | ios::trunc);
 
     if(file)
@@ -217,6 +288,42 @@ class RobotPlanRunner {
     else
         cerr << "error in open file" << endl;
     cout << "-------- DDP Trajectory Generation Finished! --------" << endl;
+  }
+
+  void saveVector(const Eigen::MatrixXd & _vec, const char * _name){
+      std::string _file_name = UDP_TRAJ_DIR;
+      _file_name += _name;
+      _file_name += ".csv";
+      clean_file(_name, _file_name);
+
+      std::ofstream save_file;
+      save_file.open(_file_name, std::fstream::app);
+      for (int i(0); i < _vec.rows(); ++i){
+          save_file<<_vec(i,0)<< "\t";
+      }
+      save_file<<"\n";
+      save_file.flush();
+      save_file.close();
+  }
+
+  void saveValue(double _value, const char * _name){
+      std::string _file_name = UDP_TRAJ_DIR;
+      _file_name += _name;
+      _file_name += ".csv";
+      clean_file(_name, _file_name);
+
+      std::ofstream save_file;
+      save_file.open(_file_name, std::fstream::app);
+      save_file<<_value <<"\n";
+      save_file.flush();
+  }
+
+  void clean_file(const char * _file_name, std::string & _ret_file){
+      std::list<std::string>::iterator iter = std::find(gs_fileName_string.begin(), gs_fileName_string.end(), _file_name);
+      if(gs_fileName_string.end() == iter){
+          gs_fileName_string.push_back(_file_name);
+          remove(_ret_file.c_str());
+      }
   }
 
  private:
@@ -263,6 +370,13 @@ class RobotPlanRunner {
   std::unique_ptr<PiecewisePolynomialTrajectory> qdtraj_;
   std::unique_ptr<PiecewisePolynomialTrajectory> qddtraj_;
   lcmt_iiwa_status iiwa_status_;
+
+  //UDP parameters
+  stateVecTab_t joint_state_traj;
+  commandVecTab_t torque_traj;
+  stateVecTab_t joint_state_traj_interp;
+  commandVecTab_t torque_traj_interp;
+  unsigned int traj_knot_number_;
 };
 
 int do_main(int argc, const char* argv[]) {

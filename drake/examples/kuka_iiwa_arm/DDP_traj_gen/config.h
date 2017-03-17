@@ -20,6 +20,8 @@
 
 #define TimeHorizon 3
 #define TimeStep 0.01
+#define NumberofKnotPt TimeHorizon/TimeStep
+#define InterpolationScale 0.01/1e-3
 
 namespace drake {
 namespace examples {
