@@ -131,7 +131,6 @@ class RobotPlanRunner {
 
         if (traj_knot_number_ < NumberofKnotPt*InterpolationScale){
           traj_knot_number_ += 1;
-          // cout << traj_knot_number_ << " q_ref(0): " << q_ref(0) << endl;
         }
 
         robot_controller_reference.utime = iiwa_status_.utime;
@@ -154,7 +153,7 @@ class RobotPlanRunner {
     stateVec_t xinit,xgoal;
 
     xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-    xgoal << 0.0,pi/6,0.0,-pi/4,0.0,pi/4,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
+    xgoal << 0.0,pi/4,0.0,-pi/3,0.0,pi/3,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
 
     // xinit << 0.0,0.0,0.0,0.0;
     // xgoal << 0.0,pi,0.0,0.0;
@@ -162,7 +161,7 @@ class RobotPlanRunner {
     double dt = TimeStep;
     unsigned int N = NumberofKnotPt;
     double tolFun = 1;//1e-5;//relaxing default value: 1e-10;
-    double tolGrad = 1e-2;//1e-5;//relaxing default value: 1e-10;
+    double tolGrad = 1e-5;//relaxing default value: 1e-10;
     unsigned int iterMax = 150;
     #if useILQRSolver
         ILQRSolver::traj lastTraj;
@@ -172,7 +171,7 @@ class RobotPlanRunner {
         testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
     #endif
     #if useUDPSolver
-        double scale = 1e-4;//0.1;
+        double scale = 1e-4;//[To be optimized]
         UDPSolver::traj lastTraj;
         KukaArm KukaArmModel(dt, N, xgoal);
         KukaArm::timeprofile finalTimeProfile;
@@ -249,7 +248,7 @@ class RobotPlanRunner {
     // cout << "\tTime of RBT f_ext instantiation (second): " << finalTimeProfile.time_period3 << " (" << 100.0*finalTimeProfile.time_period3/texec << "%)" << endl;
     // cout << "\tTime of RBT dynamicsBiasTerm (second): " << finalTimeProfile.time_period4 << " (" << 100.0*finalTimeProfile.time_period4/texec << "%)" << endl;
     
-    // // debugging trajectory and control outputs
+    // // debugging trajectory and control outputs (print func)
     // cout << "--------- final joint state trajectory ---------" << endl;
     // for(unsigned int i=0;i<=N;i++){
     //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
@@ -274,7 +273,6 @@ class RobotPlanRunner {
       saveVector(joint_state_traj_interp[i], "joint_trajectory_interpolated");
       //saveVector(lastTraj.uList[i], "joint_torque_command");
     }
-
 
     ofstream file("results.csv",ios::out | ios::trunc);
 

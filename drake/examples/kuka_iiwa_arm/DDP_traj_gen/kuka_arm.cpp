@@ -124,33 +124,6 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd; 
     
-    // cout << "-----------------" << endl;
-    // cout << "q: " << q << endl;
-    // cout << "qd: " << qd << endl;
-
-    // cout << "tau: " << tau << endl;
-    // cout << "bias_term_: " << bias_term_ << endl;
-
-    // cout << "Xdot_new: " << Xdot_new << endl;
-    // cout << "M_.inverse(): " << M_.inverse() << endl;
-
-    // H << mc + mp, mp*l*cos(X(1,0)),
-    //          mp*l*cos(X(1,0)), mp*pow(l,2.0);
-    // C << 0, -mp*X(3,0)*l*sin(X(1,0)),
-    //      0, 0;
-    // G << 0,
-    //      mp*g*l*sin(X(1,0));
-    // Bu << 1,
-    //      0;
-    // velocity << X(2),
-    //             X(3);
-    // accel = - H.inverse() * (C*velocity + G - Bu*tau);
-
-    // Xdot_new << velocity(0),
-    //             velocity(1),
-    //             accel(0),
-    //             accel(1);
-
     return Xdot_new;
 }
 

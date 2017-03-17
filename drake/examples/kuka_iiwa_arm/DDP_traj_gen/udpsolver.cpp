@@ -352,7 +352,7 @@ void UDPSolver::standardizeParameters(tOptSet *o) {
     o->lambdaInit = 1;
     o->dlambdaInit = 1;
     o->lambdaFactor = 1.6;
-    o->lambdaMax = 1e15;//1e10
+    o->lambdaMax = 1e10;
     o->lambdaMin = 1e-6;
     o->regType = 1;
     o->zMin = 0.0;

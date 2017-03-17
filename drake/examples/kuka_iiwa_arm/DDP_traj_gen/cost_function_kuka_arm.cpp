@@ -19,9 +19,9 @@ CostFunctionKukaArm::CostFunctionKukaArm()
     // R << 0.01;
     
     pos_scale = 0;//.01;
-    vel_scale = .1;
+    vel_scale = 1;
     pos_f_scale = 10;
-    vel_f_scale = 10;
+    vel_f_scale = 1;
     torqoe_scale = 0.01;
 
     QDiagElementVec << pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100,  
