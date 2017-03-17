@@ -99,26 +99,26 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
 
-    gettimeofday(&tbegin_period,NULL);
+    //gettimeofday(&tbegin_period,NULL);
     KinematicsCache<double> cache_ = robot_->doKinematics(q, qd);
-    gettimeofday(&tend_period,NULL);
-    finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    //gettimeofday(&tend_period,NULL);
+    //finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
     //const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
-    gettimeofday(&tbegin_period,NULL);
+    //gettimeofday(&tbegin_period,NULL);
     MatrixX<double> M_ = robot_->massMatrix(cache_); // Inertial matrix
-    gettimeofday(&tend_period,NULL);
-    finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    //gettimeofday(&tend_period,NULL);
+    //finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
-    gettimeofday(&tbegin_period,NULL);
+    //gettimeofday(&tbegin_period,NULL);
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
-    gettimeofday(&tend_period,NULL);
-    finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    //gettimeofday(&tend_period,NULL);
+    //finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
     
-    gettimeofday(&tbegin_period,NULL);
+    //gettimeofday(&tbegin_period,NULL);
     VectorX<double> bias_term_ = robot_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
-    gettimeofday(&tend_period,NULL);
-    finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    //gettimeofday(&tend_period,NULL);
+    //finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
     
 
     vd = M_.inverse()*(tau - bias_term_);

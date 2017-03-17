@@ -18,16 +18,17 @@ CostFunctionKukaArm::CostFunctionKukaArm()
     //       0.0,0.0,0.0,1000;
     // R << 0.01;
     
-    pos_scale = 2;
-    vel_scale = 1;
-    pos_f_scale = 5;
-    vel_f_scale = 5;
-    
-    QDiagElementVec << pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500, pos_scale*500,  
-                        vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50, vel_scale*50;
+    pos_scale = 0;//.01;
+    vel_scale = .1;
+    pos_f_scale = 10;
+    vel_f_scale = 10;
+    torqoe_scale = 0.01;
+
+    QDiagElementVec << pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100,  
+                        vel_scale*10, vel_scale*10, vel_scale*10, vel_scale*10, vel_scale*10, vel_scale*10, vel_scale*10;
     QfDiagElementVec << pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0, pos_f_scale*1000.0,
                         vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0, vel_f_scale*100.0;
-    RDiagElementVec << 0.005, 0.005, 0.007, 0.007, 0.02, 0.02, 0.05;
+    RDiagElementVec << torqoe_scale*0.005, torqoe_scale*0.005, torqoe_scale*0.007, torqoe_scale*0.007, torqoe_scale*0.02, torqoe_scale*0.02, torqoe_scale*0.05;
 
     Q = QDiagElementVec.asDiagonal();
     Qf = QfDiagElementVec.asDiagonal();
