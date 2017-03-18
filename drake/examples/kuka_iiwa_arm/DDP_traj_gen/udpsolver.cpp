@@ -66,6 +66,8 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     Op.tolFun = iiwatolFun;
     Op.tolGrad = iiwatolGrad;
     Op.max_iter = iiwamax_iter;
+
+    /* computational time analysis */
     Op.time_backward.resize(Op.max_iter);
     Op.time_backward.setZero();
     Op.time_forward.resize(Op.max_iter);
@@ -418,7 +420,7 @@ void UDPSolver::doBackwardPass()
             G(j+fullstatecommandSize) = -G(j);
         }
 
-        //gettimeofday(&tbegin_test,NULL);        
+        // gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
         // 
         if(UDP_BACKWARD_INTEGRATION_METHOD == 1){
@@ -437,9 +439,8 @@ void UDPSolver::doBackwardPass()
             }    
         }
         
-
-        //gettimeofday(&tend_test,NULL);
-        //Op.time_range1(iter) += ((double)(1000.0*(tend_test.tv_sec-tbegin_test.tv_sec)+((tend_test.tv_usec-tbegin_test.tv_usec)/1000.0)))/1000.0;
+        // gettimeofday(&tend_test,NULL);
+        // Op.time_range1(iter) += ((double)(1000.0*(tend_test.tv_sec-tbegin_test.tv_sec)+((tend_test.tv_usec-tbegin_test.tv_usec)/1000.0)))/1000.0;
         
         //gettimeofday(&tbegin_test2,NULL);
 

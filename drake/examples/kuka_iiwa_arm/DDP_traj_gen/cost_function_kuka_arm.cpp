@@ -7,7 +7,7 @@ namespace {
 	
 CostFunctionKukaArm::CostFunctionKukaArm()
 {    
-    pos_scale = 0;//.01;
+    pos_scale = 0;
     vel_scale = 0.5;
     pos_f_scale = 10;
     vel_f_scale = 10;

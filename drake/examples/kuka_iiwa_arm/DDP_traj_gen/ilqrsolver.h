@@ -30,8 +30,6 @@
 
 #define TRACE(x) do { if (DEBUG_ILQR) printf(x);} while (0)
 
-#define INIT_OPTSET {0, 0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0, 0, NULL, NULL, NULL, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0} // NULL, NULL
-
 using namespace Eigen;
 //USING_NAMESPACE_QPOASES
 

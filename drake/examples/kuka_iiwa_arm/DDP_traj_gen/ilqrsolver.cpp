@@ -141,25 +141,16 @@ void ILQRSolver::solveTrajectory()
                 uListFull[i] = uList[i];
             uListFull[uList.size()] = u_NAN;
 
-            // cout << "xList[0]: " << xList[0] << endl;
-            // cout << "xList[10]: " << xList[10] << endl;
-            // cout << "uListFull[0]: " << uListFull[0] << endl;
-            // cout << "uListFull[10]: " << uListFull[10] << endl;
-
             gettimeofday(&tbegin_time_deriv,NULL);
             dynamicModel->kuka_arm_dyn_cst_ilqr(nargout, xList, uListFull, FList, costFunction);
             //dynamicModel->kuka_arm_dyn_cst(nargout, dt, xList, uListFull, xgoal, FList, costFunction->getcx(), costFunction->getcu(), costFunction->getcxx(), costFunction->getcux(), costFunction->getcuu(), costFunction->getc());
             gettimeofday(&tend_time_deriv,NULL);
             Op.time_derivative(iter) = ((double)(1000*(tend_time_deriv.tv_sec-tbegin_time_deriv.tv_sec)+((tend_time_deriv.tv_usec-tbegin_time_deriv.tv_usec)/1000)))/1000.0;
-            //cout << "Op.time_derivative(iter): " << Op.time_derivative(iter) << endl;
 
             newDeriv = 0;
-            // cout << "(initial position0) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
-            // cout << "(initial position0) costFunction->getcx()[N-1]: " << costFunction->getcx()[N-1] << endl;
         }
-        //TRACE("Finish STEP 1\n");
 
-        //====== STEP 2: backward pass, compute optimal control law and cost-to-go
+        TRACE("====== STEP 2: backward pass, compute optimal control law and cost-to-go");
         backPassDone = 0;
         while(!backPassDone){
 
@@ -167,7 +158,6 @@ void ILQRSolver::solveTrajectory()
             doBackwardPass();
             gettimeofday(&tend_time_bwd,NULL);
             Op.time_backward(iter) = ((double)(1000*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000)))/1000.0;
-            //cout << "Op.time_backward(iter): " << Op.time_backward(iter) << endl;
 
             //TRACE("handle Cholesky failure case");
             if(diverge){
@@ -202,18 +192,6 @@ void ILQRSolver::solveTrajectory()
                 doForwardPass();
                 Op.dcost = accumulate(costList.begin(), costList.end(), 0.0) - accumulate(costListNew.begin(), costListNew.end(), 0.0);
                 Op.expected = -alpha*(dV(0) + alpha*dV(1));
-                // std::cout << "costListNew[2]: " << costListNew[2] << std::endl;
-                // std::cout << "costListNew[20]: " << costListNew[20] << std::endl;
-                // std::cout << "costListNew[50]: " << costListNew[50] << std::endl;
-                // std::cout << "costList[2]: " << costList[2] << std::endl;
-                // std::cout << "costList[20]: " << costList[20] << std::endl;
-                // std::cout << "costList[50]: " << costList[50] << std::endl;
-                //std::cout << "accumulate(costListNew): " << accumulate(costListNew.begin(), costListNew.end(), 0.0) << std::endl;
-                //std::cout << "accumulate(costList): " << accumulate(costList.begin(), costList.end(), 0.0) << std::endl;
-                //std::cout << "Op.dcost: " << Op.dcost << std::endl;
-                //std::cout << "Op.expected: " << Op.expected << std::endl;
-                std::cout << "alpha: " << alpha << std::endl;
-                //std::cout << "dV: " << dV << std::endl;
                 double z;
                 if(Op.expected > 0) {
                     z = Op.dcost/Op.expected;
@@ -246,7 +224,6 @@ void ILQRSolver::solveTrajectory()
 
             Op.dlambda = min(Op.dlambda / Op.lambdaFactor, 1.0/Op.lambdaFactor);
             Op.lambda = Op.lambda * Op.dlambda * (Op.lambda > Op.lambdaMin);
-            cout << "first: " << Op.lambda << endl;
 
             // accept changes
             xList = updatedxList;
@@ -266,7 +243,6 @@ void ILQRSolver::solveTrajectory()
             // increase lambda
             Op.dlambda= max(Op.dlambda * Op.lambdaFactor, Op.lambdaFactor);
             Op.lambda= max(Op.lambda * Op.dlambda, Op.lambdaMin);
-            cout << "second: " << Op.lambda << endl;
 
             // if(o->w_pen_fact2>1.0) {
             //     o->w_pen_l= min(o->w_pen_max_l, o->w_pen_l*o->w_pen_fact2);
@@ -336,16 +312,6 @@ void ILQRSolver::initializeTraj()
     }
     
     initFwdPassDone = 1;
-
-    // std::cout << "updatedxList: " << std::endl;
-    // for(unsigned int i = 0; i < updatedxList.size(); i++)
-    //     std::cout <<  updatedxList[i] << std::endl;
-    // std::cout << "updateduList: " << std::endl;
-    // for(unsigned int i = 0; i < updatedxList.size(); i++)
-    //     std::cout <<  updateduList[i] << std::endl;
-    // std::cout << "costListNew: " << std::endl;
-    // for(unsigned int i = 0; i < updatedxList.size(); i++)
-    //     std::cout <<  costListNew[i] << std::endl;
     
     //constants, timers, counters
     newDeriv = 1; //flgChange
@@ -391,7 +357,6 @@ void ILQRSolver::doBackwardPass()
 
     diverge = 0;
     
-    //cout << "(initial position) costFunction->getcx()[N]: " << costFunction->getcx()[N] << endl;
     g_norm_sum = 0.0;
     Vx[N] = costFunction->getcx()[N];
     Vxx[N] = costFunction->getcxx()[N];
@@ -405,21 +370,13 @@ void ILQRSolver::doBackwardPass()
         Quu = costFunction->getcuu()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfuList()[i];
         Qux = costFunction->getcux()[i] + dynamicModel->getfuList()[i].transpose()*(Vxx[i+1])*dynamicModel->getfxList()[i];
 
-        // if(i > N-4){
-        //     cout << "index i: " << i << endl;
-        //     cout << "costFunction->getcx()[i]: " << costFunction->getcx()[i] << endl;
-        //     cout << "costFunction->getcu()[i]: " << costFunction->getcu()[i] << endl;
-        //     cout << "dynamicModel->getfxList()[i]: " << dynamicModel->getfxList()[i] << endl;
-        //     cout << "Vx[i+1]: " << Vx[i+1] << endl;
-        // }
-
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
         else
             QuuF = Quu;
         
-        if(enableFullDDP)
-        {
+        // if(enableFullDDP)
+        // {
             //Qxx += dynamicModel->computeTensorContxx(nextVx);
             //Qux += dynamicModel->computeTensorContux(nextVx);
             //Quu += dynamicModel->computeTensorContuu(nextVx);
@@ -428,12 +385,6 @@ void ILQRSolver::doBackwardPass()
             // Qux += dynamicModel->computeTensorContux(Vx[i+1]);
             // Quu += dynamicModel->computeTensorContuu(Vx[i+1]);
             // QuuF += dynamicModel->computeTensorContuu(Vx[i+1]);
-        }
-
-        // if(i > N -4){
-            //cout << "QuuF: " << QuuF << endl;
-            //cout << "Qu: " << Qu << endl;
-            //cout << "Qux: " << Qux << endl;
         // }
         
         QuuInv = QuuF.inverse();
@@ -488,20 +439,6 @@ void ILQRSolver::doBackwardPass()
             Eigen::MatrixXd L_inverse = L.inverse();
             k = - L_inverse*L.transpose().inverse()*Qu;
             K = - L_inverse*L.transpose().inverse()*Qux;
-
-            //cout << "L: " << L << endl;
-            // if(i > N-4){
-            //     //cout << "index i: " << i << endl;
-            //     cout << "k: " << k << endl;
-            //     cout << "K: " << K << endl;
-            //     cout << "Qx: " << Qx << endl;
-            //     cout << "Qu: " << Qu << endl;
-            //     cout << "Quu: " << Quu << endl;
-            //     cout << "Qux: " << Qux << endl;
-            //     cout << "QuuF: " << QuuF << endl;
-            //     cout << "Op.lambda: " << Op.lambda << endl;
-            //     cout << "L: " << L << endl;
-            // }
         }
 
         //update cost-to-go approximation
@@ -550,28 +487,9 @@ void ILQRSolver::doForwardPass()
         dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[N], u_NAN, isUNan, x_unused, costFunction);
         costList[N] = costFunction->getc();
     }else{
-        // cout << "kList[5]: " << kList[5] << endl;
-        // cout << "kList[10]: " << kList[10] << endl;
-        // cout << "kList[20]: " << kList[20] << endl;
-        // cout << "kList[40]: " << kList[40] << endl;
-        // cout << "KList[5]: " << KList[5] << endl;
-        // cout << "KList[10]: " << KList[10] << endl;
-        // cout << "KList[20]: " << KList[20] << endl;
-        // cout << "KList[40]: " << KList[40] << endl;
-
         for(unsigned int i=0;i<N;i++)
         {
             updateduList[i] = uList[i] + alpha*kList[i] + KList[i]*(updatedxList[i]-xList[i]);
-            // if(i<3){
-            //     cout << "index i: " << i << endl;
-            //     cout << "uList[i]: " << uList[i] << endl;
-            //     cout << "kList[i]: " << kList[i] << endl;
-            //     cout << "KList[i]: " << KList[i] << endl;
-            //     cout << "updatedxList[i]: " << updatedxList[i] << endl;
-            //     cout << "xList[i]: " << xList[i] << endl;
-            //     cout << "updateduList[i]: " << updateduList[i] << endl;
-            //     cout << "updatedxList[i]: " << updatedxList[i] << endl;
-            // }
             dynamicModel->kuka_arm_dyn_cst_min_output(nargout, dt, updatedxList[i], updateduList[i], isUNan, updatedxList[i+1], costFunction);
             costListNew[i] = costFunction->getc();
         }

@@ -94,10 +94,10 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
 
-    //gettimeofday(&tbegin_period,NULL);
+    // gettimeofday(&tbegin_period,NULL);
     KinematicsCache<double> cache_ = robot_->doKinematics(q, qd);
-    //gettimeofday(&tend_period,NULL);
-    //finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    // gettimeofday(&tend_period,NULL);
+    // finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
     //const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
     //gettimeofday(&tbegin_period,NULL);
@@ -115,7 +115,6 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
     
-
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd; 
     
@@ -326,15 +325,6 @@ void KukaArm::kuka_arm_dyn_cst_v3(const int& nargout, const stateVecTab_t& xList
             costFunction->getcxx()[k] = costFunction->getQ();
             costFunction->getcux()[k].setZero();
             costFunction->getcuu()[k] = costFunction->getR();
-            
-            // if(k == 49) {
-            //     std::cout << "fxList[49]: " << fxList[k] << std::endl; 
-            //     std::cout << "fuList[49]: " << fuList[k] << std::endl;   
-            //     std::cout << "cx[49]: " << cx[k] << std::endl;
-            //     std::cout << "cu[49]: " << cu[k] << std::endl;
-            //     std::cout << "cxx[49]: " << cxx[k] << std::endl;
-            // }
-
         }
         if(debugging_print) TRACE_KUKA_ARM("update the final value of cost derivative \n");
 
@@ -394,15 +384,7 @@ void KukaArm::kuka_arm_dyn_cst_udp(const int& nargout, const stateVecTab_t& xLis
             costFunction->getcu()[k] = costFunction->getR()*uList[k];
             costFunction->getcxx()[k] = costFunction->getQ();
             costFunction->getcux()[k].setZero();
-            costFunction->getcuu()[k] = costFunction->getR();
-            
-            // if(k == 49) {
-                // std::cout << "fxList[49]: " << fxList[k] << std::endl; 
-                // std::cout << "fuList[49]: " << fuList[k] << std::endl;   
-                // std::cout << "cx[49]: " << cx[k] << std::endl;
-                // std::cout << "cu[49]: " << cu[k] << std::endl;
-                // std::cout << "cxx[49]: " << costFunction->getcxx()[k] << std::endl;
-            // }
+            costFunction->getcuu()[k] = costFunction->getR();            
         }
         if(debugging_print) TRACE_KUKA_ARM("update the final value of cost derivative \n");
         costFunction->getcx()[N-1] = costFunction->getQf()*(xList[N-1]-xgoal);
