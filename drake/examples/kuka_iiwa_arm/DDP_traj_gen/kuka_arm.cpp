@@ -5,11 +5,6 @@ namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
-const double KukaArm::mc=10;
-const double KukaArm::mp=1;
-const double KukaArm::l=0.5;
-const double KukaArm::g=9.81;
-
 KukaArm::KukaArm(){}
 
 KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)

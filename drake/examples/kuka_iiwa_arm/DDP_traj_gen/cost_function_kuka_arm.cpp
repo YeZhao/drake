@@ -6,22 +6,11 @@ namespace kuka_iiwa_arm {
 namespace {
 	
 CostFunctionKukaArm::CostFunctionKukaArm()
-{
-    
-    // Q << .1,0.0,0.0,0.0,
-    //      0.0,0.1,0.0,0.0,
-    //      0.0,0.0,0.1,0.0,
-    //      0.0,0.0,0.0,0.1;
-    // Qf << 1000.0,0.0,0.0,0.0,
-    //       0.0,1000,0.0,0.0,
-    //       0.0,0.0,1000,0.0,
-    //       0.0,0.0,0.0,1000;
-    // R << 0.01;
-    
+{    
     pos_scale = 0;//.01;
-    vel_scale = 1;
+    vel_scale = 0.5;
     pos_f_scale = 10;
-    vel_f_scale = 1;
+    vel_f_scale = 10;
     torqoe_scale = 0.01;
 
     QDiagElementVec << pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100, pos_scale*100,  
