@@ -155,9 +155,6 @@ class RobotPlanRunner {
     xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
     xgoal << 0.0,pi/4,0.0,-pi/3,0.0,pi/3,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
 
-    // xinit << 0.0,0.0,0.0,0.0;
-    // xgoal << 0.0,pi,0.0,0.0;
-
     double dt = TimeStep;
     unsigned int N = NumberofKnotPt;
     double tolFun = 1;//1e-5;//relaxing default value: 1e-10;
@@ -192,30 +189,9 @@ class RobotPlanRunner {
     joint_state_traj.resize(N+1);
     joint_state_traj_interp.resize(N*InterpolationScale+1);
     for(unsigned int i=0;i<=N;i++){
-      joint_state_traj[i] = lastTraj.xList[i] - xgoal;
+      joint_state_traj[i] = lastTraj.xList[i];
     }
     torque_traj = lastTraj.uList;
-
-    // cubic spline
-    // vector<double> time(N+1), traj_value(N);
-    // iota(time.begin(), time.end(), 0);    
-    // double time_interp = 0.0;
-
-    // for(unsigned int i=0;i<1;i++){
-    //   for(unsigned int j=0;j<=NumberofKnotPt;j++){
-    //     traj_value[j] = lastTraj.xList[j](i,0) - xgoal[i];
-    //     cout << "time[j]: " << time[j] << endl;
-    //     cout << "traj_value[j]: " << traj_value[j] << endl;
-    //   }
-    //   tk::spline spline;
-    //   spline.set_points(time,traj_value); // time is required to be sorted
-
-    //   for(unsigned int j=0;j<=N*InterpolationScale;j++){
-    //     time_interp = (double)j/((double)InterpolationScale);
-    //    printf("spline at %f is %f\n", time_interp, spline(time_interp));
-    //    joint_state_traj_interp[j](i,0) =  spline(time_interp);
-    //   }
-    // }
 
     //linear interpolation to 1ms
     for(unsigned int i=0;i<stateSize;i++){
@@ -251,7 +227,7 @@ class RobotPlanRunner {
     // // debugging trajectory and control outputs (print func)
     // cout << "--------- final joint state trajectory ---------" << endl;
     // for(unsigned int i=0;i<=N;i++){
-    //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() - xgoal.transpose() << endl;
+    //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() << endl;
     // }
     // cout << "--------- final joint torque trajectory ---------" << endl;
     
@@ -259,32 +235,19 @@ class RobotPlanRunner {
     //   cout << "lastTraj.uList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
     // }
 
-    cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() - xgoal.transpose() << endl;
+    cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() << endl;
     cout << "lastTraj.uList[" << N << "]:" << lastTraj.uList[N].transpose() << endl;
 
     for(unsigned int i=0;i<N;i++){
-      saveVector(joint_state_traj[i] - xgoal, "joint_trajectory");
+      saveVector(joint_state_traj[i], "joint_trajectory");
       saveVector(torque_traj[i], "joint_torque_command");
     }
-    saveVector(lastTraj.xList[N] - xgoal, "joint_trajectory");
+    saveVector(lastTraj.xList[N], "joint_trajectory");
 
-    cout << "joint_state_traj_interp: " << joint_state_traj_interp.size() << endl;
     for(unsigned int i=0;i<=N*InterpolationScale;i++){
       saveVector(joint_state_traj_interp[i], "joint_trajectory_interpolated");
-      //saveVector(lastTraj.uList[i], "joint_torque_command");
     }
 
-    ofstream file("results.csv",ios::out | ios::trunc);
-
-    if(file)
-    {
-        file << "x,theta,xDot,thetaDot,u" << endl;
-        for(unsigned int i=0;i<N;i++) file << lastTraj.xList[i](0,0) << "," << lastTraj.xList[i](1,0) << "," << lastTraj.xList[i](2,0) << "," << lastTraj.xList[i](3,0) << "," << lastTraj.uList[i](0,0) << endl;
-        file << lastTraj.xList[N](0,0) << "," << lastTraj.xList[N](1,0) << "," << lastTraj.xList[N](2,0) << "," << lastTraj.xList[N](3,0) << "," << 0.0 << endl;
-        file.close();
-    }
-    else
-        cerr << "error in open file" << endl;
     cout << "-------- DDP Trajectory Generation Finished! --------" << endl;
   }
 
