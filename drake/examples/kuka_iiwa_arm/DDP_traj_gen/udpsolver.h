@@ -6,6 +6,7 @@
 #include "config.h"
 #include "kuka_arm.h"
 #include "cost_function_kuka_arm.h"
+#include <string>
 
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
@@ -169,6 +170,7 @@ private:
     stateVec_t X_new;
     bool isUNan;
     #if MULTI_THREAD
+        std::vector<std::thread> thread;
     #endif
 
 protected:
@@ -187,7 +189,7 @@ public:
     stateVec_t eulerStepBackward(stateAug_t augX, double& dt, unsigned int i);
     stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i);
     void rungeKuttaStepBackwardThread(stateAug_t augX, double dt, unsigned int i);
-    void rungeKuttaStepBackwardTwoSigmaPointsThread(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread1(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread3(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread4(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
@@ -207,11 +209,6 @@ public:
     void rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-
-    // static void receivePWrapper(UDPSolver* udpsolver, stateAug_t augX, double& dt, stateVec_t& Xnext);
-    //std::thread member2Thread(stateAug_t augX, const double& dt, stateVec_t& Xnext);
-    void func(const string &name, stateAug_t augX, const double& dt);
-
 protected:
 };
 

@@ -24,7 +24,7 @@
 #define commandSize 7
 #define fullstatecommandSize 21
 
-#define TimeHorizon 0.5//3
+#define TimeHorizon 0.5
 #define TimeStep 0.01
 #define NumberofKnotPt TimeHorizon/TimeStep
 #define InterpolationScale 0.01/1e-3

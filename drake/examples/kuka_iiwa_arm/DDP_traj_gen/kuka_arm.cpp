@@ -143,24 +143,20 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread1(const stateVec_t& X_thread, const c
 
     KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
 
-    //const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
     //gettimeofday(&tbegin_period,NULL);
     MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
-    // cout << "come inside1.2" << endl;
 
     //gettimeofday(&tbegin_period,NULL);
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
-    // cout << "come inside1.3" << endl;
 
     //gettimeofday(&tbegin_period,NULL);
     VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
-    // cout << "come inside1.4" << endl;
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
