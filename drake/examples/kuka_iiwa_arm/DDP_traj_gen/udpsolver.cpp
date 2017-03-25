@@ -5,6 +5,9 @@
 using namespace std;
 /* */
 
+#include <mutex>
+std::mutex mtx;
+
 using namespace Eigen;
 using Eigen::VectorXd;
 
@@ -119,6 +122,22 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     k.setZero();
     K.setZero();
     dV.setZero();
+
+    XnextThread.resize(2*fullstatecommandSize);
+    for(unsigned int i=0;i<2*fullstatecommandSize;i++){
+        XnextThread[i].setZero();
+    }
+
+    Xdot1.resize(2*fullstatecommandSize);
+    Xdot2.resize(2*fullstatecommandSize);
+    Xdot3.resize(2*fullstatecommandSize);
+    Xdot4.resize(2*fullstatecommandSize);
+    for(unsigned int i=0;i<2*fullstatecommandSize;i++){
+        Xdot1[i].setZero();
+        Xdot2[i].setZero();
+        Xdot3[i].setZero();
+        Xdot4[i].setZero();
+    }
 
     // parameters for line search
     Op.alphaList.resize(11);
@@ -368,6 +387,15 @@ void UDPSolver::standardizeParameters(tOptSet *o) {
     o->print = 2;
 }
 
+// void UDPSolver::receivePWrapper(UDPSolver* udpsolver, stateAug_t augX, double& dt, stateVec_t& Xnext)
+// {
+//     udpsolver->rungeKuttaStepBackwardThread(augX, dt, Xnext);
+// }
+
+// std::thread UDPSolver::member2Thread(stateAug_t augX, const double& dt, stateVec_t& Xnext) {
+//           return std::thread([=] { rungeKuttaStepBackwardThread(augX, dt, Xnext); });
+// }
+
 void UDPSolver::doBackwardPass()
 {    
     //Perform the Ricatti-Mayne backward pass with unscented transform
@@ -422,20 +450,74 @@ void UDPSolver::doBackwardPass()
 
         // gettimeofday(&tbegin_test,NULL);        
         //Propagate sigma points through backwards dynamics
-        // 
+
+        // cout << "first here ----------------------" << endl;
+        std::vector<std::thread> tt;
+        tt.resize(NUMBER_OF_THREAD);
+        // cout << "second here ----------------------" << endl;
+        // std::thread t2;
+        // t2.join();
+
+        // std::thread *tt = new std::thread[NUMBER_OF_THREAD - 1];
+        // UDPSolver* udpsolver = this;
+
         if(UDP_BACKWARD_INTEGRATION_METHOD == 1){
-           for(unsigned int j=0;j<2*fullstatecommandSize;j++)
-                Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+           for(unsigned int j=0;j<2*fullstatecommandSize;j++){
+            #if MULTI_THREAD
+                // if(j < NUMBER_OF_THREAD){
+                if(j%2 == 0 && j < 2*NUMBER_OF_THREAD){
+                    // cout << "start: " << j << endl;
+                    //tt[j/2] = std::thread(&UDPSolver::func, this, "buddy", Sig.col(j), dt);  
+                    // t2 = std::thread(&UDPSolver::func, this, "buddy");
+                    // t2.join();
+                    tt[j/2] = std::thread(&UDPSolver::rungeKuttaStepBackwardThread, this, Sig.col(j), dt, j);
+                    // tt[j] = std::thread(&UDPSolver::receivePWrapper, udpsolver, Sig.col(j), dt, Xnext);
+                    // tt.push_back(std::thread(&UDPSolver::rungeKuttaStepBackwardThread, this, Sig.col(j), dt, Xnext));
+                    //tt.push_back(member2Thread(Sig.col(j), dt, Xnext));
+                    //tt[i].join();
+                    // cout << "arrive here at: " << j << endl;
+                }else{
+                    //cout << "arrive here as well" << endl;
+
+                    Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt, j);
+                    //if(j == 0)
+                        //cout << "Sig.col(j).head(stateSize): " << Sig.col(j).head(stateSize) << endl;  
+                }
+            #else
+                Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt, j);
+            #endif
+           }
+           // cout << "arrive here ----------------" << endl;
+
+            for (unsigned int i = 0; i < 2*NUMBER_OF_THREAD; i++){
+                if(i%2 == 0){
+                    tt[i/2].join();
+                    Sig.col(i).head(stateSize) = XnextThread[i];
+                }
+            }
+
+           // for (unsigned int i = 0; i < NUMBER_OF_THREAD; i++){
+           //  tt[i].join();
+           //  //cout << "XnextThread[i]: " << XnextThread[i] << endl;   
+           //  Sig.col(i).head(stateSize) = XnextThread[i];
+           // }
+                
+           //  delete [] tt;
+           //Join parts-1 threads
+           // for(auto &e : tt){
+           //     e.join();
+           // }
+
         }else if(UDP_BACKWARD_INTEGRATION_METHOD == 2){
             for(unsigned int j=0;j<2*fullstatecommandSize;j++)
-                 Sig.col(j).head(stateSize) = eulerStepBackward(Sig.col(j), dt);
+                 Sig.col(j).head(stateSize) = eulerStepBackward(Sig.col(j), dt, j);
         }else if(UDP_BACKWARD_INTEGRATION_METHOD == 3){
             if (i < (int)N-1){
                 for(unsigned int j=0;j<2*fullstatecommandSize;j++)
-                    Sig.col(j).head(stateSize) = rungeKutta3StepBackward(Sig.col(j), uList[i+1], dt);
+                    Sig.col(j).head(stateSize) = rungeKutta3StepBackward(Sig.col(j), uList[i+1], dt, j);
             }else{
                 for(unsigned int j=0;j<2*fullstatecommandSize;j++)// the last knot point
-                    Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt);
+                    Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt, j);
             }    
         }
         
@@ -620,28 +702,83 @@ bool UDPSolver::isPositiveDefinite(const commandMat_t & Quu)
     return true;
 }
 
-stateVec_t UDPSolver::rungeKuttaStepBackward(stateAug_t augX, double& dt){
+stateVec_t UDPSolver::rungeKuttaStepBackward(stateAug_t augX, double& dt, unsigned int i){
     // Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
-    Xdot2 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, augX.tail(commandSize));
-    Xdot3 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2, augX.tail(commandSize));
-    Xdot4 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - dt*Xdot3, augX.tail(commandSize));
-    return augX.head(stateSize) - (dt/6)*(Xdot1 + 2*Xdot2 + 2*Xdot3 + Xdot4);
+    //cout << "augX: " << augX << endl;
+    Xdot1[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    // cout << "Xdot1[i]: " << Xdot1[i] << endl;
+
+    Xdot2[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1[i], augX.tail(commandSize));
+    // cout << "Xdot2[i]: " << Xdot2[i] << endl;
+
+    Xdot3[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot2[i], augX.tail(commandSize));
+    // cout << "Xdot3[i]: " << Xdot3[i] << endl;
+
+    Xdot4[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - dt*Xdot3[i], augX.tail(commandSize));
+    // cout << "Xdot4[i]: " << Xdot4[i] << endl;
+    //cout << "return: " << augX.head(stateSize) - (dt/6)*(Xdot1[i] + 2*Xdot2[i] + 2*Xdot3[i] + Xdot4[i]) << endl;
+
+    return augX.head(stateSize) - (dt/6)*(Xdot1[i] + 2*Xdot2[i] + 2*Xdot3[i] + Xdot4[i]);
 }
 
-stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt){
-    // Backwards Euler step from X_{k+1} to X_k
-    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
-    return augX.head(stateSize) - dt*Xdot1;
+void UDPSolver::rungeKuttaStepBackwardThread(stateAug_t augXThread, double dt, unsigned int iThread){
+    // Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+    // cout << "come here:Thread" << endl;
+    // cout << "augXThread: " << augXThread << endl;
+    //cout << "augXThread.size(): " << augXThread.size() << endl;
+
+    mtx.lock();
+
+    if (iThread == 0){
+        //cout << "come here:Thread0" << endl;
+        
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot1[iThread]: " << Xdot1[iThread] << endl;
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot2[iThread]: " << Xdot2[iThread] << endl;
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot3[iThread]: " << Xdot3[iThread] << endl;
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot4[iThread]: " << Xdot4[iThread] << endl;
+        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+        //cout << "come outside: 0" << endl;
+
+    }else{
+        //cout << "come here:Thread2" << endl;
+
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot1[iThread]: " << Xdot1[iThread] << endl;
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot2[iThread]: " << Xdot2[iThread] << endl;
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot3[iThread]: " << Xdot3[iThread] << endl;
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        // cout << "Xdot4[iThread]: " << Xdot4[iThread] << endl;
+        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);    
+        //cout << "come outside: 2" << endl;
+
+    }
+    mtx.unlock();
 }
 
-stateVec_t UDPSolver::rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt){
+stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt, unsigned int i){
     // Backwards Euler step from X_{k+1} to X_k
-    Xdot1 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
-    Xdot2 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1, (augX.tail(commandSize) + U_previous)/2.0);
-    Xdot3 = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) + dt*Xdot1 - 2*dt*Xdot2, U_previous);
-    return augX.head(stateSize) - (dt/6)*(Xdot1 + 4*Xdot2 + Xdot3);
+    Xdot1[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    return augX.head(stateSize) - dt*Xdot1[i];
 }
+
+stateVec_t UDPSolver::rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i){
+    // Backwards Third-order step from X_{k+1} to X_k
+    Xdot1[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize), augX.tail(commandSize));
+    Xdot2[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) - 0.5*dt*Xdot1[i], (augX.tail(commandSize) + U_previous)/2.0);
+    Xdot3[i] = dynamicModel->kuka_arm_dynamics(augX.head(stateSize) + dt*Xdot1[i] - 2*dt*Xdot2[i], U_previous);
+    return augX.head(stateSize) - (dt/6)*(Xdot1[i] + 4*Xdot2[i] + Xdot3[i]);
+}
+
+void UDPSolver::func(const string &name, stateAug_t augX, const double& dt) {
+   cout <<"Hello " << name << endl;
+};
+
 
 }  // namespace
 }  // namespace kuka_iiwa_arm

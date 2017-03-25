@@ -8,17 +8,23 @@
 #include <numeric>
 #include <sys/time.h>
 
-#define UDP_BACKWARD_INTEGRATION_METHOD 3 // 1: 4^th-order RK, 2: simple Euler method, 3: 3^rd-order RK with FOH on u (same as dircol)
+#define UDP_BACKWARD_INTEGRATION_METHOD 1 // 1: 4^th-order RK, 2: simple Euler method, 3: 3^rd-order RK with FOH on u (same as dircol)
 #define ENABLE_QPBOX 0
 #define DISABLE_QPBOX 1
 #define ENABLE_FULLDDP 0
 #define DISABLE_FULLDDP 1
 
+#define MULTI_THREAD 1
+#if MULTI_THREAD
+#include <thread>
+#define NUMBER_OF_THREAD 4
+#endif
+
 #define stateSize 14
 #define commandSize 7
 #define fullstatecommandSize 21
 
-#define TimeHorizon 3
+#define TimeHorizon 0.5//3
 #define TimeStep 0.01
 #define NumberofKnotPt TimeHorizon/TimeStep
 #define InterpolationScale 0.01/1e-3
@@ -57,6 +63,7 @@ typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                    
 typedef Eigen::Matrix<double,stateSize/2,stateSize/2> stateMat_half_t;                          // stateSize/2 x stateSize/2
 typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
 typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;                   // stateSize/2 x commandSize
+typedef Eigen::Matrix<double,stateSize/2, 1> stateHalfVec_t;                                    // stateSize/2 x 1
 
 // typedef for vectorized state and command matrix (over the horizon)
 typedef std::vector<stateVec_t> stateVecTab_t;
@@ -66,6 +73,7 @@ typedef std::vector<stateMat_t> stateMatTab_t;
 typedef std::vector<commandMat_t> commandMatTab_t;
 typedef std::vector<stateR_commandC_t> stateR_commandC_tab_t;
 typedef std::vector<commandR_stateC_t> commandR_stateC_tab_t;
+typedef std::vector<stateHalfVec_t> stateVecTab_half_t;
 
 //typedef std::vector<stateTens_t> stateTensTab_t;
 typedef std::vector<std::vector<stateMat_t> > stateTensTab_t;

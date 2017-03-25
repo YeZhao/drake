@@ -86,8 +86,9 @@ private:
     stateR_half_commandC_t Bu;
     stateVec_half_t velocity;
     stateVec_half_t accel;
-    stateVec_t Xdot_new;
-    stateVec_half_t vd;
+    stateVec_t Xdot_new, Xdot_new_thread, Xdot_new_thread2;
+    stateVec_half_t vd, vd_thread, vd_thread2, vd_thread3;
+    stateVecTab_t Xdot_new_thread3;
 
     stateVec_t Xdot1, Xdot2, Xdot3, Xdot4;
     stateMat_t A1, A2, A3, A4, IdentityMat;
@@ -101,12 +102,20 @@ private:
     stateR_commandC_tab_t B_temp;
     
     std::unique_ptr<RigidBodyTree<double>> robot_{nullptr};
-    Eigen::VectorXd q;
-    Eigen::VectorXd qd;
+    std::unique_ptr<RigidBodyTree<double>> robot_thread_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread2_{nullptr};
+    Eigen::VectorXd q, q_thread, q_thread2;
+    Eigen::VectorXd qd, qd_thread, qd_thread2;
+    stateVecTab_half_t q_thread3, qd_thread3;
+    std::vector<Eigen::VectorXd> q_thread4, qd_thread4;
+
 protected:
     // methods
 public:
     stateVec_t kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& tau);
+    stateVec_t kuka_arm_dynamicsThread(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
+    stateVec_t kuka_arm_dynamicsThread1(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
+    stateVec_t kuka_arm_dynamicsThread2(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
     void kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionKukaArm*& costFunction);
     void kuka_arm_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr,  const bool& isUNan, stateVec_t& xList_next, CostFunctionKukaArm*& costFunction);
     void kuka_arm_dyn_cst_udp(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionKukaArm*& costFunction);

@@ -156,7 +156,7 @@ private:
     bool debugging_print;    
     int newDeriv;
 
-    stateVec_t Xdot1, Xdot2, Xdot3, Xdot4;
+    stateVecTab_t Xdot1, Xdot2, Xdot3, Xdot4, XnextThread;
     double g_norm_i, g_norm_max, g_norm_sum;
 
     /* matrix in doBackwardPass() */
@@ -168,6 +168,9 @@ private:
     commandMat_t cuu_inverse;
     stateVec_t X_new;
     bool isUNan;
+    #if MULTI_THREAD
+    #endif
+
 protected:
     // methods
 public:
@@ -180,9 +183,13 @@ public:
     void doBackwardPass();
     void doForwardPass();
     bool isPositiveDefinite(const commandMat_t & Quu);
-    stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt);
-    stateVec_t eulerStepBackward(stateAug_t augX, double& dt);
-    stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt);
+    stateVec_t rungeKuttaStepBackward(stateAug_t augX, double& dt, unsigned int i);
+    stateVec_t eulerStepBackward(stateAug_t augX, double& dt, unsigned int i);
+    stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i);
+    void rungeKuttaStepBackwardThread(stateAug_t augX, double dt, unsigned int i);
+    // static void receivePWrapper(UDPSolver* udpsolver, stateAug_t augX, double& dt, stateVec_t& Xnext);
+    //std::thread member2Thread(stateAug_t augX, const double& dt, stateVec_t& Xnext);
+    void func(const string &name, stateAug_t augX, const double& dt);
 
 protected:
 };
