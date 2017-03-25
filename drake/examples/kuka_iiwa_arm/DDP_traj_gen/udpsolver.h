@@ -187,6 +187,8 @@ public:
     stateVec_t eulerStepBackward(stateAug_t augX, double& dt, unsigned int i);
     stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i);
     void rungeKuttaStepBackwardThread(stateAug_t augX, double dt, unsigned int i);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+
     // static void receivePWrapper(UDPSolver* udpsolver, stateAug_t augX, double& dt, stateVec_t& Xnext);
     //std::thread member2Thread(stateAug_t augX, const double& dt, stateVec_t& Xnext);
     void func(const string &name, stateAug_t augX, const double& dt);

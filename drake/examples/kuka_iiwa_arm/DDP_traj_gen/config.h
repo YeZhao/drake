@@ -17,7 +17,7 @@
 #define MULTI_THREAD 1
 #if MULTI_THREAD
 #include <thread>
-#define NUMBER_OF_THREAD 4
+#define NUMBER_OF_THREAD 20
 #endif
 
 #define stateSize 14
