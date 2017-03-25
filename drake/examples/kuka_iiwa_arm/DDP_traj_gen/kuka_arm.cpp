@@ -165,6 +165,7 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread(const stateVec_t& X_thread, const co
     q_thread4[i1] << X_thread.head(stateSize/2);
     qd_thread4[i1] << X_thread.tail(stateSize/2);
 
+    // mtx.lock();
     // gettimeofday(&tbegin_period,NULL);
     KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread4[i1], qd_thread4[i1]);
     // gettimeofday(&tend_period,NULL);
@@ -192,7 +193,8 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread(const stateVec_t& X_thread, const co
 
     vd_thread = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread3[i1] << qd_thread4[i1], vd_thread;
-    
+    // mtx.unlock();
+
     return Xdot_new_thread3[i1];
 }
 
