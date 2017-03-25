@@ -17,7 +17,7 @@
 #define MULTI_THREAD 1
 #if MULTI_THREAD
 #include <thread>
-#define NUMBER_OF_THREAD 15
+#define NUMBER_OF_THREAD 20
 #endif
 
 #define stateSize 14
@@ -61,9 +61,7 @@ typedef Eigen::Matrix<double,1,1> scalar_t;                                     
 // typedef for half commandSize and stateSize types
 typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
 typedef Eigen::Matrix<double,stateSize/2,stateSize/2> stateMat_half_t;                          // stateSize/2 x stateSize/2
-typedef Eigen::Matrix<double,stateSize/2,1> stateVec_half_t;                                    // stateSize/2 x 1
 typedef Eigen::Matrix<double,stateSize/2,commandSize> stateR_half_commandC_t;                   // stateSize/2 x commandSize
-typedef Eigen::Matrix<double,stateSize/2, 1> stateHalfVec_t;                                    // stateSize/2 x 1
 
 // typedef for vectorized state and command matrix (over the horizon)
 typedef std::vector<stateVec_t> stateVecTab_t;
@@ -73,7 +71,7 @@ typedef std::vector<stateMat_t> stateMatTab_t;
 typedef std::vector<commandMat_t> commandMatTab_t;
 typedef std::vector<stateR_commandC_t> stateR_commandC_tab_t;
 typedef std::vector<commandR_stateC_t> commandR_stateC_tab_t;
-typedef std::vector<stateHalfVec_t> stateVecTab_half_t;
+typedef std::vector<stateVec_half_t> stateVecTab_half_t;
 
 //typedef std::vector<stateTens_t> stateTensTab_t;
 typedef std::vector<std::vector<stateMat_t> > stateTensTab_t;

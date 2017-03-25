@@ -188,6 +188,25 @@ public:
     stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i);
     void rungeKuttaStepBackwardThread(stateAug_t augX, double dt, unsigned int i);
     void rungeKuttaStepBackwardTwoSigmaPointsThread(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread3(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread4(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread5(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread6(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread7(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread8(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread9(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread10(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread11(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread12(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread13(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread14(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread15(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread16(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread17(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
 
     // static void receivePWrapper(UDPSolver* udpsolver, stateAug_t augX, double& dt, stateVec_t& Xnext);
     //std::thread member2Thread(stateAug_t augX, const double& dt, stateVec_t& Xnext);
