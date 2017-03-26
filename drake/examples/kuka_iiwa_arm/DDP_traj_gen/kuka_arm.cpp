@@ -131,7 +131,7 @@ stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& t
     //finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
     vd = M_.inverse()*(tau - bias_term_);
-    Xdot_new << qd, vd; 
+    Xdot_new << qd, vd;
     
     return Xdot_new;
 }

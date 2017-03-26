@@ -81,6 +81,8 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     Op.time_range1.setZero();
     Op.time_range2.resize(Op.max_iter);
     Op.time_range2.setZero();
+    Op.time_range3.resize(Op.max_iter);
+    Op.time_range3.setZero();
 
     xList.resize(N+1);
     uList.resize(N);
@@ -192,10 +194,10 @@ void UDPSolver::solveTrajectory()
         //TRACE_UDP("STEP 2: backward pass, compute optimal control law and cost-to-go\n");
         backPassDone = 0;
         while(!backPassDone){
-            //gettimeofday(&tbegin_time_bwd,NULL);
+            gettimeofday(&tbegin_time_bwd,NULL);
             doBackwardPass();
-            //gettimeofday(&tend_time_bwd,NULL);
-            //Op.time_backward(iter) = ((double)(1000.0*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000.0)))/1000.0;
+            gettimeofday(&tend_time_bwd,NULL);
+            Op.time_backward(iter) = ((double)(1000.0*(tend_time_bwd.tv_sec-tbegin_time_bwd.tv_sec)+((tend_time_bwd.tv_usec-tbegin_time_bwd.tv_usec)/1000.0)))/1000.0;
 
             //TRACE_UDP("handle Cholesky failure case");
             if(diverge){
@@ -403,6 +405,7 @@ void UDPSolver::doBackwardPass()
 
     Op.time_range1(iter) = 0;
     Op.time_range2(iter) = 0;
+    Op.time_range3(iter) = 0;
     for(int i=N-1;i>=0;i--){
         //Generate sigma points from Vxx(i+1) and cuu(i+1)
         ZeroLowerLeftMatrix.setZero();
@@ -443,6 +446,7 @@ void UDPSolver::doBackwardPass()
         //Propagate sigma points through backwards dynamics
 
         if(UDP_BACKWARD_INTEGRATION_METHOD == 1){
+            gettimeofday(&tbegin_test2,NULL);
             for(unsigned int j=0;j<NUMBER_OF_THREAD;j++){
                 switch(2*j){
                     case 0: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread1, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;       
@@ -468,17 +472,22 @@ void UDPSolver::doBackwardPass()
                 }
             }
 
+            gettimeofday(&tend_test2,NULL);
+            Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
+
+            gettimeofday(&tbegin_test3,NULL);
             for(unsigned int j=2*NUMBER_OF_THREAD;j<2*fullstatecommandSize;j++){
                  Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt, j);
             }
+            gettimeofday(&tend_test3,NULL);
+            Op.time_range3(iter) += ((double)(1000.0*(tend_test3.tv_sec-tbegin_test3.tv_sec)+((tend_test3.tv_usec-tbegin_test3.tv_usec)/1000.0)))/1000.0;
 
-            for (unsigned int j = 0; j < 2*NUMBER_OF_THREAD; j++){
-                 if(j%2 == 0){
-                     thread[j/2].join();
-                     Sig.col(j).head(stateSize) = XnextThread[j];
-                     Sig.col(j+1).head(stateSize) = XnextThread[j+1];
-                 }
+            for (unsigned int j = 0; j < NUMBER_OF_THREAD; j++){
+                 thread[j].join();
+                 Sig.col(2*j).head(stateSize) = XnextThread[2*j];
+                 Sig.col(2*j+1).head(stateSize) = XnextThread[2*j+1];
             }
+
         }else if(UDP_BACKWARD_INTEGRATION_METHOD == 2){
             for(unsigned int j=0;j<2*fullstatecommandSize;j++)
                  Sig.col(j).head(stateSize) = eulerStepBackward(Sig.col(j), dt, j);
@@ -494,8 +503,6 @@ void UDPSolver::doBackwardPass()
         
         gettimeofday(&tend_test,NULL);
         Op.time_range1(iter) += ((double)(1000.0*(tend_test.tv_sec-tbegin_test.tv_sec)+((tend_test.tv_usec-tbegin_test.tv_usec)/1000.0)))/1000.0;
-        
-        gettimeofday(&tbegin_test2,NULL);
 
         //Calculate [Qu; Qx] from sigma points
         for(unsigned int j=0;j<fullstatecommandSize;j++){
@@ -523,9 +530,6 @@ void UDPSolver::doBackwardPass()
         Qxx = HH.block(0,0,stateSize,stateSize);
         Quu = HH.block(stateSize,stateSize,commandSize,commandSize);
         Qux = HH.block(stateSize,0,commandSize,stateSize);
-
-        gettimeofday(&tend_test2,NULL);
-        Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
         if(Op.regType == 1)
             QuuF = Quu + Op.lambda*commandMat_t::Identity();
@@ -654,6 +658,7 @@ UDPSolver::traj UDPSolver::getLastSolvedTrajectory()
     lastTraj.time_derivative = Op.time_derivative;
     lastTraj.time_range1 = Op.time_range1;
     lastTraj.time_range2 = Op.time_range2;
+    lastTraj.time_range3 = Op.time_range3;
     return lastTraj;
 }
 
