@@ -135,6 +135,8 @@ public:
     stateVec_t kuka_arm_dynamicsThread18(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
     stateVec_t kuka_arm_dynamicsThread19(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
     stateVec_t kuka_arm_dynamicsThread20(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
+    stateVec_t kuka_arm_dynamicsThread21(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
+    stateVec_t kuka_arm_dynamicsThread22(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
 
     void kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionKukaArm*& costFunction);
     void kuka_arm_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr,  const bool& isUNan, stateVec_t& xList_next, CostFunctionKukaArm*& costFunction);

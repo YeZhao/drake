@@ -171,7 +171,6 @@ private:
     bool isUNan;
     #if MULTI_THREAD
         std::vector<std::thread> thread;
-        std::vector<std::thread> thread2;
     #endif
     bool enable_rk4_;
     bool enable_euler_;
@@ -191,8 +190,8 @@ public:
     stateVec_t eulerStepBackward(stateAug_t augX, double& dt, unsigned int i);
     stateVec_t rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_previous, double& dt, unsigned int i);
     void rungeKuttaStepBackwardThread(stateAug_t augX, double dt, unsigned int i);
-    void rungeKuttaStepBackwardTwoSigmaPointsThread1(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    void rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread1(stateAug_t augXThread, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread3(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread4(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread5(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
@@ -211,7 +210,9 @@ public:
     void rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    void func(const string &name, stateAug_t augX, const double& dt);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread21(stateAug_t augXThread, double dt, unsigned int iThread);
+    void rungeKuttaStepBackwardTwoSigmaPointsThread22(stateAug_t augXThread, double dt, unsigned int iThread);
+
 protected:
 };
 
