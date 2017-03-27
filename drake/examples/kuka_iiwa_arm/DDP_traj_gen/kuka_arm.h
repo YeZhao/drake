@@ -69,6 +69,7 @@ public:
     struct timeprofile
     {
         double time_period1, time_period2, time_period3, time_period4;
+        unsigned int counter0_, counter1_, counter2_;
     };
 
 private:
@@ -76,7 +77,7 @@ private:
     unsigned int N;
     bool initial_phase_flag_;
     struct timeprofile finalTimeProfile;
-    struct timeval tbegin_period, tend_period, tbegin_period2, tend_period2, tbegin_period3, tend_period3;
+    struct timeval tbegin_period, tend_period, tbegin_period2, tend_period2, tbegin_period3, tend_period3, tbegin_period4, tend_period4;
 
 public:
     static const double mc, mp, l, g;
@@ -105,15 +106,11 @@ private:
     stateMatTab_t A_temp;
     stateR_commandC_tab_t B_temp;
     
-    std::unique_ptr<RigidBodyTree<double>> robot_{nullptr};
     std::unique_ptr<RigidBodyTree<double>> robot_thread_{nullptr};
-    std::unique_ptr<RigidBodyTree<double>> robot_thread2_{nullptr};
-    std::unique_ptr<RigidBodyTree<double>> robot_thread3_{nullptr};
-    std::unique_ptr<RigidBodyTree<double>> robot_thread4_{nullptr};
+
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
     std::vector<Eigen::VectorXd> q_thread, qd_thread;
-
 protected:
     // methods
 public:

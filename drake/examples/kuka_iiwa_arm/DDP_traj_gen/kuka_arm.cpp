@@ -74,7 +74,10 @@ KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
     B_temp.resize(N);
     
     debugging_print = 0;
-    
+    finalTimeProfile.counter0_ = 0;
+    finalTimeProfile.counter1_ = 0;
+    finalTimeProfile.counter2_ = 0;
+
     initial_phase_flag_ = 1;
     q.resize(stateSize/2);
     qd.resize(stateSize/2);
@@ -86,6 +89,9 @@ KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
     }
 
     finalTimeProfile.time_period1 = 0;
+    finalTimeProfile.time_period2 = 0;
+    finalTimeProfile.time_period3 = 0;
+    finalTimeProfile.time_period4 = 0;
 
     if(initial_phase_flag_ == 1){
         robot_thread_ = std::make_unique<RigidBodyTree<double>>();
@@ -99,45 +105,47 @@ KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
 
 stateVec_t KukaArm::kuka_arm_dynamics(const stateVec_t& X, const commandVec_t& tau)
 {
+    finalTimeProfile.counter0_ += 1;
+
+    if(finalTimeProfile.counter0_ == 10)
+        gettimeofday(&tbegin_period,NULL);
 
     q << X.head(stateSize/2);
     qd << X.tail(stateSize/2);
-
-    // gettimeofday(&tbegin_period,NULL);
+    
     KinematicsCache<double> cache_ = robot_thread_->doKinematics(q, qd);
-    // KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q, qd);
-
-    // gettimeofday(&tend_period,NULL);
-    // finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
-
+    
     //const RigidBodyTree<double>::BodyToWrenchMap no_external_wrenches;
     //gettimeofday(&tbegin_period,NULL);
     MatrixX<double> M_ = robot_thread_->massMatrix(cache_); // Inertial matrix
-    // MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
     //gettimeofday(&tbegin_period,NULL);
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext;
-    // drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-
+    
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
     
     //gettimeofday(&tbegin_period,NULL);
     VectorX<double> bias_term_ = robot_thread_->dynamicsBiasTerm(cache_, f_ext);  // Bias term: M * vd + h = tau + J^T * lambda
-    //VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
     //gettimeofday(&tend_period,NULL);
     //finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
 
     vd = M_.inverse()*(tau - bias_term_);
     Xdot_new << qd, vd;
     
+    if(finalTimeProfile.counter0_ == 10){
+        gettimeofday(&tend_period,NULL);
+        finalTimeProfile.time_period1 += ((double)(1000.0*(tend_period.tv_sec-tbegin_period.tv_sec)+((tend_period.tv_usec-tbegin_period.tv_usec)/1000.0)))/1000.0;
+    }
+    
     return Xdot_new;
 }
 
 stateVec_t KukaArm::kuka_arm_dynamicsThread1(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
 {
+
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
@@ -166,6 +174,11 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread1(const stateVec_t& X_thread, const c
 
 stateVec_t KukaArm::kuka_arm_dynamicsThread2(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
 {
+    finalTimeProfile.counter1_ += 1;
+
+    if(finalTimeProfile.counter1_ == 10)
+        gettimeofday(&tbegin_period2,NULL);
+
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
@@ -178,11 +191,17 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread2(const stateVec_t& X_thread, const c
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
 
+    if(finalTimeProfile.counter1_ == 10){
+        gettimeofday(&tend_period2,NULL);
+        finalTimeProfile.time_period2 += ((double)(1000.0*(tend_period2.tv_sec-tbegin_period2.tv_sec)+((tend_period2.tv_usec-tbegin_period2.tv_usec)/1000.0)))/1000.0;
+    }
+
     return Xdot_new_thread[index];
 }
 
 stateVec_t KukaArm::kuka_arm_dynamicsThread3(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
 {
+
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
@@ -216,6 +235,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread4(const stateVec_t& X_thread, const c
 
 stateVec_t KukaArm::kuka_arm_dynamicsThread5(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
 {
+    finalTimeProfile.counter2_ += 1;
+    if(finalTimeProfile.counter2_ == 10)
+        gettimeofday(&tbegin_period3,NULL);
+
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
@@ -226,6 +249,11 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread5(const stateVec_t& X_thread, const c
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
+
+    if(finalTimeProfile.counter2_ == 10){
+        gettimeofday(&tend_period3,NULL);
+        finalTimeProfile.time_period3 += ((double)(1000.0*(tend_period3.tv_sec-tbegin_period3.tv_sec)+((tend_period3.tv_usec-tbegin_period3.tv_usec)/1000.0)))/1000.0;
+    }
 
     return Xdot_new_thread[index];
 }
@@ -756,6 +784,9 @@ void KukaArm::kuka_arm_dyn_cst_udp(const int& nargout, const stateVecTab_t& xLis
 stateVec_t KukaArm::update(const int& nargout, const stateVec_t& X, const commandVec_t& U, stateMat_t& A, stateR_commandC_t& B){
     // 4th-order Runge-Kutta step
     if(debugging_print) TRACE_KUKA_ARM("update: 4th-order Runge-Kutta step\n");
+
+    gettimeofday(&tbegin_period4,NULL);
+
     Xdot1 = kuka_arm_dynamics(X, U);
     Xdot2 = kuka_arm_dynamics(X + 0.5*dt*Xdot1, U);
     Xdot3 = kuka_arm_dynamics(X + 0.5*dt*Xdot2, U);
@@ -817,6 +848,10 @@ stateVec_t KukaArm::update(const int& nargout, const stateVec_t& X, const comman
         B = B4 * dt/6 + (IdentityMat + A4 * dt/6) * B3 * dt/3 + (IdentityMat + A4 * dt/6)*(IdentityMat + A3 * dt/3)* B2 * dt/3 + (IdentityMat + (dt/6)*A4)*(IdentityMat + (dt/3)*A3)*(IdentityMat + (dt/3)*A2)*(dt/6)*B1;
     }
     if(debugging_print) TRACE_KUKA_ARM("update: X_new\n");
+
+    gettimeofday(&tend_period4,NULL);
+    finalTimeProfile.time_period4 += ((double)(1000.0*(tend_period4.tv_sec-tbegin_period4.tv_sec)+((tend_period4.tv_usec-tbegin_period4.tv_usec)/1000.0)))/1000.0;
+
     return X_new;
 }
 

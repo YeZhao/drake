@@ -171,8 +171,10 @@ private:
     bool isUNan;
     #if MULTI_THREAD
         std::vector<std::thread> thread;
+        std::vector<std::thread> thread2;
     #endif
-
+    bool enable_rk4_;
+    bool enable_euler_;
 protected:
     // methods
 public:
@@ -209,6 +211,7 @@ public:
     void rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
+    void func(const string &name, stateAug_t augX, const double& dt);
 protected:
 };
 
