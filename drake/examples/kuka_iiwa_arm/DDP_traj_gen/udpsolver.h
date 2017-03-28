@@ -43,7 +43,7 @@ public:
         double finalCost;
         double finalGrad;
         double finalLambda;
-        Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2, time_range3;
+        Eigen::VectorXd time_forward, time_backward, time_derivative, time_range1, time_range2, time_range3, time_iteration;
     };
 
     struct tOptSet {
@@ -83,7 +83,7 @@ public:
         int print;
         double print_head; // print headings every print_head lines
         double last_head;
-        Eigen::VectorXd time_backward, time_forward, time_derivative, time_range1, time_range2, time_range3;
+        Eigen::VectorXd time_backward, time_forward, time_derivative, time_range1, time_range2, time_range3, time_iteration;
         Eigen::VectorXd alphaList;
         // traj_t *nominal;
         // traj_t *candidates[NUMBER_OF_THREADS]; 
@@ -120,7 +120,7 @@ private:
     costVecTab_t costListNew;
     struct traj lastTraj;
     struct timeval tbegin_time_fwd, tend_time_fwd, tbegin_time_bwd, tend_time_bwd, tbegin_time_deriv, tend_time_deriv;
-    struct timeval tbegin_test, tend_test, tbegin_test2, tend_test2, tbegin_test3, tend_test3;
+    struct timeval tbegin_test, tend_test, tbegin_test2, tend_test2, tbegin_test3, tend_test3, tbegin_iteration, tend_iteration;
 
     stateVecTab_t Vx;
     stateMatTab_t Vxx;

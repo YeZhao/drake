@@ -246,6 +246,9 @@ class RobotPlanRunner {
     cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() << endl;
     cout << "lastTraj.uList[" << N << "]:" << lastTraj.uList[N].transpose() << endl;
 
+    cout << "lastTraj.xList[0]:" << lastTraj.xList[0].transpose() << endl;
+    cout << "lastTraj.uList[0]:" << lastTraj.uList[0].transpose() << endl;
+
     // saving data file
     for(unsigned int i=0;i<N;i++){
       saveVector(joint_state_traj[i], "joint_trajectory");

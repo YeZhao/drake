@@ -83,6 +83,8 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     Op.time_range2.setZero();
     Op.time_range3.resize(Op.max_iter);
     Op.time_range3.setZero();
+    Op.time_iteration.resize(Op.max_iter);
+    Op.time_iteration.setZero();
 
     xList.resize(N+1);
     uList.resize(N);
@@ -119,6 +121,8 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     FList[N].setZero();
     Vx[N].setZero();
     Vxx[N].setZero();
+    //warm start
+    //uList[0] << 0.921026, 103.129, 1.3086, -46.7626, 0.90231, 7.5771, 0.0570815;
 
     k.setZero();
     K.setZero();
@@ -176,6 +180,8 @@ void UDPSolver::solveTrajectory()
 
     for(iter=0;iter<Op.max_iter;iter++)
     {
+        gettimeofday(&tbegin_iteration,NULL);
+
         //TRACE_UDP("STEP 1: differentiate cost along new trajectory\n");
         if(newDeriv){
             int nargout = 7;//fx,fu,cx,cu,cxx,cxu,cuu
@@ -252,16 +258,19 @@ void UDPSolver::solveTrajectory()
             Op.time_forward(iter) = ((double)(1000.0*(tend_time_fwd.tv_sec-tbegin_time_fwd.tv_sec)+((tend_time_fwd.tv_usec-tbegin_time_fwd.tv_usec)/1000.0)))/1000.0;
         }
         
+        gettimeofday(&tend_iteration,NULL);
+        Op.time_iteration(iter) = ((double)(1000.0*(tend_iteration.tv_sec-tbegin_iteration.tv_sec)+((tend_iteration.tv_usec-tbegin_iteration.tv_usec)/1000.0)))/1000.0;
+        
         //TRACE_UDP("STEP 4: accept step (or not), draw graphics, print status"); 
         if (Op.debug_level > 1 && Op.last_head == Op.print_head){
             Op.last_head = 0;
-            TRACE_UDP("iteration,\t cost, \t reduction, \t expected, \t gradient, \t log10(lambda) \n");
+            TRACE_UDP("iteration,\t cost, \t reduction, \t expected, \t gradient, \t log10(lambda) \t time \n");
         }
         
         if(fwdPassDone){
             // print status
             if (Op.debug_level > 1){
-                if(!debugging_print) printf("%-14d%-12.6g%-15.3g%-15.3g%-19.3g%-17.1f\n", iter+1, accumulate(costList.begin(), costList.end(), 0.0), Op.dcost, Op.expected, Op.g_norm, log10(Op.lambda));
+                if(!debugging_print) printf("%-14d%-12.6g%-15.3g%-15.3g%-19.3g%-17.1f%-8.4f\n", iter+1, accumulate(costList.begin(), costList.end(), 0.0), Op.dcost, Op.expected, Op.g_norm, log10(Op.lambda), Op.time_iteration(iter));
                 Op.last_head = Op.last_head+1;
             }
 
@@ -474,7 +483,7 @@ void UDPSolver::doBackwardPass()
                     case 38: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread20, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
                 }
             }
-            
+
             gettimeofday(&tend_test2,NULL);
             Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
