@@ -169,9 +169,9 @@ class RobotPlanRunner {
     #endif
     #if useUDPSolver
         double scale = 1e-4;//[To be optimized]
-        UDPSolver::traj lastTraj;
         KukaArm KukaArmModel(dt, N, xgoal);
         KukaArm::timeprofile finalTimeProfile;
+        UDPSolver::traj lastTraj;
         CostFunctionKukaArm costKukaArm;
         UDPSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
         testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    

@@ -107,6 +107,18 @@ private:
     stateR_commandC_tab_t B_temp;
     
     std::unique_ptr<RigidBodyTree<double>> robot_thread_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread1_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread2_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread3_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread4_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread5_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread6_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread7_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread8_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread9_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread10_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread11_{nullptr};
+    std::unique_ptr<RigidBodyTree<double>> robot_thread12_{nullptr};
 
     Eigen::VectorXd q;
     Eigen::VectorXd qd;
@@ -127,14 +139,6 @@ public:
     stateVec_t kuka_arm_dynamicsThread10(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
     stateVec_t kuka_arm_dynamicsThread11(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
     stateVec_t kuka_arm_dynamicsThread12(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread13(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread14(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread15(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread16(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread17(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread18(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread19(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
-    stateVec_t kuka_arm_dynamicsThread20(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index);
 
     void kuka_arm_dyn_cst_ilqr(const int& nargout, const stateVecTab_t& xList, const commandVecTab_t& uList, stateVecTab_t& FList, CostFunctionKukaArm*& costFunction);
     void kuka_arm_dyn_cst_min_output(const int& nargout, const double& dt, const stateVec_t& xList_curr, const commandVec_t& uList_curr,  const bool& isUNan, stateVec_t& xList_next, CostFunctionKukaArm*& costFunction);

@@ -148,6 +148,7 @@ void UDPSolver::firstInitSolver(stateVec_t& iiwaxInit, stateVec_t& iiwaxgoal, un
     Op.alphaList.resize(11);
     Op.alphaList << 1.0, 0.5012, 0.2512, 0.1259, 0.0631, 0.0316, 0.0158, 0.0079, 0.0040, 0.0020, 0.0010;
 
+    cout << "come thread" << endl;
     debugging_print = 0;
     thread.resize(NUMBER_OF_THREAD);
     enable_rk4_ = 1;
@@ -460,35 +461,27 @@ void UDPSolver::doBackwardPass()
             gettimeofday(&tbegin_test2,NULL);
 
             for(unsigned int j=0;j<NUMBER_OF_THREAD;j++){
-                switch(2*j){
-                    case 0: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread1, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;       
-                    case 2: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread2, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 4: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread3, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 6: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread4, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 8: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread5, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 10: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread6, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 12: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread7, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 14: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread8, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 16: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread9, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 18: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread10, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 20: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread11, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 22: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread12, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 24: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread13, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 26: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread14, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 28: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread15, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 30: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread16, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 32: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread17, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 34: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread18, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 36: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread19, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                    case 38: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread20, this, Sig.col(2*j), Sig.col(2*j+1), dt, 2*j); break;
-                }
+                switch(3*j){
+                    case 0: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread1, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;       
+                    case 3: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread2, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 6: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread3, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 9: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread4, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 12: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread5, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 15: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread6, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 18: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread7, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 21: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread8, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 24: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread9, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 27: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread10, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 30: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread11, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    case 33: thread[j] = std::thread(&UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread12, this, Sig.col(3*j), Sig.col(3*j+1), Sig.col(3*j+2), dt, 3*j); break;
+                    }
             }
 
             gettimeofday(&tend_test2,NULL);
             Op.time_range2(iter) += ((double)(1000.0*(tend_test2.tv_sec-tbegin_test2.tv_sec)+((tend_test2.tv_usec-tbegin_test2.tv_usec)/1000.0)))/1000.0;
 
             gettimeofday(&tbegin_test3,NULL);
-            for(unsigned int j=2*NUMBER_OF_THREAD;j<2*fullstatecommandSize;j++){
+            for(unsigned int j=3*NUMBER_OF_THREAD;j<2*fullstatecommandSize;j++){
                  Sig.col(j).head(stateSize) = rungeKuttaStepBackward(Sig.col(j), dt, j);
             }
             gettimeofday(&tend_test3,NULL);
@@ -496,8 +489,9 @@ void UDPSolver::doBackwardPass()
 
             for (unsigned int j = 0; j < NUMBER_OF_THREAD; j++){
                  thread[j].join();
-                 Sig.col(2*j).head(stateSize) = XnextThread[2*j];
-                 Sig.col(2*j+1).head(stateSize) = XnextThread[2*j+1];
+                 Sig.col(3*j).head(stateSize) = XnextThread[3*j];
+                 Sig.col(3*j+1).head(stateSize) = XnextThread[3*j+1];
+                 Sig.col(3*j+2).head(stateSize) = XnextThread[3*j+2];
             }
 
         }else if(UDP_BACKWARD_INTEGRATION_METHOD == 2){
@@ -711,485 +705,566 @@ void UDPSolver::rungeKuttaStepBackwardThread(stateAug_t augXThread, double dt, u
     mtx.unlock();
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread1(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread1(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
-
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
-
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
-
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
-        
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
 
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread3(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread2(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread2(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
 
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread2(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread4(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread3(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread3(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread3(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread5(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread4(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
-
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread4(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread4(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread6(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread5(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread5(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread5(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread7(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread6(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread6(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread6(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread8(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread7(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread7(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread7(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread9(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread8(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread8(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread8(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread10(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread9(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread9(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread9(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread11(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread10(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread10(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread10(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread12(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread11(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread11(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread11(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread13(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread12(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread){
     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread12(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+
+        Xdot1[iThread+2] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNextNext.head(stateSize), augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot2[iThread+2] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot1[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot3[iThread+2] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNextNext.head(stateSize) - 0.5*dt*Xdot2[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        Xdot4[iThread+2] = dynamicModel->kuka_arm_dynamicsThread12(augXThreadNextNext.head(stateSize) - dt*Xdot3[iThread+2], augXThreadNextNext.tail(commandSize), iThread/3);
+        XnextThread[iThread+2] = augXThreadNextNext.head(stateSize) - (dt/6)*(Xdot1[iThread+2] + 2*Xdot2[iThread+2] + 2*Xdot3[iThread+2] + Xdot4[iThread+2]);
+
     }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
+        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
+        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
     }
 }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread14(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread13(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread13(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-    XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread13(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread15(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread14(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread14(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread14(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//     XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread16(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread15(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread15(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread15(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread17(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread16(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread16(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread16(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread17(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread17(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread17(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread18(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread18(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
-void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
-    // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
-    if(enable_rk4_){
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
 
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/2);
-        Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread19(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
         
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
-    }else if(enable_euler_){
-        Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/2);
-        XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread19(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
 
-        Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/2);
-        XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
-    }
-}
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
+
+// void UDPSolver::rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread){
+//     // (Two Sigma Points) Backwards 4^th order Runge-Kutta step from X_{k+1} to X_k
+//     if(enable_rk4_){
+
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         Xdot2[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - 0.5*dt*Xdot1[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot3[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - 0.5*dt*Xdot2[iThread], augXThread.tail(commandSize), iThread/3);
+//         Xdot4[iThread] = dynamicModel->kuka_arm_dynamicsThread20(augXThread.head(stateSize) - dt*Xdot3[iThread], augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - (dt/6)*(Xdot1[iThread] + 2*Xdot2[iThread] + 2*Xdot3[iThread] + Xdot4[iThread]);
+        
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot2[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - 0.5*dt*Xdot1[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot3[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - 0.5*dt*Xdot2[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         Xdot4[iThread+1] = dynamicModel->kuka_arm_dynamicsThread20(augXThreadNext.head(stateSize) - dt*Xdot3[iThread+1], augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - (dt/6)*(Xdot1[iThread+1] + 2*Xdot2[iThread+1] + 2*Xdot3[iThread+1] + Xdot4[iThread+1]);
+//     }else if(enable_euler_){
+//         Xdot1[iThread] = dynamicModel->kuka_arm_dynamicsThread1(augXThread.head(stateSize), augXThread.tail(commandSize), iThread/3);
+//         XnextThread[iThread] = augXThread.head(stateSize) - dt*Xdot1[iThread];
+
+//         Xdot1[iThread+1] = dynamicModel->kuka_arm_dynamicsThread1(augXThreadNext.head(stateSize), augXThreadNext.tail(commandSize), iThread/3);
+//         XnextThread[iThread+1] = augXThreadNext.head(stateSize) - dt*Xdot1[iThread+1];
+//     }
+// }
 
 stateVec_t UDPSolver::eulerStepBackward(stateAug_t augX, double& dt, unsigned int i){
     // Backwards Euler step from X_{k+1} to X_k

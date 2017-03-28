@@ -99,6 +99,66 @@ KukaArm::KukaArm(double& iiwa_dt, unsigned int& iiwa_N, stateVec_t& iiwa_xgoal)
             GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
         multibody::joints::kFixed, robot_thread_.get());
 
+        robot_thread1_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread1_.get());
+
+        robot_thread2_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread2_.get());
+
+        robot_thread3_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread3_.get());
+
+        robot_thread4_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread4_.get());
+
+        robot_thread5_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread5_.get());
+
+        robot_thread6_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread6_.get());
+
+        robot_thread7_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread7_.get());
+
+        robot_thread8_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread8_.get());
+
+        robot_thread9_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread9_.get());
+
+        robot_thread10_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread10_.get());
+
+        robot_thread11_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread11_.get());
+
+        robot_thread12_ = std::make_unique<RigidBodyTree<double>>();
+        parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
+            GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+        multibody::joints::kFixed, robot_thread12_.get());
+
         initial_phase_flag_ = 0;
     }
 }
@@ -182,11 +242,11 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread2(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread2_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread2_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
 
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread2_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -205,11 +265,11 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread3(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread3_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread3_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
 
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread3_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -222,10 +282,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread4(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread4_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread4_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread4_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -242,10 +302,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread5(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread5_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread5_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread5_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -263,10 +323,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread6(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread6_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread6_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread6_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -279,10 +339,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread7(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread7_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread7_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread7_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -295,10 +355,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread8(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread8_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread8_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread8_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -311,10 +371,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread9(const stateVec_t& X_thread, const c
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread9_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread9_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread9_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -327,10 +387,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread10(const stateVec_t& X_thread, const 
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread10_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread10_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread10_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -343,10 +403,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread11(const stateVec_t& X_thread, const 
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread11_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread11_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread11_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
@@ -359,139 +419,10 @@ stateVec_t KukaArm::kuka_arm_dynamicsThread12(const stateVec_t& X_thread, const 
     q_thread[index] << X_thread.head(stateSize/2);
     qd_thread[index] << X_thread.tail(stateSize/2);
 
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
+    KinematicsCache<double> cache_thread_ = robot_thread12_->doKinematics(q_thread[index], qd_thread[index]);
+    MatrixX<double> M_thread_ = robot_thread12_->massMatrix(cache_thread_); // Inertial matrix
     drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread13(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread14(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread15(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread16(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread17(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread18(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread19(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
-
-    vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
-    Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
-
-    return Xdot_new_thread[index];
-}
-
-stateVec_t KukaArm::kuka_arm_dynamicsThread20(const stateVec_t& X_thread, const commandVec_t& tau_thread_, unsigned int index)
-{
-    q_thread[index] << X_thread.head(stateSize/2);
-    qd_thread[index] << X_thread.tail(stateSize/2);
-
-    KinematicsCache<double> cache_thread_ = robot_thread_->doKinematics(q_thread[index], qd_thread[index]);
-    MatrixX<double> M_thread_ = robot_thread_->massMatrix(cache_thread_); // Inertial matrix
-    drake::eigen_aligned_std_unordered_map<RigidBody<double> const*, drake::TwistVector<double>> f_ext_thread_;
-    VectorX<double> bias_term_thread_ = robot_thread_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
+    VectorX<double> bias_term_thread_ = robot_thread12_->dynamicsBiasTerm(cache_thread_, f_ext_thread_);  // Bias term: M * vd + h = tau + J^T * lambda
 
     vd_thread[index] = M_thread_.inverse()*(tau_thread_ - bias_term_thread_);
     Xdot_new_thread[index] << qd_thread[index], vd_thread[index];
