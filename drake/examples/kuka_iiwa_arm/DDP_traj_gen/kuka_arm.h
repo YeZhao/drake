@@ -36,7 +36,6 @@ using namespace std;
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 class KukaArm
 {
@@ -161,7 +160,6 @@ protected:
 public:
 };
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

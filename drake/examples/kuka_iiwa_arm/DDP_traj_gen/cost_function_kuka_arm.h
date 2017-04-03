@@ -13,7 +13,6 @@ using namespace Eigen;
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 class CostFunctionKukaArm
 {
@@ -65,7 +64,6 @@ public:
 
 };
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

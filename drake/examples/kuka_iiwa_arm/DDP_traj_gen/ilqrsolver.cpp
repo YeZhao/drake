@@ -11,7 +11,6 @@ using Eigen::VectorXd;
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 ILQRSolver::ILQRSolver(KukaArm& iiwaDynamicModel, CostFunctionKukaArm& iiwaCostFunction, bool fullDDP, bool QPBox)
 {
@@ -530,7 +529,6 @@ bool ILQRSolver::isPositiveDefinite(const commandMat_t & Quu)
     return true;
 }
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

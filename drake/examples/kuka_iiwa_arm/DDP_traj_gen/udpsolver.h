@@ -30,7 +30,6 @@ using namespace Eigen;
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 class UDPSolver
 {
@@ -213,7 +212,6 @@ public:
 protected:
 };
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

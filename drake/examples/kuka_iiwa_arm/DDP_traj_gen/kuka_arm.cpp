@@ -3,7 +3,6 @@
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 KukaArm::KukaArm(){}
 
@@ -889,7 +888,6 @@ stateR_commandC_tab_t& KukaArm::getfuList()
     return fuList;
 }
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

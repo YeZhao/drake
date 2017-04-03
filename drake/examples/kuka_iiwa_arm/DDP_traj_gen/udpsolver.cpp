@@ -14,7 +14,6 @@ using Eigen::VectorXd;
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 
 UDPSolver::UDPSolver(KukaArm& iiwaDynamicModel, CostFunctionKukaArm& iiwaCostFunction, bool fullDDP, bool QPBox)
 {
@@ -1280,7 +1279,6 @@ stateVec_t UDPSolver::rungeKutta3StepBackward(stateAug_t augX, commandVec_t U_pr
     return augX.head(stateSize) - (dt/6)*(Xdot1[i] + 4*Xdot2[i] + Xdot3[i]);
 }
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

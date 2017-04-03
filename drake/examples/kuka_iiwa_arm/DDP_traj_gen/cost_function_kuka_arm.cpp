@@ -3,7 +3,6 @@
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
-namespace {
 	
 CostFunctionKukaArm::CostFunctionKukaArm()
 {    
@@ -76,7 +75,6 @@ double& CostFunctionKukaArm::getc()
     return c_new;
 }
 
-}  // namespace
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake

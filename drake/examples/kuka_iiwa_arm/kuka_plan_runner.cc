@@ -42,10 +42,10 @@ using Eigen::Vector3d;
 
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/config.h"
 #include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/spline.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/ilqrsolver.cpp"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/udpsolver.cpp"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/kuka_arm.cpp"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_kuka_arm.cpp"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/ilqrsolver.h"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/udpsolver.h"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/kuka_arm.h"
+#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_kuka_arm.h"
 #define UDP_TRAJ_DIR "/home/yezhao/kuka-dev/drake/drake/examples/kuka_iiwa_arm/DDP_traj_gen/trajectory/"
 
 #include <time.h>
