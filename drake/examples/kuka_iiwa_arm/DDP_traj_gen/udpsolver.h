@@ -201,14 +201,6 @@ public:
     void rungeKuttaStepBackwardTwoSigmaPointsThread10(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread11(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread);
     void rungeKuttaStepBackwardTwoSigmaPointsThread12(stateAug_t augXThread, stateAug_t augXThreadNext, stateAug_t augXThreadNextNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread13(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread14(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread15(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread16(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread17(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread18(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread19(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
-    // void rungeKuttaStepBackwardTwoSigmaPointsThread20(stateAug_t augXThread, stateAug_t augXThreadNext, double dt, unsigned int iThread);
 protected:
 };
 
