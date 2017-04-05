@@ -92,7 +92,7 @@ class RobotPlanRunner {
 
     int cur_plan_number = plan_number_;
     int64_t cur_time_us = -1;
-    // int64_t start_time_us = -1;
+    int64_t start_time_us = -1;
 
     // Initialize the timestamp to an invalid number so we can detect the first message.
     iiwa_status_.utime = cur_time_us;
@@ -116,18 +116,18 @@ class RobotPlanRunner {
       if (qtraj_) {
         if (plan_number_ != cur_plan_number) {
           std::cout << "Starting new plan." << std::endl;
-          // start_time_us = cur_time_us;
+          start_time_us = cur_time_us;
           cur_plan_number = plan_number_;
         }
-        // const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
+        const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
         
-        // const auto q_ref = qtraj_->value(cur_traj_time_s);
-        // const auto qd_ref = qdtraj_->value(cur_traj_time_s);
-        // const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
+        const auto q_ref = qtraj_->value(cur_traj_time_s);
+        const auto qd_ref = qdtraj_->value(cur_traj_time_s);
+        const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
 
-        const auto q_ref = joint_state_traj_interp[traj_knot_number_].head(stateSize/2);
-        const auto qd_ref = joint_state_traj_interp[traj_knot_number_].tail(stateSize/2);
-        const auto qdd_ref = stateVec_half_t::Zero();
+        // const auto q_ref = joint_state_traj_interp[traj_knot_number_].head(stateSize/2);
+        // const auto qd_ref = joint_state_traj_interp[traj_knot_number_].tail(stateSize/2);
+        // const auto qdd_ref = stateVec_half_t::Zero();
 
         if (traj_knot_number_ < NumberofKnotPt*InterpolationScale){
           traj_knot_number_ += 1;
@@ -360,7 +360,7 @@ int do_main(int argc, const char* argv[]) {
       multibody::joints::kFixed, tree.get());
 
   RobotPlanRunner runner(*tree);
-  runner.RunUDP();
+  // runner.RunUDP();
   runner.Run();
 
   return 0;
