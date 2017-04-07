@@ -437,6 +437,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             D = D(repmat(possible_contact_indices,mC,1),:);
                             mu = mu(possible_contact_indices,:);
                             
+                            % [Ye] check here for the dimention nC change
                             if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
                                     numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
                                     any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
@@ -550,7 +551,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     Hinv = inv(H);
                     wvn = v + h*Hinv*tau;
-                    Mvn = Hinv*vToqdot'*J';
+                    Mvn = Hinv*vToqdot'*J';% [Ye] It seems a bug here, missing h.
                     
                     if (nargout>4)
                         dM = zeros(size(M,1),size(M,2),1+num_q+num_v+obj.num_u);
@@ -704,7 +705,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     if QP_FAILED
                         % then the active set has changed, call pathlcp
+                        t_start = tic;
                         z = pathlcp(M,w,lb,ub);
+                        toc(t_start);
                         obj.LCP_cache.data.fastqp_active_set = [];
                     end
                     % for debugging
