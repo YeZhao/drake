@@ -2,7 +2,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
-    
+
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
@@ -19,6 +19,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         z_inactive_guess_tol = .01;
         multiple_contacts = false;
         gurobi_present = false;
+        time_flag = 0;
     end
     
     methods
@@ -74,7 +75,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 % gives the "ResolvingLCP" warning
                 obj.z_inactive_guess_tol = options.z_inactive_guess_tol;
             end
-            
+                        
             if isfield(options,'lcmgl_contact_forces_scale')
                 obj.lcmgl_contact_forces_scale = options.lcmgl_contact_forces_scale;
                 if obj.lcmgl_contact_forces_scale>0,
@@ -290,6 +291,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 return;
             end
             
+            global z_previous;
+            global total_time;
+            if obj.time_flag == 1
+                total_time = 0;
+                obj.time_flag = 0;
+            end
+
             %       global active_set_fail_count
             % do LCP time-stepping
             % todo: implement some basic caching here
@@ -551,7 +559,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     Hinv = inv(H);
                     wvn = v + h*Hinv*tau;
-                    Mvn = Hinv*vToqdot'*J';% [Ye] It seems a bug here, missing h.
+                    Mvn = Hinv*vToqdot'*J';
                     
                     if (nargout>4)
                         dM = zeros(size(M,1),size(M,2),1+num_q+num_v+obj.num_u);
@@ -661,6 +669,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         end
                     end
                     
+
+                    t_start = tic;
                     QP_FAILED = true;
                     if ~possible_indices_changed && obj.enable_fastqp
                         z = zeros(nL+nP+(mC+2)*nC,1);
@@ -705,11 +715,19 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     if QP_FAILED
                         % then the active set has changed, call pathlcp
-                        t_start = tic;
                         z = pathlcp(M,w,lb,ub);
-                        toc(t_start);
                         obj.LCP_cache.data.fastqp_active_set = [];
                     end
+                    
+                    z_previous = z;
+                    %admm solver
+                    %t_start = tic;
+                    z = obj.admmlcp(M, w, z_previous, nC, nL, nP, mC, mu);
+                    %toc(t_start)
+
+                    tElapsed = toc(t_start);
+                    total_time = total_time + tElapsed
+                    
                     % for debugging
                     %cN = z(nL+nP+(1:nC))
                     %beta1 = z(nL+nP+nC+(1:nC))
@@ -790,7 +808,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         obj.LCP_cache.data.dMqdn = [];
                         obj.LCP_cache.data.dwqdn = [];
                     end
-                    
+                                                            
                     penetration = phi_check + h*J_check*vToqdot*(Mvn*z + wvn) < 0;
                     if any(penetration)
                         % then add the constraint and run the entire loop again!
@@ -803,6 +821,161 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     
                 end
+            end
+        end
+        
+        function z = admmlcp(obj, M, w, z_previous, nC, nL, nP, mC, mu)
+            
+            % Solves the LCP problem via ADMM:
+            %
+            % The solution is returned in the vector z.
+            %
+            % history is a structure that contains the objective value, the primal and
+            % dual residual norms, and the tolerances for the primal and dual residual
+            % norms at each iteration.
+            %
+            % rho is the penalty parameter in the augmented Lagrangian.
+            %
+            % alpha is the over-relaxation parameter (typical values for alpha are
+            % between 1.0 and 1.8).
+                                    
+            phi = M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
+            v_tangential = M(nL+nP+nC+(1:mC*nC),:)*z_previous + w(nL+nP+nC+(1:mC*nC));
+            v_tangential = reshape(v_tangential, mC, nC);
+            Dv = M(nL+nP+nC+(1:mC*nC),:)*[z_previous(1:5*nC);zeros(nC,1)] + w(nL+nP+nC+(1:mC*nC));%[Ye: double check]
+            Dv = reshape(Dv, mC, nC);
+            
+            %% Global constants and defaults
+            
+            QUIET    = 0;
+            MAX_ITER = 10;%1000;
+            ABSTOL   = 1e-4;
+            RELTOL   = 1e-2;
+            alpha = 1;% over-relaxation parameter [Ye: To be implemented]
+
+            %% Data preprocessing
+            
+            [m n] = size(M);
+            
+            %% ADMM solver
+            if ~QUIET
+                fprintf('%3s\t%10s\t%10s\t%10s\t%10s\t%10s\n', 'iter', ...
+                    'r norm', 'eps pri', 's norm', 'eps dual', 'objective');
+            end
+            
+            %initial condition
+            rho = 0.5*ones(6+mC*3,1);
+            lambda_n_num = z_previous(1:nC);
+            lambda_parallel = z_previous(nC+(1:mC*nC));
+            lambda_parallel = reshape(lambda_parallel, mC, nC);
+            v_mag = z_previous((1+mC)*nC+(1:nC));
+            z = zeros(length(z_previous), 1);
+            
+            slack_var_previous = zeros(2*mC+4, nC);
+            slack_var = zeros(2*mC+4, nC);
+            primal_var = zeros(mC+3, nC);
+            slack_var_selected = zeros(mC+3, nC);
+            
+            % these initial conditions to be modified
+            lambda_f_tilde = zeros(nC,1);
+            lambda_n_tilde = zeros(nC,1);
+            lambda_parallel_tilde = zeros(mC,nC);
+            v_mag_f_tilde = zeros(mC,nC);
+            v_mag_tilde = zeros(nC,1);
+            phi_tilde = zeros(nC,1);
+            v_mag_num = zeros(nC,1);
+            
+            d = zeros((6+mC*3)*nC,1);
+            d = reshape(d,6+mC*3,nC);
+            OnesFull = ones(mC,1);
+            OnesReduced = ones(mC-1,1);
+            
+            for k = 1:nC
+                disp('ADMM iterations for a new contact point')
+                for m = 1:MAX_ITER
+                    % slack variable backup, for computing dual residual
+                    slack_var_previous(:,k) = [lambda_n_tilde(k);v_mag_tilde(k);phi_tilde(k);lambda_f_tilde(k);lambda_parallel_tilde(:,k);v_mag_f_tilde(:,k)];
+                    
+                    % primal variable update
+                    % lambda_n (i.e., cn) update 
+                    lambda_n_num(k) = rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel(:,k) + d(4,k)) - rho(5)*phi(k)*d(5,k) + rho(6)*(v_mag(k)^2*mu(k)*OnesFull'*lambda_parallel(:,k) - d(6,k)*v_mag(k)*mu(k));
+                    lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + rho(5)*phi(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2;
+                    lambda_n(k) = lambda_n_num(k)/lambda_n_den(k);
+                    
+                    % lambda_parallel (i.e., beta) update
+                    for i = 1:mC
+                        lambda_parallel_prev = lambda_parallel(:,k);%4x1 vector
+                        lambda_parallel_prev(i) = [];
+                        lambda_parallel_num(i) = -rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesReduced'*lambda_parallel_prev + d(4,k)) - rho(6+i)*d(6+i,k)*v_tangential(i,k) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k));
+                        
+                        lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(6+i)*v_tangential(i,k)^2 + rho(10+i);
+                        lambda_parallel(i,k) = lambda_parallel_num(i) / lambda_parallel_den(i); 
+                    end
+                    
+                    % phi update
+                    phi(k) = (rho(3)*(phi_tilde(k) + d(3,k)) - rho(5)*d(5,k)*lambda_n(k))/(rho(3) + rho(5)*lambda_n(k)^2);%[Ye: double check whether this should be an updated variable]
+                    
+                    % v_mag update
+                    v_mag_sum1 = 0; v_mag_sum2 = 0;
+                    for i = 1:mC
+                    v_mag_sum1 = rho(6+i)*lambda_parallel(i,k)*(lambda_parallel(i,k)*Dv(i,k) + d(6+i,k)) + rho(14+i)*(v_mag_f_tilde(i,k) - Dv(i,k) + d(14+i,k));
+                    v_mag_sum2 = rho(6+i)*lambda_parallel(i,k)^2 + rho(14+i);
+                    end
+                   
+                    v_mag_num(k) = rho(2)*(v_mag_tilde(k) - d(2,k)) - rho(6)*d(6,k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) - v_mag_sum1; 
+                    v_mag_den(k) = rho(2) + rho(6)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k))^2 + v_mag_sum2;
+                    v_mag(k) = v_mag_num(k)/v_mag_den(k);
+                    
+                    primal_var(:,k) = [lambda_n(k);lambda_parallel(:,k);phi(k);v_mag(k)];
+                    
+                    % slack variable update
+                    lambda_n_tilde(k) = max(0, lambda_n(k) + d(1,k));
+                    v_mag_tilde(k) = max(0, v_mag(k) + d(2,k));
+                    phi_tilde(k) = max(0, phi(k) + d(3,k));
+                    lambda_f_tilde(k) = max(0, mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k) - d(4,k));
+                    for i = 1:mC
+                        lambda_parallel_tilde(i,k) = max(0, lambda_parallel(i,k) + d(10+i,k));
+                        v_mag_f_tilde(i,k) = max(0, v_mag(k) + Dv(i,k) - d(14+i,k));
+                    end
+                    slack_var(:,k) = [lambda_n_tilde(k);v_mag_tilde(k);phi_tilde(k);lambda_f_tilde(k);lambda_parallel_tilde(:,k);v_mag_f_tilde(:,k)];
+                    slack_var_selected(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);phi_tilde(k);v_mag_tilde(k)];
+                    
+                    % dual variable update
+                    d(1,k) = d(1,k) + lambda_n(k) - lambda_n_tilde(k);
+                    d(2,k) = d(2,k) + v_mag(k) - v_mag_tilde(k);
+                    d(3,k) = d(3,k) + phi_tilde(k) - phi(k);% [Ye: double check the sign issue in the orginal optimizaiton formulation]
+                    d(4,k) = d(4,k) + lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k);
+                    d(5,k) = d(5,k) + phi(k)*lambda_n(k);
+                    d(6,k) = d(6,k) + v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k));
+                    for i = 1:mC
+                        d(6+i,k) = d(6+i,k) + lambda_parallel(i,k)*(v_mag(k) + Dv(i,k));
+                        d(10+i,k) = d(10+i,k) + lambda_parallel(i,k) - lambda_parallel_tilde(i,k);
+                        d(14+i,k) = d(14+i,k) + v_mag_f_tilde(i,k) - v_mag(k) - Dv(i,k);
+                    end
+                    
+                    z(k,1) = lambda_n_num(k); 
+                    z(nC+(k-1)*mC+(1:mC),1) = lambda_parallel(:,k);
+                    z(nC*(mC+1)+k,1) = v_mag(k);
+                    
+                    % diagnostics, reporting, termination checks
+                    history.objval(m,k)  = 0;
+                    history.r_norm(m,k)  = norm(primal_var(:,k) - slack_var_selected(:,k));
+                    history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));% TODO: rho to be added
+                    
+                    history.eps_pri(m,k) = sqrt(n)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(-slack_var_selected(:,k)));
+                    history.eps_dual(m,k)= sqrt(n)*ABSTOL + RELTOL*norm(d(:,k));% TODO: rho to be added
+                    
+                    if ~QUIET
+                        fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\n', m, ...
+                            history.r_norm(m,k), history.eps_pri(m,k), ...
+                            history.s_norm(m,k), history.eps_dual(m,k), history.objval(m,k));
+                    end
+                    
+                    if (history.r_norm(m,k) < history.eps_pri(m,k) && ...
+                            history.s_norm(m,k) < history.eps_dual(m,k))
+                        break;
+                    end
+                end             
             end
         end
         
