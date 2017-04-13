@@ -851,7 +851,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %% Global constants and defaults
             
             QUIET    = 0;
-            MAX_ITER = 50;%1000;
+            MAX_ITER = 100;%1000;
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
             alpha = 1;% over-relaxation parameter [Ye: To be implemented]
@@ -868,6 +868,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             %initial condition
             % primal variables
+            z_previous = z_previous/h;%scale the original z vector
             lambda_n = z_previous(1:nC);
             lambda_parallel = z_previous(nC+(1:mC*nC));
             lambda_parallel = reshape(lambda_parallel, mC, nC);
@@ -912,15 +913,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     lambda_parallel_prev = lambda_parallel(:,k);%mCx1 vector
                     lambda_parallel_prev_stack = reshape(lambda_parallel, nC*mC, 1);
                     
-                    v_tangential = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_prev_stack;v_mag] + w(nL+nP+nC+(1:mC*nC));
+                    v_tangential = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_prev_stack;v_mag]*h + w(nL+nP+nC+(1:mC*nC));
                     v_tangential = reshape(v_tangential, mC, nC);
-                    Dv = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_prev_stack;zeros(nC,1)] + w(nL+nP+nC+(1:mC*nC));
+                    Dv = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_prev_stack;zeros(nC,1)]*h + w(nL+nP+nC+(1:mC*nC));
                     Dv = reshape(Dv, mC, nC);
                     
                     % primal variable update
                     % compute the prox-linear operator
                     E = w(nL+nP+k);
-                    F = M(nL+nP+k,:)*[lambda_n;lambda_parallel_prev_stack;v_mag];% [make sure the last part is zero]
+                    F = M(nL+nP+k,:)*[lambda_n;lambda_parallel_prev_stack;v_mag]*h;% [make sure the last part is zero]
                     
                     % g_cc update
                     c_cc = rho(5)*((E + F)*lambda_n_prev + d(5,k));
@@ -1043,7 +1044,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     %update Dv
                     lambda_parallel_new_stack = reshape(lambda_parallel, nC*mC, 1);
-                    Dv = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_new_stack;zeros(nC,1)] + w(nL+nP+nC+(1:mC*nC));
+                    Dv = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n;lambda_parallel_new_stack;zeros(nC,1)]*h + w(nL+nP+nC+(1:mC*nC));
                     Dv = reshape(Dv, mC, nC);
                     
                     primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k);
@@ -1077,6 +1078,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         z(k,1) = lambda_n(k);
                         z(nC+(k-1)*mC+(1:mC),1) = lambda_parallel(:,k);
                         z(nC*(mC+1)+k,1) = v_mag(k);
+                        z = z*h;%scale back the original z vector
                         break;
                     end
                 end
