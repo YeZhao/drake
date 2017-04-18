@@ -3,6 +3,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
     
+    % full version with constraint rho5 and rho6
+    
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
@@ -885,6 +887,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             MAX_ITER = 100;
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
+            RELTOL_DUAL = 1;
             alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
             rho = 0.5*ones(6+mC*3,1);% penalty parameters
             rho(6+2*mC+(1:mC)) = 0.5*ones(mC,1);
@@ -999,12 +1002,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     E = w(nL+nP+k);
                     F = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_prev_stack*h;v_mag];% [make sure the last part is zero]
                     
-                    %                     % g_cc update
-                    %                     c_cc = rho(5)*((E + F)*lambda_n_prev + d(5,k));
-                    %                     g_cc_n_tilde = E + n(k,:)*vToqdot*Hinv*(vToqdot'*D_set(:,:,k)'*lambda_parallel_prev + 2*vToqdot'*n(k,:)'*lambda_n_prev)*h^2;%[double make sure that vToqdot is added correctly]
-                    %                     for i = 1:mC
-                    %                         g_cc_t_tilde(i) = n(k,:)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*lambda_n_prev*h^2;
-                    %                     end
+                    % g_cc update
+                    c_cc = rho(5)*((E + F)*lambda_n_prev + d(5,k));
+                    g_cc_n_tilde = E + n(k,:)*vToqdot*Hinv*(vToqdot'*D_set(:,:,k)'*lambda_parallel_prev + 2*vToqdot'*n(k,:)'*lambda_n_prev)*h^2;%[double make sure that vToqdot is added correctly]
+                    for i = 1:mC
+                        g_cc_t_tilde(i) = n(k,:)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*lambda_n_prev*h^2;
+                    end
                     
                     % g_nc update
                     c_nc = rho(3)*(phi_tilde(k) - (E + F) + d(3,k));
@@ -1054,13 +1057,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     lambda_n_num(k) = rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)) ...
                                       + rho(6)*(v_mag(k)^2*mu(k)*OnesFull'*lambda_parallel_prev - d(6,k)*v_mag(k)*mu(k)) ...
-                                      - (- c_nc*g_nc_n_tilde) + (1.0/t_nc)*lambda_n_prev ...
+                                      - (c_cc*g_cc_n_tilde - c_nc*g_nc_n_tilde) + (1.0/t_cc + 1.0/t_nc)*lambda_n_prev ...
                                       + lambda_n_num_sum;
                     %                                       rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)) ...
                     %                                       + rho(6)*(v_mag(k)^2*mu(k)*OnesFull'*lambda_parallel_prev - d(6,k)*v_mag(k)*mu(k)) ...
                     %                                       - (c_cc*g_cc_n_tilde - c_nc*g_nc_n_tilde + c_vc_multiply_g_vc_n_tilde_sum) + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_n_prev ...
                     %                                       + lambda_n_num_sum;
-                    lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_nc + lambda_n_den_sum;% rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;
+                    lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + lambda_n_den_sum;% rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;
                     lambda_n(k) = lambda_n_num(k)/lambda_n_den(k);
                     
                     % lambda_parallel (i.e., beta) update
@@ -1079,7 +1082,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         end
                         lambda_parallel_num(i) = - rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_prev + OnesReduced'*lambda_parallel_prev_reduced + d(4,k)) ...
                                                  + rho(6)*v_mag(k)*(v_mag(k)*(mu(k)*lambda_n_prev - OnesReduced'*lambda_parallel_prev_reduced) + d(6,k)) ...
-                                                 - (- c_nc*g_nc_t_tilde(i)) + (1.0/t_nc)*lambda_parallel_prev(i) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) + lambda_parallel_num_sum;
+                                                 - (c_cc*g_cc_t_tilde(i) - c_nc*g_nc_t_tilde(i)) + (1.0/t_cc + 1.0/t_nc)*lambda_parallel_prev(i) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) + lambda_parallel_num_sum;
                         %                         lambda_parallel_num(i) = - rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_prev + OnesReduced'*lambda_parallel_prev_reduced + d(4,k)) ...
                         %                             + rho(6)*v_mag(k)*(v_mag(k)*(mu(k)*lambda_n_prev - OnesReduced'*lambda_parallel_prev_reduced) + d(6,k)) ...
                         %                             - rho(6+i)*d(6+i,k)*v_tangential(i,k) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) ...
@@ -1087,7 +1090,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         %                             + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_parallel_prev(i) + lambda_parallel_num_sum;
                         %
                         lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(10+i) ...
-                            + 1.0/t_nc + lambda_parallel_den_sum;
+                            + 1.0/t_cc + 1.0/t_nc + lambda_parallel_den_sum;
                         %                         lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(6+i)*v_tangential(i,k)^2 + rho(10+i) ...
                         %                                                  + lambda_parallel_den_sum + 1.0/t_cc + 1.0/t_nc + mC/t_vc;
                         lambda_parallel(i,k) = lambda_parallel_num(i) / lambda_parallel_den(i);
@@ -1145,7 +1148,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     d(2,k) = d(2,k) + v_mag(k) - v_mag_tilde(k);
                     d(3,k) = d(3,k) + phi_tilde(k) - phi(k);% [Ye: double check the sign issue in the orginal optimizaiton formulation]
                     d(4,k) = d(4,k) + lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k);%assume lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k) = 0;
-                    %                     d(5,k) = d(5,k) + phi(k)*lambda_n(k);
+                    d(5,k) = d(5,k) + phi(k)*lambda_n(k);
                     d(6,k) = d(6,k) + v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k));%assume v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) = 0;
                     for i = 1:mC
                         %                         d(6+i,k) = d(6+i,k) + lambda_parallel(i,k)*(v_mag(k) + Dv(i,k));
@@ -1156,7 +1159,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     % ------------- diagnostics, reporting, termination checks -------------
                     history.objval(m,k) = 0;
                     
-                    primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); zeros(1,1); v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)); phi_tilde(k) - phi(k)];
+                    primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k); v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)); phi_tilde(k) - phi(k)];
                     %                     primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k);
                     %                         v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)); phi_tilde(k) - phi(k)];
                     for i = 1:mC % the order does not matter
@@ -1209,10 +1212,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     d_reduced = [d(1:4,k);d(6,k);d(10:17,k)];
                     
                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
-                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
+%                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
                     
 %                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(A*primal_var(:,k)), max(norm(B*slack_var(:,k)), norm(c)));
-%                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(A'*d_reduced);% TODO: rho to be added
+                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);% TODO: rho to be added
                     
                     %                     %scale termination conditoin
                     %                     scale = 10;

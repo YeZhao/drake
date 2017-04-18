@@ -3,8 +3,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
     
-    % full version with all other constraints
-    % tune rho and z_previous, rho7 needs to be modified
+    % full version with constraint rho5 
     
     properties (Access=protected)
         manip  % the CT manipulator
@@ -725,6 +724,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         disp('come here')
                     end
                     
+%                     z
+%                     M*z+w
+                    
                     z_previous = z;
                     %admm solver
                     %t_start = tic;
@@ -744,8 +746,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         disp('----------------debug-------------------\n')
                     end
                     
-                    if(any(compl_cond < -5e-3))
-%                         compl_cond
+                    if(any(compl_cond < -1e-2))
+                        %compl_cond
                         disp('----------------debug-------------------\n')
                     end
                     
@@ -869,15 +871,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
             
-            
             phi = M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
             
             if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
                 error('penetration occurs');
             end
             
-            %z_previous = zeros(length(z_previous),1);
-
+            z_previous = zeros(length(z_previous),1);
+            
             z_previous(nL+nP+(1:(mC+1)*nC)) = z_previous(nL+nP+(1:(mC+1)*nC))/h;%scale the original z vector, except the last nC elements for tangential velocity
             v_tangential = M(nL+nP+nC+(1:mC*nC),:)*[z_previous(nL+nP+(1:(mC+1)*nC))*h;z_previous(nL+nP+(mC+1)*nC+(1:nC))] + w(nL+nP+nC+(1:mC*nC));
             v_tangential = reshape(v_tangential, nC, mC)';
@@ -892,15 +893,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
             alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
-            rho_scalar = 0.01;%0.05;
-            rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
-            rho(6) = 0.01;%0.05;
-            rho(7:10) = 0.01;%0.05;
-            
-            %complementary condition
-            rho(3) = 0.01;
-            rho(5) = 0.01;
-            rho(7:10) = 0.01;
+            rho = 0.5*ones(6+mC*3,1);% penalty parameters
+            rho(6+2*mC+(1:mC)) = 0.5*ones(mC,1);
             t_cc = 1; t_nc = 1; t_vc = 1;
             
             [m,n_size] = size(M);
@@ -950,44 +944,45 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     if m >= MAX_ITER
                         disp('iteration is larger than MAX_ITER')
                     end
-                    %rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
-                    % Lagrange test w.r.t. v_mag
-                    v_mag_sample = linspace(-40,40,4000);
                     
-                    aug_Lagrange = rho(2)*(v_mag_sample - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag_sample.*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2;
-                    % rho(2)*(v_mag(k) - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag(k).*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2
-                    
-                    v_mag_optimal = (rho(2)*(v_mag_tilde(k) - d(2,k)) - rho(6)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k))*d(6,k))/(rho(2) + rho(6)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k))^2);
-                    
-%                     if (k == 1)
-%                         figure(1)
-%                         plot(v_mag_sample, aug_Lagrange)
-%                     elseif (k == 2)
-%                         figure(2)
-%                         plot(v_mag_sample, aug_Lagrange)
-%                     elseif (k == 3)
-%                         figure(3)
-%                         plot(v_mag_sample, aug_Lagrange)
-%                     end
-                    
-%                     if(abs(v_mag_optimal) > 3)
-%                         disp('stop here')
-%                     end
+                    %                     % Lagrange test w.r.t. v_mag
+                    %                     v_mag_sample = linspace(-40,40,4000);
+                    %
+                    %                     aug_Lagrange = rho(2)*(v_mag_sample - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag_sample.*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2;
+                    %                     % rho(2)*(v_mag(k) - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag(k).*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2
+                    %
+                    %                     v_mag_optimal = (rho(2)*(v_mag_tilde(k) - d(2,k)) - rho(6)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k))*d(6,k))/(rho(2) + rho(6)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k))^2);
+                    %
+                    %                     if (k == 1)
+                    %                         figure(1)
+                    %                         plot(v_mag_sample, aug_Lagrange)
+                    %                     elseif (k == 2)
+                    %                         figure(2)
+                    %                         plot(v_mag_sample, aug_Lagrange)
+                    %                     elseif (k == 3)
+                    %                         figure(3)
+                    %                         plot(v_mag_sample, aug_Lagrange)
+                    %                     end
+                    %
+                    %                     if(abs(v_mag_optimal) > 3)
+                    %                         disp('stop here')
+                    %                     end
                     
                     % ------------- slack variable backup, for computing dual residual -------------
                     slack_var_previous(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);lambda_f_tilde(k);v_mag_tilde(k);v_mag_f_tilde(:,k);phi_tilde(k)];
+                    %                     slack_var_previous(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);lambda_f_tilde(k);v_mag_tilde(k);v_mag_f_tilde(:,k);phi_tilde(k)];
                     lambda_n_prev = lambda_n(k);
                     lambda_parallel_prev = lambda_parallel(:,k);%mCx1 vector
                     lambda_parallel_prev_stack = reshape(lambda_parallel', nC*mC, 1);
                     
-%                     % Lagrange test w.r.t. lambda_n
-%                     lambda_n_sample = linspace(-40,40,4000);
-%                     
-%                     aug_Lagrange = rho(1)*(lambda_n_sample - lambda_n_tilde(k) + d(1,k)).^2 + rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_sample + OnesFull'*lambda_parallel(:,k) + d(4,k)).^2;
-%                     % rho(2)*(v_mag(k) - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag(k).*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2
-%                     
-%                     lambda_n_optimal = (rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)))/(rho(1) + rho(4)*mu(k)^2);
-%                     
+                    % Lagrange test w.r.t. lambda_n
+                    lambda_n_sample = linspace(-40,40,4000);
+                    
+                    aug_Lagrange = rho(1)*(lambda_n_sample - lambda_n_tilde(k) + d(1,k)).^2 + rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_sample + OnesFull'*lambda_parallel(:,k) + d(4,k)).^2;
+                    % rho(2)*(v_mag(k) - v_mag_tilde(k) + d(2,k)).^2 + rho(6)*(v_mag(k).*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) + d(6,k)).^2
+                    
+                    lambda_n_optimal = (rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)))/(rho(1) + rho(4)*mu(k)^2);
+                    
                     %                     if (k == 1)
                     %                         figure(1)
                     %                         plot(lambda_n_sample, aug_Lagrange)
@@ -999,9 +994,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     %                         plot(lambda_n_sample, aug_Lagrange)
                     %                     end
                     
-%                     if(abs(lambda_n_optimal) > 3)
-%                         disp('stop here')
-%                     end
+                    if(abs(lambda_n_optimal) > 3)
+                        disp('stop here')
+                    end
                     
                     v_tangential = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n*h;lambda_parallel_prev_stack*h;v_mag] + w(nL+nP+nC+(1:mC*nC));
                     v_tangential = reshape(v_tangential, nC, mC)';
@@ -1026,36 +1021,33 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         g_nc_t_tilde(i) = n(k,:)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*h^2;
                     end
                     
-                    %g_vc update
-                    c_vc = zeros(mC,1); g_vc_n_tilde = zeros(mC,1);
-                    c_vc_multiply_g_vc_n_tilde_sum = 0;
-                    c_vc_multiply_g_vc_t_tilde_sum = zeros(mC,1);
-                    c_vc_multiply_g_vc_z_tilde_sum = 0;
-                    for i = 1:mC
-                        G(i) = v_mag(k) + D_set(i,:,k)*vToqdot*(v + Hinv*tau*h);
-                        H(i) = D_set(i,:,k)*vToqdot*Hinv*h*vToqdot'*(D_set(:,:,k)'*lambda_parallel_prev + n(k,:)'*lambda_n_prev);
-                        
-                        c_vc(i) = rho(6+i)*(lambda_parallel_prev(i)*(G(i) + H(i)) + d(6+i,k));
-                        g_vc_n_tilde(i) = lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*n(k,:)'*h;
-                        g_vc_z_tilde(i) = lambda_parallel_prev(i);
-                        c_vc_multiply_g_vc_n_tilde_sum = c_vc_multiply_g_vc_n_tilde_sum + c_vc(i)*g_vc_n_tilde(i);
-                        c_vc_multiply_g_vc_z_tilde_sum = c_vc_multiply_g_vc_z_tilde_sum + c_vc(i)*g_vc_z_tilde(i);
-                        
-                        for j = 1:mC% this is index k in the paper
-                            if(j == i)
-                                lambda_parallel_prev_reduced = lambda_parallel_prev;
-                                lambda_parallel_prev_reduced(j) = [];
-                                D_reduced = D_set(:,:,k);
-                                D_reduced(j,:) = [];
-                                D_lambda_reduced_sum = D_reduced'*lambda_parallel_prev_reduced;
-                                
-                                g_vc_t_tilde(i,j,k) = G(i) + D_set(i,:,k)*vToqdot*Hinv*vToqdot'*(D_lambda_reduced_sum + n(k,:)'*lambda_n_prev)*h + 2*lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*h;
-                            else
-                                g_vc_t_tilde(i,j,k) = lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*D_set(j,:,k)'*h;
-                            end
-                            c_vc_multiply_g_vc_t_tilde_sum(j) = c_vc_multiply_g_vc_t_tilde_sum(j) + c_vc(i)*g_vc_t_tilde(i,j,k);
-                        end
-                    end
+                    %                     %g_vc update
+                    %                     c_vc = zeros(mC,1); g_vc_n_tilde = zeros(mC,1);
+                    %                     c_vc_multiply_g_vc_n_tilde_sum = 0;
+                    %                     c_vc_multiply_g_vc_t_tilde_sum = zeros(mC,1);
+                    %                     for i = 1:mC
+                    %                         G(i) = v_mag(k) + D_set(i,:,k)*vToqdot*(v + Hinv*tau*h);
+                    %                         H(i) = D_set(i,:,k)*vToqdot*Hinv*h*vToqdot'*(D_set(:,:,k)'*lambda_parallel_prev + n(k,:)'*lambda_n_prev);
+                    %
+                    %                         c_vc(i) = rho(6+i)*(lambda_parallel_prev(i)*(G(i) + H(i)) + d(6+i,k));
+                    %                         g_vc_n_tilde(i) = lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*n(k,:)'*h;
+                    %                         c_vc_multiply_g_vc_n_tilde_sum = c_vc_multiply_g_vc_n_tilde_sum + c_vc(i)*g_vc_n_tilde(i);
+                    %
+                    %                         for j = 1:mC% this is index k in the paper
+                    %                             if(j == i)
+                    %                                 lambda_parallel_prev_reduced = lambda_parallel_prev;
+                    %                                 lambda_parallel_prev_reduced(j) = [];
+                    %                                 D_reduced = D_set(:,:,k);
+                    %                                 D_reduced(j,:) = [];
+                    %                                 D_lambda_reduced_sum = D_reduced'*lambda_parallel_prev_reduced;
+                    %
+                    %                                 g_vc_t_tilde(i,j,k) = G(i) + D_set(i,:,k)*vToqdot*Hinv*vToqdot'*(D_lambda_reduced_sum + n(k,:)'*lambda_n_prev)*h + 2*lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*h;
+                    %                             else
+                    %                                 g_vc_t_tilde(i,j,k) = lambda_parallel_prev(i)*D_set(i,:,k)*vToqdot*Hinv*vToqdot'*D_set(j,:,k)'*h;
+                    %                             end
+                    %                             c_vc_multiply_g_vc_t_tilde_sum(j) = c_vc_multiply_g_vc_t_tilde_sum(j) + c_vc(i)*g_vc_t_tilde(i,j,k);
+                    %                         end
+                    %                     end
                     
                     % ------------- primal variable update -------------
                     % lambda_n (i.e., cn) update
@@ -1069,14 +1061,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     
                     lambda_n_num(k) = rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)) ...
-                                      + rho(6)*(v_mag(k)^2*mu(k)*OnesFull'*lambda_parallel_prev - d(6,k)*v_mag(k)*mu(k)) ...
-                                      - (c_cc*g_cc_n_tilde - c_nc*g_nc_n_tilde + c_vc_multiply_g_vc_n_tilde_sum) + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_n_prev ...
-                                      + lambda_n_num_sum;
+                        - (c_cc*g_cc_n_tilde - c_nc*g_nc_n_tilde) + (1.0/t_cc + 1.0/t_nc)*lambda_n_prev ...
+                        + lambda_n_num_sum;
+                    
                     %                                       rho(1)*(lambda_n_tilde(k) - d(1,k)) + rho(4)*mu(k)*(lambda_f_tilde(k) + OnesFull'*lambda_parallel_prev + d(4,k)) ...
                     %                                       + rho(6)*(v_mag(k)^2*mu(k)*OnesFull'*lambda_parallel_prev - d(6,k)*v_mag(k)*mu(k)) ...
                     %                                       - (c_cc*g_cc_n_tilde - c_nc*g_nc_n_tilde + c_vc_multiply_g_vc_n_tilde_sum) + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_n_prev ...
                     %                                       + lambda_n_num_sum;
-                    lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;% rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;
+                    lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + lambda_n_den_sum;% rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;
                     lambda_n(k) = lambda_n_num(k)/lambda_n_den(k);
                     
                     % lambda_parallel (i.e., beta) update
@@ -1094,36 +1086,37 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             lambda_parallel_den_sum = lambda_parallel_den_sum + rho(14+j)*(D_set(j,:,k)*vToqdot*Hinv*vToqdot'*D_set(i,:,k)'*h)^2;
                         end
                         lambda_parallel_num(i) = - rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_prev + OnesReduced'*lambda_parallel_prev_reduced + d(4,k)) ...
-                                                 + rho(6)*v_mag(k)*(v_mag(k)*(mu(k)*lambda_n_prev - OnesReduced'*lambda_parallel_prev_reduced) + d(6,k)) ...
-                                                 - (c_cc*g_cc_t_tilde(i) - c_nc*g_nc_t_tilde(i) + c_vc_multiply_g_vc_t_tilde_sum(i)) + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_parallel_prev(i) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) + lambda_parallel_num_sum;
+                            - (c_cc*g_cc_t_tilde(i) - c_nc*g_nc_t_tilde(i)) + (1.0/t_cc + 1.0/t_nc)*lambda_parallel_prev(i) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) + lambda_parallel_num_sum;
                         %                         lambda_parallel_num(i) = - rho(4)*(lambda_f_tilde(k) - mu(k)*lambda_n_prev + OnesReduced'*lambda_parallel_prev_reduced + d(4,k)) ...
                         %                             + rho(6)*v_mag(k)*(v_mag(k)*(mu(k)*lambda_n_prev - OnesReduced'*lambda_parallel_prev_reduced) + d(6,k)) ...
-                        %                             + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) ...
+                        %                             - rho(6+i)*d(6+i,k)*v_tangential(i,k) + rho(10+i)*(lambda_parallel_tilde(i,k) - d(10+i,k)) ...
                         %                             - (c_cc*g_cc_t_tilde(i) - c_nc*g_nc_t_tilde(i) + c_vc_multiply_g_vc_t_tilde_sum(i)) ...
                         %                             + (1.0/t_cc + 1.0/t_nc + mC/t_vc)*lambda_parallel_prev(i) + lambda_parallel_num_sum;
                         %
-                        lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(10+i) ...
-                            + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_parallel_den_sum;
-                        %                         lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(10+i) ...
+                        lambda_parallel_den(i) = rho(4) + rho(10+i) ...
+                            + 1.0/t_cc + 1.0/t_nc + lambda_parallel_den_sum;
+                        %                         lambda_parallel_den(i) = rho(4) + rho(6)*v_mag(k)^2 + rho(6+i)*v_tangential(i,k)^2 + rho(10+i) ...
                         %                                                  + lambda_parallel_den_sum + 1.0/t_cc + 1.0/t_nc + mC/t_vc;
                         lambda_parallel(i,k) = lambda_parallel_num(i) / lambda_parallel_den(i);
-                        if (lambda_parallel(i,k) < 0)%[check this part]
-                            lambda_parallel(i,k) = 0;
-                        end
+%                         if (lambda_parallel(i,k) < 0)%[check this part]
+%                             lambda_parallel(i,k) = 0;
+%                         end
                     end
                     
                     % v_mag update
                     v_mag_sum1 = 0; v_mag_sum2 = 0;
                     for i = 1:mC
-                        v_mag_sum1 = v_mag_sum1 + rho(14+i)*(v_mag_f_tilde(i,k) - Dv(i,k) + d(14+i,k)); %+ rho(14+i)*(v_mag_f_tilde(i,k) - Dv(i,k) + d(14+i,k));
-                        v_mag_sum2 = v_mag_sum2 + rho(14+i);%  + rho(14+i);
+                        v_mag_sum1 = v_mag_sum1 - rho(14+i)*(v_mag_f_tilde(i,k) - Dv(i,k) + d(14+i,k)); %+ rho(6+i)*lambda_parallel_prev(i)*(lambda_parallel_prev(i)*Dv(i,k) + d(6+i,k)) + rho(14+i)*(v_mag_f_tilde(i,k) - Dv(i,k) + d(14+i,k));
+                        v_mag_sum2 = v_mag_sum2 + rho(14+i);% + rho(6+i)*lambda_parallel_prev(i)^2 + rho(14+i);
                     end
-                    v_mag_sum1 = v_mag_sum1 - c_vc_multiply_g_vc_z_tilde_sum;
-                    v_mag_sum2 = v_mag_sum2 + mC/t_vc;
                     
-                    v_mag_num(k) = rho(2)*(v_mag_tilde(k) - d(2,k)) - rho(6)*d(6,k)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev) + v_mag_sum1 + v_mag(k)*mC/t_vc;%  - rho(6)*d(6,k)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev) - v_mag_sum1;
-                    v_mag_den(k) = rho(2) + rho(6)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev)^2 + v_mag_sum2;% + rho(6)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev)^2 + v_mag_sum2;
+                    v_mag_num(k) = rho(2)*(v_mag_tilde(k) - d(2,k)) - v_mag_sum1;%  - rho(6)*d(6,k)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev) - v_mag_sum1;
+                    v_mag_den(k) = rho(2) + v_mag_sum2;% + rho(6)*(mu(k)*lambda_n_prev - OnesFull'*lambda_parallel_prev)^2 + v_mag_sum2;
                     v_mag(k) = v_mag_num(k)/v_mag_den(k);
+                    
+                    %                     if (v_mag(k) < 0)
+                    %                         v_mag(k) = 0;
+                    %                     end
                     
                     primal_var(:,k) = [lambda_n(k);lambda_parallel(:,k);v_mag(k)];
                     
@@ -1155,7 +1148,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     %                         phi(k) = 0;
                     %                     end
                     
-                    slack_var(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);lambda_f_tilde(k);v_mag_tilde(k);v_mag_f_tilde(:,k);phi_tilde(k)];
+                    slack_var(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);lambda_f_tilde(k);v_mag_tilde(k);v_mag_f_tilde(:,k);phi_tilde(k)]; %
                     slack_var_selected(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);v_mag_tilde(k)];
                     
                     % ------------- dual variable update -------------
@@ -1164,9 +1157,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     d(3,k) = d(3,k) + phi_tilde(k) - phi(k);% [Ye: double check the sign issue in the orginal optimizaiton formulation]
                     d(4,k) = d(4,k) + lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k);%assume lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k) = 0;
                     d(5,k) = d(5,k) + phi(k)*lambda_n(k);
-                    d(6,k) = d(6,k) + v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k));%assume v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) = 0;
+                    %                     d(6,k) = d(6,k) + v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k));%assume v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)) = 0;
                     for i = 1:mC
-                        d(6+i,k) = d(6+i,k) + lambda_parallel(i,k)*(v_mag(k) + Dv(i,k));
+                        %                         d(6+i,k) = d(6+i,k) + lambda_parallel(i,k)*(v_mag(k) + Dv(i,k));
                         d(10+i,k) = d(10+i,k) + lambda_parallel(i,k) - lambda_parallel_tilde(i,k);
                         d(14+i,k) = d(14+i,k) + v_mag_f_tilde(i,k) - v_mag(k) - Dv(i,k);
                     end
@@ -1174,18 +1167,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     % ------------- diagnostics, reporting, termination checks -------------
                     history.objval(m,k) = 0;
                     
-                    primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k); v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)); phi_tilde(k) - phi(k)];
+                    primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k); zeros(1,1); phi_tilde(k) - phi(k)];
                     %                     primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k);
                     %                         v_mag(k)*(mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k)); phi_tilde(k) - phi(k)];
                     for i = 1:mC % the order does not matter
-                        primal_residual = [primal_residual; lambda_parallel(i,k)*(v_mag(k) + Dv(i,k))];
+                        %                         primal_residual = [primal_residual; lambda_parallel(i,k)*(v_mag(k) + Dv(i,k))];
                         primal_residual = [primal_residual; lambda_parallel(i,k) - lambda_parallel_tilde(i,k)];
                         primal_residual = [primal_residual; v_mag_f_tilde(i,k) - v_mag(k) - Dv(i,k)];
                     end
                     
                     % dual residual
-                    A = zeros(5 + mC*2, length(primal_var(:,k)));
-                    B = zeros(5 + mC*2, length(slack_var(:,k)));
+                    A = zeros(4 + mC*2, length(primal_var(:,k)));
+                    B = zeros(4 + mC*2, length(slack_var(:,k)));
                     
                     A(1,1) = 1;
                     A(2,6) = 1;
@@ -1196,8 +1189,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     for i = 1:mC
                         A(4+mC+i,:) = [-D_set(i,:,k)*vToqdot*Hinv*vToqdot'*n(k,:)'*h, -D_set(i,:,k)*vToqdot*Hinv*vToqdot'*D_set(:,:,k)'*h, -1];
                     end
-                    %this will not affect history.s_norm(m,k)
-                    A(5+2*mC,:) = [v_mag(k)*mu(k), -ones(1,mC)*v_mag(k),0];
                     
                     B(1,1) = -1;
                     B(2,7) = -1;
@@ -1207,28 +1198,26 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     for i = 1:mC
                         B(4+mC+i,3+mC+i) = 1;
                     end
-                    %B(5+2*mC,:) is a zero line;
                     
                     %constant residual
-                    c = [0,0,-w(k),-w(nC*(1+mC)+k),zeros(1,4),-w(nC+k),-w(nC*2+k),-w(nC*3+k),-w(nC*4+k),0]';
+                    c = [0,0,-w(k),-w(nC*(1+mC)+k),zeros(1,4),-w(nC+k),-w(nC*2+k),-w(nC*3+k),-w(nC*4+k)]';
                     
                     history.r_norm(m,k)  = norm(primal_residual);
-%                     history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));% TODO: rho to be added
-                    history.s_norm(m,k)  = norm(rho_scalar*A'*B*(slack_var(:,k) - slack_var_previous(:,k)));% TODO: rho to be added
+                    %                     history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));% TODO: rho to be added
+                    history.s_norm(m,k)  = norm(A'*B*(slack_var(:,k) - slack_var_previous(:,k)));% TODO: rho to be added
                     
-%                     if(history.r_norm(m,k) > 10*history.s_norm(m,k))
-%                         rho_scalar = 2*rho_scalar;
-%                     elseif (history.s_norm(m,k) > 10*history.r_norm(m,k))
-%                         rho_scalar = rho_scalar/2;
-%                     end
-%                     rho_scalar
+                    %                     if(history.r_norm(m,k) > 10*history.s_norm(m,k))
+                    %                         rho = 2*rho;
+                    %                     elseif (history.s_norm(m,k) > 10*history.r_norm(m,k))
+                    %                         rho = rho/2;
+                    %                     end
                     
                     p_size = 6;% dimension of primal variables
-                    n_size = 13;% dimension of dual variables
-                    d_reduced = [d(1:4,k);d(6,k);d(11:18,k)];
+                    n_size = 12;% dimension of dual variables
+                    d_reduced = [d(1:4,k);d(10:17,k)];
                     
-%                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
-%                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
+                    %                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
+                    %                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
                     
                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(A*primal_var(:,k)), max(norm(B*slack_var(:,k)), norm(c)));
                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(A'*d_reduced);% TODO: rho to be added
@@ -1245,16 +1234,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     
                     if (history.r_norm(m,k) >  18)
-                        disp('history.r_norm(m,k) >  18')
-                    end
-                    
-                    if (m == 1)
-                        history.r_norm_previous = 0;
+                        disp('come here')
                     end
                     
                     if ((history.r_norm(m,k) < history.eps_pri(m,k) && ...
-                            history.s_norm(m,k) < history.eps_dual(m,k) && history.r_norm(m,k) < 1e-2) ...
-                            || (abs(history.r_norm(m,k) - history.r_norm_previous) < 1e-4) || (history.r_norm(m,k) < 1e-4))                        
+                            history.s_norm(m,k) < history.eps_dual(m,k)) || (history.r_norm(m,k) < 1e-4))                        
                         z(k,1) = lambda_n(k)*h;
                         for i=1:mC
                             z(nC+(i-1)*nC+k,1) = lambda_parallel(i,k)*h;
@@ -1281,14 +1265,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         if(any(compl_cond < -2e-4))
                             disp('----------------debug-------------------\n')
                         end
-                        
-                        if(history.r_norm(m,k) > 1e-2)
-                            disp('debug');
-                        end
-                        
                         break;
                     end
-                    history.r_norm_previous = history.r_norm(m,k);
                 end
             end
         end
