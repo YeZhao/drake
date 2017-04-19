@@ -1,4 +1,4 @@
-classdef TimeSteppingRigidBodyManipulator < DrakeSystem
+classdef TimeSteppingRigidBodyManipulator_full_version < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
@@ -25,7 +25,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     end
     
     methods
-        function obj=TimeSteppingRigidBodyManipulator(manipulator_or_urdf_filename,timestep,options)
+        function obj=TimeSteppingRigidBodyManipulator_full_version(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
             if ~isfield(options,'twoD') options.twoD = false; end
             
@@ -67,7 +67,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 typecheck(options.enable_fastqp,'logical');
                 obj.enable_fastqp = options.enable_fastqp;
                 if obj.enable_fastqp && ~checkDependency('fastqp')
-                    warning('Drake:TimeSteppingRigidBodyManipulator:MissingDependency','You seem to be missing fastQP. Disabling active-set LCP update.')
+                    warning('Drake:TimeSteppingRigidBodyManipulator_full_version:MissingDependency','You seem to be missing fastQP. Disabling active-set LCP update.')
                     obj.enable_fastqp = false;
                 end
             end
@@ -730,7 +730,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     z_previous = z;
                     %admm solver
                     %t_start = tic;
-                    z_test = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, z_previous, nC, nL, nP, mC, mu);
+                    z_test = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, phiC, z_previous, nC, nL, nP, mC, mu);
                     %toc(t_start)
                     
                     compl_cond = M*z_test+w;
@@ -841,7 +841,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         limits = sum(~possible_limit_indices);
                         possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
                         possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
-                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
+                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator_full_version:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
                     else
                         break;
                     end
@@ -849,7 +849,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
         end
         
-        function z = admmlcp(obj, M, w, n, Hinv, D, h, vToqdot, v, tau, z_previous, nC, nL, nP, mC, mu)
+        function z = admmlcp(obj, M, w, n, Hinv, D, h, vToqdot, v, tau, phiC, z_previous, nC, nL, nP, mC, mu)
             
             % Solves the LCP problem via ADMM:
             %
@@ -870,14 +870,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     D_set(i,:,k) = D((i-1)*nC+k,:);
                 end
             end
-            
+
+            z_previous = zeros(length(z_previous),1);
+
             phi = M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
             
-            if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
-                error('penetration occurs');
-            end
+%             if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
+%                 error('penetration occurs');
+%             end
             
-            %z_previous = zeros(length(z_previous),1);
 
             z_previous(nL+nP+(1:(mC+1)*nC)) = z_previous(nL+nP+(1:(mC+1)*nC))/h;%scale the original z vector, except the last nC elements for tangential velocity
             v_tangential = M(nL+nP+nC+(1:mC*nC),:)*[z_previous(nL+nP+(1:(mC+1)*nC))*h;z_previous(nL+nP+(mC+1)*nC+(1:nC))] + w(nL+nP+nC+(1:mC*nC));
@@ -893,8 +894,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
             alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
-            rho = 0.5*ones(6+mC*3,1);% penalty parameters
-            rho(6+2*mC+(1:mC)) = 0.5*ones(mC,1);
+            rho_scalar = 0.5;
+            rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
+            rho(6+2*mC+(1:mC)) = rho_scalar*ones(mC,1);
             t_cc = 1; t_nc = 1; t_vc = 1;
             
             [m,n_size] = size(M);
@@ -1071,6 +1073,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     lambda_n_den(k) = rho(1) + rho(4)*mu(k)^2 + 1.0/t_nc + lambda_n_den_sum;% rho(1) + rho(4)*mu(k)^2 + rho(6)*v_mag(k)^2*mu(k)^2 + 1.0/t_cc + 1.0/t_nc + mC/t_vc + lambda_n_den_sum;
                     lambda_n(k) = lambda_n_num(k)/lambda_n_den(k);
                     
+                    n(k,:)*vToqdot*Hinv*vToqdot'*n(k,:)'*h
+                    n(k,:)*vToqdot*Hinv*vToqdot'*D_set(:,:,k)'*h
+                    
                     % lambda_parallel (i.e., beta) update
                     for i = 1:mC
                         lambda_parallel_prev_reduced = lambda_parallel_prev;
@@ -1124,12 +1129,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     lambda_parallel_new_stack = reshape(lambda_parallel', nC*mC, 1);
                     Dv = M(nL+nP+nC+(1:mC*nC),:)*[lambda_n*h;lambda_parallel_new_stack*h;zeros(nC,1)] + w(nL+nP+nC+(1:mC*nC));
                     Dv = reshape(Dv, nC, mC)';
-                    %phi(k) = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;v_mag] + w(nL+nP+k);%[double check whether to update]
+                    phi(k) = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;v_mag] + w(nL+nP+k);%[double check whether to update]
+                    
                     
                     % ------------- slack variable update -------------
                     lambda_n_tilde(k) = max(0, lambda_n(k) + d(1,k));
                     v_mag_tilde(k) = max(0, v_mag(k) + d(2,k));
-                    phi_tilde(k) = max(0, phi(k) + d(3,k));
+                    phi_tilde(k) = max(0, phi(k) - d(3,k));
                     
                     lambda_f_tilde(k) = max(0, mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k) - d(4,k));
                     for i = 1:mC
@@ -1204,7 +1210,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     history.r_norm(m,k)  = norm(primal_residual);
                     %                     history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));% TODO: rho to be added
-                    history.s_norm(m,k)  = norm(A'*B*(slack_var(:,k) - slack_var_previous(:,k)));% TODO: rho to be added
+                    history.s_norm(m,k)  = norm(rho_scalar*A'*B*(slack_var(:,k) - slack_var_previous(:,k)));% TODO: rho to be added
                     
                     %                     if(history.r_norm(m,k) > 10*history.s_norm(m,k))
                     %                         rho = 2*rho;
@@ -1214,7 +1220,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     p_size = 6;% dimension of primal variables
                     n_size = 12;% dimension of dual variables
-                    d_reduced = [d(1:4,k);d(10:17,k)];
+                    d_reduced = [d(1:4,k);d(11:18,k)];
                     
                     %                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
                     %                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
@@ -1237,8 +1243,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         disp('come here')
                     end
                     
-                    if ((history.r_norm(m,k) < history.eps_pri(m,k) && ...
-                            history.s_norm(m,k) < history.eps_dual(m,k)) || (history.r_norm(m,k) < 1e-4))                        
+                    if (m == 1)
+                        history.r_norm_previous = 0;
+                    end
+                    
+                    if ((history.r_norm(m,k) < history.eps_pri(m,k) && history.s_norm(m,k) < history.eps_dual(m,k)) ...
+                        || (abs(history.r_norm(m,k) - history.r_norm_previous) < 1e-4) || (history.r_norm(m,k) < 1e-4))                        
                         z(k,1) = lambda_n(k)*h;
                         for i=1:mC
                             z(nC+(i-1)*nC+k,1) = lambda_parallel(i,k)*h;
@@ -1267,6 +1277,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         end
                         break;
                     end
+                    history.r_norm_previous = history.r_norm(m,k);
                 end
             end
         end

@@ -1214,7 +1214,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     p_size = 6;% dimension of primal variables
                     n_size = 12;% dimension of dual variables
-                    d_reduced = [d(1:4,k);d(10:17,k)];
+                    d_reduced = [d(1:4,k);d(11:18,k)];
                     
                     %                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
                     %                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
