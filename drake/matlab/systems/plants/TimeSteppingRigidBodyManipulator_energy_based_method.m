@@ -24,7 +24,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
         z_inactive_guess_tol = .01;
         multiple_contacts = false;
         gurobi_present = false;
-        time_flag = 0;
+        time_flag = 1;
     end
     
     methods
@@ -296,8 +296,10 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                 return;
             end
             
-            global z_previous;
+            persistent z_previous;
+            persistent z_stored;
             global total_time;
+            total_time = 2;
             if obj.time_flag == 1
                 total_time = 0;
                 obj.time_flag = 0;
@@ -730,11 +732,18 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
 %                     z
 %                     M*z+w
                     
+%                     if isempty(z_previous)
+%                         z_previous = z;
+%                     else
+%                         z_previous = z_stored;
+%                     end
+                    
                     z_previous = z;
                     %admm solver
                     %t_start = tic;
                     z_test = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, phiC, z_previous, nC, nL, nP, mC, mu);
                     %toc(t_start)
+                    norm(z-z_test)
                     
                     compl_cond = M*z_test+w;
                     if(any(z_test(1:nC) < -1e-4))
@@ -769,6 +778,12 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     if(any(compl_cond_original < -1e-3))
                         disp('----------------debug-------------------\n')
                     end
+                    
+                    if(any(abs(z(1:nC)) < 1e-3))
+                        disp('----------------contact-------------------\n')
+                    end
+                    
+%                     z_stored = z_test;
                     
                     %tElapsed = toc(t_start);
                     %total_time = total_time + tElapsed;
@@ -890,7 +905,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                 end
             end
 
-%             z_previous = zeros(length(z_previous),1);
+            z_previous = zeros(length(z_previous),1);
             
             phi = M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
 %             if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
@@ -911,7 +926,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
             rho(6+2*mC+(1:mC)) = rho_scalar*ones(mC,1);
             t_cc = 1; t_nc = 1; t_vc = 1;
-            energy_cost_coeff = 0;
+            energy_cost_coeff = 1;
             
             [m,n_size] = size(M);
             
@@ -949,6 +964,22 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             slack_var_selected = zeros(mC+1, nC);
             
             if nC > 2
+                disp('nC > 2')
+            end
+            
+            if nC > 3
+                disp('nC > 2')
+            end
+            
+            if nC > 5
+                disp('nC > 2')
+            end
+            
+            if nC > 6
+                disp('nC > 2')
+            end
+            
+            if nC > 7
                 disp('nC > 2')
             end
             
@@ -1159,16 +1190,16 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     if ((history.r_norm(m,k) < history.eps_pri(m,k) && history.s_norm(m,k) < history.eps_dual(m,k)) ...
                          || (abs(history.r_norm(m,k) - history.r_norm_previous) < 1e-5 && history.r_norm(m,k) < 5e-3) || (history.r_norm(m,k) < 1e-4) ...
                          || (history.r_norm(m,k) > scaling_factor*history.r_norm_lowest && history.r_norm_lowest < 2e-2 && history.r_norm_lowest ~= 0) )
-                        z(k,1) = lambda_n(k)*h;
+                        z(k,1) = lambda_n(k);
                         for i=1:mC
-                            z(nC+(i-1)*nC+k,1) = lambda_parallel(i,k)*h;
+                            z(nC+(i-1)*nC+k,1) = lambda_parallel(i,k);
                         end
                         z(nC*(mC+1)+k,1) = v_mag(k);
                         
                         if (history.r_norm(m,k) > scaling_factor*history.r_norm_lowest && history.r_norm_lowest < 2e-2 && history.r_norm_lowest ~= 0 || (history.r_norm(m,k) > history.r_norm_lowest))
-                            z(k,1) = lambda_n_best(k)*h;
+                            z(k,1) = lambda_n_best(k);
                             for i=1:mC
-                                z(nC+(i-1)*nC+k,1) = lambda_parallel_best(i,k)*h;
+                                z(nC+(i-1)*nC+k,1) = lambda_parallel_best(i,k);
                             end
                             z(nC*(mC+1)+k,1) = v_mag(k);
                         end
