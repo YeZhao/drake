@@ -8,6 +8,9 @@ classdef TimeSteppingRigidBodyManipulator_full_with_all_constraints_new < DrakeS
     % problem, the initial condition does affect the final solution, there
     % is local minima.
     
+    % a few key points: z_previous is not initialized to be zero, the final
+    % z in admm solve has the scale h.
+    
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
