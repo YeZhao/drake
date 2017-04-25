@@ -307,7 +307,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             persistent num_compl_cond_violation;
             persistent num_v_zero;
             persistent num_v_non_zero;
-            persistent total_norm_diff;
+            persistent total_norm_diff; 
+            persistent total_z_admm_negative;
+            persistent total_compl_cond_admm_negative;
             
             %       global active_set_fail_count
             % do LCP time-stepping
@@ -796,7 +798,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     
                     num_lcp
                     
-                    if length(pathlcp_z_norm) > 320
+                    if length(pathlcp_z_norm) > 290%320
                         %num_admmlcp
                         %num_pathlcp
                         %num_z_admm_violation
@@ -804,23 +806,27 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         %num_v_zero
                         %num_v_non_zero
                         
-                        fprintf('%10s\t%10s\t%10s\n', ...
-                            'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve');
-                        fprintf('%3d\t\t\t\t%3d\t\t\t%3d\t\t\t%3d\t\t%3d\n', num_lcp, num_admmlcp, num_pathlcp);
+                        if isempty(total_compl_cond_admm_negative)
+                            total_compl_cond_admm_negative = 0;
+                        end
                         
-                        figure(1)
-                        plot(pathlcp_z_norm,'b-');
-                        hold on;
-                        plot(admmlcp_z_norm,'r-');
-                        xlim([-100 600])
-                        legend('pathlcp z vector norm','admmlcp z vector norm');
-                        title('norm of lcp decision vector z solved from path and admm algorithms');
-
-                        figure(2)
-                        plot(z_norm_diff,'b-');
-                        xlim([-100 600])
-                        legend('norm z difference');
-                        title('norm of two lcp decision vector z difference');
+                        fprintf('%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n', ...
+                            'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve', 'total norm diff', 'sum of z vector negative elements', 'sum of compl condition vector negative elements');
+                        fprintf('%3d\t\t\t\t%3d\t\t\t%3d\t\t\t%3d\t\t%3d\t\t%5f\t\t%5f\t\t%5f\n', num_lcp, num_admmlcp, num_pathlcp, total_norm_diff, total_z_admm_negative, total_compl_cond_admm_negative);
+                        
+%                         figure(1)
+%                         plot(pathlcp_z_norm,'b-');
+%                         hold on;
+%                         plot(admmlcp_z_norm,'r-');
+%                         xlim([-100 600])
+%                         legend('pathlcp z vector norm','admmlcp z vector norm');
+%                         title('norm of lcp decision vector z solved from path and admm algorithms');
+% 
+%                         figure(2)
+%                         plot(z_norm_diff,'b-');
+%                         xlim([-100 600])
+%                         legend('norm z difference');
+%                         title('norm of two lcp decision vector z difference');
 
                     end
                     
@@ -830,19 +836,45 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         num_lcp = num_lcp + 1;
                     end
                     
-                    if norm(z - z_admm) < 100 % currently use 1 [parameter can be tuned]
+                    if norm(z - z_admm) < 0%100 % currently use 1 [parameter can be tuned]
+                        if (isempty(total_norm_diff))
+                            total_norm_diff = norm(z - z_admm);
+                        else
+                            total_norm_diff = total_norm_diff + norm(z - z_admm);
+                        end
+                        
                         z = z_admm;
                         if (isempty(num_admmlcp))
                             num_admmlcp = 1;
                         else
                             num_admmlcp = num_admmlcp + 1;
                         end
+                        
+                        
                     else
                         if (isempty(num_pathlcp))
                             num_pathlcp = 1;
                         else
                             num_pathlcp = num_pathlcp + 1;
                         end
+                    end
+                    
+                    for i = 1:length(z_admm)
+                        if z_admm(i) < 0
+                            if isempty(total_z_admm_negative)
+                                total_z_admm_negative = z_admm(i);
+                            else
+                                total_z_admm_negative = total_z_admm_negative + z_admm(i);
+                            end
+                        end
+                        
+                        if compl_cond(i) < 0
+                            if isempty(total_compl_cond_admm_negative)
+                                total_compl_cond_admm_negative = compl_cond(i);
+                            else
+                                total_compl_cond_admm_negative = total_compl_cond_admm_negative + compl_cond(i);
+                            end
+                        end                        
                     end
                     
                     for i = 1:nC
@@ -985,7 +1017,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             end
 
             z_previous = zeros(nC*(2+mC),1);
-            %z_previous(1+(1+mC)*nC:end) = z_pathlcp(1+(1+mC)*nC:end);
+            z_previous(1+(1+mC)*nC:end) = z_pathlcp(1+(1+mC)*nC:end);
             
             phi = zeros(nC,1);%M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
 %             if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
@@ -1002,7 +1034,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             RELTOL   = 1e-2;
             RELTOL_DUAL = 1e-2;
             alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
-            rho_scalar = 0.5;
+            rho_scalar = 0.2;
             rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
             rho(6+2*mC+(1:mC)) = rho_scalar*ones(mC,1);
             t_cc = 1; t_nc = 1; t_vc = 1;
