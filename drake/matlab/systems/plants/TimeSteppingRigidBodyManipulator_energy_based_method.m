@@ -307,6 +307,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             persistent num_compl_cond_violation;
             persistent num_v_zero;
             persistent num_v_non_zero;
+            persistent total_norm_diff;
             
             %       global active_set_fail_count
             % do LCP time-stepping
@@ -789,9 +790,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         disp('----------------debug-------------------\n')
                     end
                     
-                    
-                    
-                    
                     pathlcp_z_norm = [pathlcp_z_norm, norm(z)];
                     admmlcp_z_norm = [admmlcp_z_norm, norm(z_admm)];
                     z_norm_diff = [z_norm_diff, norm(z - z_admm)];
@@ -799,26 +797,31 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     num_lcp
                     
                     if length(pathlcp_z_norm) > 320
-                        num_admmlcp
-                        num_pathlcp
-                        num_z_admm_violation
-                        num_compl_cond_violation
-                        num_v_zero
-                        num_v_non_zero
+                        %num_admmlcp
+                        %num_pathlcp
+                        %num_z_admm_violation
+                        %num_compl_cond_violation
+                        %num_v_zero
+                        %num_v_non_zero
                         
-%                         figure(1)
-%                         plot(pathlcp_z_norm,'b-');
-%                         hold on;
-%                         plot(admmlcp_z_norm,'r-');
-%                         xlim([-100 600])
-%                         legend('pathlcp z vector norm','admmlcp z vector norm');
-%                         title('norm of two lcp decision vector z difference');
-% 
-%                         figure(2)
-%                         plot(z_norm_diff,'b-');
-%                         xlim([-100 600])
-%                         legend('norm z difference');
-%                         title('norm of lcp decision vector z solved from path and admm algorithms');
+                        fprintf('%10s\t%10s\t%10s\n', ...
+                            'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve');
+                        fprintf('%3d\t\t\t\t%3d\t\t\t%3d\t\t\t%3d\t\t%3d\n', num_lcp, num_admmlcp, num_pathlcp);
+                        
+                        figure(1)
+                        plot(pathlcp_z_norm,'b-');
+                        hold on;
+                        plot(admmlcp_z_norm,'r-');
+                        xlim([-100 600])
+                        legend('pathlcp z vector norm','admmlcp z vector norm');
+                        title('norm of lcp decision vector z solved from path and admm algorithms');
+
+                        figure(2)
+                        plot(z_norm_diff,'b-');
+                        xlim([-100 600])
+                        legend('norm z difference');
+                        title('norm of two lcp decision vector z difference');
+
                     end
                     
                     if (isempty(num_lcp))
@@ -827,7 +830,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         num_lcp = num_lcp + 1;
                     end
                     
-                    if norm(z - z_admm) < 0 % currently use 1 [parameter to be tuned]
+                    if norm(z - z_admm) < 100 % currently use 1 [parameter can be tuned]
                         z = z_admm;
                         if (isempty(num_admmlcp))
                             num_admmlcp = 1;
@@ -858,6 +861,10 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                             end
                         end
                         
+                    end
+                    
+                    if num_lcp == 374
+                        disp('come here')
                     end
                     
                     % for debugging
@@ -978,9 +985,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             end
 
             z_previous = zeros(nC*(2+mC),1);
-            z_previous(1+(1+mC)*nC:end) = z_pathlcp(1+(1+mC)*nC:end);
+            %z_previous(1+(1+mC)*nC:end) = z_pathlcp(1+(1+mC)*nC:end);
             
-            phi = M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
+            phi = zeros(nC,1);%M(nL+nP+(1:nC),:)*z_previous + w(nL+nP+(1:nC));
 %             if any(phi < -1e-4)%TODO: the threthold needs to be tuned.
 %                 error('penetration occurs');
 %             end
@@ -990,7 +997,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             %% Global constants and defaults
             
             QUIET    = 0;
-            MAX_ITER = 200;
+            MAX_ITER = 100;
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
             RELTOL_DUAL = 1e-2;
@@ -1100,9 +1107,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     %                         plot(lambda_n_sample, aug_Lagrange)
                     %                     end
                     
-                    if(abs(lambda_n_optimal) > 3)
-                        disp('stop here')
-                    end
+%                     if(abs(lambda_n_optimal) > 3)
+%                         disp('stop here')
+%                     end
                     
                     % ------------- compute prox-linear operator -------------
                     E = w(nL+nP+k);
@@ -1165,9 +1172,13 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     lambda_parallel_new_stack = reshape(lambda_parallel', nC*mC, 1);
                     phi(k) = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;zeros(nC,1)] + w(nL+nP+k);%[double check whether to update]
                     
+                    if phi(k) > 0
+                        disp('come here')
+                    end
+                    
                     % ------------- slack variable update -------------
                     lambda_n_tilde(k) = max(0, lambda_n(k) + d(1,k));
-                    phi_tilde(k) = max(0, phi(k) - d(3,k));
+                    phi_tilde(k) = max(0, phi(k) - w(k) - d(3,k)) + w(k);
                     
                     lambda_f_tilde(k) = max(0, mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k) - d(4,k));
                     for i = 1:mC
@@ -1218,9 +1229,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     %                     history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));% TODO: rho to be added
                     history.s_norm(m,k)  = norm(rho_scalar*A'*B*(slack_var(:,k) - slack_var_prev(:,k)));
                     
-%                     if(history.r_norm(m,k) > 10*history.s_norm(m,k) && rho_scalar < 2)
+%                     if(history.r_norm(m,k) > 2*history.s_norm(m,k))
 %                         rho_scalar = 2*rho_scalar;
-%                     elseif (history.s_norm(m,k) > 10*history.r_norm(m,k) && rho_scalar > 0.01)
+%                     elseif (history.s_norm(m,k) > 2*history.r_norm(m,k))% && rho_scalar > 0.01
 %                         rho_scalar = rho_scalar/2;
 %                     end
                     
@@ -1235,9 +1246,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);% TODO: rho to be added
                     
                     if ~QUIET
-                        fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\n', m, ...
+                        fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.4f\n', m, ...
                             history.r_norm(m,k), history.eps_pri(m,k), ...
-                            history.s_norm(m,k), history.eps_dual(m,k), history.objval(m,k));
+                            history.s_norm(m,k), history.eps_dual(m,k), history.objval(m,k), rho_scalar);
                     end
                     
                     if (isnan(history.r_norm(m,k)))
@@ -1272,7 +1283,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     
                     if ((history.r_norm(m,k) < history.eps_pri(m,k) && history.s_norm(m,k) < history.eps_dual(m,k)) ...
                          || (abs(history.r_norm(m,k) - history.r_norm_previous) < 1e-5 && history.r_norm(m,k) < 5e-3) || (history.r_norm(m,k) < 1e-4) ...
-                         || (history.r_norm(m,k) > scaling_factor*history.r_norm_lowest && history.r_norm_lowest < 2e-2 && history.r_norm_lowest ~= 0) )
+                         || (history.r_norm(m,k) > scaling_factor*history.r_norm_lowest && history.r_norm_lowest < 2e-2 && history.r_norm_lowest ~= 0) || m == MAX_ITER)
                         z(k,1) = lambda_n(k);
                         for i=1:mC
                             z(nC+(i-1)*nC+k,1) = lambda_parallel(i,k);
