@@ -24,6 +24,8 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
         z_inactive_guess_tol = .01;
         multiple_contacts = false;
         gurobi_present = false;
+        enable_admm_lcp = true;
+        enable_path_lcp = true;
     end
     
     methods
@@ -310,6 +312,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             persistent total_norm_diff; 
             persistent total_z_admm_negative;
             persistent total_compl_cond_admm_negative;
+            persistent admm_complementarity_condition_residual;%z'*(M*z+w)
+            persistent path_complementarity_condition_residual;
+            persistent sovleLCP_index;
             
             %       global active_set_fail_count
             % do LCP time-stepping
@@ -727,16 +732,41 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         end
                     end
                     
-                    if QP_FAILED
+                    if isempty(sovleLCP_index)
+                        sovleLCP_index = 1;
+                    else
+                        sovleLCP_index = sovleLCP_index + 1;
+                    end
+                    disp('-----solverLCP iteration-----')
+                    fprintf('%10d\n', sovleLCP_index);
+                    
+                    if sovleLCP_index == 68 || sovleLCP_index == 93 || sovleLCP_index == 95
+                        disp('come here')
+                    end
+                    
+                    if QP_FAILED && obj.enable_path_lcp
                         % then the active set has changed, call pathlcp
                         z = pathlcp(M,w,lb,ub);
                         obj.LCP_cache.data.fastqp_active_set = [];
                     end
+                    if(isempty(path_complementarity_condition_residual))
+                        path_complementarity_condition_residual = z'*(M*z+w);
+                    else
+                        path_complementarity_condition_residual = [path_complementarity_condition_residual, z'*(M*z+w)];
+                    end
+                    
+                    
+                    z = zeros(size(M,2),1);% remove the pathlcp solver
                     
                     %admm solver
                     z_admm = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, z, phiC, nC, nL, nP, mC, mu);
                     
                     compl_cond = M*z_admm+w;
+                    if(isempty(admm_complementarity_condition_residual))
+                        admm_complementarity_condition_residual = z_admm'*compl_cond;
+                    else
+                        admm_complementarity_condition_residual = [admm_complementarity_condition_residual, z_admm'*compl_cond];
+                    end
                     
                     if(any(z_admm(1:nC) < -1e-4))
                         disp('----------------debug-------------------\n')
@@ -774,7 +804,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         end
                     end
                     
-                    
+                    % debugging stuff for path lcp
                     compl_cond_original = M*z+w;
                     if(any(z(1:nC) < -1e-4))
                         disp('----------------debug-------------------\n')
@@ -810,9 +840,22 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                             total_compl_cond_admm_negative = 0;
                         end
                         
-                        fprintf('%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n', ...
-                            'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve', 'total norm diff', 'sum of z vector negative elements', 'sum of compl condition vector negative elements');
-                        fprintf('%3d\t\t\t\t%3d\t\t\t%3d\t\t\t%3d\t\t%3d\t\t%5f\t\t%5f\t\t%5f\n', num_lcp, num_admmlcp, num_pathlcp, total_norm_diff, total_z_admm_negative, total_compl_cond_admm_negative);
+                        if isempty(num_pathlcp)
+                            num_pathlcp = 0;
+                        end
+
+                        if isempty(num_admmlcp)
+                            num_admmlcp = 0;
+                        end
+                        
+                        
+                        disp('--------------------------solver result--------------------------');
+                        fprintf('%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n', 'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve', ...
+                            'total norm diff of z vector', 'sum of z vector negative elements', 'sum of compl condition vector negative elements');
+                        fprintf('\t%3d\t\t\t%3d\t\t%3d\t\t%5f\t\t%5f\t\t\t\t%5f\n', num_lcp, num_admmlcp, num_pathlcp, total_norm_diff, total_z_admm_negative, total_compl_cond_admm_negative);
+                        
+%                         fprintf('%10s\t\t%10s\t\t%10s\t%10s\n', 'num of z admm violation', 'num of complementarity condition admm violation', 'admm complementarity condition residual', 'path complementarity condition residual');
+%                         fprintf('\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\n', num_z_admm_violation, num_compl_cond_violation, sum(abs(admm_complementarity_condition_residual)), sum(abs(path_complementarity_condition_residual)));
                         
 %                         figure(1)
 %                         plot(pathlcp_z_norm,'b-');
@@ -827,7 +870,17 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
 %                         xlim([-100 600])
 %                         legend('norm z difference');
 %                         title('norm of two lcp decision vector z difference');
-
+                          
+                          figure(3)
+                          plot(admm_complementarity_condition_residual,'b-');
+                          xlim([-100 600])
+                          title('sum of admm complementarity condition residual');
+                          
+                          figure(4)
+                          plot(path_complementarity_condition_residual,'b-');
+                          xlim([-100 600])
+                          title('sum of path complementarity condition residual');
+                          
                     end
                     
                     if (isempty(num_lcp))
@@ -836,7 +889,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         num_lcp = num_lcp + 1;
                     end
                     
-                    if norm(z - z_admm) < 0%100 % currently use 1 [parameter can be tuned]
+                    if obj.enable_admm_lcp
                         if (isempty(total_norm_diff))
                             total_norm_diff = norm(z - z_admm);
                         else
@@ -849,9 +902,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         else
                             num_admmlcp = num_admmlcp + 1;
                         end
-                        
-                        
-                    else
+                    elseif obj.enable_path_lcp
                         if (isempty(num_pathlcp))
                             num_pathlcp = 1;
                         else
@@ -884,7 +935,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                             else
                                 num_v_zero = num_v_zero + 1;
                             end
-                            disp('----------------debug-------------------\n')                            
                         else
                             if (isempty(num_v_non_zero))
                                 num_v_non_zero = 1;
@@ -895,9 +945,9 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         
                     end
                     
-                    if num_lcp == 374
-                        disp('come here')
-                    end
+%                     if num_lcp == 374
+%                         disp('come here')
+%                     end
                     
                     % for debugging
                     %cN = z(nL+nP+(1:nC))
@@ -1034,8 +1084,10 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             RELTOL   = 1e-2;
             RELTOL_DUAL = 1e-2;
             alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
-            rho_scalar = 0.2;
+            rho_scalar = 0.5;%0.2
             rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
+            rho(3) = 5;
+            rho(5) = 5;
             rho(6+2*mC+(1:mC)) = rho_scalar*ones(mC,1);
             t_cc = 1; t_nc = 1; t_vc = 1;
             energy_cost_coeff = 1;
@@ -1204,9 +1256,15 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     lambda_parallel_new_stack = reshape(lambda_parallel', nC*mC, 1);
                     phi(k) = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;zeros(nC,1)] + w(nL+nP+k);%[double check whether to update]
                     
-                    if phi(k) > 0
-                        disp('come here')
-                    end
+%                     if phi(k) > 0
+%                         disp('come here')
+%                     end
+%                     
+%                     if (M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;zeros(nC,1)] < 0)
+%                         disp('negative')
+%                     else
+%                         disp('positive')
+%                     end
                     
                     % ------------- slack variable update -------------
                     lambda_n_tilde(k) = max(0, lambda_n(k) + d(1,k));
@@ -1275,7 +1333,10 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     %                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
                     
                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(A*primal_var_prev(:,k)), max(norm(B*slack_var_prev(:,k)), norm(c)));
-                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);% TODO: rho to be added
+                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);
+                    
+                    
+                    %history.eps_pri(m,k) = 0.1*history.eps_pri(m,k);
                     
                     if ~QUIET
                         fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.4f\n', m, ...
