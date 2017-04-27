@@ -310,6 +310,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             persistent total_norm_diff; 
             persistent total_z_admm_negative;
             persistent total_compl_cond_admm_negative;
+            persistent phi_negative_vector;
             persistent admm_complementarity_condition_residual;%z'*(M*z+w)
             persistent path_complementarity_condition_residual;
             persistent sovleLCP_index;
@@ -839,6 +840,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     
                     if(any(compl_cond < -1e-4))
                         disp('----------------debug-------------------\n')
+                        
                         if (isempty(num_compl_cond_violation))
                             num_compl_cond_violation = 1;
                         else
@@ -874,7 +876,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     admmlcp_z_norm = [admmlcp_z_norm, norm(z_admm)];
                     z_norm_diff = [z_norm_diff, norm(z - z_admm)];
                                         
-                    if length(pathlcp_z_norm) > 230
+                    if length(pathlcp_z_norm) > 340
                         
                         if isempty(total_compl_cond_admm_negative)
                             total_compl_cond_admm_negative = 0;
@@ -905,7 +907,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                             'total norm diff of z vector', 'sum of z vector negative elements', 'sum of compl condition vector negative elements');
                         fprintf('\t%3d\t\t\t%3d\t\t\t%3d\t\t\t%5f\t\t\t%5f\t\t\t\t%5f\n', num_lcp, num_admmlcp, num_pathlcp, total_norm_diff, total_z_admm_negative, total_compl_cond_admm_negative);
                         
-                        fprintf('%10s\t\t%10s\t\t%10s\t\t%10s\n', 'num of z admm violation', 'num of complementarity condition admm violation', 'admm complementarity condition residual', 'path complementarity condition residual');
+                        fprintf('%10s\t\t%10s\t\t%10s\t\t%10s\n', 'num of z admm violation', 'num of complementarity condition admm violation', 'absolute sum of admm complementarity condition residual', 'absolute sum of path complementarity condition residual');
                         fprintf('\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\n', num_z_admm_violation, num_compl_cond_violation, sum(abs(admm_complementarity_condition_residual)), sum(abs(path_complementarity_condition_residual)));
                         
                         fprintf('%10s\n', 'index of z admm violation');
@@ -936,27 +938,30 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
 %                         legend('norm z difference');
 %                         title('norm of two lcp decision vector z difference');
                           
-%                           figure(3)
-%                           plot(admm_complementarity_condition_residual,'b-');
-%                           xlim([-100 600])
-%                           title('sum of admm complementarity condition residual');
+                          figure(3)
+                          plot(admm_complementarity_condition_residual,'b-');
+                          xlim([-100 600])
+                          title('sum of admm complementarity condition residual');
 %                           
 %                           figure(4)
 %                           plot(path_complementarity_condition_residual,'b-');
 %                           xlim([-100 600])
 %                           title('sum of path complementarity condition residual');
-%                           
-%                           figure(5)
-%                           plot(min_normal_distance,'b-');
-%                           xlim([-100 500])
-%                           title(' minimal normal distance');
-%                           
-%                           figure(6)
-%                           plot(max_normal_force,'b-');
-%                           xlim([-100 500])
-%                           title(' maximal normal force');
+%                         
+                          figure(5)
+                          plot(min_normal_distance,'b-');
+                          xlim([-100 500])
+                          title(' minimal normal distance');
                           
-                          
+                          figure(6)
+                          plot(max_normal_force,'b-');
+                          xlim([-100 500])
+                          title(' maximal normal force');
+
+                          figure(7)
+                          plot(phi_negative_vector,'b-');
+                          xlim([-100 500])
+                          title('negative phi vector');
                     end
                     
                     if (isempty(num_lcp))
@@ -1001,7 +1006,15 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                             else
                                 total_compl_cond_admm_negative = total_compl_cond_admm_negative + compl_cond(i);
                             end
-                        end                        
+                        end
+                        
+                        if compl_cond(i) < 0 && i <= nC
+                            if isempty(phi_negative_vector)
+                                phi_negative_vector = compl_cond(i);
+                            else
+                                phi_negative_vector = [phi_negative_vector, compl_cond(i)];
+                            end
+                        end
                     end
                     
                     for i = 1:nC
@@ -1291,7 +1304,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     phi(k) = M(nL+nP+k,:)*[lambda_n*h;lambda_parallel_new_stack*h;zeros(nC,1)] + w(nL+nP+k);%[double check whether to update]
                     
                     % ------------- slack variable update -------------
-                    % over-relaxation
+                    % over-relaxation implementation
                     lambda_n_hat = alpha*lambda_n(k) + (1 - alpha)*lambda_n_tilde(k);
                     for i = 1:mC
                         lambda_parallel_hat(i,k) = alpha*lambda_parallel(i,k) + (1 - alpha)*lambda_parallel_tilde(i,k);
@@ -1307,15 +1320,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     for i = 1:mC
                         lambda_parallel_tilde(i,k) = max(0, lambda_parallel_hat(i,k) + d(4+i,k));
                     end
-
-%                     % original implementation (no over-relaxation)
-%                     lambda_n_tilde(k) = max(0, lambda_n(k) + d(1,k));
-%                     phi_tilde(k) = max(0, phi(k) - d(2,k));
-%                     
-%                     lambda_f_tilde(k) = max(0, mu(k)*lambda_n(k) - OnesFull'*lambda_parallel(:,k) - d(3,k));
-%                     for i = 1:mC
-%                         lambda_parallel_tilde(i,k) = max(0, lambda_parallel(i,k) + d(4+i,k));
-%                     end
 
                     slack_var(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k);lambda_f_tilde(k);phi_tilde(k)];
                     slack_var_selected(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k)];
@@ -1342,7 +1346,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     
                     % ------------- diagnostics, reporting, termination checks -------------
                     history.objval(m,k) = 0;
-                    
                     primal_residual = [(primal_var(:,k) - slack_var_selected(:,k)); lambda_f_tilde(k) - mu(k)*lambda_n(k) + OnesFull'*lambda_parallel(:,k); phi(k)*lambda_n(k); phi_tilde(k) - phi(k)];
                     
                     % dual residual
@@ -1350,7 +1353,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     B = zeros(4 + mC, length(slack_var(:,k)));
                     
                     A(1,1) = 1;%lambda - lambda_tilde
-                    
                     A(2,:) = [-n(k,:)*vToqdot*Hinv*vToqdot'*n(k,:)'*h^2, -n(k,:)*vToqdot*Hinv*vToqdot'*D_set(:,:,k)'*h^2];% phi_tilde - phi
                     A(3,:) = [-mu(k),ones(1,mC)];%lambda_f_tilde - mu*lambda_n + 1^T*lambda_parallel
                     A(3+(1:mC),1+(1:mC)) = eye(4);
@@ -1364,28 +1366,24 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     c = [0,-w(k),-w(nC*(1+mC)+k),zeros(1,4),zeros(1,1)]';
                     
                     history.r_norm(m,k)  = norm(primal_residual);
-                    %                     history.s_norm(m,k)  = norm(slack_var(:,k) - slack_var_previous(:,k));
                     history.s_norm(m,k)  = norm(rho_scalar*A'*B*(slack_var(:,k) - slack_var_prev(:,k)));
                     
-%                     if(history.r_norm(m,k) > 2*history.s_norm(m,k))
-%                         rho_scalar = 2*rho_scalar;
-%                     elseif (history.s_norm(m,k) > 2*history.r_norm(m,k))% && rho_scalar > 0.01
-%                         rho_scalar = rho_scalar/2;
-%                     end
+                    % penalty parameter update rule
+                    if(history.r_norm(m,k) > 10*history.s_norm(m,k) && rho_scalar < 1)
+                        rho_scalar = 1.5*rho_scalar;
+                    elseif (history.s_norm(m,k) > 10*history.r_norm(m,k) && rho_scalar > 0.1)
+                        rho_scalar = rho_scalar/1.5;
+                    end
                     
                     p_size = 5;% dimension of primal variables
                     n_size = 8;% dimension of dual variables
                     d_reduced = d(:,k);
                     
-                    %                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(primal_var(:,k)), norm(slack_var(:,k)));
-                    %                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL*norm(d_reduced);% TODO: rho to be added
-                    
                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(A*primal_var_prev(:,k)), max(norm(B*slack_var_prev(:,k)), norm(c)));
                     history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);
                     
                     if ~QUIET
-                        fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.4f\n', m, ...
-                            history.r_norm(m,k), history.eps_pri(m,k), ...
+                        fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.4f\n', m, history.r_norm(m,k), history.eps_pri(m,k), ...
                             history.s_norm(m,k), history.eps_dual(m,k), history.objval(m,k), rho_scalar);
                     end
                     
@@ -1423,27 +1421,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                                 z(nC+(i-1)*nC+k,1) = lambda_parallel_best(i,k);
                             end
                             z(nC*(mC+1)+k,1) = v_mag(k);
-                        end
-                        
-                        compl_cond = M*z+w;
-                        if(any(z(1:nC) < 0))
-                            disp('----------------debug-------------------\n')
-                        end
-                        
-                        if(any(z(nC+(1:nC*mC)) < -1e-4))
-                            disp('----------------debug-------------------\n')
-                        end
-                        
-                        if(any(z(nC*(1+mC)+(1:nC)) < -1e-4))
-                            disp('----------------debug-------------------\n')
-                        end
-                        
-                        if(any(compl_cond < -1e-4) && (history.r_norm(m,k) < 1e-4))
-                            disp('----------------debug-------------------\n')
-                        end
-                        
-                        if(any(compl_cond < -2e-4))
-                            disp('----------------debug-------------------\n')
                         end
                         break;
                     end
