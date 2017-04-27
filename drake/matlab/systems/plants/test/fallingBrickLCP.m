@@ -20,7 +20,7 @@ fix1 = [   -0.0375; -1.8963; -2.1280];
 fix2 = [-1.1769; -0.9905; -1.1730];
 fix3 = [-1.7254 0.2882 -1.5942 0.1102 0.7871 -0.0022 0.0931 -0.3782 -1.4827 -0.0438 0.9608 1.7382]';
 
-%x0 = [0;1;2;rpy2quat(randn(3,1));2;1;2;rpy2quat(randn(3,1));randn(12,1)];
+% x0 = [0;1;2;rpy2quat(randn(3,1));2;1;2;rpy2quat(randn(3,1));randn(12,1)];
 x0 = [0;1;2;rpy2quat(fix1);2;1;2;rpy2quat(fix2);fix3];
 x0 = p.resolveConstraints(x0);
 
@@ -33,5 +33,5 @@ end
 
 v = p.constructVisualizer();
 v.drawWrapper(0,x0);
-xtraj = p.simulate([0 4],x0);
+xtraj = p.simulate([0 6],x0);
 v.playback(xtraj);
