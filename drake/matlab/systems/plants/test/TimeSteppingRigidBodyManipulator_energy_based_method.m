@@ -1166,7 +1166,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             QUIET    = 0;
             MAX_ITER = 100;
             ABSTOL   = 1e-4;
-            RELTOL   = 1e-2;
+            RELTOL   = 1e-3;
             RELTOL_DUAL = 1e-2;
             alpha = 1.5;% over-relaxation parameter
             rho_scalar = 0.2;
@@ -1325,7 +1325,6 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     slack_var_selected(:,k) = [lambda_n_tilde(k);lambda_parallel_tilde(:,k)];
                     
                     % ------------- dual variable update -------------
-                    
 %                     % over relaxation version
 %                     d(1,k) = d(1,k) + lambda_n_hat - lambda_n_tilde(k);
 %                     d(2,k) = d(2,k) + phi_tilde(k) - phi_term_hat;
@@ -1356,6 +1355,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     A(2,:) = [-n(k,:)*vToqdot*Hinv*vToqdot'*n(k,:)'*h^2, -n(k,:)*vToqdot*Hinv*vToqdot'*D_set(:,:,k)'*h^2];% phi_tilde - phi
                     A(3,:) = [-mu(k),ones(1,mC)];%lambda_f_tilde - mu*lambda_n + 1^T*lambda_parallel
                     A(3+(1:mC),1+(1:mC)) = eye(4);
+                    A(4+mC,:) = [g_cc_n_tilde, g_cc_t_tilde];
                     
                     B(1,1) = -1;
                     B(2,7) = 1;
@@ -1363,7 +1363,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     B(3+(1:mC),1+(1:mC)) = -eye(4);
                     
                     %constant residual
-                    c = [0,-w(k),-w(nC*(1+mC)+k),zeros(1,4),zeros(1,1)]';
+                    c = [0,-w(k),zeros(1,6)]';
                     
                     history.r_norm(m,k)  = norm(primal_residual);
                     history.s_norm(m,k)  = norm(rho_scalar*A'*B*(slack_var(:,k) - slack_var_prev(:,k)));
@@ -1375,12 +1375,11 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         rho_scalar = rho_scalar/1.5;
                     end
                     
-                    p_size = 5;% dimension of primal variables
-                    n_size = 8;% dimension of dual variables
-                    d_reduced = d(:,k);
+                    p_size = size(A,1);% dimension of primal variables
+                    n_size = length(primal_var_prev(:,k));% dimension of dual variables
                     
                     history.eps_pri(m,k) = sqrt(p_size)*ABSTOL + RELTOL*max(norm(A*primal_var_prev(:,k)), max(norm(B*slack_var_prev(:,k)), norm(c)));
-                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d_reduced);
+                    history.eps_dual(m,k)= sqrt(n_size)*ABSTOL + RELTOL_DUAL*norm(A'*d(:,k));
                     
                     if ~QUIET
                         fprintf('%3d\t%10.4f\t%10.4f\t%10.4f\t%10.4f\t%10.2f\t%10.4f\n', m, history.r_norm(m,k), history.eps_pri(m,k), ...
