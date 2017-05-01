@@ -6,6 +6,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
         timestep
         twoD = false
         dirty = true
+        multiple_contacts = false
     end
     
     methods
@@ -68,33 +69,63 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             v0 = x(Nq + (1:Nv));
             
             M = manipulatorDynamics(obj.manip, q0, zeros(Nv,1));
-            L = chol(M,'lower');
             p0 = M*v0;
             
-%             kin0 = obj.manip.doKinematics(q0);
-%             colopts = struct();
-%             [phi0,~,~,~,~,~,~,~,n0,D0] = obj.manip.contactConstraints(kin0, obj.multiple_contacts, colopts);
-%             Np = size(n0,1);
-%             Nd = length(D0);
+            q1 = q0; %initial guess
             
-            q1 = q0 + h*v0; %initial guess
-            r = ones(size(q0));
-            while max(abs(r)) > 1e-6
-                r = MidpointDEL(obj,p0,q0,q1);
-                dq = h*(L'\(L\r));
-                alpha = 1;
-                r2 = r'*r;
-                rnew2 = r2+1;
-                while rnew2 > r2
-                    q1new = q1 + alpha*dq;
-                    rnew = MidpointDEL(obj,p0,q0,q1new);
-                    rnew2 = rnew'*rnew;
-                    alpha = alpha/2;
+            %kin1 = obj.manip.doKinematics(q1);
+            %[phi1,~,~,~,~,~,~,~,n1,D1] = obj.manip.contactConstraints(kin1, obj.multiple_contacts);
+            Np = 8;
+            Nd = 2;
+            %D1 = reshape(cell2mat(D1(1:Nd)')',Nq,Np*Nd)';
+            
+            if Np == 0 %No contact
+                r = ones(size(q0));
+                while max(abs(r)) > 1e-6
+                    [r,dr] = MidpointDEL(obj,p0,q0,q1);
+                    dq = -dr\r;
+                    alpha = 1;
+                    r2 = r'*r;
+                    rnew2 = r2+1;
+                    while rnew2 > r2
+                        q1new = q1 + alpha*dq;
+                        rnew = MidpointDEL(obj,p0,q0,q1new);
+                        rnew2 = rnew'*rnew;
+                        alpha = alpha/2;
+                    end
+                    q1 = q1new;
+                    r = rnew;
                 end
-                q1 = q1new;
-                r = rnew;
+            else %Solve with contact model
+                
+                %z vector is stacked [q_1; c1; b1; psi; s]
+                z = [q1; zeros(Np,1); 1];
+                %L = blkdiag(zeros(Nq+Np), .1);
+                %z = [q1; zeros(Np+Nd*Np+Np,1); 1];
+                %L = blkdiag(zeros(Nq+Np+Nd*Np+Np), .1);
+                
+                r = ones(Nq+Np+1,1);
+                %r = ones(Nq+Np+Nd*Np+Np+1,1);
+                while max(abs(r(1:(end-1)))) > 1e-6
+                    [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                    [Q,R] = qr(dr,0);
+                    %[Q,R] = qr([dr; L],0);
+                    dz = -R\(Q(1:length(r),:)'*r);
+                    alpha = 1;
+                    r2 = r'*r;
+                    rnew2 = r2+1;
+                    while rnew2 > r2
+                        znew = z + alpha*dz;
+                        znew(end) = max(znew(end),1e-6);
+                        rnew = MidpointContact(obj,q0,p0,znew,Np,Nd);
+                        rnew2 = rnew'*rnew;
+                        alpha = alpha/2;
+                    end
+                    z = znew;
+                    r = rnew;
+                end
             end
-            
+            q1 = z(1:Nq);
             p1 = MidpointDLT(obj,q0,q1);
             M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
             v1 = M\p1;
@@ -102,10 +133,11 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             xdn = [q1; v1];
         end
         
-        function r = MidpointDEL(obj,p0,q0,q1)
+        function [r,dr] = MidpointDEL(obj,p0,q0,q1)
             h = obj.timestep;
-            [D1L,D2L] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
+            [D1L,D2L,M] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
             r = p0 + (h/2)*D1L - D2L;
+            dr = -(1/h)*M;
         end
         
         function p1 = MidpointDLT(obj,q0,q1)
@@ -115,7 +147,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             p1 = (h/2)*D1L + D2L;
         end
         
-        function [D1L,D2L] = LagrangianDerivs(obj,q,v)
+        function [D1L,D2L,M] = LagrangianDerivs(obj,q,v)
             Nq = length(q);
             Nv = length(v);
             [M,G,~,dM] = manipulatorDynamics(obj.manip, q, zeros(Nv,1));
@@ -123,6 +155,84 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             dMdq = dM(:,1:Nq);
             D1L = 0.5*dMdq'*kron(v,v) - G;
             D2L = M*v;
+        end
+        
+        function [r, dr] = MidpointContact(obj,q0,p0,z,Np,Nd)
+            mu = 1; %This is currently hard coded in Drake...
+            
+            Nq = length(q0);
+            
+            h = obj.timestep;
+            
+            %z vector is stacked [q_1; c1; b1; psi; s]
+            
+            %Configurations
+            q1 = z(1:Nq);
+            
+            %Contact force coefficients
+            c1 = z(Nq+(1:Np));
+            %b1 = z(Nq+Np+(1:Np*Nd));
+            
+            %Tangential contact multiplier
+            %psi1 = z(Nq+Np+Np*Nd+(1:Np));
+            
+            %Smoothing parameter
+            s = z(end);
+            
+            kin1 = obj.manip.doKinematics(q1+q0);
+            [phi1,~,~,~,~,~,~,~,n1,D1] = obj.manip.contactConstraints(kin1, obj.multiple_contacts);
+            D1 = reshape(cell2mat(D1(1:Nd)')',Nq,Np*Nd)';
+            
+            [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
+            r_f = r_del + h*(n1'*c1);
+            %r_f = r_del + h*(n1'*c1 + D1'*b1);
+            
+            %E = sparse(reshape(kron(ones(Nd,1),(1:Np)),Nd,Np),1:(2*Np),ones(2*Np,1));
+            
+            [f1, dfa1, dfb1, dfs1] = obj.smoothFB(phi1, c1, s);
+            %[f2, dfa2, dfb2, dfs2] = obj.smoothFB(E'*phi1, b1, s);
+            
+            %[f3, dfa3, dfb3, dfs3] = obj.smoothFB(psi1,(mu*c1).^2 - E*(b1.*b1), s);
+            
+            %t = D1*((q1-q0)/h) + 2*(E'*psi1).*b1;
+            
+            r = [r_f; f1; exp(s)-1];
+            dr = [dr_del, h*n1', zeros(Nq,1);
+                  dfa1*n1, dfb1, zeros(Np,1);
+                  zeros(1,Nq+Np), exp(s)];
+              
+            %r = [r_f; f1; f2; f3; t; exp(s)-1];
+            
+%             dr = [dr_del, h*n1', h*D1', zeros(Nq,Np), zeros(Nq,1);
+%                   dfa1*n1, dfb1, zeros(Np,Nd*Np+Np), dfs1;
+%                   dfa2*E'*n1, zeros(Nd*Np,Np), dfb2, zeros(Nd*Np,Np), dfs2;
+%                   zeros(Np,Nq), dfb3*[2*mu*mu*diag(c1), -2*E*diag(b1)], dfa3, dfs3;
+%                   (1/h)*D1, zeros(Nd*Np,Np), diag(2*E'*psi1), 2*diag(b1)*E', zeros(Nd*Np,1);
+%                   zeros(1,Nq+Np+Nd*Np+Np), exp(s)];
+        end
+        
+        function [f, dfda, dfdb, dfds] = smoothFB(obj,a,b,s)
+            Na = length(a);
+            Nb = length(b);
+            if Na == Nb %vector version
+                f1 = sqrt(a.*a + b.*b  + s*s*ones(Nb,1));
+                f = f1 - (a + b);
+                dfda = diag(a./f1) - eye(Na);
+                dfdb = diag(b./f1) - eye(Nb);
+                dfds = s*ones(Nb,1)./f1;
+            elseif Na == 1
+                f1 = sqrt(a*a*ones(Nb,1) + b.*b  + s*s*ones(Nb,1));
+                f = f1 - (a*ones(Nb,1) + b);
+                dfda = a*ones(Nb,1)./f1 - ones(Nb,1);
+                dfdb = diag(b./f1) - eye(Nb);
+                dfds = s*ones(Nb,1)./f1;
+            else %Nb == 1
+                f1 = sqrt(a.*a + b*b*ones(Na,1)  + s*s*ones(Na,1));
+                f = f1 - (a + b*ones(Na,1));
+                dfda = diag(a./f1) - ones(Na,1);
+                dfdb = b*ones(Na,1)./f1 - eye(Nb);
+                dfds = s*ones(Na,1)./f1;
+            end
         end
         
         function x0 = getInitialState(obj)
