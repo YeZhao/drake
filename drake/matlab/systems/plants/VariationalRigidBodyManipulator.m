@@ -1,5 +1,6 @@
 classdef VariationalRigidBodyManipulator < DrakeSystem
-    %This class implements the Scalable Variational Integrator algorithm
+    %This class implements a 2nd order midpoint variational integrator with
+    %support for rigid body contact
     
     properties
         manip
@@ -7,6 +8,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
         twoD = false
         dirty = true
         multiple_contacts = false
+        cache_
     end
     
     methods
@@ -102,7 +104,6 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 
                 %z vector is stacked [q_1; c1; b1; psi; s]
                 z = [q1; zeros(Np,1); 1];
-                %L = blkdiag(zeros(Nq+Np), .1);
                 %z = [q1; zeros(Np+Nd*Np+Np,1); 1];
                 %L = blkdiag(zeros(Nq+Np+Nd*Np+Np), .1);
                 
@@ -110,8 +111,8 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 %r = ones(Nq+Np+Nd*Np+Np+1,1);
                 while max(abs(r(1:(end-1)))) > 1e-6
                     [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
-                    [Q,R] = qr(dr,0);
-                    %[Q,R] = qr([dr; L],0);
+                    L = 1e-6*eye(Nq+Np+1);
+                    [Q,R] = qr([dr; L],0);
                     dz = -R\(Q(1:length(r),:)'*r);
                     alpha = 1;
                     r2 = r'*r;
@@ -129,7 +130,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 end
             end
             q1 = z(1:Nq);
-            p1 = MidpointDLT(obj,q0,q1,z,Np,Nd);
+            p1 = MidpointDLT(obj,q0,q1);
             M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
             v1 = M\p1;
             
@@ -143,17 +144,11 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             dr = -(1/h)*M;
         end
         
-        function p1 = MidpointDLT(obj,q0,q1,z,Np,Nd)
+        function p1 = MidpointDLT(obj,q0,q1)
             %Right Discrete Legendre transform gives momentum at end of timestep
             h = obj.timestep;
             [D1L,D2L] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
             p1 = (h/2)*D1L + D2L;
-%             Nq = length(q1);
-%             c1 = z(Nq+(1:Np));
-%             kin1 = obj.manip.doKinematics(q1+q0);
-%             [phi1,~,~,~,~,~,~,~,n1,D1] = obj.manip.contactConstraints(kin1, obj.multiple_contacts);
-%             D1 = reshape(cell2mat(D1(1:Nd)')',Nq,Np*Nd)';
-%             p1 = (h/2)*D1L + D2L + (h/2)*(n1'*c1);
         end
         
         function [D1L,D2L,M] = LagrangianDerivs(obj,q,v)
@@ -188,7 +183,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             %Smoothing parameter
             s = z(end);
             
-            kin1 = obj.manip.doKinematics(q1+q0);
+            kin1 = obj.manip.doKinematics(q1);
             [phi1,~,~,~,~,~,~,~,n1,D1] = obj.manip.contactConstraints(kin1, obj.multiple_contacts);
             D1 = reshape(cell2mat(D1(1:Nd)')',Nq,Np*Nd)';
             
