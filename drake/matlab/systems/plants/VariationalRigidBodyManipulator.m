@@ -47,7 +47,9 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
         end
         
         function model = compile(model)
+            w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
             model.manip = model.manip.compile();
+            warning(w);
             
             model = setNumDiscStates(model,model.manip.getNumContStates());
             model = setNumInputs(model,model.manip.getNumInputs());
@@ -116,6 +118,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                     rnew2 = r2+1;
                     while rnew2 > r2
                         znew = z + alpha*dz;
+                        znew(Nq+(1:Np)) = max(znew(Nq+(1:Np)), 0);
                         znew(end) = max(znew(end),1e-6);
                         rnew = MidpointContact(obj,q0,p0,znew,Np,Nd);
                         rnew2 = rnew'*rnew;
@@ -126,7 +129,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 end
             end
             q1 = z(1:Nq);
-            p1 = MidpointDLT(obj,q0,q1);
+            p1 = MidpointDLT(obj,q0,q1,z,Np,Nd);
             M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
             v1 = M\p1;
             
@@ -140,11 +143,17 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             dr = -(1/h)*M;
         end
         
-        function p1 = MidpointDLT(obj,q0,q1)
+        function p1 = MidpointDLT(obj,q0,q1,z,Np,Nd)
             %Right Discrete Legendre transform gives momentum at end of timestep
             h = obj.timestep;
             [D1L,D2L] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
             p1 = (h/2)*D1L + D2L;
+%             Nq = length(q1);
+%             c1 = z(Nq+(1:Np));
+%             kin1 = obj.manip.doKinematics(q1+q0);
+%             [phi1,~,~,~,~,~,~,~,n1,D1] = obj.manip.contactConstraints(kin1, obj.multiple_contacts);
+%             D1 = reshape(cell2mat(D1(1:Nd)')',Nq,Np*Nd)';
+%             p1 = (h/2)*D1L + D2L + (h/2)*(n1'*c1);
         end
         
         function [D1L,D2L,M] = LagrangianDerivs(obj,q,v)
