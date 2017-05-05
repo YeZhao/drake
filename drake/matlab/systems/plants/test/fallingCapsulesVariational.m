@@ -9,7 +9,7 @@ p = VariationalRigidBodyManipulator('Capsule.urdf',.05,options);
 %   p = p.addRobotFromURDF('Capsule.urdf',[],[],options);
 % end
 
-x0 = [0;0;.5; -1;pi/2;-1; zeros(p.getNumVelocities,1)];
+x0 = [0;0;.75; pi/4;0;0; zeros(p.getNumVelocities,1)];
 % for i=1:N
 %   x0(7*(i-1)+3) = i;  % z coordinate
 %   x0(7*(i-1)+(4:7)) = uniformlyRandomQuat();
