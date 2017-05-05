@@ -63,25 +63,25 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             model = setInputFrame(model,getInputFrame(model.manip));
             model = setStateFrame(model,getStateFrame(model.manip));
             model = setOutputFrame(model,getOutputFrame(model.manip));
-
+            
             model.dirty = false;
         end
-    
+        
         function [xdn,df] = update(obj,t,x,u)
             h = obj.timestep;
             Nq = obj.manip.getNumPositions();
             Nv = obj.manip.getNumVelocities();
             Np = obj.num_contact_points;
-            Nd = 4;
-            reg = 1e-3;
+            Nd = 2;
+            mu = 1; %this is currently hard coded in Drake
             
             q0 = x(1:Nq);
             v0 = x(Nq + (1:Nv));
             
-            q1 = q0; %initial guess
+            q1 = q0 + h*v0; %initial guess
             M = manipulatorDynamics(obj.manip, q0, zeros(Nv,1));
             p0 = M*v0;
-
+            
             if Np == 0 %No contact
                 r = ones(size(q0));
                 while max(abs(r)) > 1e-6
@@ -102,41 +102,88 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             else %Solve with contact
                 
                 %z vector is stacked [q_1; c1; b1; psi; s]
-                z = [q1; zeros(Np+Nd*Np+Np,1); 1];
                 
-                [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
-                while max(abs(r(1:(end-1)))) > 1e-6
-                    L = blkdiag(zeros(Nq),reg*eye(Np+Nd*Np+Np+1));
-                    [Q,R] = qr([dr; L],0);
-                    dz = -R\(Q(1:length(r),:)'*r);
-                    alpha = 1;
-                    r2 = r'*r;
-                    rnew2 = r2+1;
-                    while rnew2 > r2 && alpha > .01
-                        znew = z + alpha*dz;
-                        znew(Nq+(1:(Np+Nd*Np+Np))) = max(znew(Nq+(1:(Np+Nd*Np+Np))), 0);
-                        znew(end) = max(znew(end),1e-6);
-                        [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
-                        rnew2 = rnew'*rnew;
-                        alpha = alpha/2;
+%                 z = [q1; zeros(Np+Nd*Np+Np,1); 1];
+%                 reg = 1e-3;
+%                 [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+%                 while max(abs(r(1:(end-1)))) > 1e-6
+%                     L = blkdiag(zeros(Nq),reg*eye(Np+Nd*Np+Np),1);
+%                     [Q,R] = qr([dr; L],0);
+%                     dz = -R\(Q(1:length(r),:)'*r);
+%                     alpha = 1;
+%                     r2 = r'*r;
+%                     rnew2 = r2+1;
+%                     while rnew2 > r2 && alpha > 1e-3
+%                         znew = z + alpha*dz;
+%                         znew(Nq+(1:(Np+Nd*Np+Np))) = max(znew(Nq+(1:(Np+Nd*Np+Np))), 0);
+%                         [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
+%                         rnew2 = rnew'*rnew;
+%                         alpha = alpha/2;
+%                     end
+%                     if alpha < .01
+%                         reg = min(10*reg, 10);
+%                     elseif alpha > .1
+%                         reg = max(.1*reg, 1e-3);
+%                     end
+%                     if rnew2 < r2
+%                         z = znew;
+%                         r = rnew;
+%                     end
+%                 end
+                e = ones(Nd,1);
+                E = kron(eye(Np),e');
+                kin = obj.manip.doKinematics(q1);
+                [phi,~,~,~,~,~,~,~,n,D] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+                D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
+                cguess = ones(Np,1);
+                bguess = zeros(Nd*Np,1);
+                psiguess = sqrt(E*((D*v0).^2));
+                if any(phi < .1)
+                    inds = find(phi < .1);
+                    nc = length(inds);
+                    q1 = q1 + (.1/nc)*sum(n(phi<.1,:))'; %back off contact manifold
+                    for k = 1:length(inds)
+                        cguess(inds(k)) = (1/nc)*(10*M(1,1)-n(inds(k),:)*(p0/h)/Np);
+                        vc = D(Nd*(inds(k)-1)+(1:Nd),:)*v0;
+                        bguess(Nd*(inds(k)-1)+(1:Nd)) = -(1/nc)*mu*cguess(inds(k))*vc/sqrt(vc'*vc + 1e-15);
                     end
-                    if alpha < .1
-                        reg = min(10*reg, 1e3);
-                    elseif alpha > .25
-                        reg = max(.1*reg, 1e-3);
+                end
+                z = [q1; cguess; bguess; psiguess];
+                t = 10;
+                [r,dr,gap] = MidpointContact2(obj,q0,p0,z,Np,Nd,t);
+%                 %Check derivatives
+%                 delta_z = 1e-7*eye(length(z))
+%                 for k = 1:length(z)
+%                     dr_fd(:,k) = (MidpointContact2(obj,q0,p0,z+delta_z(:,k),Np,Nd,t) - MidpointContact2(obj,q0,p0,z-delta_z(:,k),Np,Nd,t))/2e-7;
+%                 end
+                
+                while max(abs(r)) > 1e-6
+                    dz = -dr\r;
+                    alpha = 1;
+                    znew = z + alpha*dz;
+                    while any(znew(Nq+(1:Np)) < 0) || any(znew(Nq+Np+Nd*Np+(1:Np)) < 0)
+                        alpha = alpha/2;
+                        znew = z + alpha*dz;
+                    end
+                    [rnew,dr,gap] = MidpointContact2(obj,q0,p0,znew,Np,Nd,t);
+                    while any(rnew(Nq+Nd*Np+(1:(2*Np))) < 0)
+                        alpha = alpha/2;
+                        znew = z + alpha*dz;
+                        [rnew,dr,gap] = MidpointContact2(obj,q0,p0,znew,Np,Nd,t);
                     end
                     z = znew;
                     r = rnew;
+                    t = 10*(Np+Nd*Np)/gap;
                 end
+                
             end
             q1 = z(1:Nq);
             p1 = MidpointDLT(obj,q0,q1);
             M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
             v1 = M\p1;
-            
             xdn = [q1; v1];
         end
-        
+    
         function [r,dr] = MidpointDEL(obj,p0,q0,q1)
             h = obj.timestep;
             [D1L,D2L,M] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
@@ -182,10 +229,48 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             s = z(end);
             
             %Get contact basis
-            kin = obj.manip.doKinematics(q1);
-            [phi,~,~,~,~,~,~,~,n,D] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
-            D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
+            if ~obj.manip.contact_options.use_bullet
+                kinopts = struct();
+                kinopts.compute_gradients = true;
+                kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
+                [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+                D = reshape(cell2mat(D')',Nq,Np*Nd)';
+                dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
+            else %using bullet - don't trust its derivatives
+                kin = obj.manip.doKinematics(q1);
+                [phi,normal,xA,xB,idxA,idxB] = obj.manip.collisionDetect(kin,obj.multiple_contacts);
+                d = obj.mainip.surfaceTangents(normal);
+                [n,D,dn,dD] = obj.manip.contactConstraintDerivatives(normal,kin,idxA,idxB,xA,xB,d);
+            end
             
+%             %Check dn
+%             delta_q = 1e-7*eye(Nq);
+%             for k = 1:Nq
+%                 kin = obj.manip.doKinematics(q1+delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,np] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 kin = obj.manip.doKinematics(q1-delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,nm] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 dn_fd(:,k) = (np(:) - nm(:))/2e-7;
+%             end
+%             
+%             %Check dD
+%             delta_q = 1e-7*eye(Nq);
+%             for k = 1:Nq
+%                 kin = obj.manip.doKinematics(q1+delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,~,Dp] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 kin = obj.manip.doKinematics(q1-delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,~,Dm] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 Dp = reshape(cell2mat(Dp')',Nq,Np*Nd)';
+%                 Dm = reshape(cell2mat(Dm')',Nq,Np*Nd)';
+%                 dD_fd(:,k) = (Dp(:) - Dm(:))/2e-7;
+%             end
+%             
+%             dn = dn_fd;
+%             dD = dD_fd;
+            
+%             dn = zeros(size(dn));
+%             dD = zeros(size(dD));
+
             %Dynamics residual
             [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
             r_f = r_del + h*(n'*c + D'*b);
@@ -199,12 +284,55 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             [f4, dfa4, dfb4, dfs4] = obj.smoothFB(E'*psi + D*((q1-q0)/h), b, s);
               
             r = [r_f; f1; f2; f3; f4; exp(s)-1];
-            dr = [dr_del, h*n', h*D', zeros(Nq,Np), zeros(Nq,1);
+            dr = [dr_del + h*kron(c',eye(Nq))*dn + h*kron(b',eye(Nq))*dD, h*n', h*D', zeros(Nq,Np), zeros(Nq,1);
                   dfa1*n, dfb1, zeros(Np,Nd*Np+Np), dfs1;
                   dfa2*E'*n, zeros(Nd*Np,Np), dfb2, zeros(Nd*Np,Np), dfs2;
                   zeros(Np,Nq), dfa3*mu, -dfa3*E, dfb3, dfs3;
-                  dfa4*(1/h)*D, zeros(Nd*Np,Np), dfb4, dfa4*E', dfs4;
+                  dfa4*(1/h)*D + kron(((q1-q0)/h)',eye(Nd*Np))*dD, zeros(Nd*Np,Np), dfb4, dfa4*E', dfs4;
                   zeros(1,Nq+Np+Nd*Np+Np), exp(s)];
+        end
+        
+        function [r, dr, gap] = MidpointContact2(obj,q0,p0,z,Np,Nd,t)
+            mu = 1; %This is currently hard coded in Drake.
+            Nq = length(q0);
+            h = obj.timestep;
+            
+            %z vector is stacked [q_1; c1; b1; psi; s]
+            
+            %Configurations
+            q1 = z(1:Nq);
+            
+            %Contact force coefficients
+            c = z(Nq+(1:Np));
+            b = z(Nq+Np+(1:Np*Nd));
+            
+            %Tangential contact velocity
+            psi = z(Nq+Np+Np*Nd+(1:Np));
+            
+            %Get contact basis
+            kin = obj.manip.doKinematics(q1);
+            [phi,~,~,~,~,~,~,~,n,D] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+            D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
+            
+            %Dynamics residual
+            [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
+            r_f = r_del + h*(n'*c + D'*b);
+            
+            %2nd-order friction cone
+            e = ones(Nd,1);
+            E = kron(eye(Np),e');
+            
+            r = [r_f;
+                 sqrt(E'*E*(b.*b)).*(D*(q1-q0)) + (E'*psi).*b;
+                 phi.*c - (1/t)*ones(Np,1);
+                 (mu*c - sqrt(E*(b.*b))).*psi - (1/t)*ones(Np,1)];
+
+            dr = [dr_del, h*n', h*D', zeros(Nq,Np);
+                  diag(sqrt(E'*E*(b.*b)))*D, zeros(Nd*Np,Np), diag(D*(q1-q0))*(diag(sqrt(E'*E*(b.*b)+1e-15))\(E'*E*diag(b))) + diag(E'*psi), diag(b)*E';
+                  diag(c)*n, diag(phi), zeros(Np,Nd*Np+Np);
+                  zeros(Np,Nq), diag(psi)*mu, -diag(psi)*(diag(sqrt(E*(b.*b)+1e-15))\(E*diag(b))), diag(mu*c - sqrt(E*(b.*b)))];
+              
+            gap = phi'*c + psi'*(mu*c - sqrt(E*(b.*b)));
         end
         
         function [f, dfda, dfdb, dfds] = smoothFB(obj,a,b,s)
