@@ -9,6 +9,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
         dirty = true
         multiple_contacts = false
         num_contact_points
+        z_cache
     end
     
     methods
@@ -43,6 +44,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 obj.twoD = true;
             end
             
+            obj.z_cache = SharedDataHandle(0);
             obj.timestep = timestep;
             obj = setSampleTime(obj,[timestep;0]);
             obj = compile(obj);
@@ -102,10 +104,16 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 
                 %z vector is stacked [q_1; c1; b1; psi; s]
                 z = [q1; zeros(Np+Nd*Np+Np,1); 1];
+                if length(obj.z_cache.data) == length(z)
+                    z(Nq+(1:Np+Nd*Np+Np)) = obj.z_cache.data(Nq+(1:Np+Nd*Np+Np));
+                end
+                
                 reg = 1e-3;
                 [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                iter = 0;
                 while max(abs(r(1:(end-1)))) > 1e-6
-                    L = blkdiag(zeros(Nq),reg*eye(Np+Nd*Np+Np),1);
+                    iter = iter+1;
+                    L = blkdiag(zeros(Nq), reg*eye(Np+Nd*Np+Np), min(100*reg,1));
                     [Q,R] = qr([dr; L],0);
                     dz = -R\(Q(1:length(r),:)'*r);
                     alpha = 1;
@@ -120,21 +128,22 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                         alpha = alpha/2;
                     end
                     if alpha < .01
-                        reg = min(10*reg, 10);
+                        reg = min(10*reg, 1e3);
+                        znew(end) = max(z(end), 1e-4);
+                        [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                     elseif alpha > .1
-                        reg = max(.1*reg, 1e-3);
+                        reg = max(.5*reg, 1e-4);
                     end
-                    if rnew2 < r2
-                        z = znew;
-                        r = rnew;
-                    end
+                    z = znew;
+                    r = rnew;
                 end
-                
+                disp(iter);
                 q1 = z(1:Nq);
                 p1 = MidpointDLT(obj,q0,q1);
                 M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
                 v1 = M\p1;
                 xdn = [q1; v1];
+                obj.z_cache.data = z;
             end
         end
         
