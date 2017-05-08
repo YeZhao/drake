@@ -114,6 +114,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                     while rnew2 > r2 && alpha > 1e-3
                         znew = z + alpha*dz;
                         znew(Nq+(1:(Np+Nd*Np+Np))) = max(znew(Nq+(1:(Np+Nd*Np+Np))), 0);
+                        znew(end) = max(znew(end), 1e-6);
                         [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                         rnew2 = rnew'*rnew;
                         alpha = alpha/2;
@@ -182,18 +183,20 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             s = z(end);
             
             %Get contact basis
+            kinopts = struct();
+            kinopts.compute_gradients = true;
+            kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
             if ~obj.manip.contact_options.use_bullet
-                kinopts = struct();
-                kinopts.compute_gradients = true;
-                kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
                 [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
                 D = reshape(cell2mat(D')',Nq,Np*Nd)';
                 dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
-            else %using bullet - don't trust its derivatives
-                kin = obj.manip.doKinematics(q1);
-                [phi,normal,xA,xB,idxA,idxB] = obj.manip.collisionDetect(kin,obj.multiple_contacts);
-                d = obj.mainip.surfaceTangents(normal);
+            else %using bullet - this doesn't seem to work.
+                kin1 = obj.manip.doKinematics(q1); %for some reason collisionDetect will crash if the kinsol has derivatives
+                [phi,normal,xA,xB,idxA,idxB] = obj.manip.collisionDetect(kin1,obj.multiple_contacts);
+                d = obj.manip.surfaceTangents(normal);
                 [n,D,dn,dD] = obj.manip.contactConstraintDerivatives(normal,kin,idxA,idxB,xA,xB,d);
+                D = reshape(cell2mat(D')',Nq,Np*Nd)';
+                dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
             end
             
 %             %Check dn

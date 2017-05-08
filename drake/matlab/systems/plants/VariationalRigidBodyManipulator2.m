@@ -1,4 +1,4 @@
-classdef VariationalRigidBodyManipulatorIP < DrakeSystem
+classdef VariationalRigidBodyManipulator2 < DrakeSystem
     %This class implements a 2nd order midpoint variational integrator with
     %support for rigid body contact
     
@@ -12,7 +12,7 @@ classdef VariationalRigidBodyManipulatorIP < DrakeSystem
     end
     
     methods
-        function obj = VariationalRigidBodyManipulatorIP(manipulator_or_urdf_filename,timestep,options)
+        function obj = VariationalRigidBodyManipulator2(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3)
                 options=struct();
             end
@@ -73,7 +73,6 @@ classdef VariationalRigidBodyManipulatorIP < DrakeSystem
             Nv = obj.manip.getNumVelocities();
             Np = obj.num_contact_points;
             Nd = 2;
-            mu = 1; %this is currently hard coded in Drake
             
             q0 = x(1:Nq);
             v0 = x(Nq + (1:Nv));
@@ -101,89 +100,45 @@ classdef VariationalRigidBodyManipulatorIP < DrakeSystem
                 end
             else %Solve with contact
                 
-                %z vector is stacked [q_1; c1; b1; psi]
-
-                e = ones(Nd,1);
-                E = kron(eye(Np),e');
-                kin = obj.manip.doKinematics(q1);
-                [phi,~,~,~,~,~,~,~,n,D] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
-                D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
-                cguess = 1e-4*ones(Np,1);
-                bguess = 0*ones(Nd*Np,1);
-                %psiguess = sqrt(E*((D*v0).^2));
-                psiguess = ones(Np,1);
-%                 if any(phi < .1)
-%                     inds = find(phi < .1);
-%                     nc = length(inds);
-%                     q1 = q1 + (.1/nc)*sum(n(phi<.1,:))'; %back off contact manifold
-%                     for k = 1:length(inds)
-%                         %cguess(inds(k)) = (1/nc)*(10*M(1,1)-n(inds(k),:)*(p0/h)/Np);
-%                         %vc = D(Nd*(inds(k)-1)+(1:Nd),:)*v0;
-%                         %bguess(Nd*(inds(k)-1)+(1:Nd)) = -(1/nc)*mu*cguess(inds(k))*vc/sqrt(vc'*vc + 1e-15);
-%                     end
-%                 end
-                z = [q1; cguess; bguess; psiguess];
-                t = [10; 10];
-                [r,dr,gap] = MidpointContact(obj,q0,p0,z,Np,Nd,t);
-%                 %Check derivatives
-%                 delta_z = 1e-7*eye(length(z))
-%                 for k = 1:length(z)
-%                     dr_fd(:,k) = (MidpointContact(obj,q0,p0,z+delta_z(:,k),Np,Nd,t) - MidpointContact(obj,q0,p0,z-delta_z(:,k),Np,Nd,t))/2e-7;
-%                 end
-                
-                while max(abs(r(1:(Nq+Np)))) > 1e-6
-                    r2 = r'*r;
-                    dz = -dr(1:(Nq+Np),1:(Nq+Np))\r(1:(Nq+Np));
+                %z vector is stacked [q_1; c1; b1; v; psi; s]
+                z = [q1; zeros(Np+Nd*Np+Nd*Np+Np,1); .1];
+                reg = 1e-3;
+                [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                while max(abs(r(1:(end-1)))) > 1e-6
+                    L = blkdiag(zeros(Nq),reg*eye(Np+Nd*Np+Nd*Np+Np),1);
+                    [Q,R] = qr([dr; L],0);
+                    dz = -R\(Q(1:length(r),:)'*r);
                     alpha = 1;
-                    znew = z;
-                    znew(1:(Nq+Np)) = z(1:(Nq+Np)) + alpha*dz;
-%                     while any(znew(Nq+(1:Np)) < 0)
-%                         alpha = alpha/2;
-%                         znew(1:(Nq+Np)) = z(1:(Nq+Np)) + alpha*dz;
-%                     end
-                    [rnew,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
-                    rnew2 = rnew'*rnew;
-                    while rnew2 > r2 %any(rnew(Nq+(1:Np)) < 0)
-                        alpha = alpha/2;
-                        znew(1:(Nq+Np)) = z(1:(Nq+Np)) + alpha*dz;
-                        [rnew,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
-                    end
-                    z = znew;
-                    tnew = min(10*[Np; Nd*Np]./gap, 1e7);
-                    t = max(t, tnew);
-                    [r,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
-                end
-                
-                t(2) = 10;
-                while max(abs(r((Nq+Np)+(1:2*Np)))) > 1e-6
                     r2 = r'*r;
-                    dz = -dr((Nq+Np)+(1:2*Np),(Nq+Np)+(1:2*Np))\r((Nq+Np)+(1:2*Np));
-                    alpha = 1;
-                    znew = z;
-                    znew((Nq+Np)+(1:2*Np)) = z((Nq+Np)+(1:2*Np)) + alpha*dz;
-                    [rnew,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
-                    rnew2 = rnew'*rnew;
-                    while rnew2 > r2
-                        alpha = alpha/2;
-                        znew((Nq+Np)+(1:2*Np)) = z((Nq+Np)+(1:2*Np)) + alpha*dz;
-                        [rnew,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
+                    rnew2 = r2+1;
+                    while rnew2 > r2 && alpha > 1e-4
+                        znew = z + alpha*dz;
+                        znew(Nq+(1:Np)) = max(znew(Nq+(1:Np)), 0);
+                        znew(end) = max(znew(end), 1e-6);
+                        [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                         rnew2 = rnew'*rnew;
+                        alpha = alpha/2;
                     end
-                    z = znew;
-                    tnew = min(10*[Np; Nd*Np]./gap, 1e7);
-                    t = max(t, tnew);
-                    [r,dr,gap] = MidpointContact(obj,q0,p0,znew,Np,Nd,t);
+                    if alpha < .01
+                        reg = min(10*reg, 10);
+                        [rnew, dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                    elseif alpha > .25
+                        reg = max(.5*reg, 1e-3);
+                    end
+                    if rnew2 < r2
+                        z = znew;
+                        r = rnew;
+                    end
                 end
                 
+                q1 = z(1:Nq);
+                p1 = MidpointDLT(obj,q0,q1);
+                M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
+                v1 = M\p1;
+                xdn = [q1; v1];
             end
-            
-            q1 = z(1:Nq);
-            p1 = MidpointDLT(obj,q0,q1);
-            M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
-            v1 = M\p1;
-            xdn = [q1; v1];
         end
-    
+        
         function [r,dr] = MidpointDEL(obj,p0,q0,q1)
             h = obj.timestep;
             [D1L,D2L,M] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
@@ -208,12 +163,12 @@ classdef VariationalRigidBodyManipulatorIP < DrakeSystem
             D2L = M*v;
         end
         
-        function [r, dr, gap] = MidpointContact(obj,q0,p0,z,Np,Nd,t)
+        function [r, dr] = MidpointContact(obj,q0,p0,z,Np,Nd)
             mu = 1; %This is currently hard coded in Drake.
             Nq = length(q0);
             h = obj.timestep;
             
-            %z vector is stacked [q_1; c1; b1; psi; s]
+            %z vector is stacked [q_1; c1; b1; v; psi; s]
             
             %Configurations
             q1 = z(1:Nq);
@@ -222,36 +177,80 @@ classdef VariationalRigidBodyManipulatorIP < DrakeSystem
             c = z(Nq+(1:Np));
             b = z(Nq+Np+(1:Np*Nd));
             
-            %Tangential contact velocity
-            psi = z(Nq+Np+Np*Nd+(1:Np));
+            %Contact manifold velocity
+            v = z(Nq+Np+Nd*Np+(1:(Nd*Np))); %direction
+            psi = z(Nq+Np+Nd*Np+Nd*Np+(1:Np)); %magnitude
+
+            %Smoothing parameter
+            s = z(end);
             
             %Get contact basis
             kinopts = struct();
             kinopts.compute_gradients = true;
             kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
-            [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
-            D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
-            dD = reshape(cell2mat(dD(1:Nd))',Nq,Np*Nd*Nq)';
+            if ~obj.manip.contact_options.use_bullet
+                [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+                D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
+                dD = reshape(cell2mat(dD(1:Nd))',Nq,Np*Nd*Nq)';
+            else %using bullet - this doesn't seem to work.
+                kin1 = obj.manip.doKinematics(q1); %for some reason collisionDetect will crash if the kinsol has derivatives
+                [phi,normal,xA,xB,idxA,idxB] = obj.manip.collisionDetect(kin1,obj.multiple_contacts);
+                d = obj.manip.surfaceTangents(normal);
+                [n,D,dn,dD] = obj.manip.contactConstraintDerivatives(normal,kin,idxA,idxB,xA,xB,d);
+                D = reshape(cell2mat(D(1:Nd)')',Nq,Np*Nd)';
+                dD = reshape(cell2mat(dD(1:Nd))',Nq,Np*Nd*Nq)';
+            end
             
+%             %Check dn
+%             delta_q = 1e-7*eye(Nq);
+%             for k = 1:Nq
+%                 kin = obj.manip.doKinematics(q1+delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,np] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 kin = obj.manip.doKinematics(q1-delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,nm] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 dn_fd(:,k) = (np(:) - nm(:))/2e-7;
+%             end
+%             
+%             %Check dD
+%             delta_q = 1e-7*eye(Nq);
+%             for k = 1:Nq
+%                 kin = obj.manip.doKinematics(q1+delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,~,Dp] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 kin = obj.manip.doKinematics(q1-delta_q(:,k));
+%                 [~,~,~,~,~,~,~,~,~,Dm] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+%                 Dp = reshape(cell2mat(Dp')',Nq,Np*Nd)';
+%                 Dm = reshape(cell2mat(Dm')',Nq,Np*Nd)';
+%                 dD_fd(:,k) = (Dp(:) - Dm(:))/2e-7;
+%             end
+%             
+%             dn = dn_fd;
+%             dD = dD_fd;
+            
+%             dn = zeros(size(dn));
+%             dD = zeros(size(dD));
+
             %Dynamics residual
             [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
-            r_f = r_del + h*(n'*c + D'*b);
+            r_d = r_del + h*(n'*c + D'*b);
             
-            %2nd-order friction cone
+            %2nd order friction cone
             e = ones(Nd,1);
             E = kron(eye(Np),e');
+            r_f1 = D*(q1-q0) + (E'*psi).*v;
+            r_f2 = E*(v.*v) - ones(Np,1);
+            r_f3 = v.*(E'*E*(v.*b)) - b;
+            [f1, dfa1, dfb1, dfs1] = obj.smoothFB(phi, c, s);
+            [f2, dfa2, dfb2, dfs2] = obj.smoothFB(mu*mu*(c.*c) - E*(b.*b), psi, s);
             
-            r = [r_f;
-                 phi.*c - (1/t(1))*ones(Np,1);
-                 (mu*c - sqrt(E*(b.*b))).*psi - (1/t(2))*ones(Np,1);
-                 sqrt(E'*E*(b.*b)).*(D*(q1-q0)) + (E'*psi).*b];
-
-            dr = [dr_del + h*kron(c',eye(Nq))*dn + h*kron(b',eye(Nq))*dD, h*n', h*D', zeros(Nq,Np);
-                  diag(c)*n, diag(phi), zeros(Np,Nd*Np+Np);
-                  zeros(Np,Nq), diag(psi)*mu, -diag(psi)*(diag(sqrt(E*(b.*b)+1e-15))\(E*diag(b))), diag(mu*c - sqrt(E*(b.*b)))
-                  diag(sqrt(E'*E*(b.*b)))*(D + kron(q1',eye(Nd*Np))*dD), zeros(Nd*Np,Np), diag(D*(q1-q0))*(diag(sqrt(E'*E*(b.*b)+1e-15))\(E'*E*diag(b))) + diag(E'*psi), diag(b)*E'];
-              
-            gap = [phi'*c; psi'*(mu*c - sqrt(E*(b.*b)))];
+            r = [r_d; r_f1; r_f2; r_f3; f1; f2; exp(s)-1];
+            %z vector is stacked [q_1; c1; b1; v; psi; s]
+            dr = [dr_del + h*kron(c',eye(Nq))*dn + h*kron(b',eye(Nq))*dD, h*n', h*D', zeros(Nq,Nd*Np), zeros(Nq,Np), zeros(Nq,1);
+                  D, zeros(Nd*Np,Np), zeros(Nd*Np,Nd*Np), diag(E'*psi), diag(v)*E', zeros(Nd*Np,1);
+                  zeros(Np,Nq), zeros(Np,Np), zeros(Np,Nd*Np), 2*E*diag(v), zeros(Np,Np), zeros(Np,1);
+                  zeros(Nd*Np,Nq), zeros(Nd*Np,Np), diag(v)*(E'*E)*diag(v) - eye(Nd*Np), diag(E'*E*(v.*b)) + diag(v)*(E'*E)*diag(b), zeros(Nd*Np,Np), zeros(Nd*Np,1);
+                  dfa1*n, dfb1, zeros(Np,Nd*Np+Nd*Np+Np), dfs1;
+                  zeros(Np,Nq), dfa2*mu*mu*2*diag(c), -2*dfa2*E*diag(b), zeros(Np,Nd*Np), dfb2, dfs2;
+                  zeros(1,Nq+Np+Nd*Np+Nd*Np+Np), exp(s)];
         end
         
         function [f, dfda, dfdb, dfds] = smoothFB(obj,a,b,s)
