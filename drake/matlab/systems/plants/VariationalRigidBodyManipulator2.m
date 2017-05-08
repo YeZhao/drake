@@ -101,36 +101,38 @@ classdef VariationalRigidBodyManipulator2 < DrakeSystem
             else %Solve with contact
                 
                 %z vector is stacked [q_1; c1; b1; v; psi; s]
-                z = [q1; zeros(Np+Nd*Np+Nd*Np+Np,1); .1];
+                z = [q1; zeros(Np+Nd*Np+Nd*Np+Np,1); 1];
                 reg = 1e-3;
                 [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                iter = 0;
                 while max(abs(r(1:(end-1)))) > 1e-6
-                    L = blkdiag(zeros(Nq),reg*eye(Np+Nd*Np+Nd*Np+Np),1);
+                    iter = iter+1;
+                    L = blkdiag(zeros(Nq), reg*eye(Np+Nd*Np+Nd*Np+Np), 2);
                     [Q,R] = qr([dr; L],0);
                     dz = -R\(Q(1:length(r),:)'*r);
                     alpha = 1;
                     r2 = r'*r;
                     rnew2 = r2+1;
-                    while rnew2 > r2 && alpha > 1e-4
+                    while rnew2 > r2 && alpha > 1e-3
                         znew = z + alpha*dz;
                         znew(Nq+(1:Np)) = max(znew(Nq+(1:Np)), 0);
+                        znew(Nq+Np+Nd*Np+Nd*Np+(1:Np)) = max(znew(Nq+Np+Nd*Np+Nd*Np+(1:Np)), 0);
                         znew(end) = max(znew(end), 1e-6);
                         [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                         rnew2 = rnew'*rnew;
                         alpha = alpha/2;
                     end
                     if alpha < .01
-                        reg = min(10*reg, 10);
-                        [rnew, dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                        reg = min(10*reg, 1e3);
+                        znew(end) = max(znew(end),1e-5);
+                        [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                     elseif alpha > .25
-                        reg = max(.5*reg, 1e-3);
+                        reg = max(.1*reg, 1e-3);
                     end
-                    if rnew2 < r2
-                        z = znew;
-                        r = rnew;
-                    end
+                    z = znew;
+                    r = rnew;
                 end
-                
+                disp(iter);
                 q1 = z(1:Nq);
                 p1 = MidpointDLT(obj,q0,q1);
                 M = manipulatorDynamics(obj.manip, q1, zeros(Nv,1));
