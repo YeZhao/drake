@@ -228,7 +228,6 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
             end
             
-            
             % H*v1 = H*v0 + h*(B*u - C) + n^T lambda_N + d^T * lambda_f
             fv = H*(v1 - v0) - h*BuminusC;
             % [h q0 v0 q1 v1 u l ljl]

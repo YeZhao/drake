@@ -315,6 +315,8 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             persistent admm_complementarity_condition_residual;%z'*(M*z+w)
             persistent path_complementarity_condition_residual;
             persistent sovleLCP_index;
+            persistent min_normal_distance;
+            persistent max_normal_force;
             
             %       global active_set_fail_count
             % do LCP time-stepping
@@ -755,6 +757,32 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         path_complementarity_condition_residual = [path_complementarity_condition_residual, z'*(M*z+w)];
                     end
                     
+%                     compl_cond_path = M*z+w;
+%                     if isempty(min_normal_distance)
+%                         min_normal_distance = min(compl_cond_path(1:nC));
+%                     else
+%                         min_normal_distance = [min_normal_distance, min(compl_cond_path(1:nC))];
+%                     end
+%                     
+%                     if isempty(max_normal_force)
+%                         max_normal_force = max(z(1:nC)/h);
+%                     else
+%                         max_normal_force = [max_normal_force, max(z(1:nC)/h)];
+%                     end
+%                     
+%                     if length(max_normal_force) > 230
+%                         
+%                         figure(5)
+%                         plot(min_normal_distance,'b-');
+%                         xlim([-100 500])
+%                         title('minimal normal distance');
+%                         
+%                         figure(6)
+%                         plot(max_normal_force,'b-');
+%                         xlim([-100 500])
+%                         title('maximal normal force');
+%                         
+%                     end
                     
                     z = zeros(size(M,2),1);% remove the pathlcp solver
                     
@@ -762,6 +790,8 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                     z_admm = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, z, phiC, nC, nL, nP, mC, mu);
                     
                     compl_cond = M*z_admm+w;
+                    
+                    
                     if(isempty(admm_complementarity_condition_residual))
                         admm_complementarity_condition_residual = z_admm'*compl_cond;
                     else

@@ -14,7 +14,7 @@ warning(w);
 %x0 = [0;0;.8;0.05*randn(3,1);zeros(6,1)];
 x0 = [0;0;2;0.05*randn(3,1);randn(6,1)];
 
-N=200; tf=2;%.5;
+N=5; tf=2;%.5;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');

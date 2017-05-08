@@ -6,7 +6,7 @@ options.terrain = RigidBodyFlatTerrain();
 % options.use_bullet = false;
 s = 'FallingBrickContactPoints.urdf';
 % s = 'FallingBrickBetterCollisionGeometry.urdf';
-p = TimeSteppingRigidBodyManipulator_energy_based_method(s,.01,options);
+p = TimeSteppingRigidBodyManipulator(s,.01,options);%_energy_based_method
 p = p.addRobotFromURDF(s,[],[],options);
 % x0 = [0;1;2;rpy2quat(randn(3,1));randn(6,1)];
 
@@ -33,5 +33,5 @@ end
 
 v = p.constructVisualizer();
 v.drawWrapper(0,x0);
-xtraj = p.simulate([0 6],x0);
+xtraj = p.simulate([0 8],x0);
 v.playback(xtraj);

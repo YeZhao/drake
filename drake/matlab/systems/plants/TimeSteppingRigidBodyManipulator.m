@@ -292,6 +292,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             persistent min_normal_distance;
             persistent max_normal_force;
+            persistent num_lcp;
             
             %       global active_set_fail_count
             % do LCP time-stepping
@@ -721,23 +722,33 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     
                     if isempty(max_normal_force)
-                        max_normal_force = max(z(1:nC)/h);
+                        max_normal_force = sum(z(1:nC)/h);
                     else
-                        max_normal_force = [max_normal_force, max(z(1:nC)/h)];
+                        max_normal_force = [max_normal_force, sum(z(1:nC)/h)];
                     end
                     
-                    if length(max_normal_force) > 230
+                    if length(max_normal_force) > 500
                         
                         figure(5)
                         plot(min_normal_distance,'b-');
-                        xlim([-100 500])
-                        title(' minimal normal distance');
+                        xlim([-100 1000])
+                        title('minimal normal distance');
                         
                         figure(6)
                         plot(max_normal_force,'b-');
-                        xlim([-100 500])
-                        title(' maximal normal force');
+                        xlim([-100 1000])
+                        title('maximal normal force');
                         
+                    end
+                    
+                    if (isempty(num_lcp))
+                        num_lcp = 1;
+                    else
+                        num_lcp = num_lcp + 1;
+                    end
+                    
+                    if mod(num_lcp, 550) == 0
+                        disp('come here')
                     end
                     
                     % for debugging
