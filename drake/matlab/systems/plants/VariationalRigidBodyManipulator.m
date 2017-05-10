@@ -102,37 +102,30 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
                 end
             else %Solve with contact
                 
-                %z vector is stacked [q_1; c1; b1; psi; s]
-                z = [q1; zeros(Np+Nd*Np+Np,1); 1];
-                if length(obj.z_cache.data) == length(z)
-                    z(Nq+(1:Np+Nd*Np+Np)) = obj.z_cache.data(Nq+(1:Np+Nd*Np+Np));
-                end
-                
+                %z vector is stacked [q_1; phi; psi; eta; c1; b1; s]
+                z = [q1; zeros(Np+Np+Nd*Np+Np+Nd*Np,1); 1];
                 reg = 1e-3;
                 [r,dr] = MidpointContact(obj,q0,p0,z,Np,Nd);
+                r2 = r'*r;
+                rs = [r2; r2; r2; r2];
                 iter = 0;
                 while max(abs(r(1:(end-1)))) > 1e-6
                     iter = iter+1;
-                    L = blkdiag(zeros(Nq), reg*eye(Np+Nd*Np+Np), min(100*reg,1));
+                    L = reg*eye(length(z));
                     [Q,R] = qr([dr; L],0);
                     dz = -R\(Q(1:length(r),:)'*r);
                     alpha = 1;
                     r2 = r'*r;
-                    rnew2 = r2+1;
-                    while rnew2 > r2 && alpha > 1e-3
+                    rs = [r2; rs(1:3)];
+                    rsm = mean(rs);
+                    rnew2 = rsm+1;
+                    while rnew2 > (rsm + .1*alpha*r'*dr*dz) && alpha > 1e-4
                         znew = z + alpha*dz;
-                        znew(Nq+(1:(Np+Nd*Np+Np))) = max(znew(Nq+(1:(Np+Nd*Np+Np))), 0);
+                        znew((Nq+1):end-1) = max(znew((Nq+1):end-1), 0);
                         znew(end) = max(znew(end), 1e-6);
                         [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
                         rnew2 = rnew'*rnew;
                         alpha = alpha/2;
-                    end
-                    if alpha < .01
-                        reg = min(10*reg, 1e3);
-                        znew(end) = max(z(end), 1e-4);
-                        [rnew, dr] = MidpointContact(obj,q0,p0,znew,Np,Nd);
-                    elseif alpha > .1
-                        reg = max(.5*reg, 1e-4);
                     end
                     z = znew;
                     r = rnew;
@@ -176,17 +169,23 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             Nq = length(q0);
             h = obj.timestep;
             
-            %z vector is stacked [q_1; c1; b1; psi; s]
+            %z vector is stacked [q_1; phi; psi; eta; c1; b1; s]
             
             %Configurations
             q1 = z(1:Nq);
             
-            %Contact force coefficients
-            c = z(Nq+(1:Np));
-            b = z(Nq+Np+(1:Np*Nd));
+            %Heights
+            phi = z(Nq+(1:Np));
             
-            %Tangential contact velocity
-            psi = z(Nq+Np+Np*Nd+(1:Np));
+            %Tangential Contact Velocities
+            psi = z(Nq+Np+(1:Np));
+            
+            %Friction cone
+            eta = z(Nq+Np+Np+(1:Nd*Np));
+            
+            %Contact force coefficients
+            c = z(Nq+Np+Np+Nd*Np+(1:Np));
+            b = z(Nq+Np+Np+Nd*Np+Np+(1:Np*Nd));
 
             %Smoothing parameter
             s = z(end);
@@ -196,16 +195,11 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             kinopts.compute_gradients = true;
             kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
             if ~obj.manip.contact_options.use_bullet
-                [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+                [heights,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
                 D = reshape(cell2mat(D')',Nq,Np*Nd)';
                 dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
             else %using bullet - this doesn't seem to work.
-                kin1 = obj.manip.doKinematics(q1); %for some reason collisionDetect will crash if the kinsol has derivatives
-                [phi,normal,xA,xB,idxA,idxB] = obj.manip.collisionDetect(kin1,obj.multiple_contacts);
-                d = obj.manip.surfaceTangents(normal);
-                [n,D,dn,dD] = obj.manip.contactConstraintDerivatives(normal,kin,idxA,idxB,xA,xB,d);
-                D = reshape(cell2mat(D')',Nq,Np*Nd)';
-                dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
+                error('Bullet collision model not supported');
             end
             
 %             %Check dn
@@ -236,49 +230,45 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
 %             dn = zeros(size(dn));
 %             dD = zeros(size(dD));
 
-            %Dynamics residual
-            [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
-            r_f = r_del + h*(n'*c + D'*b);
-            
-            %Polyhedral friction cone
+            %z vector is stacked [q_1; phi; psi; eta; c1; b1; s]
             e = ones(Nd,1);
             E = kron(eye(Np),e');
+            
+            %Dynamics residual
+            [r_del, dr_del] = MidpointDEL(obj,p0,q0,q1);
+            r_d = r_del + h*(n'*c + D'*b);
+            
+            %Normal force
+            r_phi = heights - phi;
             [f1, dfa1, dfb1, dfs1] = obj.smoothFB(phi, c, s);
-            [f2, dfa2, dfb2, dfs2] = obj.smoothFB(E'*phi, b, s);
-            [f3, dfa3, dfb3, dfs3] = obj.smoothFB((mu*c - E*b), psi, s);
-            [f4, dfa4, dfb4, dfs4] = obj.smoothFB(E'*psi + D*((q1-q0)/h), b, s);
+            
+            %Tangential velocity
+            [f2, dfa2, dfb2, dfs2] = obj.smoothFB((mu*c - E*b), psi, s);
+            
+            %Polyhedral friction cone
+            r_eta = E'*psi + D*((q1-q0)/h) - eta;
+            [f3, dfa3, dfb3, dfs3] = obj.smoothFB(E'*phi, b, s);
+            [f4, dfa4, dfb4, dfs4] = obj.smoothFB(eta, b, s);
               
-            r = [r_f; f1; f2; f3; f4; exp(s)-1];
-            dr = [dr_del + h*kron(c',eye(Nq))*dn + h*kron(b',eye(Nq))*dD, h*n', h*D', zeros(Nq,Np), zeros(Nq,1);
-                  dfa1*n, dfb1, zeros(Np,Nd*Np+Np), dfs1;
-                  dfa2*E'*n, zeros(Nd*Np,Np), dfb2, zeros(Nd*Np,Np), dfs2;
-                  zeros(Np,Nq), dfa3*mu, -dfa3*E, dfb3, dfs3;
-                  dfa4*(1/h)*D + kron(((q1-q0)/h)',eye(Nd*Np))*dD, zeros(Nd*Np,Np), dfb4, dfa4*E', dfs4;
-                  zeros(1,Nq+Np+Nd*Np+Np), exp(s)];
+            r = [r_d; r_phi; f1; f2; r_eta; f3; f4; exp(10*s)-1];
+            
+            dr = [dr_del + h*kron(c',eye(Nq))*dn + h*kron(b',eye(Nq))*dD, zeros(Nq,Np), zeros(Nq,Np), zeros(Nq,Nd*Np), h*n', h*D', zeros(Nq,1);
+                  n, -eye(Np), zeros(Np,Np), zeros(Np,Nd*Np), zeros(Np,Np), zeros(Np,Nd*Np), zeros(Np,1);
+                  zeros(Np,Nq), dfa1, zeros(Np,Np), zeros(Np,Nd*Np), dfb1, zeros(Np,Nd*Np), dfs1;
+                  zeros(Np,Nq), zeros(Np,Np), dfb2, zeros(Np,Nd*Np), dfa2*mu, -dfa2*E, dfs2;
+                  D/h + kron(((q1-q0)/h)',eye(Nd*Np))*dD, zeros(Nd*Np,Np), E', -eye(Nd*Np), zeros(Nd*Np,Np), zeros(Nd*Np,Nd*Np), zeros(Nd*Np,1);
+                  zeros(Nd*Np,Nq), dfa3*E', zeros(Nd*Np,Np), zeros(Nd*Np,Nd*Np), zeros(Nd*Np,Np), dfb3, dfs3;
+                  zeros(Nd*Np,Nq), zeros(Nd*Np,Np), zeros(Nd*Np,Np), dfa4, zeros(Nd*Np,Np), dfb4, dfs4;
+                  zeros(1,Nq), zeros(1,Np), zeros(1,Np), zeros(1,Nd*Np), zeros(1,Np), zeros(1,Nd*Np), 10*exp(10*s)];
         end
         
         function [f, dfda, dfdb, dfds] = smoothFB(obj,a,b,s)
             Na = length(a);
-            Nb = length(b);
-            if Na == Nb %vector version
-                f1 = sqrt(a.*a + b.*b  + s*s*ones(Nb,1));
-                f = f1 - (a + b);
-                dfda = diag(a./f1) - eye(Na);
-                dfdb = diag(b./f1) - eye(Nb);
-                dfds = s*ones(Nb,1)./f1;
-            elseif Na == 1
-                f1 = sqrt(a*a*ones(Nb,1) + b.*b  + s*s*ones(Nb,1));
-                f = f1 - (a*ones(Nb,1) + b);
-                dfda = a*ones(Nb,1)./f1 - ones(Nb,1);
-                dfdb = diag(b./f1) - eye(Nb);
-                dfds = s*ones(Nb,1)./f1;
-            else %Nb == 1
-                f1 = sqrt(a.*a + b*b*ones(Na,1)  + s*s*ones(Na,1));
-                f = f1 - (a + b*ones(Na,1));
-                dfda = diag(a./f1) - ones(Na,1);
-                dfdb = b*ones(Na,1)./f1 - eye(Nb);
-                dfds = s*ones(Na,1)./f1;
-            end
+            f0 = sqrt(a.*a + b.*b  + s*s*ones(Na,1));
+            f = f0 - (a + b);
+            dfda = diag(a./f0) - eye(Na);
+            dfdb = diag(b./f0) - eye(Na);
+            dfds = s*ones(Na,1)./f0;
         end
         
         function x0 = getInitialState(obj)

@@ -2,6 +2,7 @@ function kintest
 
 p = PlanarRigidBodyManipulator('CompassGait.urdf');
 
+
 x=randn(8,1); %p.getInitialState();
 q=x(1:4);qd=x(5:8);
 [phi,J]=p.positionConstraints(q);
