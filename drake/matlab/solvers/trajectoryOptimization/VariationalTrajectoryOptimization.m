@@ -7,8 +7,8 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
     end
     
     properties (Constant)
-        MIDPOINT = 2;
-        SIMPSON = 3;
+        MIDPOINT = 1;
+        SIMPSON = 2;
     end
     
     methods
@@ -86,6 +86,29 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             else
                 ltraj = [];
             end
+        end
+        
+        function xtraj = reconstructStateTrajectory(obj,z)
+            Nq = obj.plant.getNumPositions();
+            
+            t = [0; cumsum(z(obj.h_inds))];
+            x = reshape(z(obj.x_inds),[],obj.N);
+            
+            switch obj.IntegrationMethod
+                case VariationalTrajectoryOptimization.MIDPOINT
+                    
+                    q = x(1:Nq,:);
+                    qtraj = PPTrajectory(foh(tq,q));
+                    
+                    v = [diff(x,1,2)/z(obj.h_inds(1)), zeros(Nq,1)]; %zoh (correctly in this case) ignores the last entry in v
+                    vtraj = PPTrajectory(zoh(t,v));
+                    
+                case VariationalTrajectoryOptimization.SIMPSON
+                    
+            end
+            
+            xtraj = [qtraj; vtraj];
+            xtraj = xtraj.setOutputFrame(obj.plant.getStateFrame);
         end
         
         function z0 = getInitialVars(obj,t_init,traj_init)
