@@ -13,10 +13,6 @@ me="The Drake prerequisite set-up script"
 
 [[ $EUID -eq 0 ]] || die "$me must run as root. Please use sudo."
 
-. /etc/lsb-release
-
-[[ $DISTRIB_RELEASE == "16.04" ]] || die "$me only supports Ubuntu 16.04."
-
 # Install Clang 3.9
 while true; do
   echo "The Ubuntu 16.04 distribution includes Clang 3.8 by default."
