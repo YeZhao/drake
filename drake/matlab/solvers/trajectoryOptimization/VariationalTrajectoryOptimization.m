@@ -3,6 +3,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
     properties
         nC %Number of contact points
         nD %Number of basis vectors in polyhedral friction cone
+        nL %Number of contact constraints
         twoD %Is the plant a PlanarRigidBodyManipulator?
         IntegrationMethod %Midpoint or Simpson's rule for integration
         l_inds; %Indices of all contact-related variables
@@ -50,6 +51,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                     obj.N = N;
                     obj.nC = nC;
                     obj.nD = nD;
+                    obj.nL = nL;
                     
                     num_vars = Nh + N*Nq + (N-1)*nU + (N-1)*nL;
                     
@@ -117,10 +119,44 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             
         end
         
-        function [f,df] = midpoint_dynamics_constraint_fun(obj,h,q0,q1,u,lambda)
-            Nq = obj.plant.getNumPositions;
-            nU = obj.plant.getNumInputs;
+        function [f,df] = midpoint_dynamics_constraint_fun(obj,h1,h2,q1,q2,q3,u1,u2,c2,b2)
             
+            nC = obj.nC;
+            nD = obj.nD;
+            nQ = length(q1);
+            
+            
+            %Discrete Euler-Lagrange equation
+            [D1L1,D2L1,M1] = obj.LagrangianDerivs((q1+q2)/2,(q2-q1)/h1);
+            [D1L2,D2L2,M2] = obj.LagrangianDerivs((q2+q3)/2,(q3-q2)/h2);
+            f_del = (h1/2)*D1L1 + D2L1 + (h2/2)*D1L2 - D2L2;
+            
+            
+            %Contact stuff
+            kinopts = struct();
+            kinopts.compute_gradients = true;
+            kin2 = obj.plant.doKinematics((q2+q3)/2, (q3-q2)/h2, kinopts);
+            [~,~,~,~,~,~,~,~,n2,D2,dn2,dD2] = obj.plant.contactConstraints(kin2, obj.multiple_contacts);
+            D2 = reshape(cell2mat(D2')',nQ,nC*nD)';
+            dD2 = reshape(cell2mat(dD2)',nQ,nC*nD*nD)';
+            
+            
+            %Total dynamics residual incluing control + contact forces
+            f = f_del + (h1/2)*B1*u1 + (h2/2)*B2*u2 + h2*(n2*c2 + D2*b2);
+            
+            %Derivatives
+            %df = [
+            
+        end
+        
+        function [D1L,D2L,M] = LagrangianDerivs(obj,q,v)
+            nq = length(q);
+            nv = length(v);
+            [M,G,~,dM] = manipulatorDynamics(obj.plant, q, zeros(nv,1));
+            dM = reshape(dM,nq*nq,nq+nv);
+            dMdq = dM(:,1:nq);
+            D1L = 0.5*dMdq'*kron(v,v) - G;
+            D2L = M*v;
         end
         
         function [xtraj,utraj,ltraj,z,F,info] = solveTraj(obj,t_init,traj_init)
