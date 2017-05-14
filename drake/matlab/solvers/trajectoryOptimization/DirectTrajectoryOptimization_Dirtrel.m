@@ -1,4 +1,4 @@
-classdef DirectTrajectoryOptimization < NonlinearProgram
+classdef DirectTrajectoryOptimization_Dirtrel < NonlinearProgram
   %DIRECTTRAJECTORYOPTIMIZATION An abstract class for direct method approaches to
   % trajectory optimization.
   %
@@ -32,9 +32,9 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
   end
 
   methods
-    function obj = DirectTrajectoryOptimization(plant,N,durations,options)
+    function obj = DirectTrajectoryOptimization_Dirtrel(plant,N,durations,options)
     % function obj =
-    % DirectTrajectoryOptimization(plant,initial_cost,running_cost,final_cost,...
+    % DirectTrajectoryOptimization_Dirtrel(plant,initial_cost,running_cost,final_cost,...
     % t_init,traj_init,T_span,constraints, options)
     % Trajectory optimization constructor
     % @param plant
@@ -55,7 +55,7 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
         options.time_option = 1;
       end
       if ~plant.isTI
-        error('Drake:DirectTrajectoryOptimization:UnsupportedPlant','Only time-invariant plants are currently supported');
+        error('Drake:DirectTrajectoryOptimization_Dirtrel:UnsupportedPlant','Only time-invariant plants are currently supported');
       end
 
       %todo: replace getVarInfo with setupVarInfo
@@ -77,18 +77,6 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
           A_time = ones(1,N-1);
           time_constraint = LinearConstraint(durations(1),durations(2),A_time);
           obj = obj.addConstraint(time_constraint,obj.h_inds);
-      end
-
-      % Ensure that all h values are non-negative
-      obj = obj.addConstraint(BoundingBoxConstraint(zeros(N-1,1),inf(N-1,1)),obj.h_inds);
-
-      % create constraints for dynamics and add them
-      obj = obj.addDynamicConstraints();
-
-      % add control inputs as bounding box constraints
-      if any(~isinf(plant.umin)) || any(~isinf(plant.umax))
-        control_limit = BoundingBoxConstraint(repmat(plant.umin,N,1),repmat(plant.umax,N,1));
-        obj = obj.addConstraint(control_limit,obj.u_inds(:));
       end
 
     end
@@ -208,7 +196,7 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
       if isfield(traj_init,'u')
         z0(obj.u_inds) = traj_init.u.eval(t_init);
       else
-        z0(obj.u_inds) = zeros(nU,obj.N);%0.01*randn(nU,obj.N);
+        z0(obj.u_inds) = 0.01*randn(nU,obj.N);
       end
 
       if isfield(traj_init,'x')
@@ -275,6 +263,19 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
       end
 
       obj = obj.addDecisionVariable(num_vars,x_names);
+      
+      % Ensure that all h values are non-negative
+      obj = obj.addConstraint(BoundingBoxConstraint(zeros(N-1,1),inf(N-1,1)),obj.h_inds);
+      
+      % create constraints for dynamics and add them
+      obj = obj.addDynamicConstraints();
+      
+      % add control inputs as bounding box constraints
+      if any(~isinf(obj.plant.umin)) || any(~isinf(obj.plant.umax))
+          control_limit = BoundingBoxConstraint(repmat(obj.plant.umin,N,1),repmat(obj.plant.umax,N,1));
+          obj = obj.addConstraint(control_limit,obj.u_inds(:));
+      end
+      
     end
 
     function obj = addInitialCost(obj,initial_cost)
