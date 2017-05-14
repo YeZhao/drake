@@ -9,8 +9,7 @@ v = AcrobotVisualizer(p_perturb);
 v_averg = AcrobotVisualizer(p_perturb_averg);
 
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
-[utraj,xtraj] = swingUpTrajectory(p_nominal);
-
+[utraj,xtraj,K] = swingUpTrajectory(p_nominal);
 
 % Synthetic parameter estimation mode
 % 'base':       Base case parameter estimation - intial params = true params

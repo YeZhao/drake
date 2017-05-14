@@ -142,7 +142,7 @@ classdef AcrobotPlant < Manipulator
             end
         end
         
-        function [utraj,xtraj]=swingUpTrajectory(obj)
+        function [utraj,xtraj,K]=swingUpTrajectory(obj)
             x0 = zeros(4,1);
             xf = double(obj.xG);
             tf0 = 4;%[changed]
@@ -175,19 +175,19 @@ classdef AcrobotPlant < Manipulator
             Qf = 100*eye(4);
             obj = setInputLimits(obj,-10,10);
             prog_LQR = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
-            
-            %{reshape([obj.h_inds'; obj.x_inds(:,1:end-1); obj.u_inds],[],1); obj.x_inds(:,end)}
-            
+                        
+            % manually refactor the decision variable vector for deltaLQR input
             h_vector = tf0/(N-1)*ones(1,N-1);
             t_span = linspace(0,tf0,N);
             xtraj_eval = xtraj.eval(t_span);
             utraj_eval = utraj.eval(t_span);
             state_full = reshape([h_vector;xtraj_eval(:,1:end-1);utraj_eval(:,1:end-1)],[],1);
             state_full = [state_full;xtraj_eval(:,end)];
-            %zeros(nW,1)
             
-            %state_full = 
-            [K,~,~,~,E,dK,~,~,~,dE] = prog_LQR.deltaLQR(state_full,xf);
+            if (nargout>2)
+                % solve LQR feedback gain matrix of nominal model
+                [K,~,~,~,E,dK,~,~,~,dE] = prog_LQR.deltaLQR(state_full,xf);
+            end
             
             function [g,dg] = cost(dt,x,u)
                 persistent count;
