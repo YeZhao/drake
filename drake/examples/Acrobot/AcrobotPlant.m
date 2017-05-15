@@ -203,13 +203,13 @@ classdef AcrobotPlant < Manipulator
             end
             
             function [g,dg] = cost(dt,x,u)
-                persistent count;
-                if isempty(count)
-                    count = 1;
-                else
-                    count = count + 1;
-                end
-                count
+%                 persistent count;
+%                 if isempty(count)
+%                     count = 1;
+%                 else
+%                     count = count + 1;
+%                 end
+%                 count
                 
                 Q = dt*1*eye(4);
                 R = dt*.1;
