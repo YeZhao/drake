@@ -27,6 +27,10 @@
     Rr %Robust cost matrix
     Qrf %Robust cost matrix
     
+    xtraj_nom % State trajectory of nominal model (non-perturbed) 
+    utraj_nom % Control trajectory of nominal model (non-perturbed)
+    K_nom % LQR gain matrix of nominal model (non-perturbed)
+    
     Pc %Projection onto constrained subspace of state vector
     
     %Stuff to cache so we don't have to recompute LQR controller
@@ -137,7 +141,7 @@
           obj = obj.addConstraint(control_limit,obj.u_inds(:));
       end
       
-      obj.z_handle.data = randn((N-1)*(1+nX+nU)+nX,1);
+      obj.z_handle.data = zeros((N-1)*(1+nX+nU)+nX,1);%randn((N-1)*(1+nX+nU)+nX,1);
       
     end
     
@@ -158,7 +162,7 @@
         if isfield(traj_init,'u')
             z0(obj.u_inds) = traj_init.u.eval(t_init(1:end-1));
         else
-            z0(obj.u_inds) = 0.01*randn(nU,obj.N-1);
+            z0(obj.u_inds) = zeros(nU,obj.N-1);%0.01*randn(nU,obj.N-1);
         end
         
         if isfield(traj_init,'x')
@@ -254,7 +258,7 @@
       end
     end
     
-    function obj = addRobustCost(obj,Qr,Rr,Qrf)
+    function obj = addRobustCost(obj,Qr,Qrf,Rr)
         nX = obj.nX;
         nU = obj.nU;
         N = obj.N;
@@ -268,7 +272,25 @@
         cost.grad_method = 'user';
         obj = obj.addCost(cost, {reshape([obj.h_inds'; obj.x_inds(:,1:end-1); obj.u_inds],[],1); obj.x_inds(:,end)});
     end
-    
+
+    function obj = addRobustRunningCost(obj,utraj,xtraj,K,Qr,Qrf,Rr)
+        nX = obj.nX;
+        nU = obj.nU;
+        N = obj.N;
+        
+        obj.Qr = Qr;
+        obj.Rr = Rr;
+        obj.Qrf = Qrf;
+        obj.xtraj_nom = xtraj;
+        obj.utraj_nom = utraj;
+        obj.K_nom = K;
+        
+        dim = N-1 + N*nX + (N-1)*nU;
+        cost = FunctionHandleObjective(dim,@obj.robust_cost_sampled,1);
+        cost.grad_method = 'user';
+        obj = obj.addCost(cost, {reshape([obj.h_inds'; obj.x_inds(:,1:end-1); obj.u_inds],[],1); obj.x_inds(:,end)});
+    end
+
     function obj = addRobustInputConstraint(obj)
         nX = obj.nX;
         nU = obj.nU;
@@ -334,6 +356,52 @@
       [xdot,dxdot] = obj.plant.dynamics(0,.5*(x0+x1),u0);
       f = x1 - x0 - h*xdot;
       df = [-xdot (-eye(nX) - .5*h*dxdot(:,2:1+nX)) (eye(nX)- .5*h*dxdot(:,2:1+nX)) -h*dxdot(:,nX+2:end)];
+    end
+    
+    function [c, dc] = robust_cost_sampled(obj,y,xf)
+        nX = obj.nX;
+        nU = obj.nU;
+        nW = obj.nW;
+        N = obj.N;
+                
+        %decompose the decision variable vector y        
+        for k = 1:N-1
+            xtraj(:,k) = y((k-1)*(1+nX+nU)+1+(1:nX));
+            utraj(:,k) = y((k-1)*(1+nX+nU)+1+nX+(1:nU));
+        end
+        xtraj(:,N) = xf;
+        
+        c = 0;
+        dc = zeros(1,(N-1)*(1+nX+nU)+nX);
+        for k = 1:(N-1)
+            % method 1: do not enforce the LQR feedback
+            %c = c + .5*(xtraj(:,k) - obj.xtraj_nom(:,k))'*obj.Qr*(xtraj(:,k) - obj.xtraj_nom(:,k)) + ...
+            %    .5*(utraj(:,k) - obj.utraj_nom(:,k))'*obj.Rr*(utraj(:,k) - obj.utraj_nom(:,k));
+            
+            % method 2: enforce the LQR feedback
+            c = c + .5*(xtraj(:,k) - obj.xtraj_nom(:,k))'*(obj.Qr + obj.K_nom(:,:,k)'*obj.Rr*obj.K_nom(:,:,k)) ...
+                *(xtraj(:,k) - obj.xtraj_nom(:,k));
+            
+            dc((k-1)*(1+nX+nU)+1) = 0;
+            % method 1: do not enforce the LQR feedback
+            %dc((k-1)*(1+nX+nU)+1+(1:nX)) = (xtraj(:,k) - obj.xtraj_nom(:,k))'*obj.Qr;
+            %dc((k-1)*(1+nX+nU)+1+nX+(1:nU)) = (utraj(:,k) - obj.utraj_nom(:,k))'*obj.Rr;
+            
+            % method 2: enforce the LQR feedback
+            dc((k-1)*(1+nX+nU)+1+(1:nX)) = (xtraj(:,k) - obj.xtraj_nom(:,k))'*(obj.Qr + obj.K_nom(:,:,k)'*obj.Rr*obj.K_nom(:,:,k));
+            dc((k-1)*(1+nX+nU)+1+nX+(1:nU)) = zeros(1,nU);
+        end
+        c = c + .5*(xtraj(:,N) - obj.xtraj_nom(:,N))'*obj.Qrf*(xtraj(:,N) - obj.xtraj_nom(:,N));
+        dc((N-1)*(1+nX+nU)+(1:nX)) = (xtraj(:,N) - obj.xtraj_nom(:,N))'*obj.Qrf;
+        
+        persistent count_robust;
+        if isempty(count_robust)
+            count_robust = 1;
+        else
+            count_robust = count_robust + 1;
+        end
+        count_robust
+        c
     end
     
     function [c, dc] = robust_cost(obj,y,xf)
