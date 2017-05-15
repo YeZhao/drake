@@ -7,7 +7,7 @@ p_perturb_averg = AcrobotPlant;
 p_nominal = AcrobotPlant;
 v = AcrobotVisualizer(p_perturb);
 v_averg = AcrobotVisualizer(p_perturb_averg);
-N = 41;
+N = 21;
 
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
 [utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = swingUpTrajectory(p_nominal,N);
@@ -21,38 +21,39 @@ u_nominal = utraj_nominal.eval(t_nominal)';
 
 % plot nominal model trajs
 nominal_linewidth = 2.5;
+color_line_type = 'r-';
 figure(1)
 hold on;
-plot(t_nominal', u_nominal, 'LineWidth',nominal_linewidth);
+plot(t_nominal', u_nominal, color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u');
 hold on;
 
-figure(2)
+figure(20)
 subplot(2,2,1)
 hold on;
-plot(t_nominal', x_nominal(1,:), 'LineWidth',nominal_linewidth);
+plot(t_nominal', x_nominal(1,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('x_1')
 hold on;
 
 subplot(2,2,2)
 hold on;
-plot(t_nominal', x_nominal(2,:), 'LineWidth',nominal_linewidth);
+plot(t_nominal', x_nominal(2,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('x_2')
 hold on;
 
 subplot(2,2,3)
 hold on;
-plot(t_nominal', x_nominal(3,:), 'LineWidth',nominal_linewidth);
+plot(t_nominal', x_nominal(3,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('xdot_1')
 hold on;
 
 subplot(2,2,4)
 hold on;
-plot(t_nominal', x_nominal(4,:), 'LineWidth',nominal_linewidth);
+plot(t_nominal', x_nominal(4,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('xdot_2')
 hold on;
@@ -66,9 +67,8 @@ hold on;
 % 'delay':      w/ parameter error and w/ measurement noise and delay (Not complete)
 mode = 'paramerr';
 
-% Standard deviation of the parameter value percent error
-paramstd = 1/10;
-SampleNum = 20; % number of sampled trajectories
+paramstd = 1/10; % Standard deviation of the parameter value percent error
+SampleNum = 1; % number of sampled trajectories
 Qr = diag([10 10 1 1]);
 Rr = .1;
 Qrf = 100*eye(4);
@@ -87,9 +87,11 @@ for i = 1:SampleNum
     end    
 end
 
-Max_iter = 6;
+Max_iter = 10;
 m = 1;
-while(m <= Max_iter)
+x_traj_max_diff_sum_percent = 100;
+
+while(m <= Max_iter && x_traj_max_diff_sum_percent > 10)
     
     utraj_eval = [];
     xtraj_eval = [];
@@ -181,14 +183,14 @@ while(m <= Max_iter)
     u_nominal_new = utraj_nominal_new.eval(t_nominal_new)';
     
     % plot the nominal model trajs
-    figure(1)
+    figure(10)
     hold on;
     plot(t_nominal_new', u_nominal_new,color_line_type_set{m}, 'LineWidth',nominal_linewidth);
     xlabel('t');
     ylabel('u')
     hold on;
     
-    figure(2)
+    figure(20)
     subplot(2,2,1)
     hold on;
     plot(t_nominal_new', x_nominal_new(1,:),color_line_type_set{m}, 'LineWidth',nominal_linewidth);
@@ -216,10 +218,23 @@ while(m <= Max_iter)
     xlabel('t');
     ylabel('xdot_2')
     hold on;
+    %legend('initial nominal','1st iterative nominal','2nd iterative nominal','3rd iterative nominal','4th iterative nominal','5th iterative nominal','6th iterative nominal',);
+
+    % cumulative state traj change
+    x_traj_diff = abs((x_nominal - x_nominal_new)./x_nominal);
+    [row, col] = find(isnan(x_traj_diff));% set nan elements to zero
+    x_traj_diff(row,col) = 0;
+    [row, col] = find(isinf(x_traj_diff));% set inf elements to zero
+    x_traj_diff(row,col) = 0;
+    
+    x_traj_diff_sum = sum(x_traj_diff');
+    x_traj_diff_sum_percent = 100*x_traj_diff_sum/N;
+    x_traj_max_diff_sum_percent = max(x_traj_diff_sum_percent);
     
     % increment interation index
     m = m + 1;
 end
+
 
 Qf=diag([1000*(1/0.05)^2 1000*(1/0.05)^2 10 10]);
 Q = diag([10 10 10 10]);  R=0.1; % LQR Cost Matrices
