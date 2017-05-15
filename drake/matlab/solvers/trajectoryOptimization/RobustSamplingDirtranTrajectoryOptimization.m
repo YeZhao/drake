@@ -31,6 +31,9 @@
     utraj_nom % Control trajectory of nominal model (non-perturbed)
     K_nom % LQR gain matrix of nominal model (non-perturbed)
     
+    xtraj_perturbed_array % State trajectory array of perturbed model
+    utraj_perturbed_array % Control trajectory array of perturbed model
+    
     Pc %Projection onto constrained subspace of state vector
     
     %Stuff to cache so we don't have to recompute LQR controller
@@ -291,6 +294,23 @@
         obj = obj.addCost(cost, {reshape([obj.h_inds'; obj.x_inds(:,1:end-1); obj.u_inds],[],1); obj.x_inds(:,end)});
     end
 
+    function obj = addRobustAverageRunningCost(obj,utrajArray,xtrajArray,Qr,Qrf,Rr)
+        nX = obj.nX;
+        nU = obj.nU;
+        N = obj.N;
+        
+        obj.Qr = Qr;
+        obj.Rr = Rr;
+        obj.Qrf = Qrf;
+        obj.xtraj_perturbed_array = xtrajArray;
+        obj.utraj_perturbed_array = utrajArray;
+        
+        dim = N-1 + N*nX + (N-1)*nU;
+        cost = FunctionHandleObjective(dim,@obj.robust_cost_average,1);
+        cost.grad_method = 'user';
+        obj = obj.addCost(cost, {reshape([obj.h_inds'; obj.x_inds(:,1:end-1); obj.u_inds],[],1); obj.x_inds(:,end)});
+    end
+
     function obj = addRobustInputConstraint(obj)
         nX = obj.nX;
         nU = obj.nU;
@@ -394,14 +414,46 @@
         c = c + .5*(xtraj(:,N) - obj.xtraj_nom(:,N))'*obj.Qrf*(xtraj(:,N) - obj.xtraj_nom(:,N));
         dc((N-1)*(1+nX+nU)+(1:nX)) = (xtraj(:,N) - obj.xtraj_nom(:,N))'*obj.Qrf;
         
-        persistent count_robust;
-        if isempty(count_robust)
-            count_robust = 1;
-        else
-            count_robust = count_robust + 1;
+%         persistent count_robust;
+%         if isempty(count_robust)
+%             count_robust = 1;
+%         else
+%             count_robust = count_robust + 1;
+%         end
+%         count_robust
+%         c
+    end
+    
+    function [c, dc] = robust_cost_average(obj,y,xf)
+        nX = obj.nX;
+        nU = obj.nU;
+        nW = obj.nW;
+        N = obj.N;
+                
+        %decompose the decision variable vector y        
+        for k = 1:N-1
+            xtraj(:,k) = y((k-1)*(1+nX+nU)+1+(1:nX));
+            utraj(:,k) = y((k-1)*(1+nX+nU)+1+nX+(1:nU));
         end
-        count_robust
-        c
+        xtraj(:,N) = xf;
+        
+        c = 0;
+        dc = zeros(1,(N-1)*(1+nX+nU)+nX);
+        Numoftraj = length(obj.xtraj_perturbed_array(1,1,:));
+        for j = 1:Numoftraj
+            for k = 1:(N-1)
+                c = c + .5*(xtraj(:,k) - obj.xtraj_perturbed_array(:,k,j))'*obj.Qr*(xtraj(:,k) - obj.xtraj_perturbed_array(:,k,j)) + ...
+                   .5*(utraj(:,k) - obj.utraj_perturbed_array(:,k,j))'*obj.Rr*(utraj(:,k) - obj.utraj_perturbed_array(:,k,j));
+
+                dc((k-1)*(1+nX+nU)+1) = 0;
+                dc((k-1)*(1+nX+nU)+1+(1:nX)) = dc((k-1)*(1+nX+nU)+1+(1:nX)) + (xtraj(:,k) - obj.xtraj_perturbed_array(:,k,j))'*obj.Qr;
+                dc((k-1)*(1+nX+nU)+1+nX+(1:nU)) = dc((k-1)*(1+nX+nU)+1+nX+(1:nU)) + (utraj(:,k) - obj.utraj_perturbed_array(:,k,j))'*obj.Rr;                
+            end
+            c = c + .5*(xtraj(:,N) - obj.xtraj_perturbed_array(:,N,j))'*obj.Qrf*(xtraj(:,N) - obj.xtraj_perturbed_array(:,N,j));
+            dc((N-1)*(1+nX+nU)+(1:nX)) = dc((N-1)*(1+nX+nU)+(1:nX)) + (xtraj(:,N) - obj.xtraj_perturbed_array(:,N,j))'*obj.Qrf;
+        end
+        c = c/Numoftraj;
+        dc = dc/Numoftraj;
     end
     
     function [c, dc] = robust_cost(obj,y,xf)

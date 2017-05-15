@@ -142,7 +142,7 @@ classdef AcrobotPlant < Manipulator
             end
         end
         
-        function [utraj,xtraj,z,prog,K]=swingUpTrajectory(obj,N)
+        function [utraj,xtraj,z,prog,K]=swingUpTrajectory(obj,N,utrajArray,xtrajArray)
             x0 = zeros(4,1);
             xf = double(obj.xG);
             tf0 = 6;%[changed]
@@ -156,11 +156,17 @@ classdef AcrobotPlant < Manipulator
             prog = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
 %            prog = DircolTrajectoryOptimization(obj,N,[2 6]);
 %            prog = DirtranTrajectoryOptimization(obj,N,[tf0 tf0]);
-%             prog = RobustSamplingDirtranTrajectoryOptimization(obj,N,[2 6]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
             prog = prog.addRunningCost(@cost);
             prog = prog.addFinalCost(@finalCost);
+            
+            if nargin > 2
+                Qr = diag([10 10 1 1]);
+                Rr = .1;
+                Qrf = 100*eye(4);
+                prog = prog.addRobustAverageRunningCost(utrajArray,xtrajArray,Qr,Qrf,Rr);
+            end
             
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
@@ -291,7 +297,7 @@ classdef AcrobotPlant < Manipulator
             toc
         end
         
-        function [utraj,xtraj,z,prog]=robustswinguptrajectory(obj,utraj,xtraj,K,Qr,Qrf,Rr,N)
+        function [utraj,xtraj,z,prog]=robustSwingUpTrajectory(obj,utraj,xtraj,K,Qr,Qrf,Rr,N)
             x0 = zeros(4,1); tf0 = 6; xf = double(obj.xG);
             
             % require further refactorization (matrices below are not used)
@@ -327,14 +333,12 @@ classdef AcrobotPlant < Manipulator
                 R = dt*.1;
                 g = .5*(x-xf)'*Q*(x-xf) + .5*u'*R*u;
                 dg = [g, (x-xf)'*Q, u'*R];
-                g
             end
             
             function [h,dh] = finalCost(t,x)
                 Qf = 100*eye(4);
                 h = .5*(x-xf)'*Qf*(x-xf);
                 dh = [0, (x-xf)'*Qf];
-                h
             end
         end
         
