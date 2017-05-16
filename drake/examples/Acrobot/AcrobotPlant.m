@@ -147,6 +147,7 @@ classdef AcrobotPlant < Manipulator
             xf = double(obj.xG);
             tf0 = 6;%[changed]
             
+            % require further refactorization (matrices below are not used)
             D = 2^2;
             E0 = zeros(4);
             Q = diag([10 10 1 1]);
@@ -161,7 +162,7 @@ classdef AcrobotPlant < Manipulator
             prog = prog.addRunningCost(@cost);
             prog = prog.addFinalCost(@finalCost);
             
-            if nargin > 2
+            if nargin > 2 % this part is used for re-generating nominal trajs
                 Qr = diag([10 10 1 1]);
                 Rr = .1;
                 Qrf = 100*eye(4);
@@ -179,16 +180,7 @@ classdef AcrobotPlant < Manipulator
                 if info==1, break; end
             end
             
-            % generate LQR gain matrix
-            D = 2^2;
-            E0 = zeros(4);
-            Q = diag([10 10 1 1]);
-            R = .1;
-            Qf = 100*eye(4);
-            
-            %obj = setInputLimits(obj,-10,10);
-            prog_LQR = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
-                        
+            % generate LQR gain matrix             
             % manually refactor the decision variable vector for deltaLQR input
             h_vector = tf0/(N-1)*ones(1,N-1);
             t_span = linspace(0,tf0,N);
@@ -199,7 +191,7 @@ classdef AcrobotPlant < Manipulator
             
             if (nargout>4)
                 % solve LQR feedback gain matrix of nominal model
-                [K,~,~,~,E,dK,~,~,~,dE] = prog_LQR.deltaLQR(state_full,xf);
+                [K,~,~,~,E,dK,~,~,~,dE] = prog.deltaLQR(state_full,xf);
             end
             
             function [g,dg] = cost(dt,x,u)
@@ -308,7 +300,7 @@ classdef AcrobotPlant < Manipulator
             Qf = 100*eye(4);
             
             %obj = setInputLimits(obj,-10,10);
-%             prog = DirtranTrajectoryOptimization(obj,N,[2 6]);
+            %prog = DirtranTrajectoryOptimization(obj,N,[2 6]);
             prog = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
@@ -316,9 +308,9 @@ classdef AcrobotPlant < Manipulator
             prog = prog.addFinalCost(@finalCost);%[Ye: why this is commented out]
             
             % double check the terminal condition
-%             prog = prog.setSolverOptions('snopt','majoroptimalitytolerance', 1e-3);
-%             prog = prog.setSolverOptions('snopt','majorfeaasibilitytolerance', 1e-4);
-%             prog = prog.setSolverOptions('snopt','minorfeaasibilitytolerance', 1e-4);
+            % prog = prog.setSolverOptions('snopt','majoroptimalitytolerance', 1e-3);
+            % prog = prog.setSolverOptions('snopt','majorfeaasibilitytolerance', 1e-4);
+            % prog = prog.setSolverOptions('snopt','minorfeaasibilitytolerance', 1e-4);
             
             prog = prog.addRobustRunningCost(utraj,xtraj,K,Qr,Qrf,Rr);
             %prog = prog.addRobustInputConstraint();

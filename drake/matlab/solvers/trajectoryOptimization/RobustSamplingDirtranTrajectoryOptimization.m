@@ -63,7 +63,7 @@
       if nargin < 9
         options = struct();
       end
-      if ~isfield(options,'integration_method')
+      if ~isfield(options,'integration_method')%[Ye: double check]
         options.integration_method = RobustSamplingDirtranTrajectoryOptimization.MIDPOINT;
       end
       if isscalar(duration)
