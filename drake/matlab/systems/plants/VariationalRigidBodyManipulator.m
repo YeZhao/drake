@@ -195,7 +195,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             kinopts.compute_gradients = true;
             kin = obj.manip.doKinematics(q1, (q1-q0)/h, kinopts);
             if ~obj.manip.contact_options.use_bullet
-                [heights,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
+                [gap,~,~,~,~,~,~,~,n,D,dn,dD] = obj.manip.contactConstraints(kin, obj.multiple_contacts);
                 D = reshape(cell2mat(D')',Nq,Np*Nd)';
                 dD = reshape(cell2mat(dD)',Nq,Np*Nd*Nq)';
             else %using bullet - this doesn't seem to work.
@@ -239,7 +239,7 @@ classdef VariationalRigidBodyManipulator < DrakeSystem
             r_d = r_del + h*(n'*c + D'*b);
             
             %Normal force
-            r_phi = heights - phi;
+            r_phi = gap - phi;
             [f1, dfa1, dfb1, dfs1] = obj.smoothFB(phi, c, s);
             
             %Tangential velocity
