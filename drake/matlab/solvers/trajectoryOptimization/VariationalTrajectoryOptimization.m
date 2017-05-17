@@ -436,8 +436,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                 z0(obj.x_inds) = xsamp(1:nQ,:);
             end
             
-            %Set heights + smoothing parameters to 1
-            z0(obj.phi_inds(:)) = 1;
+            %Set contact + smoothing parameters
+            z0(obj.phi_inds(:)) = .1*rand(length(obj.phi_inds(:)),1);
+            z0(obj.psi_inds(:)) = .1*rand(length(obj.psi_inds(:)),1);
+            z0(obj.eta_inds(:)) = .1*rand(length(obj.eta_inds(:)),1);
+            z0(obj.c_inds(:)) = .1*rand(length(obj.c_inds(:)),1);
+            z0(obj.b_inds(:)) = .1*rand(length(obj.b_inds(:)),1);
             z0(obj.s_inds(:)) = .1;
         end
     end
