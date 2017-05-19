@@ -199,7 +199,18 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         end
         
         function obj = addRunningCost(obj,running_cost_function)
-            
+            nQ = obj.plant.getNumPositions();
+            nU = obj.plant.getNumInputs();
+            switch obj.integration_method
+                case VariationalTrajectoryOptimization.MIDPOINT
+                    for i = 1:obj.N-1
+                        running_cost = FunctionHandleObjective(1+2*nQ+nU, @(h,q1,q2,u)midpoint_running_fun(obj,running_cost_function,h,q1,q2,u));
+                        inds_i = {obj.h_inds(i); obj.x_inds(:,i); obj.x_inds(:,i+1); obj.u_inds(:,i)};
+                        obj = obj.addCost(running_cost,inds_i);
+                    end
+                case VariationalTrajectoryOptimization.SIMPSON
+                    
+            end
         end
         
         function obj = addInitialCost(obj,initial_cost)
@@ -207,7 +218,15 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         end
         
         function obj = addFinalCost(obj,final_cost_function)
-            
+            nQ = obj.plant.getNumPositions();
+            switch obj.integration_method
+                case VariationalTrajectoryOptimization.MIDPOINT
+                    final_cost = FunctionHandleObjective(2+2*nQ, @(h,q1,q2)midpoint_final_fun(obj,final_cost_function,h,q1,q2));
+                    inds_i = {obj.h_inds(:); obj.x_inds(:,end-1); obj.x_inds(:,end)};
+                    obj = obj.addCost(final_cost,inds_i);
+                case VariationalTrajectoryOptimization.SIMPSON
+                    
+            end
         end
         
         function [f,df] = midpoint_dynamics_constraint_fun(obj,h1,h2,q1,q2,q3,u1,u2,c2,b2)
@@ -386,6 +405,19 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             end
         end
         
+        function [f,df] = midpoint_running_fun(obj,running_fun,h,q1,q2,u)
+            nQ = obj.plant.getNumPositions();
+            [f,dg] = running_fun(h,[(q1+q2)/2; (q2-q1)/h],u);
+            df = [dg(:,1)-dg(:,(1+nQ)+(1:nQ))*(q2-q1)/(h*h), 0.5*dg(:,1+(1:nQ))-(1/h)*dg(:,(1+nQ)+(1:nQ)), 0.5*dg(:,1+(1:nQ))+(1/h)*dg(:,(1+nQ)+(1:nQ)), dg(:,(2+2*nQ):end)];
+        end
+        
+        function [f,df] = midpoint_final_fun(obj,final_fun,h,q1,q2)
+            nQ = obj.plant.getNumPositions();
+            tf = sum(h);
+            [f,dg] = final_fun(tf,[q2; (q2-q1)/h(end)]);
+            df = [kron(ones(1,obj.N-2),dg(:,1)), dg(:,1)-(dg(:,(1+nQ)+(1:nQ))*(q2-q1)/(h(end)*h(end))), -(1/h(end))*dg(:,nQ+(1:nQ)), dg(:,1:nQ)+(1/h(end))*dg(:,nQ+(1:nQ))];
+        end
+        
         function xtraj = reconstructStateTrajectory(obj,z)
             nQ = obj.plant.getNumPositions();
             
@@ -407,6 +439,23 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             
             xtraj = [qtraj; vtraj];
             xtraj = xtraj.setOutputFrame(obj.plant.getStateFrame);
+        end
+        
+        function utraj = reconstructInputTrajectory(obj,z)
+            if size(obj.u_inds,1) > 0
+                nU = obj.plant.getNumInputs();
+                switch obj.integration_method
+                    case VariationalTrajectoryOptimization.MIDPOINT
+                        t = [0; cumsum(z(obj.h_inds))];
+                        u = [reshape(z(obj.u_inds),[],obj.N-1), zeros(nU,1)]; %zoh (correctly in this case) ignores the last entry in v
+                        utraj = PPTrajectory(zoh(t,u));
+                        utraj = utraj.setOutputFrame(obj.plant.getInputFrame);
+                    case VariationalTrajectoryOptimization.SIMPSON
+                        
+                end
+            else
+                utraj=[];
+            end
         end
         
         function z0 = getInitialVars(obj,t_init,traj_init)
