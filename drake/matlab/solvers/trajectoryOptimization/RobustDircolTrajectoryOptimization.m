@@ -15,7 +15,12 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
   properties  
       nX
       nU
+      nW
       
+      Q % LQR state cost matrix
+      R % LQR input cost matrix
+      Qf% LQR terminal cost matrix
+    
       Qr %Robust cost matrix
       Rr %Robust cost matrix
       Qrf %Robust cost matrix
@@ -30,11 +35,16 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
   end
   
   methods
-    function obj = RobustDircolTrajectoryOptimization(plant,N,duration,varargin)
+    function obj = RobustDircolTrajectoryOptimization(plant,N,Q,R,Qf,duration,varargin)
       obj = obj@DirectTrajectoryOptimization(plant,N,duration,varargin{:});
       
       obj.nX = plant.getNumStates;
       obj.nU = plant.getNumInputs;
+      obj.nW = plant.getNumDisturbances;
+      
+      obj.Q = Q;
+      obj.R = R;
+      obj.Qf = Qf;
     end
     
     function obj = addDynamicConstraints(obj)
@@ -231,6 +241,112 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         end
         c = c/Numoftraj;
         dc = dc/Numoftraj;
+    end
+    
+    % discrete-time LQR modified from Zac's Dirtrel code
+    function [K] = deltaLQR(obj,y,xf)
+        nX = obj.nX;
+        nU = obj.nU;
+        nW = obj.nW;
+        N = obj.N;
+        
+        %check to see if we actually need to do anything
+        
+        %Get dynamics derivatives along trajectory
+        A = zeros(nX,nX,N-1);
+        B = zeros(nX,nU,N-1);
+        G = zeros(nX,nW,N-1);
+        
+        dA = zeros(nX*nX,2*(1+nX+nU),N-1);
+        dB = zeros(nX*nU,2*(1+nX+nU),N-1);
+        dG = zeros(nX*nW,2*(1+nX+nU),N-1);
+        for k = 1:(N-2)
+            [~,dx,d2x] = obj.robust_dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+y((k)*(1+nX+nU)+1+(1:nX))),y((k-1)*(1+nX+nU)+1+nX+(1:nU)),zeros(nW,1));
+            A(:,:,k) = dx(:,1+(1:nX));
+            B(:,:,k) = dx(:,1+nX+(1:nU));
+            G(:,:,k) = dx(:,1+nX+nU+(1:nW));
+            dvec = reshape(d2x,nX*(1+nX+nU+nW),1+nX+nU+nW);
+            dA(:,:,k) = [dvec(nX+(1:nX*nX),1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), dvec(nX+(1:nX*nX),1+nX+(1:nU)), zeros(nX*nX,1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), zeros(nX*nX,nU)];
+            dB(:,:,k) = [dvec((1+nX)*nX+(1:nX*nU),1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), dvec((1+nX)*nX+(1:nX*nU),1+nX+(1:nU)), zeros(nX*nU,1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), zeros(nX*nU,nU)];
+            dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
+        end
+        k = N-1;
+        [~,dx,d2x] = obj.robust_dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+xf),y((k-1)*(1+nX+nU)+1+nX+(1:nU)),zeros(nW,1));
+        A(:,:,k) = dx(:,1+(1:nX));
+        B(:,:,k) = dx(:,1+nX+(1:nU));
+        G(:,:,k) = dx(:,1+nX+nU+(1:nW));
+        dvec = reshape(d2x,nX*(1+nX+nU+nW),1+nX+nU+nW);
+        dA(:,:,k) = [dvec(nX+(1:nX*nX),1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), dvec(nX+(1:nX*nX),1+nX+(1:nU)), zeros(nX*nX,1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), zeros(nX*nX,nU)];
+        dB(:,:,k) = [dvec((1+nX)*nX+(1:nX*nU),1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), dvec((1+nX)*nX+(1:nX*nU),1+nX+(1:nU)), zeros(nX*nU,1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), zeros(nX*nU,nU)];
+        dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
+        
+        %Solve Riccati Equation
+        P = obj.Qf;
+        dP = zeros(nX*nX,(N-1)*(1+nX+nU)+nX);
+        K = zeros(nU,nX,N-1);
+        dK = zeros(nU*nX,(N-1)*(1+nX+nU)+nX,N-1);
+        
+        k = N-1;
+        K(:,:,k) = (B(:,:,k).'*P*B(:,:,k)+obj.R)\(B(:,:,k).'*P*A(:,:,k));
+        dKdA = kron(eye(nX),(B(:,:,k)'*P*B(:,:,k)+obj.R)\B(:,:,k)'*P);
+        dKdB = kron(A(:,:,k)'*P, inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*comm(nX,nU) - kron(A(:,:,k)'*P*B(:,:,k), eye(nU))*kron(inv(B(:,:,k)'*P*B(:,:,k)+obj.R)', inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*(kron(eye(nU), B(:,:,k)'*P) + kron(B(:,:,k)'*P, eye(nU))*comm(nX,nU));
+        dKdP = kron(A(:,:,k)', (B(:,:,k)'*P*B(:,:,k)+obj.R)\B(:,:,k)') - kron(A(:,:,k)'*P*B(:,:,k), eye(nU))*kron(inv(B(:,:,k)'*P*B(:,:,k)+obj.R)', inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*kron(B(:,:,k)', B(:,:,k)');
+        dK(:,:,k) = dKdP*dP;
+        dK(:,(k-1)*(1+nX+nU)+(1:(1+nX+nU)),k) = dKdA*dA(:,1:(1+nX+nU),k) + dKdB*dB(:,1:(1+nX+nU),k);
+        dK(:,k*(1+nX+nU)+(1:nX),k) = dKdA*dA(:,(1+nX+nU+1)+(1:nX),k) + dKdB*dB(:,(1+nX+nU+1)+(1:nX),k);
+        dPdA = kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P) + kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*comm(nX,nX);
+        dPdB = -kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P)*kron(K(:,:,k)', eye(nX)) - kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*kron(eye(nX), K(:,:,k)')*comm(nX,nU);
+        dPdK = kron(eye(nX), K(:,:,k)'*obj.R) + kron(K(:,:,k)'*obj.R, eye(nX))*comm(nU,nX) - kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P)*kron(eye(nX), B(:,:,k)) - kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*kron(B(:,:,k), eye(nX))*comm(nU,nX);
+        dPdP = kron((A(:,:,k)-B(:,:,k)*K(:,:,k))', (A(:,:,k)-B(:,:,k)*K(:,:,k))');
+        P = obj.Q + K(:,:,k).'*obj.R*K(:,:,k) + (A(:,:,k) - B(:,:,k)*K(:,:,k)).'*P*(A(:,:,k) - B(:,:,k)*K(:,:,k));
+        dP = dPdP*dP + dPdK*dK(:,:,k);
+        dP(:,(k-1)*(1+nX+nU)+(1:(1+nX+nU))) = dP(:,(k-1)*(1+nX+nU)+(1:(1+nX+nU))) + dPdA*dA(:,1:(1+nX+nU),k) + dPdB*dB(:,1:(1+nX+nU),k);
+        dP(:,k*(1+nX+nU)+(1:nX)) = dP(:,k*(1+nX+nU)+(1:nX))+ dPdA*dA(:,(1+nX+nU+1)+(1:nX),k) + dPdB*dB(:,(1+nX+nU+1)+(1:nX),k);
+        for k = (N-2):-1:1
+            K(:,:,k) = (B(:,:,k).'*P*B(:,:,k)+obj.R)\(B(:,:,k).'*P*A(:,:,k));
+            dKdA = kron(eye(nX),(B(:,:,k)'*P*B(:,:,k)+obj.R)\B(:,:,k)'*P);
+            dKdB = kron(A(:,:,k)'*P, inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*comm(nX,nU) - kron(A(:,:,k)'*P*B(:,:,k), eye(nU))*kron(inv(B(:,:,k)'*P*B(:,:,k)+obj.R)', inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*(kron(eye(nU), B(:,:,k)'*P) + kron(B(:,:,k)'*P, eye(nU))*comm(nX,nU));
+            dKdP = kron(A(:,:,k)', (B(:,:,k)'*P*B(:,:,k)+obj.R)\B(:,:,k)') - kron(A(:,:,k)'*P*B(:,:,k), eye(nU))*kron(inv(B(:,:,k)'*P*B(:,:,k)+obj.R)', inv(B(:,:,k)'*P*B(:,:,k)+obj.R))*kron(B(:,:,k)', B(:,:,k)');
+            dK(:,:,k) = dKdP*dP;
+            dK(:,(k-1)*(1+nX+nU)+(1:2*(1+nX+nU)),k) = dK(:,(k-1)*(1+nX+nU)+(1:2*(1+nX+nU)),k) + dKdA*dA(:,:,k) + dKdB*dB(:,:,k);
+            
+            dPdA = kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P) + kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*comm(nX,nX);
+            dPdB = -kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P)*kron(K(:,:,k)', eye(nX)) - kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*kron(eye(nX), K(:,:,k)')*comm(nX,nU);
+            dPdK = kron(eye(nX), K(:,:,k)'*obj.R) + kron(K(:,:,k)'*obj.R, eye(nX))*comm(nU,nX) - kron(eye(nX), (A(:,:,k)-B(:,:,k)*K(:,:,k))'*P)*kron(eye(nX), B(:,:,k)) - kron((A(:,:,k)-B(:,:,k)*K(:,:,k))'*P, eye(nX))*kron(B(:,:,k), eye(nX))*comm(nU,nX);
+            dPdP = kron((A(:,:,k)-B(:,:,k)*K(:,:,k))', (A(:,:,k)-B(:,:,k)*K(:,:,k))');
+            
+            P = obj.Q + K(:,:,k).'*obj.R*K(:,:,k) + (A(:,:,k) - B(:,:,k)*K(:,:,k)).'*P*(A(:,:,k) - B(:,:,k)*K(:,:,k));
+            dP = dPdP*dP + dPdK*dK(:,:,k);
+            dP(:,(k-1)*(1+nX+nU)+(1:2*(1+nX+nU))) = dP(:,(k-1)*(1+nX+nU)+(1:2*(1+nX+nU))) + dPdA*dA(:,:,k) + dPdB*dB(:,:,k);
+        end
+        
+%         obj.K_handle.data = K;
+        return
+    end
+    
+    function [f,df,d2f] = robust_dynamics(obj,h,x,u,w)
+      % Euler integration of continuous dynamics
+      if nargout == 1
+          xdot = obj.plant.dynamics_w(0,x,u,w);
+          f = x + h*xdot;
+      elseif nargout == 2
+        [xdot,dxdot] = obj.plant.dynamics_w(0,x,u,w);
+        f = x + h*xdot;
+        df = [xdot ... h
+          eye(obj.nX) + h*dxdot(:,1+(1:obj.nX)) ... x0
+          h*dxdot(:,1+obj.nX+(1:obj.nU)) ... u
+          h*dxdot(:,1+obj.nX+obj.nU+(1:obj.nW))]; % w
+      else %nargout == 3
+          [xdot,dxdot,d2xdot] = obj.plant.dynamics_w(0,x,u,w);
+          f = x + h*xdot;
+          df = [xdot ... h
+            eye(obj.nX) + h*dxdot(:,1+(1:obj.nX)) ... x0
+            h*dxdot(:,1+obj.nX+(1:obj.nU)) ... u
+            h*dxdot(:,1+obj.nX+obj.nU+(1:obj.nW))]; % w
+          d2f = h*d2xdot;
+          d2f(:,1:(1+obj.nX+obj.nU+obj.nW)) = dxdot;
+          d2f(:,1:(1+obj.nX+obj.nU+obj.nW):end) = dxdot;
+      end
     end
     
     function [utraj,xtraj] = reconstructInputTrajectory(obj,z)

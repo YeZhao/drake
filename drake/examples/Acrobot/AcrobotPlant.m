@@ -142,7 +142,7 @@ classdef AcrobotPlant < Manipulator
             end
         end
         
-        function [utraj,xtraj,z,prog,K]=swingUpTrajectory(obj,N,utrajArray,xtrajArray)
+        function [utraj,xtraj,z,prog,K]=swingUpTrajectory_dirtran(obj,N,utrajArray,xtrajArray)
             x0 = zeros(4,1);
             xf = double(obj.xG);
             tf0 = 6;%[changed]
@@ -155,8 +155,6 @@ classdef AcrobotPlant < Manipulator
             Qf = 100*eye(4);
             
             prog = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
-%            prog = DircolTrajectoryOptimization(obj,N,[2 6]);
-%            prog = DirtranTrajectoryOptimization(obj,N,[tf0 tf0]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
             prog = prog.addRunningCost(@cost);
@@ -171,10 +169,10 @@ classdef AcrobotPlant < Manipulator
             
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
-            for attempts=1:10
+            for attempts=1:4
                 attempts
                 tic
-                size(traj_init)
+                %size(traj_init)
                 [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
                 toc
                 if info==1, break; end
@@ -256,40 +254,108 @@ classdef AcrobotPlant < Manipulator
             
         end
         
-        function [utraj,xtraj,z,prog]=swingUpDirtran(obj,N)
-            x0 = zeros(4,1); tf0 = 6; xf = double(obj.xG);
+        function [utraj,xtraj,z,prog,K]=swingUpTrajectory_dircol(obj,N,utrajArray,xtrajArray)
+            x0 = zeros(4,1);
+            xf = double(obj.xG);
+            tf0 = 6;%[changed]
             
-            obj = setInputLimits(obj,-10,10);
-            prog = RobustDirtranTrajectoryOptimization(obj,N,1,zeros(4),eye(4),1,eye(4),[tf0 tf0]);
+            % LQR gains
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
             prog = prog.addRunningCost(@cost);
-            %prog = prog.addFinalCost(@finalCost);
+            prog = prog.addFinalCost(@finalCost);
             
-            prog = prog.setSolverOptions('snopt','majoroptimalitytolerance', 1e-4);
-            prog = prog.setSolverOptions('snopt','majorfeaasibilitytolerance', 1e-4);
-            prog = prog.setSolverOptions('snopt','minorfeaasibilitytolerance', 1e-4);
+            if nargin > 2 % this part is used for re-generating nominal trajs
+                Qr = diag([10 10 1 1]);
+                Rr = .1;
+                Qrf = 100*eye(4);
+                prog = prog.addRobustAverageRunningCost(utrajArray,xtrajArray,Qr,Qrf,Rr);
+            end
+            
+            traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
+            
+            for attempts=1:4
+                attempts
+                tic
+                %size(traj_init)
+                [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
+                toc
+                if info==1, break; end
+            end
+            
+            % generate LQR gain matrix             
+            % manually refactor the decision variable vector for deltaLQR input
+            h_vector = tf0/(N-1)*ones(1,N-1);
+            t_span = linspace(0,tf0,N);
+            xtraj_eval = xtraj.eval(t_span);
+            utraj_eval = utraj.eval(t_span);
+            state_full = reshape([h_vector;xtraj_eval(:,1:end-1);utraj_eval(:,1:end-1)],[],1);
+            %state_full = [state_full;xtraj_eval(:,end)];
+            
+            D = 2^2;
+            E0 = zeros(4);
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            if (nargout>4)
+                % solve LQR feedback gain matrix of nominal model
+                K = prog.deltaLQR(state_full,xf);
+            end
             
             function [g,dg] = cost(dt,x,u)
-                Q = dt*1*eye(4);
-                R = dt*.1;
-                g = .5*(x-xf)'*Q*(x-xf) + .5*u'*R*u;
-                dg = [g, (x-xf)'*Q, u'*R];
+%                 persistent count;
+%                 if isempty(count)
+%                     count = 1;
+%                 else
+%                     count = count + 1;
+%                 end
+%                 count
+                R = 1;
+                g = sum((R*u).*u,1);
+                dg = [zeros(1,1+size(x,1)),2*u'*R];
+                return;
+                
+                xd = repmat([pi;0;0;0],1,size(x,2));
+                xerr = x-xd;
+                xerr(1,:) = mod(xerr(1,:)+pi,2*pi)-pi;
+                
+                Q = diag([10,10,1,1]);
+                R = 100;
+                g = sum((Q*xerr).*xerr + (R*u).*u,1);
+                
+                if (nargout>1)
+                    dgddt = 0;
+                    dgdx = 2*xerr'*Q;
+                    dgdu = 2*u'*R;
+                    dg = [dgddt,dgdx,dgdu];
+                end
             end
             
             function [h,dh] = finalCost(t,x)
-                Qf = 100*eye(4);
-                h = .5*(x-xf)'*Qf*(x-xf);
-                dh = [0, (x-xf)'*Qf];
-            end
-            
-            traj_init.x = PPTrajectory(foh([0,tf0],[x0,xf]));
-            tic
-            [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
-            toc
+                h = t;
+                dh = [1,zeros(1,size(x,1))];
+                return;
+                
+                xd = repmat([pi;0;0;0],1,size(x,2));
+                xerr = x-xd;
+                xerr(1,:) = mod(xerr(1,:)+pi,2*pi)-pi;
+                
+                Qf = 100*diag([10,10,1,1]);
+                h = sum((Qf*xerr).*xerr,1);
+                
+                if (nargout>1)
+                    dh = [0, 2*xerr'*Qf];
+                end
+            end            
         end
         
-        function [utraj,xtraj,z,prog]=robustSwingUpTrajectory(obj,utraj,xtraj,K,Qr,Qrf,Rr,N)
+        function [utraj,xtraj,z,prog]=robustSwingUpTrajectory_dirtran(obj,utraj,xtraj,K,Qr,Qrf,Rr,N)
             x0 = zeros(4,1); tf0 = 6; xf = double(obj.xG);
             
             % require further refactorization (matrices below are not used)
@@ -300,7 +366,6 @@ classdef AcrobotPlant < Manipulator
             Qf = 100*eye(4);
             
             %obj = setInputLimits(obj,-10,10);
-            %prog = DirtranTrajectoryOptimization(obj,N,[2 6]);
             prog = RobustSamplingDirtranTrajectoryOptimization(obj,N,D,E0,Q,R,Qf,[tf0 tf0]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
@@ -313,7 +378,6 @@ classdef AcrobotPlant < Manipulator
             % prog = prog.setSolverOptions('snopt','minorfeaasibilitytolerance', 1e-4);
             
             prog = prog.addRobustRunningCost(utraj,xtraj,K,Qr,Qrf,Rr);
-            %prog = prog.addRobustInputConstraint();
             
             traj_init.x = PPTrajectory(foh([0,tf0],[x0,xf]));
             tic
@@ -334,6 +398,44 @@ classdef AcrobotPlant < Manipulator
             end
         end
         
+        function [utraj,xtraj,z,prog]=robustSwingUpTrajectory_dircol(obj,utraj,xtraj,K,Qr,Qrf,Rr,N)
+            x0 = zeros(4,1); tf0 = 6; xf = double(obj.xG);
+                        
+            % LQR gains
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            %obj = setInputLimits(obj,-10,10);
+            prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0]);
+            prog = prog.addStateConstraint(ConstantConstraint(x0),1);
+            prog = prog.addStateConstraint(ConstantConstraint(xf),N);
+            prog = prog.addRunningCost(@cost);
+            prog = prog.addFinalCost(@finalCost);%[Ye: why this is commented out]
+            
+            % double check the terminal condition
+            % prog = prog.setSolverOptions('snopt','majoroptimalitytolerance', 1e-3);
+            % prog = prog.setSolverOptions('snopt','majorfeaasibilitytolerance', 1e-4);
+            % prog = prog.setSolverOptions('snopt','minorfeaasibilitytolerance', 1e-4);
+            
+            prog = prog.addRobustRunningCost(utraj,xtraj,K,Qr,Qrf,Rr);
+            %prog = prog.addRobustInputConstraint();
+            
+            traj_init.x = PPTrajectory(foh([0,tf0],[x0,xf]));
+            tic
+            [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
+            toc
+            
+            function [g,dg] = cost(dt,x,u)
+                R = 1;
+                g = sum((R*u).*u,1);
+                dg = [zeros(1,1+size(x,1)),2*u'*R];
+            end
+            
+            function [h,dh] = finalCost(t,x)
+                h = t;
+                dh = [1,zeros(1,size(x,1))];
+            end
+        end
     end
-    
 end

@@ -7,10 +7,10 @@ p_perturb_averg = AcrobotPlant;
 p_nominal = AcrobotPlant;
 v = AcrobotVisualizer(p_perturb);
 v_averg = AcrobotVisualizer(p_perturb_averg);
-N = 41;
+N = 31;
 
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
-[utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = swingUpTrajectory(p_nominal,N);
+[utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = swingUpTrajectory_dircol(p_nominal,N);
 v_nominal = AcrobotVisualizer(p_nominal);
 v_nominal.playback(xtraj_nominal,struct('slider',true));
 
@@ -82,7 +82,7 @@ v.playback(xtraj_new,struct('slider',true));
 mode = 'paramerr';
 
 paramstd = 1/10; % Standard deviation of the parameter value percent error
-SampleNum = 20; % number of sampled trajectories
+SampleNum = 15; % number of sampled trajectories
 Qr = diag([10 10 1 1]);
 Rr = .1;
 Qrf = 100*eye(4);
@@ -101,96 +101,194 @@ for i = 1:SampleNum
     end    
 end
 
-Max_iter = 10;
+Max_iter = 6;
 m = 1;
 x_traj_max_diff_sum_percent = 100;
 x_nominal_new = [];
 u_nominal_new = [];
 K_nominal_new = [];
 
-while(m <= Max_iter && x_traj_max_diff_sum_percent > 10)
-    
-    utraj_eval = [];
-    xtraj_eval = [];
-    utrajArray = [];
-    xtrajArray = [];
-    if m > 1
-        u_nominal = u_nominal_new;
-        x_nominal = x_nominal_new;
-        K_nominal = K_nominal_new;
-    end
-    
-    for i = 1:SampleNum
-        p_perturb = p_nominal;
-        if ~strcmp(mode,'base')
-            % Perturb original parameter estimates with random percentage error
-            
-            % p_perturb.l1 = p_perturb.l1 + p_perturb.l1*paramerr(i,1);
-            % p_perturb.l2 = p_perturb.l2 + p_perturb.l2*paramerr(i,2);
-            p_perturb.m1 = p_perturb.m1 + p_perturb.m1*paramerr(i,3);
-            p_perturb.m2 = p_perturb.m2 + p_perturb.m2*paramerr(i,4);
-            % p_perturb.b1  = p_perturb.b1 + p_perturb.b1*paramerr(i,5);
-            % p_perturb.b2  = p_perturb.b2 + p_perturb.b2*paramerr(i,6);
-            % p_perturb.lc1 = p_perturb.lc1 + p_perturb.lc1*paramerr(i,7);
-            % p_perturb.lc2 = p_perturb.lc2 + p_perturb.lc2*paramerr(i,8);
-            % p_perturb.Ic1 = p_perturb.Ic1 + p_perturb.Ic1*paramerr(i,9);
-            % p_perturb.Ic2 = p_perturb.Ic2 + p_perturb.Ic2*paramerr(i,10);
-        end
-        
-        [utraj,xtraj,z_perturb,prog_perturb] = robustSwingUpTrajectory(p_perturb,u_nominal,x_nominal,K_nominal,Qr,Qrf,Rr,N);
-        v_perturb = AcrobotVisualizer(p_perturb);
-        v_perturb.playback(xtraj,struct('slider',true));
+% check whether we want to generate robust nominal traj or load existing trajectories
+generate_robust_traj = 1;
+if generate_robust_traj == 1
+    while(m <= Max_iter && x_traj_max_diff_sum_percent > 10)
+        fprintf('\n=========== begin ');
+        fprintf('%-1d',m);
+        fprintf('^{th} outer iteration ===========\n');
         
         utraj_eval = [];
         xtraj_eval = [];
-        h_perturb = z_perturb(prog_perturb.h_inds);
-        t_perturb = [0; cumsum(h_perturb)];
-        xtraj_eval = xtraj.eval(t_perturb);% this is exactly same as z_nominal components
-        utraj_eval = utraj.eval(t_perturb)';
-
-        utrajArray(:,:,i) = utraj_eval;
-        xtrajArray(:,:,i) = xtraj_eval;
+        utrajArray = [];
+        xtrajArray = [];
+        if m > 1
+            u_nominal = u_nominal_new;
+            x_nominal = x_nominal_new;
+            K_nominal = K_nominal_new;
+        end
         
-%         figure(10)
-%         hold on;
-%         plot(t_perturb', utraj_eval,color_line_type_set{1});
-%         xlabel('t');
-%         ylabel('u')
-%         hold on;
-%         
-%         figure(20)
-%         subplot(2,2,1)
-%         hold on;
-%         plot(t_perturb', xtraj_eval(1,:),color_line_type_set{1});
-%         xlabel('t');
-%         ylabel('x_1')
-%         hold on;
-%         
-%         subplot(2,2,2)
-%         hold on;
-%         plot(t_perturb', xtraj_eval(2,:),color_line_type_set{1});
-%         xlabel('t');
-%         ylabel('x_2')
-%         hold on;
-%         
-%         subplot(2,2,3)
-%         hold on;
-%         plot(t_perturb', xtraj_eval(3,:),color_line_type_set{1});
-%         xlabel('t');
-%         ylabel('xdot_1')
-%         hold on;
-%         
-%         subplot(2,2,4)
-%         hold on;
-%         plot(t_perturb', xtraj_eval(4,:),color_line_type_set{1});
-%         xlabel('t');
-%         ylabel('xdot_2')
-%         hold on;
+        for i = 1:SampleNum
+            fprintf('\n=========== sample ');
+            fprintf('%-1d',i);
+            fprintf('^{th} perturbed trajectories ===========\n');
+            
+            p_perturb = p_nominal;
+            if ~strcmp(mode,'base')
+                % Perturb original parameter estimates with random percentage error
+                
+                % p_perturb.l1 = p_perturb.l1 + p_perturb.l1*paramerr(i,1);
+                % p_perturb.l2 = p_perturb.l2 + p_perturb.l2*paramerr(i,2);
+                p_perturb.m1 = p_perturb.m1 + p_perturb.m1*paramerr(i,3);
+                p_perturb.m2 = p_perturb.m2 + p_perturb.m2*paramerr(i,4);
+                % p_perturb.b1  = p_perturb.b1 + p_perturb.b1*paramerr(i,5);
+                % p_perturb.b2  = p_perturb.b2 + p_perturb.b2*paramerr(i,6);
+                % p_perturb.lc1 = p_perturb.lc1 + p_perturb.lc1*paramerr(i,7);
+                % p_perturb.lc2 = p_perturb.lc2 + p_perturb.lc2*paramerr(i,8);
+                % p_perturb.Ic1 = p_perturb.Ic1 + p_perturb.Ic1*paramerr(i,9);
+                % p_perturb.Ic2 = p_perturb.Ic2 + p_perturb.Ic2*paramerr(i,10);
+            end
+            
+            [utraj,xtraj,z_perturb,prog_perturb] = robustSwingUpTrajectory_dircol(p_perturb,u_nominal,x_nominal,K_nominal,Qr,Qrf,Rr,N);
+            v_perturb = AcrobotVisualizer(p_perturb);
+            v_perturb.playback(xtraj,struct('slider',true));
+            
+            utraj_eval = [];
+            xtraj_eval = [];
+            h_perturb = z_perturb(prog_perturb.h_inds);
+            t_perturb = [0; cumsum(h_perturb)];
+            xtraj_eval = xtraj.eval(t_perturb);% this is exactly same as z_nominal components
+            utraj_eval = utraj.eval(t_perturb)';
+            
+            utrajArray(:,:,i) = utraj_eval;
+            xtrajArray(:,:,i) = xtraj_eval;
+            
+            %         figure(10)
+            %         hold on;
+            %         plot(t_perturb', utraj_eval,color_line_type_set{1});
+            %         xlabel('t');
+            %         ylabel('u')
+            %         hold on;
+            %
+            %         figure(20)
+            %         subplot(2,2,1)
+            %         hold on;
+            %         plot(t_perturb', xtraj_eval(1,:),color_line_type_set{1});
+            %         xlabel('t');
+            %         ylabel('x_1')
+            %         hold on;
+            %
+            %         subplot(2,2,2)
+            %         hold on;
+            %         plot(t_perturb', xtraj_eval(2,:),color_line_type_set{1});
+            %         xlabel('t');
+            %         ylabel('x_2')
+            %         hold on;
+            %
+            %         subplot(2,2,3)
+            %         hold on;
+            %         plot(t_perturb', xtraj_eval(3,:),color_line_type_set{1});
+            %         xlabel('t');
+            %         ylabel('xdot_1')
+            %         hold on;
+            %
+            %         subplot(2,2,4)
+            %         hold on;
+            %         plot(t_perturb', xtraj_eval(4,:),color_line_type_set{1});
+            %         xlabel('t');
+            %         ylabel('xdot_2')
+            %         hold on;
+        end
+        
+        fprintf('\n=========== end ');
+        fprintf('%-1d',m);
+        fprintf('^{th} iteration of sampled trajectories ===========\n');
+        
+        fprintf('\n=========== begin ');
+        fprintf('%-1d',m);
+        fprintf('^{th} iteration of regenerating optimal trajs of the nominal model ===========\n');
+        
+        % --- step 3: regenerate optimal trajs of nominal model ----
+        
+        [utraj_nominal_new,xtraj_nominal_new,z_nominal_new,prog_nominal_new,K_nominal_new] = swingUpTrajectory_dircol(p_nominal,N,utrajArray,xtrajArray);
+        v_nominal_new = AcrobotVisualizer(p_nominal);
+        v_nominal_new.playback(xtraj_nominal_new,struct('slider',true));
+        
+        h_nominal_new = z_nominal_new(prog_nominal_new.h_inds);
+        t_nominal_new = [0; cumsum(h_nominal_new)];
+        x_nominal_new = xtraj_nominal_new.eval(t_nominal_new);% this is exactly same as z_nominal components
+        u_nominal_new = utraj_nominal_new.eval(t_nominal_new)';
+        
+        % plot the nominal model trajs
+        figure(10)
+        hold on;
+        plot(t_nominal_new', u_nominal_new,color_line_type_set{m}, 'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('u')
+        hold on;
+        
+        figure(21)
+        subplot(2,2,1)
+        hold on;
+        plot(t_nominal_new', x_nominal_new(1,:),color_line_type_set{m}, 'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('x_1')
+        hold on;
+        
+        subplot(2,2,2)
+        hold on;
+        plot(t_nominal_new', x_nominal_new(2,:),color_line_type_set{m},'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('x_2')
+        hold on;
+        
+        subplot(2,2,3)
+        hold on;
+        plot(t_nominal_new', x_nominal_new(3,:),color_line_type_set{m},'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('xdot_1')
+        hold on;
+        
+        subplot(2,2,4)
+        hold on;
+        plot(t_nominal_new', x_nominal_new(4,:),color_line_type_set{m},'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('xdot_2')
+        hold on;
+        %legend('initial nominal','1st iterative nominal','2nd iterative nominal','3rd iterative nominal','4th iterative nominal','5th iterative nominal','6th iterative nominal',);
+        
+        % termination condition
+        % accumulate state traj changes
+        x_traj_diff = abs((x_nominal - x_nominal_new)./x_nominal);
+        [row, col] = find(isnan(x_traj_diff));% set nan elements to zero
+        x_traj_diff(row,col) = 0;
+        [row, col] = find(isinf(x_traj_diff));% set inf elements to zero
+        x_traj_diff(row,col) = 0;
+        
+        x_traj_diff_sum = sum(x_traj_diff');
+        x_traj_diff_sum_percent = 100*x_traj_diff_sum/N;
+        x_traj_max_diff_sum_percent = max(x_traj_diff_sum_percent);
+        
+        % increment interation index
+        m = m + 1;
+        
+        % save data of new nominal model
+        save U_NOMINAL.dat u_nominal_new -ASCII
+        save X_NOMINAL.dat x_nominal_new -ASCII
+        save K_NOMINAL.dat K_nominal_new -ASCII
+        
+        save XTRAJ_PPTRAJ.mat xtraj_nominal_new
+        save UTRAJ_PPTRAJ.mat utraj_nominal_new
     end
+else
+    u_nominal_new = load('U_NOMINAL_BEST.dat');
+    x_nominal_new = load('X_NOMINAL_BEST.dat');
+    K_nominal_new = load('K_NOMINAL_BEST.dat');
     
-    % --- step 3: regenerate optimal trajs of nominal model ----
+    xtraj_load_pp = load('XTRAJ_PPTRAJ_BEST.mat');
+    utraj_load_pp = load('UTRAJ_PPTRAJ_BEST.mat');
     
-    [utraj_nominal_new,xtraj_nominal_new,z_nominal_new,prog_nominal_new,K_nominal_new] = swingUpTrajectory(p_nominal,N,utrajArray,xtrajArray);
+    xtraj_nominal_new = xtraj_load_pp.xtraj_nominal_new;
+    utraj_nominal_new = utraj_load_pp.utraj_nominal_new;
+    
     v_nominal_new = AcrobotVisualizer(p_nominal);
     v_nominal_new.playback(xtraj_nominal_new,struct('slider',true));
     
@@ -200,7 +298,7 @@ while(m <= Max_iter && x_traj_max_diff_sum_percent > 10)
     u_nominal_new = utraj_nominal_new.eval(t_nominal_new)';
     
     % plot the nominal model trajs
-    figure(11)
+    figure(10)
     hold on;
     plot(t_nominal_new', u_nominal_new,color_line_type_set{m}, 'LineWidth',nominal_linewidth);
     xlabel('t');
@@ -235,39 +333,12 @@ while(m <= Max_iter && x_traj_max_diff_sum_percent > 10)
     xlabel('t');
     ylabel('xdot_2')
     hold on;
-    %legend('initial nominal','1st iterative nominal','2nd iterative nominal','3rd iterative nominal','4th iterative nominal','5th iterative nominal','6th iterative nominal',);
-
-    % termination condition
-    % accumulate state traj changes
-    x_traj_diff = abs((x_nominal - x_nominal_new)./x_nominal);
-    [row, col] = find(isnan(x_traj_diff));% set nan elements to zero
-    x_traj_diff(row,col) = 0;
-    [row, col] = find(isinf(x_traj_diff));% set inf elements to zero
-    x_traj_diff(row,col) = 0;
     
-    x_traj_diff_sum = sum(x_traj_diff');
-    x_traj_diff_sum_percent = 100*x_traj_diff_sum/N;
-    x_traj_max_diff_sum_percent = max(x_traj_diff_sum_percent);
-    
-    % increment interation index
-    m = m + 1;
-    
-    % save data of new nominal model
-    save U_NOMINAL_BEST.dat u_nominal_new -ASCII
-    save X_NOMINAL_BEST.dat x_nominal_new -ASCII
-    save K_NOMINAL_BEST.dat K_nominal_new -ASCII
-
-    save XTRAJ_PPTRAJ.mat xtraj_nominal_new
-    save UTRAJ_PPTRAJ.mat utraj_nominal_new
-    
-%     u_nominal_new = load('U_NOMINAL_BEST.dat'); 
-%     x_nominal_new = load('X_NOMINAL_BEST.dat'); 
-%     K_nominal_new = load('K_NOMINAL_BEST.dat'); 
-%     
-%     xtraj_pptraj = load('XTRAJ_PPTRAJ.mat');
-%     utraj_pptraj = load('UTRAJ_PPTRAJ.mat');
 end
 
+fprintf('\n=========== finish generating robust trajectories ===========\n');
+fprintf('\n=========== begin simulation to test the robustness ===========\n');
+    
 % LQR Cost Matrices
 Q = diag([10 10 1 1]);
 R = .1;
@@ -301,11 +372,19 @@ for i = 1:TestNum
     
     xtraj_new_eval = [];
     t_new_eval = [];
-    for j = 1:size(xtraj_new.traj,2)
-        t_new_eval = [t_new_eval, linspace(xtraj_new.traj{j}.tspan(1),xtraj_new.traj{j}.tspan(2),size(xtraj_new.traj{j}.pp.breaks,2))];
-        xtraj_new_eval = [xtraj_new_eval, ppval(xtraj_new.traj{j}.pp.breaks,xtraj_new.traj{j}.pp)];
+    
+    % fix a structure storage issue
+    fieldname_str = strcmp(fieldnames(xtraj_new),'traj');
+    if fieldname_str(1) == 1
+        for j = 1:size(xtraj_new.traj,2)
+            t_new_eval = [t_new_eval, linspace(xtraj_new.traj{j}.tspan(1),xtraj_new.traj{j}.tspan(2),size(xtraj_new.traj{j}.pp.breaks,2))];
+            xtraj_new_eval = [xtraj_new_eval, ppval(xtraj_new.traj{j}.pp.breaks,xtraj_new.traj{j}.pp)];
+        end
+    else
+        t_new_eval = linspace(xtraj_new.tspan(1),xtraj_new.tspan(2),size(xtraj_new.pp.breaks,2));
+        xtraj_new_eval = ppval(xtraj_new.pp.breaks,xtraj_new.pp);
     end
-
+    
     figure(21)
     subplot(2,2,1)
     hold on;
