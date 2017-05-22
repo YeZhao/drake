@@ -170,11 +170,6 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             
         end
         
-        function [c,dc] = scost(obj, s)
-            c = 100*sum(s);
-            dc = 100*ones(1,length(s));
-        end
-        
         function obj = addStateConstraint(obj,constraint,time_index,x_indices)
             if ~iscell(time_index)
                 % then use { time_index(1), time_index(2), ... } ,
@@ -298,13 +293,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         function [f,df] = midpoint_contact_constraint_fun(obj,h,q1,q2,psi,c,b,s)
             
             xin = [h;q1;q2;psi;c;b;s];
-            [f,df] = obj.midpoint_contact_ncp(xin);
-            %[f,df] = obj.midpoint_contact_sfb(xin);
+            [f,df] = obj.midpoint_contact(xin);
             
 %             df_fd = zeros(size(df));
 %             dxin = 1e-6*eye(length(xin));
 %             for k = 1:length(xin)
-%                 df_fd(:,k) = (obj.midpoint_contact_ncp(xin+dxin(:,k)) - obj.midpoint_contact_ncp(xin-dxin(:,k)))/2e-6;
+%                 df_fd(:,k) = (obj.midpoint_contact(xin+dxin(:,k)) - obj.midpoint_contact(xin-dxin(:,k)))/2e-6;
 %             end
 %            
 %             disp('Contact Derivative Error:');
@@ -312,58 +306,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             
         end
         
-        function [f,df] = midpoint_contact_sfb(obj,xin)
-            mu = 1; %This is currently hard-coded in Drake
-            nC = obj.nC;
-            nD = obj.nD;
-            nQ = obj.plant.getNumPositions();
-            
-            h = xin(1);
-            q1 = xin(1+(1:nQ));
-            q2 = xin(1+nQ+(1:nQ));
-            phi = xin(1+2*nQ+(1:nC));
-            psi = xin(1+2*nQ+nC+(1:nC));
-            c = xin(1+2*nQ+2*nC+(1:nC));
-            b = xin(1+2*nQ+3*nC+(1:nD*nC));
-            s = xin(end);
-            
-            %Contact basis
-            kinopts = struct();
-            kinopts.compute_gradients = true;
-            kin = obj.plant.doKinematics(q2, (q2-q1)/h, kinopts);
-            [gap,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts);
-            if isempty(n)
-                n = zeros(0,nQ);
-                dn = zeros(0,nQ);
-            end
-            D = reshape(cell2mat(D')',nQ,nC*nD)';
-            dD = reshape(cell2mat(dD)',nQ,nC*nD*nQ)';
-            
-            e = ones(nD,1);
-            E = kron(eye(nC),e');
-            
-            %Normal force
-            f1 = gap - phi;
-            [f2,dfa2,dfb2,dfs2] = obj.smoothfb(phi,c,s);
-            
-            %Tangential velocity
-            [f3,dfa3,dfb3,dfs3] = obj.smoothfb((mu*c - E*b),psi,s);
-            
-            %Polyhedral friction cone
-            f4 = E'*psi + D*((q2-q1)/h);
-            [f5,dfa5,dfb5,dfs5] = obj.smoothfb(E'*phi,b,s);
-            
-            f = [f1; f2; f3; f4; f5; exp(10*s)-(1+1e-7)];
-            
-            df = [zeros(nC,1), zeros(nC,nQ), n, -eye(nC), zeros(nC,nC), zeros(nC,nC), zeros(nC,nD*nC), zeros(nC,1);
-                  zeros(nC,1), zeros(nC,nQ), zeros(nC,nQ), dfa2, zeros(nC,nC), dfb2, zeros(nC,nD*nC), dfs2;
-                  zeros(nC,1), zeros(nC,nQ), zeros(nC,nQ), zeros(nC,nC), dfb3, mu*dfa3, -dfa3*E, dfs3;
-                  -D*(q2-q1)/(h*h), -D/h, D/h + kron((q2-q1)'/h, eye(nD*nC))*dD, zeros(nD*nC,nC), E', zeros(nD*nC,nC), zeros(nD*nC,nD*nC), zeros(nD*nC,1);
-                  zeros(nD*nC,1), zeros(nD*nC,nQ), zeros(nD*nC,nQ), dfa5*E', zeros(nD*nC,nC), zeros(nD*nC,nC), dfb5, dfs5;
-                  zeros(1,1), zeros(1,nQ), zeros(1,nQ), zeros(1,nC), zeros(1,nC), zeros(1,nC), zeros(1,nD*nC), 10*exp(10*s)];
-        end
-        
-        function [f,df] = midpoint_contact_ncp(obj,xin)
+        function [f,df] = midpoint_contact(obj,xin)
             mu = 1; %This is currently hard-coded in Drake
             nC = obj.nC;
             nD = obj.nD;
@@ -435,6 +378,11 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             D2D2L = M;
         end
         
+        function [c,dc] = scost(obj, s)
+            c = 10*sum(s);
+            dc = 10*ones(1,length(s));
+        end
+        
         function [f, dfda, dfdb, dfds] = smoothfb(obj,a,b,s)
             Na = length(a);
             f0 = sqrt(a.*a + b.*b  + s*ones(Na,1));
@@ -459,7 +407,28 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         end
         
         function [f,df] = midpoint_running_fun(obj,running_fun,h,q1,q2,u)
+            xin = [h;q1;q1;u];
+            [f,df] = midpoint_running(obj,running_fun,xin);
+            
+%             df_fd = zeros(size(df));
+%             deltax = 1e-6*eye(length(xin));
+%             for k = 1:length(xin)
+%                 df_fd(:,k) = (midpoint_running(obj,running_fun,xin+deltax(:,k)) - midpoint_running(obj,running_fun,xin-deltax(:,k)))/2e-6;
+%             end
+%             
+%             disp('Running cost derivative error:');
+%             disp(max(abs(df_fd(:)-df(:))));
+        end
+        
+        function [f,df] = midpoint_running(obj,running_fun,xin)
+            
             nQ = obj.plant.getNumPositions();
+            
+            h = xin(1);
+            q1 = xin(1+(1:nQ));
+            q2 = xin(1+nQ+(1:nQ));
+            u = xin((2+2*nQ):end);
+            
             [f,dg] = running_fun(h,[(q1+q2)/2; (q2-q1)/h],u);
             df = [dg(:,1)-dg(:,(1+nQ)+(1:nQ))*(q2-q1)/(h*h), 0.5*dg(:,1+(1:nQ))-(1/h)*dg(:,(1+nQ)+(1:nQ)), 0.5*dg(:,1+(1:nQ))+(1/h)*dg(:,(1+nQ)+(1:nQ)), dg(:,(2+2*nQ):end)];
         end

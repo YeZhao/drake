@@ -2,14 +2,19 @@ function [xtraj,utraj,phitraj,ctraj,btraj,straj,z] = variationalBrick()
 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
+%plant = PlanarRigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
+%x0 = [0; 1; .1; 0; 0; 0];
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
-%plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickNoContact.urdf'),options);
 x0 = [0;0;1;.1;0;0;zeros(6,1)];
 
-N=21;
-tf=2;
+
+N=11;
+tf=1;
 
 prog = VariationalTrajectoryOptimization(plant,N,tf);
+
+%prog = prog.addStateConstraint(ConstantConstraint(x0(1:3)),1);
+%prog = prog.addStateConstraint(ConstantConstraint(x0(1:3)+[0 -0.5*9.81*.1*.1 0]'),2);
 
 prog = prog.addStateConstraint(ConstantConstraint(x0(1:6)),1);
 prog = prog.addStateConstraint(ConstantConstraint(x0(1:6)+[0 0 -0.5*9.81*.1*.1 0 0 0]'),2);
