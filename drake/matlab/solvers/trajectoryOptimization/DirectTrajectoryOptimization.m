@@ -87,7 +87,7 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
 
       % add control inputs as bounding box constraints
       if any(~isinf(plant.umin)) || any(~isinf(plant.umax))
-        control_limit = BoundingBoxConstraint(repmat(plant.umin,N,1),repmat(plant.umax,N,1));
+        control_limit = BoundingBoxConstraint(repmat(plant.umin,size(obj.u_inds,2),1),repmat(plant.umax,size(obj.u_inds,2),1));
         obj = obj.addConstraint(control_limit,obj.u_inds(:));
       end
 
