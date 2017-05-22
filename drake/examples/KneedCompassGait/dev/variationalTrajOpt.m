@@ -50,7 +50,8 @@ periodic_constraint = periodic_constraint.setName('periodicity');
 % qm = xtraj.eval(xtraj.tspan(2)/2);
 % qf = xtraj.eval(xtraj.tspan(2));
 
-q0 = [0 1.05 -.2 .2 .4 -.2]';
+q0 = [0 1 -.2 .2 .4 -.2]';
+x0 = [q0; zeros(6,1)];
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[q0 q0]));
 traj_init.u = PPTrajectory(zoh(t_init,zeros(3,N)));
@@ -58,8 +59,8 @@ T_span = [T0 T0];
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(q0(1:6)),1);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(q0(1:6)-[0 0.5*9.8*.1*.1 0 0 0 0]'),2);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0(1:6)),1);
+traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(6,1)),1);
 %traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
@@ -74,11 +75,10 @@ v = p.constructVisualizer();
 v.playback(xtraj);
 
 function [f,df] = running_cost_fun(h,x,u)
-  q = [0 -10 0 0 0 0 0 0 0 0 0 0]';
-  Q = diag([0 0 0 0 0 0 0 100 0 0 0 0]);
+  Q = 10*eye(12);
   R = 1*eye(3);
-  f = (1/2)*x'*Q*x + q'*x + (1/2)*u'*R*u;
-  df = [0 x'*Q + q' u'*R];
+  f = (1/2)*(x-x0)'*Q*(x-x0) + (1/2)*u'*R*u;
+  df = [0 (x-x0)'*Q u'*R];
 end
 
 end
