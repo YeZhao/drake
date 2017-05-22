@@ -1,4 +1,4 @@
-function [xtraj,utraj,phitraj,ctraj,btraj,straj,z] = variationalBrick()
+function [xtraj,utraj,ctraj,btraj,straj,z] = variationalBrick()
 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;

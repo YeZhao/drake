@@ -5,6 +5,7 @@ function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = variationalTrajOpt()
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 options.ignore_self_collisions = true;
+options.use_bullet = false;
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 N = 6;
@@ -49,20 +50,18 @@ periodic_constraint = periodic_constraint.setName('periodicity');
 % qm = xtraj.eval(xtraj.tspan(2)/2);
 % qf = xtraj.eval(xtraj.tspan(2));
 
-q0 = [0 2 .1 0 0 0]';
+q0 = [0 1.05 -.2 .2 .4 -.2]';
 t_init = linspace(0,T0,N);
-traj_init.x = PPTrajectory(foh([0  T0],[q0 q0]));
+traj_init.x = PPTrajectory(foh([0 T0],[q0 q0]));
 traj_init.u = PPTrajectory(zoh(t_init,zeros(3,N)));
 T_span = [T0 T0];
-
-
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(q0(1:6)),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(q0(1:6)-[0 0.5*9.8*.1*.1 0 0 0 0]'),2);
-traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
-% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
+%traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 %traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 2 N-1 N]});
 
@@ -75,8 +74,11 @@ v = p.constructVisualizer();
 v.playback(xtraj);
 
 function [f,df] = running_cost_fun(h,x,u)
-  f = h*u'*u;
-  df = [u'*u zeros(1,12) 2*h*u'];
+  q = [0 -10 0 0 0 0 0 0 0 0 0 0]';
+  Q = diag([0 0 0 0 0 0 0 100 0 0 0 0]);
+  R = 1*eye(3);
+  f = (1/2)*x'*Q*x + q'*x + (1/2)*u'*R*u;
+  df = [0 x'*Q + q' u'*R];
 end
 
 end
