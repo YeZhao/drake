@@ -4,7 +4,8 @@ options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 %plant = PlanarRigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 %x0 = [0; 1; .1; 0; 0; 0];
-plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
+file = fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf');
+plant = RigidBodyManipulator(file,options);
 x0 = [0;0;1;.1;0;0;zeros(6,1)];
 
 N=11;

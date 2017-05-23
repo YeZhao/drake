@@ -5,6 +5,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         nD %Number of basis vectors in polyhedral friction cone
         nL %Number of contact constraints
         integration_method %Midpoint or Simpson's rule for integration
+        angle_inds %Indices of q that are joint angles and should be diffed accounting for wrap-around
         v0_inds
         psi_inds
         eta_inds
@@ -33,9 +34,14 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             if ~isfield(options,'multiple_contacts')
                 options.multiple_contacts = false;
             end
-                        
+            if isa(plant,'PlanarRigidBodyManipulator')
+                options.twoD = true;
+            else
+                options.twoD = false;
+            end
+            
             obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
-
+            
         end
         
         function obj = setupVariables(obj, N)
@@ -45,6 +51,11 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                     obj.integration_method = VariationalTrajectoryOptimization.MIDPOINT;
                     
                     [phi,~,d] = obj.plant.contactConstraints(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);
+                    
+                    %Find indices that correspond to joint angles so we can
+                    %watch out for wrap-around issues
+                    obj.angle_inds = [obj.plant.body(~[obj.plant.body.floating]).position_num]';
+                    obj.angle_inds = obj.angle_inds(obj.angle_inds>0);
                     
                     nH = N-1;
                     nQ = obj.plant.getNumPositions();
@@ -154,6 +165,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                             s_constraints{i} = cnstr4.setName(sprintf('s[%d]',i));
                             obj = obj.addConstraint(s_constraints{i}, obj.s_inds(i));
                         end
+                        obj = obj.addCost(FunctionHandleObjective(length(obj.s_inds),@(s)scost(obj,s),1), obj.s_inds(:));
                     end
                     
                     dyn_inds{1} = {obj.h_inds(1); obj.x_inds(:,1); obj.v0_inds(:); obj.x_inds(:,2); obj.u_inds(:,1); obj.c_inds(:,1); obj.b_inds(:,1)};
@@ -166,7 +178,6 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                         dyn_constraints{i} = cnstr1.setName(sprintf('dynamics[%d]',i));
                         obj = obj.addConstraint(dyn_constraints{i}, dyn_inds{i});
                     end
-                    obj = obj.addCost(FunctionHandleObjective(length(obj.s_inds),@(s)scost(obj,s),1), obj.s_inds(:));
                     
                 case VariationalTrajectoryOptimization.SIMPSON
             
@@ -297,10 +308,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             dM0 = reshape(dM0,nQ*nQ,2*nQ);
             dM0 = dM0(:,1:nQ);
             p0 = M0*v0;
-            [D1L,D2L,D1D1L,D1D2L,D2D2L,B,dB] = obj.LagrangianDerivs((q0+q1)/2,(q1-q0)/h);
+            qm = obj.qavg(q0,q1);
+            vm = obj.qdiff(q0,q1,h);
+            [D1L,D2L,D1D1L,D1D2L,D2D2L,B,dB] = obj.LagrangianDerivs(qm,vm);
             f_del = p0 + (h/2)*D1L - D2L;
             
-            df_del = [(1/2)*D1L - ((h/2)*D1D2L'-D2D2L)*(q1-q0)/(h*h), ... % d/dh
+            df_del = [(1/2)*D1L - ((h/2)*D1D2L'-D2D2L)*vm/h, ... % d/dh
                       kron(v0',eye(nQ))*dM0 + (h/4)*D1D1L - (1/2)*D1D2L' - (1/2)*D1D2L + (1/h)*D2D2L, ... % d/dq0
                       M0, ... % d/dv0
                       (h/4)*D1D1L + (1/2)*D1D2L' - (1/2)*D1D2L - (1/h)*D2D2L, ... % d/dq1
@@ -309,7 +322,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             %Contact basis
             kinopts = struct();
             kinopts.compute_gradients = true;
-            kin = obj.plant.doKinematics(q1, (q1-q0)/h, kinopts);
+            kin = obj.plant.doKinematics(q1, vm, kinopts);
             [~,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts);
             if isempty(n)
                 n = zeros(0,nQ);
@@ -333,11 +346,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             [f,df] = obj.midpoint_dynamics(xin);
             
 %             df_fd = zeros(size(df));
-%             dxin = 1e-6*eye(length(xin));
+%             step = sqrt(eps(max(xin)));
+%             dxin = step*eye(length(xin));
 %             for k = 1:length(xin)
-%                 df_fd(:,k) = (obj.midpoint_dynamics(xin+dxin(:,k)) - obj.midpoint_dynamics(xin-dxin(:,k)))/2e-6;
+%                 df_fd(:,k) = obj.qdiff(obj.midpoint_dynamics(xin-dxin(:,k)), obj.midpoint_dynamics(xin+dxin(:,k)), 2*step);
 %             end
-%             
+            
 %             disp('Dynamics Derivative Error:');
 %             disp(max(abs(df_fd(:)-df(:))));
             
@@ -360,12 +374,18 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             c2 = xin(2+3*nQ+2*nU+(1:nC));
             b2 = xin(2+3*nQ+2*nU+nC+(1:nC*nD));
             
+            %Take care of angle wrap-around
+            qm1 = obj.qavg(q1,q2);
+            vm1 = obj.qdiff(q1,q2,h1);
+            qm2 = obj.qavg(q2,q3);
+            vm2 = obj.qdiff(q2,q3,h2);
+            
             %Discrete Euler-Lagrange equation
-            [D1L1,D2L1,D1D1L1,D1D2L1,D2D2L1,B1,dB1] = obj.LagrangianDerivs((q1+q2)/2,(q2-q1)/h1);
-            [D1L2,D2L2,D1D1L2,D1D2L2,D2D2L2,B2,dB2] = obj.LagrangianDerivs((q2+q3)/2,(q3-q2)/h2);
+            [D1L1,D2L1,D1D1L1,D1D2L1,D2D2L1,B1,dB1] = obj.LagrangianDerivs(qm1,vm1);
+            [D1L2,D2L2,D1D1L2,D1D2L2,D2D2L2,B2,dB2] = obj.LagrangianDerivs(qm2,vm2);
             f_del = (h1/2)*D1L1 + D2L1 + (h2/2)*D1L2 - D2L2;
             
-            df_del = [0.5*D1L1 - ((h1/2)*D1D2L1'+D2D2L1)*((q2-q1)/(h1*h1)), 0.5*D1L2 - ((h2/2)*D1D2L2'-D2D2L2)*((q3-q2)/(h2*h2)), ... % d/dh1, d/dh2
+            df_del = [0.5*D1L1 - ((h1/2)*D1D2L1'+D2D2L1)*(vm1/h1), 0.5*D1L2 - ((h2/2)*D1D2L2'-D2D2L2)*(vm2/h2), ... % d/dh1, d/dh2
                       (h1/2)*((1/2)*D1D1L1-(1/h1)*D1D2L1')+(1/2)*D1D2L1-(1/h1)*D2D2L1, ... % d/dq1
                       (h1/2)*((1/2)*D1D1L1+(1/h1)*D1D2L1')+(1/2)*D1D2L1+(1/h1)*D2D2L1 + (h2/2)*((1/2)*D1D1L2-(1/h2)*D1D2L2')-(1/2)*D1D2L2+(1/h2)*D2D2L2, ... % d/dq2
                       (h2/2)*((1/2)*D1D1L2+(1/h2)*D1D2L2') - (1/2)*D1D2L2 - (1/h2)*D2D2L2, ... % d/dq3
@@ -374,7 +394,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             %Contact basis
             kinopts = struct();
             kinopts.compute_gradients = true;
-            kin2 = obj.plant.doKinematics(q3, (q3-q2)/h2, kinopts);
+            kin2 = obj.plant.doKinematics(q3, vm2, kinopts);
             [~,~,~,~,~,~,~,~,n2,D2,dn2,dD2] = obj.plant.contactConstraints(kin2, obj.options.multiple_contacts);
             if isempty(n2)
                 n2 = zeros(0,nQ);
@@ -425,10 +445,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             b = xin(1+2*nQ+2*nC+nD*nC+(1:nD*nC));
             s = xin(end);
             
+            vm = obj.qdiff(q1,q2,h);
+            
             %Contact basis
             kinopts = struct();
             kinopts.compute_gradients = true;
-            kin = obj.plant.doKinematics(q2, (q2-q1)/h, kinopts);
+            kin = obj.plant.doKinematics(q2, vm, kinopts);
             [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts);
             if isempty(n)
                 n = zeros(0,nQ);
@@ -440,8 +462,8 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             e = ones(nD,1);
             E = kron(eye(nC),e');
             
-            %Friction cone
-            f1 = D*((q2-q1)/h) + E'*psi - eta;
+            %Tangential velocity
+            f1 = D*vm + E'*psi - eta; % = 0
             
             %Signed distance
             g1 = phi; % >= 0
@@ -449,7 +471,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             %Friction cone
             g2 = mu*c - E*b; % >= 0
             
-            %Force complementarity
+            %Normal force complementarity
             l1 = phi'*c - s; % <= 0
             
             %Tangential velocity complementarity
@@ -461,7 +483,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             f = [f1; g1; g2; l1; l2; l3];
             
             %xin = [h;q1;q2;psi;eta;c;b;s];
-            df = [-D*(q2-q1)/(h*h), -D/h, D/h + kron((q2-q1)'/h, eye(nD*nC))*dD, E', -eye(nD*nC), zeros(nD*nC,nC), zeros(nD*nC,nD*nC), zeros(nD*nC,1);
+            df = [-D*vm/h, -D/h, D/h + kron(vm', eye(nD*nC))*dD, E', -eye(nD*nC), zeros(nD*nC,nC), zeros(nD*nC,nD*nC), zeros(nD*nC,1);
                   zeros(nC,1), zeros(nC,nQ), n, zeros(nC,nC), zeros(nC,nD*nC), zeros(nC,nC), zeros(nC,nD*nC), zeros(nC,1);
                   zeros(nC,1), zeros(nC,nQ), zeros(nC,nQ), zeros(nC,nD*nC), zeros(nC,nC), mu*eye(nC), -E, zeros(nC,1);
                   zeros(1,1), zeros(1,nQ), c'*n, zeros(1,nC), zeros(1,nD*nC), phi', zeros(1,nD*nC), -1;
@@ -473,28 +495,44 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             nq = length(q);
             nv = length(v);
             [M,G,B,dM,dG,dB] = manipulatorDynamics(obj.plant, q, zeros(nv,1));
+            
             dM = reshape(dM,nq*nq,nq+nv);
             dMdq = dM(:,1:nq);
             dBdq = dB(:,1:nq);
+            
             D1L = 0.5*dMdq'*kron(v,v) - G;
             D2L = M*v;
-            D1D1L = -dG(:,1:nq); %throwing out second derivative of M terms here
+            
+            %D1D1L = -dG(:,1:nq); %throwing out second derivative of M terms here
+            
+            D1D1L = zeros(nq);
+            step = sqrt(eps(max(q)));
+            deltaq = step*eye(nq);
+            for k = 1:nq
+                [~,Gp,~,dMp] = manipulatorDynamics(obj.plant, q+deltaq(:,k), zeros(nv,1));
+                dMp = reshape(dMp,nq*nq,nq+nv);
+                dMdqp = dMp(:,1:nq);
+                
+                [~,Gm,~,dMm] = manipulatorDynamics(obj.plant, q-deltaq(:,k), zeros(nv,1));
+                dMm = reshape(dMm,nq*nq,nq+nv);
+                dMdqm = dMm(:,1:nq);
+                
+                D1p = 0.5*dMdqp'*kron(v,v) - Gp;
+                D1m = 0.5*dMdqm'*kron(v,v) - Gm;
+                
+                D1D1L(:,k) = (D1p - D1m)/(2*step);
+            end
+            
+            %disp(sprintf('D1D1L error: %d',max(abs(D1D1L_fd(:)-D1D1L(:)))));
+            
             D1D2L = kron(v',eye(nq))*dMdq;
             D2D2L = M;
+            
         end
         
         function [c,dc] = scost(obj, s)
             c = sum(s);
             dc = ones(1,length(s));
-        end
-        
-        function [f, dfda, dfdb, dfds] = smoothfb(obj,a,b,s)
-            Na = length(a);
-            f0 = sqrt(a.*a + b.*b  + s*ones(Na,1));
-            f = f0 - (a + b);
-            dfda = diag(a./f0) - eye(Na);
-            dfdb = diag(b./f0) - eye(Na);
-            dfds = ones(Na,1)./f0;
         end
         
         function [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
@@ -512,7 +550,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         end
         
         function [f,df] = midpoint_running_fun(obj,running_fun,h,q1,q2,u)
-            xin = [h;q1;q1;u];
+            xin = [h;q1;q2;u];
             [f,df] = midpoint_running(obj,running_fun,xin);
             
 %             df_fd = zeros(size(df));
@@ -534,15 +572,19 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             q2 = xin(1+nQ+(1:nQ));
             u = xin((2+2*nQ):end);
             
-            [f,dg] = running_fun(h,[(q1+q2)/2; (q2-q1)/h],u);
-            df = [dg(:,1)-dg(:,(1+nQ)+(1:nQ))*(q2-q1)/(h*h), 0.5*dg(:,1+(1:nQ))-(1/h)*dg(:,(1+nQ)+(1:nQ)), 0.5*dg(:,1+(1:nQ))+(1/h)*dg(:,(1+nQ)+(1:nQ)), dg(:,(2+2*nQ):end)];
+            qm = obj.qavg(q1,q2);
+            vm = obj.qdiff(q1,q2,h);
+            
+            [f,dg] = running_fun(h,[qm; vm],u);
+            df = [dg(:,1)-dg(:,(1+nQ)+(1:nQ))*vm/h, 0.5*dg(:,1+(1:nQ))-(1/h)*dg(:,(1+nQ)+(1:nQ)), 0.5*dg(:,1+(1:nQ))+(1/h)*dg(:,(1+nQ)+(1:nQ)), dg(:,(2+2*nQ):end)];
         end
         
         function [f,df] = midpoint_final_fun(obj,final_fun,h,q1,q2)
             nQ = obj.plant.getNumPositions();
             tf = sum(h);
-            [f,dg] = final_fun(tf,[q2; (q2-q1)/h(end)]);
-            df = [kron(ones(1,obj.N-2),dg(:,1)), dg(:,1)-(dg(:,(1+nQ)+(1:nQ))*(q2-q1)/(h(end)*h(end))), -(1/h(end))*dg(:,nQ+(1:nQ)), dg(:,1:nQ)+(1/h(end))*dg(:,nQ+(1:nQ))];
+            vm = obj.qdiff(q1,q2,h(end));
+            [f,dg] = final_fun(tf,[q2; vm]);
+            df = [kron(ones(1,obj.N-2),dg(:,1)), dg(:,1)-(dg(:,(1+nQ)+(1:nQ))*vm/h(end)), -(1/h(end))*dg(:,nQ+(1:nQ)), dg(:,1:nQ)+(1/h(end))*dg(:,nQ+(1:nQ))];
         end
         
         function xtraj = reconstructStateTrajectory(obj,z)
@@ -585,6 +627,16 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             end
         end
         
+        function qm = qavg(obj,q1,q2)
+            qm = (q1+q2)/2;
+            qm(obj.angle_inds) = angleAverage(q1(obj.angle_inds),q2(obj.angle_inds));
+        end
+        
+        function vm = qdiff(obj,q1,q2,h)
+            vm = (q2-q1)/h;
+            vm(obj.angle_inds) = angleDiff(q1(obj.angle_inds),q2(obj.angle_inds))/h;
+        end
+        
         function z0 = getInitialVars(obj,t_init,traj_init)
             nQ = obj.plant.getNumPositions();
             
@@ -610,6 +662,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             if isfield(traj_init,'x')
                 xsamp = traj_init.x.eval(t_init);
                 z0(obj.x_inds) = xsamp(1:nQ,:);
+                z0(obj.v0_inds) = xsamp(nQ+(1:nQ),1);
             end
             
             %Set contact + smoothing parameters

@@ -1,4 +1,4 @@
-function runPassiveWRL
+function runPassiveURDF
 
 p = PlanarRigidBodyManipulator('Acrobot.urdf');
 v = p.constructVisualizer;
