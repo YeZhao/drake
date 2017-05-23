@@ -65,9 +65,14 @@ T_span = [1 T0];
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0(1:6)),1);  
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm(1:6)),7);
+% traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm(1:6)),7);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:6)),N);
-% traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(6,1)),1);
+traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(6,1)),1);
+
+q_lb = [-inf; -inf; -inf; 0; -1.0; 0];
+q_ub = [ inf;  inf;  inf; pi/2; 1.0; pi/2];
+traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
+
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
 %traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
@@ -83,7 +88,7 @@ tic
 toc
 
 v = p.constructVisualizer();
-v.playback(xtraj);
+v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
   Q = 100*eye(12);
