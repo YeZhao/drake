@@ -1,4 +1,4 @@
-function [p,xtraj,utraj,z,F,info,traj_opt] = variationalTrajOpt()
+function [p,xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraints,traj_opt] = variationalTrajOpt()
 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
@@ -75,7 +75,6 @@ function [f,df] = running_cost_fun(h,x,u)
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];
 end
-
 
 
   function displayTraj(h,x,u)
