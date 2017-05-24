@@ -17,8 +17,8 @@ x0 = double(home(p));
 q0 = x0(1:nq);
 q0(3) = q0(3) - 0.010;
 
-T0 = 3;
-N = 4*T0;
+T0 = 2.5;
+N = 20;
 
 % ----- Initial Guess ----- %
 q1 = [0.3;q0(2:end)];
@@ -28,7 +28,7 @@ t_init = linspace(0,T0,N);
 % traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
-T_span = [2 T0];
+T_span = [0.5 T0];
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -38,14 +38,15 @@ traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1),N);
 traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(nv,1)),1);
 
 [q_lb, q_ub] = getJointLimits(p);
-% q_ub(3) = q0(3) + 0.03;
-% q_lb(3) = q0(3) - 0.02;
+q_ub(3) = q0(3) + 0.01;
+q_lb(3) = q0(3) - 0.02;
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
 
 
 state_cost = Point(getStateFrame(p),ones(nx,1));
 state_cost.base_x = 0;
 state_cost.base_y = 0;
+state_cost.base_pitch = 5;
 state_cost.base_roll = 10;
 state_cost.base_yaw = 10;
 state_cost.front_left_hip_roll = 5;
@@ -76,8 +77,7 @@ toc
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
-%   Q = 10*eye(nx);
-  R = 1*eye(nu);
+  R = 10*eye(nu);
   g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];
@@ -90,7 +90,7 @@ end
     ts = [0;cumsum(h)];
     for i=1:length(ts)
       v.drawWrapper(0,x(:,i));
-      pause(h(1)/3);
+      pause(h(1));
     end
    
 end
