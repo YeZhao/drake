@@ -7,7 +7,7 @@ p_perturb_averg = AcrobotPlant;
 p_nominal = AcrobotPlant;
 v = AcrobotVisualizer(p_perturb);
 v_averg = AcrobotVisualizer(p_perturb_averg);
-N = 91;
+N = 31;
 
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
 [utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = swingUpTrajectory_dircol(p_nominal,N);
@@ -29,7 +29,7 @@ xlabel('t');
 ylabel('u');
 hold on;
 
-figure(21)
+figure(22)
 subplot(2,2,1)
 hold on;
 plot(t_nominal', x_nominal(1,:), color_line_type, 'LineWidth',nominal_linewidth);
@@ -168,41 +168,41 @@ if generate_robust_traj == 1
             utrajArray(:,:,i) = utraj_eval;
             xtrajArray(:,:,i) = xtraj_eval;
             
-%             figure(10)
-%             hold on;
-%             plot(t_perturb', utraj_eval,color_line_type_set{1});
-%             xlabel('t');
-%             ylabel('u')
-%             hold on;
-%             
-%             figure(21)
-%             subplot(2,2,1)
-%             hold on;
-%             plot(t_perturb', xtraj_eval(1,:),color_line_type_set{1});
-%             xlabel('t');
-%             ylabel('x_1')
-%             hold on;
-%             
-%             subplot(2,2,2)
-%             hold on;
-%             plot(t_perturb', xtraj_eval(2,:),color_line_type_set{1});
-%             xlabel('t');
-%             ylabel('x_2')
-%             hold on;
-%             
-%             subplot(2,2,3)
-%             hold on;
-%             plot(t_perturb', xtraj_eval(3,:),color_line_type_set{1});
-%             xlabel('t');
-%             ylabel('xdot_1')
-%             hold on;
-%             
-%             subplot(2,2,4)
-%             hold on;
-%             plot(t_perturb', xtraj_eval(4,:),color_line_type_set{1});
-%             xlabel('t');
-%             ylabel('xdot_2')
-%             hold on;
+            figure(10)
+            hold on;
+            plot(t_perturb', utraj_eval,color_line_type_set{1});
+            xlabel('t');
+            ylabel('u')
+            hold on;
+            
+            figure(22)
+            subplot(2,2,1)
+            hold on;
+            plot(t_perturb', xtraj_eval(1,:),color_line_type_set{1});
+            xlabel('t');
+            ylabel('x_1')
+            hold on;
+            
+            subplot(2,2,2)
+            hold on;
+            plot(t_perturb', xtraj_eval(2,:),color_line_type_set{1});
+            xlabel('t');
+            ylabel('x_2')
+            hold on;
+            
+            subplot(2,2,3)
+            hold on;
+            plot(t_perturb', xtraj_eval(3,:),color_line_type_set{1});
+            xlabel('t');
+            ylabel('xdot_1')
+            hold on;
+            
+            subplot(2,2,4)
+            hold on;
+            plot(t_perturb', xtraj_eval(4,:),color_line_type_set{1});
+            xlabel('t');
+            ylabel('xdot_2')
+            hold on;
         end
         
         fprintf('\n=========== end ');
@@ -273,6 +273,17 @@ if generate_robust_traj == 1
         x_traj_diff_sum = sum(x_traj_diff');
         x_traj_diff_sum_percent = 100*x_traj_diff_sum/N;
         x_traj_max_diff_sum_percent = max(x_traj_diff_sum_percent);
+        
+        % accumulate control traj changes
+        u_traj_diff = abs((u_nominal - u_nominal_new)./u_nominal);
+        [row, col] = find(isnan(u_traj_diff));% set nan elements to zero
+        u_traj_diff(row,col) = 0;
+        [row, col] = find(isinf(u_traj_diff));% set inf elements to zero
+        u_traj_diff(row,col) = 0;
+        
+        u_traj_diff_sum = sum(u_traj_diff');
+        u_traj_diff_sum_percent = 100*u_traj_diff_sum/N;
+        u_traj_max_diff_sum_percent = max(u_traj_diff_sum_percent);
         
         % increment interation index
         m = m + 1;
