@@ -7,8 +7,8 @@ options.use_bullet = false;
 p = PlanarRigidBodyManipulator('urdf/spring_flamingo_passive_ankle.urdf',options);
 v = p.constructVisualizer;
 
-N = 17;
-T0 = 3;
+N = 25;
+T0 = 2.5;
 
 nq = p.getNumPositions();
 nv = p.getNumVelocities();
@@ -18,16 +18,16 @@ nu = p.getNumInputs();
 % ----- Periodicity Constraint ----- %
 % Positions
 
-q_periodic = zeros(p.getNumPositions);
-q_periodic(2,2) = 1; %z 
-q_periodic(3,3) = 1; %pitch
-q_periodic(4:6,7:9) = eye(3); %leg joints w/symmetry
-q_periodic(7:9,4:6) = eye(3); %leg joints w/symmetry
-         
-R_periodic = [q_periodic, blkdiag(0, -eye(nq-1))];
-              
-periodic_constraint = LinearConstraint(zeros(nq,1),zeros(nq,1),R_periodic);
-periodic_constraint = periodic_constraint.setName('periodicity');
+% q_periodic = zeros(p.getNumPositions);
+% q_periodic(2,2) = 1; %z 
+% q_periodic(3,3) = 1; %pitch
+% q_periodic(4:6,7:9) = eye(3); %leg joints w/symmetry
+% q_periodic(7:9,4:6) = eye(3); %leg joints w/symmetry
+%          
+% R_periodic = [q_periodic, blkdiag(0, -eye(nq-1))];
+%               
+% periodic_constraint = LinearConstraint(zeros(nq,1),zeros(nq,1),R_periodic);
+% periodic_constraint = periodic_constraint.setName('periodicity');
 
 % ----- Initial Guess ----- %
 q0 = [0; .875; 0; 0;0;0;0;0;0];
@@ -39,15 +39,16 @@ t_init = linspace(0,T0,N);
 % traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
-T_span = [1 T0];
+T_span = [.5 T0];
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm),7);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1),N);
-traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(nv,1)),1);
+traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint([-0.25;zeros(nv-1,1)]),1);
 [q_lb, q_ub] = getJointLimits(p);
+q_ub(2) = q0(2)+0.001;
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
@@ -69,8 +70,12 @@ toc
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
-  Q = 0.1*eye(nx);
-  R = 1*eye(nu);
+  qx = [0.1*ones(nq,1); 10*ones(nv,1)];
+  qx(1) = 0;
+  qx(2) = 10;
+  qx(3) = 1;
+  Q = diag(qx);
+  R = 100*eye(nu);
   g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];
@@ -81,7 +86,7 @@ end
   
     ts = [0;cumsum(h)];
     for i=1:length(ts)
-      v.drawWrapper(0,x(:,i));
+      v.drawWrapper(ts(i),x(:,i));
 %       pause(h(1)/50);
     end
    

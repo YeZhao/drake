@@ -531,8 +531,8 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         end
         
         function [c,dc] = scost(obj, s)
-            c = sum(s);
-            dc = ones(1,length(s));
+            c = 10*sum(s);
+            dc = 10*ones(1,length(s));
         end
         
         function [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
