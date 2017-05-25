@@ -1,6 +1,11 @@
-function [p,xtraj,utraj,z,F,info,traj_opt] = runVariationalTrajOpt()
+function [p,xtraj,utraj,z,F,info,traj_opt] = runStepUp()
 
-options.terrain = RigidBodyFlatTerrain();
+l = 0.4;
+h = 0.11;
+boxes = [0.25+l, 0.0, 2*l, 1, h;
+         0.25+l+l/2, 0.0, l, 1, 2*h];
+options.terrain = RigidBodyStepTerrain(boxes);
+
 options.floating = true;
 options.ignore_self_collisions = true;
 options.use_bullet = false;
@@ -21,7 +26,7 @@ T0 = 4;
 N = 30;
 
 % ----- Initial Guess ----- %
-q1 = [0.6;q0(2:end)];
+q1 = [0.45;0;q0(3)+h;q0(4:end)];
 x1 = [q1;zeros(nv,1)];
 
 t_init = linspace(0,T0,N);
@@ -38,15 +43,14 @@ traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1),N);
 traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(nv,1)),1);
 
 [q_lb, q_ub] = getJointLimits(p);
-q_ub(3) = q0(3) + 0.01;
-q_lb(3) = q0(3) - 0.02;
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
 
 
 state_cost = Point(getStateFrame(p),ones(nx,1));
 state_cost.base_x = 0;
 state_cost.base_y = 0;
-state_cost.base_pitch = 5;
+state_cost.base_z = 0;
+state_cost.base_pitch = 10;
 state_cost.base_roll = 10;
 state_cost.base_yaw = 10;
 state_cost.front_left_hip_roll = 5;
@@ -90,7 +94,7 @@ end
     ts = [0;cumsum(h)];
     for i=1:length(ts)
       v.drawWrapper(0,x(:,i));
-      pause(h(1));
+      pause(h(1)/3);
     end
    
 end

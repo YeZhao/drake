@@ -3,7 +3,9 @@ classdef LittleDog < RigidBodyManipulator %& LeggedRobot
   methods
     function obj = LittleDog(options)
       options.floating = true;
-      options.terrain = RigidBodyFlatTerrain();
+      if ~isfield(options,'terrain')
+       options.terrain = RigidBodyFlatTerrain();          
+      end
       w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
       obj = obj@RigidBodyManipulator('LittleDog.urdf',options);
       warning(w);
