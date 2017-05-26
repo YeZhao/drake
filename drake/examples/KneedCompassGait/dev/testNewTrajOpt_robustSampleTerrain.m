@@ -7,11 +7,13 @@ SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = randn(1,1)*paramstd;
-    while (paramerr(i)<=-1)~=0
-        paramerr(paramerr(i)<-1) = randn(1,(paramerr(i)<-1))*paramstd;
+    paramerr(i) = 0;%randn(1,1)*paramstd;
+    if (paramerr(i) > 0.15)
+        paramerr(i) = 0.15;
+    elseif (paramerr(i) < -0.15)
+        paramerr(i) = -0.15;
     end
-    options(i).terrain = RigidBodyFlatTerrainVaryingHeight(paramerr(i));
+    options(i).terrain = RigidBodyStepTerrainVaryingHeight(paramerr(i));
     options(i).floating = true;
     options(i).ignore_self_collisions = true;
     
@@ -52,13 +54,14 @@ periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumSta
 
 % x0 = [0;0;1;zeros(15,1)];
 % xf = [0;0;1;zeros(15,1)];
-x0 = [0;1.;zeros(10,1)];
-xf = [.2;1.;zeros(10,1)];
+x0 = [0;1;zeros(10,1)];
+xf = [.2;1;zeros(10,1)];
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
+    %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
     x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
@@ -111,7 +114,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',200000);
 v = p.constructVisualizer;
 v.playback(xtraj,struct('slider',true));
 
-disp('come here')
+disp('finish traj opt')
 
     function [f,df] = running_cost_fun(h,x,u)
         f = h*u'*u;
