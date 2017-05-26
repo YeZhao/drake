@@ -14,6 +14,9 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
         
         nonlincompl_constraints
         nonlincompl_slack_inds
+        
+        nonlincompl_constraints_purturb
+        nonlincompl_slack_inds_purturb
     end
     
     properties (Constant)
@@ -375,6 +378,97 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             running_cost = FunctionHandleObjective(1+nX+nU,running_cost_function);
             for i=1:obj.N-1,
                 obj = obj.addCost(running_cost,{obj.h_inds(i);obj.x_inds(:,i);obj.u_inds(:,i)});
+            end
+        end
+        
+        function obj = addRobustLCPConstraints(obj,plant_perturb, perturb_index, SampleNum)
+            nX = plant_perturb.getNumStates();
+            nU = plant_perturb.getNumInputs();
+            nq = plant_perturb.getNumPositions();
+            N = obj.N;
+            
+            lincompl_constraints = cell(N-1,1);
+            obj.nonlincompl_constraints_purturb = cell(N-1,1);
+            obj.nonlincompl_slack_inds_purturb = cell(N-1,1);
+            jlcompl_constraints = cell(N-1,1);
+            
+            q0 = getZeroConfiguration(plant_perturb);
+            [~,~,~,~,~,~,~,mu] = plant_perturb.contactConstraints(q0,false,obj.options.active_collision_options);
+            
+            for i=1:obj.N-1,
+                if obj.nC > 0
+                    % indices for (i) gamma
+                    gamma_inds = obj.l_inds(obj.nD+2:obj.nD+2:end,i);
+                    % awkward way to pull out these indices, for (i) lambda_N and
+                    % lambda_f
+                    lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
+                    
+                    obj.nonlincompl_constraints_purturb{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
+                    obj.nonlincompl_slack_inds_purturb{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints_purturb{i}.n_slack;
+                    obj = obj.addConstraint(obj.nonlincompl_constraints_purturb{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
+                    
+                    % linear complementarity constraint
+                    %   gamma /perp mu*lambda_N - sum(lambda_fi)
+                    %
+                    %  Generate terms W,r,M,gamma_inds so that
+                    %  gamma = y(gamma_inds)
+                    %  Wz+Mx+r = mu*lambda_N - sum(lambda_fi)
+                    r = zeros(obj.nC,1);
+                    W = zeros(obj.nC,obj.nC);
+                    M = zeros(obj.nC,obj.nC*(1+obj.nD));
+                    for k=1:obj.nC,
+                        M(k,1 + (k-1)*(1+obj.nD)) = mu(k);
+                        M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
+                    end
+                    
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
+                end
+                
+                if obj.nJL > 0
+                    % joint limit linear complementarity constraint
+                    % lambda_jl /perp [q - lb_jl; -q + ub_jl]
+                    W_jl = zeros(obj.nJL);
+                    [r_jl,M_jl] = jointLimitConstraints(plant_perturb,q0);
+                    jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
+                    
+                    obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i)]);
+                end
+            end
+            
+            % nonlinear complementarity constraints:
+            %   lambda_N /perp phi(q)
+            %   lambda_fi /perp gamma + Di*psi(q,v)
+            % x = [q;v;gamma]
+            % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
+            function [f,df] = nonlincompl_fun(y)
+                disp('perturbed plant index')
+                perturb_index
+                
+                nq = plant_perturb.getNumPositions;
+                nv = plant_perturb.getNumVelocities;
+                x = y(1:nq+nv+obj.nC);
+                z = y(nq+nv+obj.nC+1:end);
+                gamma = x(nq+nv+1:end);
+                
+                q = x(1:nq);
+                v = x(nq+1:nq+nv);
+                
+                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = plant_perturb.contactConstraints(q,false,obj.options.active_collision_options);
+                
+                f = zeros(obj.nC*(1+obj.nD),1);
+                df = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                
+                f(1:1+obj.nD:end) = phi;
+                df(1:1+obj.nD:end,1:nq) = n;
+                for j=1:obj.nD,
+                    f(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                    df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                    df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                    df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                end
+                f = f./SampleNum;
+                df = df./SampleNum;
             end
         end
         

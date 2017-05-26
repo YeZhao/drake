@@ -1,29 +1,31 @@
 function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = testNewTrajOpt_robustSampleTerrain(xtraj,utraj,ltraj,ljltraj)
 warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 warning('off','Drake:RigidBodyManipulator:WeldedLinkInd');
+options.terrain = RigidBodyStepTerrainVaryingHeight(0);
+options.floating = true;
+options.ignore_self_collisions = true;
+p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 paramstd = 1/5; % Standard deviation of the parameter value percent error
-SampleNum = 1; % number of sampled terrain height
+SampleNum = 15; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = 0;%randn(1,1)*paramstd;
-    if (paramerr(i) > 0.15)
-        paramerr(i) = 0.15;
-    elseif (paramerr(i) < -0.15)
-        paramerr(i) = -0.15;
+    paramerr(i) = randn(1,1)*paramstd;
+    if (paramerr(i) > 0.1)
+        paramerr(i) = 0.1;
+    elseif (paramerr(i) < -0.1)
+        paramerr(i) = -0.1;
     end
     options(i).terrain = RigidBodyStepTerrainVaryingHeight(paramerr(i));
     options(i).floating = true;
     options(i).ignore_self_collisions = true;
-    
-    %p_perturb(i) = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options(i));
-    p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options(i));
-    
+    p_perturb(i) = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options(i));
     % trajopt = ContactImplicitTrajectoryOptimization(p,[],[],[],10,[1 1]);
 end
 
 v = p.constructVisualizer;
+%v = p_perturb(1).constructVisualizer;
 
 %todo: add joint limits, periodicity constraint
 
@@ -55,14 +57,14 @@ periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumSta
 % x0 = [0;0;1;zeros(15,1)];
 % xf = [0;0;1;zeros(15,1)];
 x0 = [0;1;zeros(10,1)];
-xf = [.2;1;zeros(10,1)];
+xf = [.4;1;zeros(10,1)];%[Ye: does not make sense to have xf(1) = 0.2]
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
     %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
+    x1 = [.3;1;pi/8-pi/16;pi/8;-pi/3;pi/8;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
@@ -77,7 +79,6 @@ else
     traj_init.ljl = ljltraj;
 end
 T_span = [1 T];
-
 
 x0_min = [x0(1:5);-inf; -inf; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  inf; 0; inf(4,1)];
@@ -98,11 +99,14 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
+for i = 1:SampleNum
+    traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify this pa]
+end
+
 % % extra robust cost function
 % traj_opt.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + traj_opt.nC,traj_opt.nC*(1+obj.nD),traj_opt.options.nlcc_mode,traj_opt.options.compl_slack);
 % traj_opt.nonlincompl_slack_inds{i} = traj_opt.num_vars+1:traj_opt.num_vars + traj_opt.nonlincompl_constraints{i}.n_slack;
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
-
 
 % traj_opt = traj_opt.setCheckGrad(true);
 snprint('snopt.out');
@@ -111,38 +115,85 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',200000);
 [xtraj,utraj,ltraj,ljltraj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
 
-v = p.constructVisualizer;
 v.playback(xtraj,struct('slider',true));
+
+h_nominal = z(traj_opt.h_inds);
+t_nominal = [0; cumsum(h_nominal)];
+x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
+u_nominal = utraj.eval(t_nominal)';
+
+% plot nominal model trajs
+nominal_linewidth = 2.5;
+color_line_type = 'b-';
+figure(1)
+subplot(3,1,1)
+hold on;
+plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('u1');
+hold on;
+
+subplot(3,1,2)
+hold on;
+plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('u2');
+hold on;
+
+subplot(3,1,3)
+hold on;
+plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('u3');
+hold on;
+
+figure(2)
+subplot(2,3,1)
+hold on;
+plot(t_nominal', x_nominal(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('CoM x')
+hold on;
+
+subplot(2,3,2)
+hold on;
+plot(t_nominal', x_nominal(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('CoM z')
+hold on;
+
+subplot(2,3,3)
+hold on;
+plot(t_nominal', x_nominal(3,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('Hip joint 1')
+hold on;
+
+subplot(2,3,4)
+hold on;
+plot(t_nominal', x_nominal(4,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('Knee joint 1')
+hold on;
+
+subplot(2,3,5)
+hold on;
+plot(t_nominal', x_nominal(5,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('Knee joint 1')
+hold on;
+
+subplot(2,3,6)
+hold on;
+plot(t_nominal', x_nominal(6,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('Knee joint 2')
+hold on;
 
 disp('finish traj opt')
 
     function [f,df] = running_cost_fun(h,x,u)
         f = h*u'*u;
         df = [u'*u zeros(1,12) 2*h*u'];
-    end
-
-    function [f,df] = nonlincompl_fun(y)
-        nq = p.getNumPositions;
-        nv = p.getNumVelocities;
-        x = y(1:nq+nv+traj_opt.nC);
-        z = y(nq+nv+traj_opt.nC+1:end);
-        gamma = x(nq+nv+1:end);
-        
-        q = x(1:nq);
-        v = x(nq+1:nq+nv);
-        
-        [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = p.contactConstraints(q,false,traj_opt.options.active_collision_options);
-        
-        f = zeros(traj_opt.nC*(1+traj_opt.nD),1);
-        df = zeros(traj_opt.nC*(1+traj_opt.nD),nq+nv+traj_opt.nC*(2+traj_opt.nD));
-        
-        f(1:1+traj_opt.nD:end) = phi;
-        df(1:1+traj_opt.nD:end,1:nq) = n;
-        for j=1:traj_opt.nD,
-            f(1+j:1+traj_opt.nD:end) = gamma+D{j}*v;
-            df(1+j:1+traj_opt.nD:end,nq+nv+(1:traj_opt.nC)) = eye(size(D{j},1));  %d/dgamma
-            df(1+j:1+traj_opt.nD:end,nq+(1:nv)) = D{j};%d/dv
-            df(1+j:1+traj_opt.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
-        end 
     end
 end
