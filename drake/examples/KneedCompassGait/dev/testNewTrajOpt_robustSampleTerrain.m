@@ -7,11 +7,11 @@ options.ignore_self_collisions = true;
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 paramstd = 1/5; % Standard deviation of the parameter value percent error
-SampleNum = 15; % number of sampled terrain height
+SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = randn(1,1)*paramstd;
+    paramerr(i) = 0.05;%randn(1,1)*paramstd;
     if (paramerr(i) > 0.1)
         paramerr(i) = 0.1;
     elseif (paramerr(i) < -0.1)
@@ -24,18 +24,19 @@ for i = 1:SampleNum
     % trajopt = ContactImplicitTrajectoryOptimization(p,[],[],[],10,[1 1]);
 end
 
-v = p.constructVisualizer;
+v = p_perturb.constructVisualizer;
 %v = p_perturb(1).constructVisualizer;
+p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 10;
+N = 30;
 T = 5;
 T0 = 5;
 
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
-R_periodic(2,2) = 1; %z
+%R_periodic(2,2) = 1; %z
 R_periodic(3,3) = 1; %pitch-hip w/symmetry
 R_periodic(3,5) = 1; %pitch-hip w/symmetry
 R_periodic(4,6) = 1; %knee w/symmetry
@@ -50,21 +51,22 @@ R_periodic(10,12) = 1; %knee w/symmetry
 R_periodic(12,10) = 1; %knee w/symmetry
 R_periodic(11,11) = -1; %hip w/symmetry
 
-R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
+%R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
+R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
 
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
 % x0 = [0;0;1;zeros(15,1)];
 % xf = [0;0;1;zeros(15,1)];
 x0 = [0;1;zeros(10,1)];
-xf = [.4;1;zeros(10,1)];%[Ye: does not make sense to have xf(1) = 0.2]
+xf = [.4;1.;zeros(10,1)];%[Ye: does not make sense to have xf(1) = 0.2]
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
     %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [.3;1;pi/8-pi/16;pi/8;-pi/3;pi/8;zeros(6,1)];
+    x1 = [.3;1;pi/4;pi/3;-pi/3;pi/3;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
@@ -84,12 +86,15 @@ x0_min = [x0(1:5);-inf; -inf; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  inf; 0; inf(4,1)];
 xf_min = [.4;-inf(11,1)];
 xf_max = inf(12,1);
+% xf_min = [xf(1:5);-inf(7,1)];
+% xf_max = [xf(1:5);inf(7,1)];
 
+scale = 0.1;
 to_options.nlcc_mode = 2;
 to_options.lincc_mode = 1;
-to_options.compl_slack = .01;
-to_options.lincompl_slack = .001;
-to_options.jlcompl_slack = .01;
+to_options.compl_slack = scale*.01;
+to_options.lincompl_slack = scale*.001;
+to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
@@ -97,11 +102,16 @@ traj_opt = ContactImplicitTrajectoryOptimization(p,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
+% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
+% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xf),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
-for i = 1:SampleNum
-    traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify this pa]
-end
+traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
+
+
+% for i = 1:SampleNum
+%     traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify SampleNum parameter]
+% end
 
 % % extra robust cost function
 % traj_opt.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + traj_opt.nC,traj_opt.nC*(1+obj.nD),traj_opt.options.nlcc_mode,traj_opt.options.compl_slack);
@@ -110,12 +120,16 @@ end
 
 % traj_opt = traj_opt.setCheckGrad(true);
 snprint('snopt.out');
-traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',100);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',200000);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',1000000);
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+tic
 [xtraj,utraj,ltraj,ljltraj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
+toc
 
 v.playback(xtraj,struct('slider',true));
+% Create an animation movie
+%v.playbackAVI(xtraj, 'trial1.avi');
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
@@ -195,5 +209,14 @@ disp('finish traj opt')
     function [f,df] = running_cost_fun(h,x,u)
         f = h*u'*u;
         df = [u'*u zeros(1,12) 2*h*u'];
+    end
+
+    function displayTraj(h,x,u)
+        ts = [0;cumsum(h)];
+        for i=1:length(ts)
+            v.drawWrapper(ts(i),x(:,i));
+            %       pause(h(1)/50);
+        end
+        
     end
 end
