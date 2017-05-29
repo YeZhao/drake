@@ -1,4 +1,4 @@
-classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
+classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
     % phi, lambda
     properties
         nC
@@ -6,6 +6,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
+        LCP_slack_inds % slack variable for LCP component <z,f(x,z) = LCP_slack > = 0
         lambda_mult
         ljl_inds  % joint limit forces
         jl_lb_ind  % joint indices where the lower bound is finite
@@ -27,7 +28,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
     end
     
     methods
-        function obj = ContactImplicitTrajectoryOptimization(plant,N,duration,options)
+        function obj = RobustContactImplicitTrajectoryOptimization(plant,N,duration,options)
             if nargin<4, options=struct(); end
             
             if ~isfield(options,'nlcc_mode')
@@ -55,7 +56,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                 options.active_collision_options.terrain_only = true;
             end
             if ~isfield(options,'integration_method')
-                options.integration_method = ContactImplicitTrajectoryOptimization.MIDPOINT;
+                options.integration_method = RobustContactImplicitTrajectoryOptimization.MIDPOINT;
             end
             
             obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
@@ -95,10 +96,10 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     % lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
-                    
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
+                    obj.options.nlcc_mode = 5;% robust mode
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),1,obj.options.nlcc_mode);
+                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % [Ye: double check this part]
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);% [Ye: double check index, i or i-1]
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -129,6 +130,10 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                 end
             end
             
+            if (obj.nC > 0)
+                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1), obj.LCP_slack_inds(:));
+            end
+            
             % nonlinear complementarity constraints:
             %   lambda_N /perp phi(q)
             %   lambda_fi /perp gamma + Di*psi(q,v)
@@ -140,7 +145,6 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                 x = y(1:nq+nv+obj.nC);
                 z = y(nq+nv+obj.nC+1:end);
                 gamma = x(nq+nv+1:end);
-                
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
                 
@@ -157,8 +161,12 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                 end
-                
             end
+        end
+        
+        function [c,dc] = robustLCPcost(obj, s)
+            c = 20*sum(s);
+            dc = 20*ones(1,length(s));
         end
         
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
@@ -179,7 +187,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             v1 = x1(nq+1:nq+nv);
             
             switch obj.options.integration_method
-                case ContactImplicitTrajectoryOptimization.MIDPOINT
+                case RobustContactImplicitTrajectoryOptimization.MIDPOINT
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
                     dH0 = dH/2;
                     dC0 = dC/2;
@@ -187,17 +195,17 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     dH1 = dH/2;
                     dC1 = dC/2;
                     dB1 = dB/2;
-                case ContactImplicitTrajectoryOptimization.FORWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization.FORWARD_EULER
                     [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
                     dH1 = zeros(nq^2,2*nq);
                     dC1 = zeros(nq,2*nq);
                     dB1 = zeros(nq*nu,2*nq);
-                case ContactImplicitTrajectoryOptimization.BACKWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization.BACKWARD_EULER
                     [H,C,B,dH1,dC1,dB1] = obj.plant.manipulatorDynamics(q1,v1);
                     dH0 = zeros(nq^2,2*nq);
                     dC0 = zeros(nq,2*nq);
                     dB0 = zeros(nq*nu,2*nq);
-                case ContactImplicitTrajectoryOptimization.MIXED
+                case RobustContactImplicitTrajectoryOptimization.MIXED
                     [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
                     dH1 = zeros(nq^2,2*nq);
                     dC1 = zeros(nq,2*nq);
@@ -214,19 +222,19 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             end
             
             switch obj.options.integration_method
-                case ContactImplicitTrajectoryOptimization.MIDPOINT
+                case RobustContactImplicitTrajectoryOptimization.MIDPOINT
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*(v0 + v1)/2;
                     dfq = [-(v1+v0)/2, -eye(nq), -h/2*eye(nq), eye(nq), -h/2*eye(nq) zeros(nq,nu+nl+njl)];
-                case ContactImplicitTrajectoryOptimization.FORWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization.FORWARD_EULER
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*v0;
                     dfq = [-v0, -eye(nq), -h*eye(nq), eye(nq), zeros(nq,nv) zeros(nq,nu+nl+njl)];
-                case ContactImplicitTrajectoryOptimization.BACKWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization.BACKWARD_EULER
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*v1;
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
-                case ContactImplicitTrajectoryOptimization.MIXED
+                case RobustContactImplicitTrajectoryOptimization.MIXED
                     fq = q1 - q0 - h*v1;
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
             end
@@ -269,13 +277,15 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             df = [dfq;dfv];
         end
         
-        function [xtraj,utraj,ltraj,ljltraj,z,F,info] = solveTraj(obj,t_init,traj_init)
-            [xtraj,utraj,z,F,info] = solveTraj@DirectTrajectoryOptimization(obj,t_init,traj_init);
+        function [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
+            [xtraj,utraj,z,F,info,infeasible_constraint_name] = solveTraj@DirectTrajectoryOptimization(obj,t_init,traj_init);
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ltraj = PPTrajectory(foh(t,reshape(z(obj.l_inds),[],obj.N)));
+                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),[],obj.N-1),z(obj.s_inds(end))]));
             else
                 ltraj = [];
+                slacktraj = [];
             end
             if obj.nJL>0
                 ljltraj = PPTrajectory(foh(t,reshape(z(obj.ljl_inds),[],obj.N)));
@@ -309,6 +319,10 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             obj.jl_ub_ind = find(jl_ub ~= inf);
             
             obj = obj.addDecisionVariable(N * obj.nJL);
+            
+            %add maximal LCP slack variable into decision variable
+            obj.LCP_slack_inds = obj.num_vars*ones(1,N-1) + (1:(N-1));
+            obj = obj.addDecisionVariable(N-1);
         end
         
         % evaluates the initial trajectories at the sampled times and
@@ -351,6 +365,14 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     z0(obj.l_inds) = traj_init.l.eval(t_init);
                 else
                     z0(obj.l_inds) = 0;
+                end
+                
+                % initialize LCP slack variables
+                if isfield(traj_init,'LCP_slack')
+                    LCP_slack_eval = traj_init.LCP_slack.eval(t_init);
+                    z0(obj.LCP_slack_inds) = LCP_slack_eval(1:obj.N-1); % take N-1 values
+                else
+                    z0(obj.LCP_slack_inds) = 0;
                 end
             end
             if obj.nJL > 0
@@ -443,6 +465,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
             % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
             function [f,df] = nonlincompl_fun(y)
                 disp('perturbed plant index')
+                perturb_index
                 
                 nq = plant_perturb.getNumPositions;
                 nv = plant_perturb.getNumVelocities;

@@ -73,6 +73,7 @@ if nargin < 2
     traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
+    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
 else
     t_init = xtraj.pp.breaks;
     traj_init.x = xtraj;
@@ -98,7 +99,7 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
-traj_opt = ContactImplicitTrajectoryOptimization(p,N,T_span,to_options);
+traj_opt = RobustContactImplicitTrajectoryOptimization(p,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
@@ -107,7 +108,6 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
-
 
 % for i = 1:SampleNum
 %     traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify SampleNum parameter]
@@ -124,7 +124,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 tic
-[xtraj,utraj,ltraj,ljltraj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
+[xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 
 v.playback(xtraj,struct('slider',true));

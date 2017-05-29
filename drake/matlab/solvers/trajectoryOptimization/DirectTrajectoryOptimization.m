@@ -162,13 +162,29 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
         obj = obj.addConstraint(constraint,cstr_inds);
       end
     end
-
+    
     function obj = addTrajectoryDisplayFunction(obj,display_fun)
-      % add a dispay function that gets called on every iteration of the
-      % algorithm
-      % @param display_fun a function handle of the form displayFun(t,x,u)
-      %       where t is a 1-by-N, x is n-by-N and u is m-by-N
-      
+        % add a dispay function that gets called on every iteration of the
+        % algorithm
+        % @param display_fun a function handle of the form displayFun(t,x,u)
+        %       where t is a 1-by-N, x is n-by-N and u is m-by-N
+        
+%         h_nominal = z(obj.h_inds);
+%         t_nominal = [0; cumsum(h_nominal)];
+%         x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
+%         u_nominal = utraj.eval(t_nominal)';
+%         
+%         % plot nominal model trajs
+%         nominal_linewidth = 2.5;
+%         color_line_type = 'b-';
+%         figure(1)
+%         subplot(3,1,1)
+%         hold on;
+%         plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+%         xlabel('t');
+%         ylabel('u1');
+%         hold on;
+        
       obj = addDisplayFunction(obj,@(z) display_fun(z(obj.h_inds),z(obj.x_inds),z(obj.u_inds)));
     end
     
