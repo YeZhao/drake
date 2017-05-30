@@ -84,7 +84,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
             %obj.nNonLCP = 2;%[diff slack var]
-            obj.nNonLCP = 1;
+            obj.nNonLCP = 1;%[single slack var]
             for i=1:obj.N-1,
                 %         dyn_inds{i} = [obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)];
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -168,8 +168,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         end
         
         function [c,dc] = robustLCPcost(obj, slack_var)
-            c = 100*sum(slack_var);
-            dc = 100*ones(1,length(slack_var));
+            c = 1000*sum(slack_var);
+            dc = 1000*ones(1,length(slack_var));
         end
         
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
@@ -285,7 +285,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ltraj = PPTrajectory(foh(t,reshape(z(obj.l_inds),[],obj.N)));
-                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),[],obj.N-1),z(obj.LCP_slack_inds(end))]));
+                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),size(obj.LCP_slack_inds,1),obj.N-1),z(obj.LCP_slack_inds(:,end))]));
             else
                 ltraj = [];
                 slacktraj = [];
@@ -325,9 +325,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             %add maximal LCP slack variable into decision variable
             %obj.LCP_slack_inds = reshape(obj.num_vars + (1:2*(N-1)), 2, N-1);%[diff slack var]
-            obj.LCP_slack_inds = reshape(obj.num_vars + (1:N-1), 1, N-1);
+            obj.LCP_slack_inds = reshape(obj.num_vars + (1:N-1), 1, N-1);%[single slack var]
             %obj = obj.addDecisionVariable(2*(N-1));%[diff slack var]
-            obj = obj.addDecisionVariable(N-1);
+            obj = obj.addDecisionVariable(N-1);%[single slack var]
         end
         
         % evaluates the initial trajectories at the sampled times and

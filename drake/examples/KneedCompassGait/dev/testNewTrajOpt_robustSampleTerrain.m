@@ -11,7 +11,7 @@ SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = -0.05;%randn(1,1)*paramstd;
+    paramerr(i) = 0.05;%randn(1,1)*paramstd;
     if (paramerr(i) > 0.1)
         paramerr(i) = 0.1;
     elseif (paramerr(i) < -0.1)
@@ -90,7 +90,7 @@ xf_max = inf(12,1);
 % xf_min = [xf(1:5);-inf(7,1)];
 % xf_max = [xf(1:5);inf(7,1)];
 
-scale = 0.1;
+scale = 0.01;
 to_options.nlcc_mode = 2;
 to_options.lincc_mode = 1;
 to_options.compl_slack = scale*.01;
@@ -225,10 +225,15 @@ disp('finish traj opt')
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
         figure(3)
-        plot(ts, LCP_slack, color_line_type, 'LineWidth',nominal_linewidth);
+        plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
         xlabel('t');
         ylabel('slack variable');
         hold off;
+%         figure(4)
+%         plot(ts, LCP_slack(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+%         xlabel('t');
+%         ylabel('slack variable');
+%         hold off;
         fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));%, %4.4f
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
