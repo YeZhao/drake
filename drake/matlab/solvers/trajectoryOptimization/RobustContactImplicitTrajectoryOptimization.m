@@ -3,6 +3,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
     properties
         nC
         nD % number of friction elements per contact
+        nNonLCP % number of slack variables per contact
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
@@ -82,6 +83,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
+            obj.nNonLCP = 1;
             for i=1:obj.N-1,
                 %         dyn_inds{i} = [obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)];
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -97,9 +99,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
                     obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),1,obj.options.nlcc_mode);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % [Ye: double check this part]
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);% [Ye: double check index, i or i-1]
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.nNonLCP,obj.options.nlcc_mode);
+                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -164,9 +166,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
         end
         
-        function [c,dc] = robustLCPcost(obj, s)
-            c = 20*sum(s);
-            dc = 20*ones(1,length(s));
+        function [c,dc] = robustLCPcost(obj, slack_var)
+            c = 100*sum(slack_var);
+            dc = 100*ones(1,length(slack_var));
         end
         
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
@@ -282,7 +284,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ltraj = PPTrajectory(foh(t,reshape(z(obj.l_inds),[],obj.N)));
-                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),[],obj.N-1),z(obj.s_inds(end))]));
+                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),[],obj.N-1),z(obj.LCP_slack_inds(end))]));
             else
                 ltraj = [];
                 slacktraj = [];

@@ -11,7 +11,7 @@ SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = 0.05;%randn(1,1)*paramstd;
+    paramerr(i) = -0.05;%randn(1,1)*paramstd;
     if (paramerr(i) > 0.1)
         paramerr(i) = 0.1;
     elseif (paramerr(i) < -0.1)
@@ -59,14 +59,14 @@ periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumSta
 % x0 = [0;0;1;zeros(15,1)];
 % xf = [0;0;1;zeros(15,1)];
 x0 = [0;1;zeros(10,1)];
-xf = [.4;1.;zeros(10,1)];%[Ye: does not make sense to have xf(1) = 0.2]
+xf = [.4;1.;zeros(10,1)];
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
     %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [.3;1;pi/4;pi/3;-pi/3;pi/3;zeros(6,1)];
+    x1 = [.3;1;-pi/8;pi/3;-pi/3;pi/3;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
@@ -107,7 +107,9 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xf),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
+
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
+slack_sum_vec = [];% vector storing the slack variable sum
 
 % for i = 1:SampleNum
 %     traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify SampleNum parameter]
@@ -121,7 +123,7 @@ traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 % traj_opt = traj_opt.setCheckGrad(true);
 snprint('snopt.out');
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',1000000);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
@@ -211,12 +213,22 @@ disp('finish traj opt')
         df = [u'*u zeros(1,12) 2*h*u'];
     end
 
-    function displayTraj(h,x,u)
+    function displayTraj(h,x,u,LCP_slack)
         ts = [0;cumsum(h)];
         for i=1:length(ts)
             v.drawWrapper(ts(i),x(:,i));
-            %       pause(h(1)/50);
+                  pause(h(1)/10);
         end
         
+        LCP_slack = [LCP_slack; LCP_slack(end)];
+        nominal_linewidth = 2.5;
+        color_line_type = 'r-';
+        figure(3)
+        plot(ts, LCP_slack, color_line_type, 'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('slack variable');
+        hold off;
+        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack));
+        slack_sum_vec = [slack_sum_vec sum(LCP_slack)];
     end
 end

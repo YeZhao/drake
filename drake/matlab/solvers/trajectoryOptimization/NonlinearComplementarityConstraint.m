@@ -28,11 +28,12 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
         
 %         function obj = NonlinearComplementarityConstraint(fun,xdim,zdim,mode,slack)
         function obj = NonlinearComplementarityConstraint(fun,xdim,zdim,slackdim,mode)
-            if nargin < 4
+            if nargin < 5
                 mode = 1;
             end
-            if nargin < 5
+            if nargin < 4
                 slack = 0;
+                slack_var = 0.001;
             end
             
             n = 0;
@@ -52,7 +53,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+zdim,@proxfun);
                 case 5
                     constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-6;zeros(zdim,1)],[inf(zdim+xdim,1);1;inf(zdim,1)]);
-                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[Ye: the last element about slack variable is not used]
+                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[Ye: the last element is about slack variable but not used]
                     constraints{3} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackprod);
                     n = zdim;
             end
@@ -96,7 +97,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 slack_var = y(xdim+zdim+1);
                 gamma = y(xdim+zdim+2:end);
                 
-                f = z.*gamma - slack_var*ones(zdim,1);%[Ye: double check]
+                f = z.*gamma - slack_var*ones(zdim,1);
                 df = [zeros(zdim,xdim) diag(gamma) -ones(zdim,1) diag(z)];
             end
             
@@ -133,7 +134,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     obj.slack_fun = fun;
                 case 3
                 case 4
-                case 5 % [Ye: double check]
+                case 5
                     obj.slack_fun = fun;
             end
         end
