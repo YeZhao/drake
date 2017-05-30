@@ -83,7 +83,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            obj.nNonLCP = 1;
+            obj.nNonLCP = 2;
             for i=1:obj.N-1,
                 %         dyn_inds{i} = [obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)];
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -323,8 +323,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj = obj.addDecisionVariable(N * obj.nJL);
             
             %add maximal LCP slack variable into decision variable
-            obj.LCP_slack_inds = obj.num_vars*ones(1,N-1) + (1:(N-1));
-            obj = obj.addDecisionVariable(N-1);
+            obj.LCP_slack_inds = reshape(obj.num_vars + (1:2*(N-1)), 2, N-1);
+            obj = obj.addDecisionVariable(2*(N-1));
         end
         
         % evaluates the initial trajectories at the sampled times and
@@ -372,7 +372,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 % initialize LCP slack variables
                 if isfield(traj_init,'LCP_slack')
                     LCP_slack_eval = traj_init.LCP_slack.eval(t_init);
-                    z0(obj.LCP_slack_inds) = LCP_slack_eval(1:obj.N-1); % take N-1 values
+                    z0(obj.LCP_slack_inds) = LCP_slack_eval(:,1:obj.N-1); % take N-1 values
                 else
                     z0(obj.LCP_slack_inds) = 0;
                 end

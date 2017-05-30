@@ -52,9 +52,9 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 case 4
                     constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+zdim,@proxfun);
                 case 5
-                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-6;zeros(zdim,1)],[inf(zdim+xdim,1);1;inf(zdim,1)]);
-                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[Ye: the last element is about slack variable but not used]
-                    constraints{3} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackprod);
+                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-6;1e-6;zeros(zdim,1)],[inf(zdim+xdim,1);1;1;inf(zdim,1)]);
+                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+2,@robustslackeq);%[Ye: the last element is about slack variable but not used]
+                    constraints{3} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+2,@robustslackprod);
                     n = zdim;
             end
             function [f,df] = prodfun(y)
@@ -85,20 +85,22 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
             function [f,df] = robustslackeq(y)
                 x = y(1:xdim);
                 z = y(xdim+1:xdim+zdim);
-                gamma = y(xdim+zdim+1:end-1);
+                gamma = y(xdim+zdim+3:end);
                 [f,df] = fun([x;z]);
                 f = f - gamma;
-                df = [df zeros(zdim, zdim+1)] - [zeros(zdim,zdim+xdim) eye(zdim) zeros(zdim,1)];
+                df = [df zeros(zdim, zdim+2)] - [zeros(zdim,zdim+xdim) eye(zdim) zeros(zdim,2)];
             end
             
             function [f,df] = robustslackprod(y)
                 x = y(1:xdim);
                 z = y(xdim+1:xdim+zdim);
-                slack_var = y(xdim+zdim+1);
-                gamma = y(xdim+zdim+2:end);
+                slack_var = y(xdim+zdim+(1:2));
+                gamma = y(xdim+zdim+3:end);
                 
-                f = z.*gamma - slack_var*ones(zdim,1);
-                df = [zeros(zdim,xdim) diag(gamma) -ones(zdim,1) diag(z)];
+                f = z.*gamma - repmat([slack_var(1);slack_var(2);slack_var(2)],2,1);
+                dslack_var1 = repmat([1;0;0],2,1);
+                dslack_var2 = repmat([0;1;1],2,1);
+                df = [zeros(zdim,xdim) diag(gamma) -dslack_var1 -dslack_var2 diag(z)];
             end
             
             function [f,df] = fbfun(y)

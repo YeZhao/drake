@@ -73,7 +73,7 @@ if nargin < 2
     traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
-    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
+    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(2,N)));
 else
     t_init = xtraj.pp.breaks;
     traj_init.x = xtraj;
@@ -220,7 +220,7 @@ disp('finish traj opt')
                   pause(h(1)/10);
         end
         
-        LCP_slack = [LCP_slack; LCP_slack(end)];
+        LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
         figure(3)
@@ -228,7 +228,7 @@ disp('finish traj opt')
         xlabel('t');
         ylabel('slack variable');
         hold off;
-        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack));
-        slack_sum_vec = [slack_sum_vec sum(LCP_slack)];
+        fprintf('sum of slack variables along traj: %4.4f, %4.4f\n',sum(LCP_slack,2));
+        slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
 end
