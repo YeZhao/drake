@@ -83,7 +83,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            obj.nNonLCP = 2;
+            %obj.nNonLCP = 2;%[diff slack var]
+            obj.nNonLCP = 1;
             for i=1:obj.N-1,
                 %         dyn_inds{i} = [obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)];
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -323,8 +324,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj = obj.addDecisionVariable(N * obj.nJL);
             
             %add maximal LCP slack variable into decision variable
-            obj.LCP_slack_inds = reshape(obj.num_vars + (1:2*(N-1)), 2, N-1);
-            obj = obj.addDecisionVariable(2*(N-1));
+            %obj.LCP_slack_inds = reshape(obj.num_vars + (1:2*(N-1)), 2, N-1);%[diff slack var]
+            obj.LCP_slack_inds = reshape(obj.num_vars + (1:N-1), 1, N-1);
+            %obj = obj.addDecisionVariable(2*(N-1));%[diff slack var]
+            obj = obj.addDecisionVariable(N-1);
         end
         
         % evaluates the initial trajectories at the sampled times and

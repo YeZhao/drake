@@ -30,7 +30,7 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 30;
+N = 50;
 T = 5;
 T0 = 5;
 
@@ -66,14 +66,14 @@ N2 = floor(N/2);
 if nargin < 2
     %Try to come up with a reasonable trajectory
     %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [.3;1;-pi/8;pi/3;-pi/3;pi/3;zeros(6,1)];
+    x1 = [.3;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
     traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
-    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(2,N)));
+    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
 else
     t_init = xtraj.pp.breaks;
     traj_init.x = xtraj;
@@ -220,6 +220,7 @@ disp('finish traj opt')
                   pause(h(1)/10);
         end
         
+        LCP_slack = LCP_slack';
         LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
@@ -228,7 +229,7 @@ disp('finish traj opt')
         xlabel('t');
         ylabel('slack variable');
         hold off;
-        fprintf('sum of slack variables along traj: %4.4f, %4.4f\n',sum(LCP_slack,2));
+        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));%, %4.4f
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
 end
