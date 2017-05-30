@@ -1,4 +1,4 @@
-function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = testNewTrajOpt_robustSampleTerrain(xtraj,utraj,ltraj,ljltraj)
+function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = robustSampleTerrain(xtraj,utraj,ltraj,ljltraj)
 warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 warning('off','Drake:RigidBodyManipulator:WeldedLinkInd');
 options.terrain = RigidBodyStepTerrainVaryingHeight(0);
@@ -7,11 +7,11 @@ options.ignore_self_collisions = true;
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 paramstd = 1/5; % Standard deviation of the parameter value percent error
-SampleNum = 1; % number of sampled terrain height
+SampleNum = 15; % number of sampled terrain height
 % perturb model parameters
 paramerr = [];
 for i = 1:SampleNum
-    paramerr(i) = -0.1;%randn(1,1)*paramstd;
+    paramerr(i) = randn(1,1)*paramstd;
     if (paramerr(i) > 0.1)
         paramerr(i) = 0.1;
     elseif (paramerr(i) < -0.1)
@@ -24,13 +24,13 @@ for i = 1:SampleNum
     % trajopt = ContactImplicitTrajectoryOptimization(p,[],[],[],10,[1 1]);
 end
 
-v = p_perturb.constructVisualizer;
+v = p_perturb(1).constructVisualizer;
 %v = p_perturb(1).constructVisualizer;
-p = p_perturb;
+p = p_perturb(1);
 
 %todo: add joint limits, periodicity constraint
 
-N = 20;
+N = 10;
 T = 5;
 T0 = 5;
 
@@ -55,6 +55,10 @@ R_periodic(11,11) = -1; %hip w/symmetry
 R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
 
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
+%[samples]
+% for i = 1:SampleNum
+%     periodic_constraint_sample{i} =  periodic_constraint;
+% end
 
 % x0 = [0;0;1;zeros(15,1)];
 % xf = [0;0;1;zeros(15,1)];
@@ -99,7 +103,7 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
-traj_opt = RobustContactImplicitTrajectoryOptimization(p,N,T_span,to_options);
+traj_opt = RobustSampledContactImplicitTrajectoryOptimization(p,p_perturb,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);

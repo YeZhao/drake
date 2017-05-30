@@ -10,7 +10,7 @@ classdef RigidBodyStepTerrainVaryingHeight < RigidBodyTerrain
             obj.height = [height, -0.1];
             if nargin < 2
                 boxes = [1.2, 0.0, 2, 2, 0.5;
-                         -2,  0.0, 1.4, 1.4, 0.5];
+                         -2,  0.0, 1.4, 2, 0.5];
             end
             obj.centers_x = boxes(:, 1);
             obj.centers_y = boxes(:, 2);
@@ -34,11 +34,13 @@ classdef RigidBodyStepTerrainVaryingHeight < RigidBodyTerrain
             y_below_boxes = y <= repmat(obj.centers_y+ obj.boxs_y/2, [1, size(xy, 2)]);
             y_in_boxes = y_above_boxes & y_below_boxes;
             
-            in_boxes = x_in_boxes & y_in_boxes;
-            
+            in_boxes = x_in_boxes & y_in_boxes;            
             % Give the height of the heighest box that each point falls in
             adjusted_heights = repmat(obj.height', [1, size(xy, 2)]) .* in_boxes; % [Ye: modified the terrain height]
             z = max(adjusted_heights, [], 1);
+            if ~any(z > 0)% detect terrain height when it has a negative value
+                z = min(adjusted_heights, [], 1);
+            end
             
             % Normals always straight up
             normal = repmat([0;0;1],1,n);

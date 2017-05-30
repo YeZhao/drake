@@ -64,7 +64,8 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
       obj = obj@NonlinearProgram(0);
       obj.options = options;
       obj.plant = plant;
-
+      %obj.plant_sample = plant_sample;%[sample]
+      
       obj = obj.setupVariables(N);
 
       % Construct total time linear constraint
