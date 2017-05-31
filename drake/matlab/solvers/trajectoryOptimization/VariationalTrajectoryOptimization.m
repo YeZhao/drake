@@ -255,6 +255,19 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             end
         end
         
+        function obj = addNormalForceCost(obj,cost_function)
+            nC = obj.nC;
+            switch obj.integration_method
+                case VariationalTrajectoryOptimization.MIDPOINT
+                    for i = 1:obj.N-1
+                        contact_cost = FunctionHandleObjective(nC, @(c)cost_function(c));
+                        inds = {obj.c_inds(:,i)};
+                        obj = obj.addCost(contact_cost,inds);
+                    end
+                case VariationalTrajectoryOptimization.SIMPSON
+            end
+        end
+        
         function obj = addInitialCost(obj,initial_cost)
             
         end
