@@ -30,7 +30,7 @@ p = p_perturb(1);
 
 %todo: add joint limits, periodicity constraint
 
-N = 10;
+N = 50;
 T = 5;
 T0 = 5;
 
@@ -87,12 +87,10 @@ else
 end
 T_span = [1 T];
 
-x0_min = [x0(1:5);-inf; -inf; 0; -inf(4,1)];
-x0_max = [x0(1:5);inf;  inf; 0; inf(4,1)];
+x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
+x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
 xf_min = [.4;-inf(11,1)];
 xf_max = inf(12,1);
-% xf_min = [xf(1:5);-inf(7,1)];
-% xf_max = [xf(1:5);inf(7,1)];
 
 scale = 0.01;
 to_options.nlcc_mode = 2;
@@ -107,8 +105,6 @@ traj_opt = RobustSampledContactImplicitTrajectoryOptimization(p,p_perturb,N,T_sp
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
-% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
-% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xf),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
@@ -140,6 +136,7 @@ h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
+slack_nominal = slacktraj.eval(t_nominal)';
 
 % plot nominal model trajs
 nominal_linewidth = 2.5;

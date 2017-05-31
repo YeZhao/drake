@@ -3,7 +3,6 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
     properties
         nC
         nD % number of friction elements per contact
-        nNonLCP % number of slack variables per contact
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
@@ -84,10 +83,7 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            %obj.nNonLCP = 2;%[diff slack var]
-            obj.nNonLCP = 1;%[single slack var]
             for i=1:obj.N-1
-                %         dyn_inds{i} = [obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)];
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
                 constraints{i} = cnstr;
                 
@@ -101,7 +97,7 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
                     obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.nNonLCP,obj.options.nlcc_mode);
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
@@ -119,8 +115,8 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
                         M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
                     end
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                 end
                 
                 if obj.nJL > 0
@@ -128,9 +124,9 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
                     % lambda_jl /perp [q - lb_jl; -q + ub_jl]
                     W_jl = zeros(obj.nJL);
                     [r_jl,M_jl] = jointLimitConstraints(obj.plant,q0);
-                    jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
+                    jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode);
                     
-                    obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i)]);
+                    obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
                 end
             end
             
@@ -151,9 +147,7 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
                 gamma = x(nq+nv+1:end);
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
-                
-                %[phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
-                
+                                
                 %[sample]
                 SampleNum = 15;
                 for i =1:SampleNum
@@ -296,9 +290,7 @@ classdef RobustSampledContactImplicitTrajectoryOptimization < DirectTrajectoryOp
             dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
             
-            if nl>0
-                %[phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
-                
+            if nl>0                
                 %[sample]
                 SampleNum = 15;
                 for i =1:SampleNum

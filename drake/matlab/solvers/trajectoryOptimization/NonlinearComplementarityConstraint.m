@@ -27,11 +27,11 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
     methods
         
 %         function obj = NonlinearComplementarityConstraint(fun,xdim,zdim,mode,slack)
-        function obj = NonlinearComplementarityConstraint(fun,xdim,zdim,slackdim,mode)
-            if nargin < 5
+        function obj = NonlinearComplementarityConstraint(fun,xdim,zdim,mode)
+            if nargin < 4
                 mode = 1;
             end
-            if nargin < 4
+            if nargin < 3
                 slack = 0;
                 slack_var = 0.001;
             end
@@ -52,10 +52,9 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 case 4
                     constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+zdim,@proxfun);
                 case 5
-                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-6;zeros(zdim,1)],[inf(zdim+xdim,1);1;inf(zdim,1)]);%[diff slack var]
-                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[Ye: the last element is about slack variable but not used]%[diff slack var]
+                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-8;zeros(zdim,1)],[inf(zdim+xdim,1);1;inf(zdim,1)]);%[diff slack var]
+                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[the last element is about slack variable but not used]%[diff slack var]
                     constraints{3} = FunctionHandleConstraint(-inf(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackprod);%[diff slack var]
-                    %constraints{4} = FunctionHandleConstraint(zeros(zdim,1),inf(zdim,1),xdim+2*zdim+1,@robustslackprod_nonnegative);%[diff slack var]
                     n = zdim;
             end
             function [f,df] = prodfun(y)

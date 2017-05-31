@@ -14,18 +14,18 @@ classdef LinearComplementarityConstraint < CompositeConstraint
   %         z + W*z+M*x+q - sqrt(z^2 + (W*z+M*x+q)^2) (nl) (elementwise)
   methods
     
-    function obj = LinearComplementarityConstraint(W,q,M,mode,slack)
+    function obj = LinearComplementarityConstraint(W,q,M,mode)
       zdim = size(W,2);
       
-      if nargin < 3
+      if nargin < 2
         M = zeros(zdim,0);
       end
       
-      if nargin < 4
+      if nargin < 3
         mode = 1;
       end
       
-      if nargin < 5
+      if nargin < 4
         slack = 0;
       end
       
@@ -38,13 +38,25 @@ classdef LinearComplementarityConstraint < CompositeConstraint
       n = 0;
       switch mode
         case 1
-          bcon = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1)],inf(zdim+xdim,1));
-          lincon = LinearConstraint(-q,inf(zdim,1),[M W]);
-          nlcon = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1)+slack,xdim+zdim,@prodfun);
+          bcon = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-8],[inf(zdim+xdim,1);1]);
+          lincon = LinearConstraint(-q,inf(zdim,1),[M W zeros(zdim,1)]);
+          nlcon = FunctionHandleConstraint(-inf(zdim,1),zeros(zdim,1),xdim+zdim+1,@prodfun_slack);
           constraints = {bcon;lincon;nlcon};
         case 3
           constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),zdim,@fbfun);
       end
+      function [f,df] = prodfun_slack(y)
+        x = y(1:xdim);
+        z = y(xdim+1:end-1);
+        slack_var = y(end);
+        
+        g = W*z + M*x + q;
+        dg = [M W];
+        
+        f = z.*g - slack_var*ones(zdim,1);
+        df = [diag(z)*dg + [zeros(zdim,xdim) diag(g)], -ones(zdim,1)];
+      end
+
       function [f,df] = prodfun(y)
         x = y(1:xdim);
         z = y(xdim+1:end);
@@ -55,7 +67,7 @@ classdef LinearComplementarityConstraint < CompositeConstraint
         f = z.*g;
         df = diag(z)*dg + [zeros(zdim,xdim) diag(g)];
       end
-
+      
       function [f,df] = fbfun(y)
         x = y(1:xdim);
         z = y(xdim+1:end);
