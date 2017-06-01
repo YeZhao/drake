@@ -698,31 +698,31 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             end
             
             if isfield(traj_init,'c')
-                z0(obj.c_inds) = traj_init.c.eval(t_init);
+                z0(obj.c_inds) = traj_init.c.eval(t_init(:,1:end-1));
             else
                 z0(obj.c_inds(:)) = .1*rand(length(obj.c_inds(:)),1);
             end
             
             if isfield(traj_init,'b')
-                z0(obj.b_inds) = traj_init.b.eval(t_init);
+                z0(obj.b_inds) = traj_init.b.eval(t_init(:,1:end-1));
             else
                 z0(obj.b_inds(:)) = .1*rand(length(obj.b_inds(:)),1);
             end
             
             if isfield(traj_init,'psi')
-                z0(obj.psi_inds) = traj_init.psi.eval(t_init);
+                z0(obj.psi_inds) = traj_init.psi.eval(t_init(:,1:end-1));
             else
                 z0(obj.psi_inds(:)) = .1*rand(length(obj.psi_inds(:)),1);
             end
             
             if isfield(traj_init,'eta')
-                z0(obj.eta_inds) = traj_init.eta.eval(t_init);
+                z0(obj.eta_inds) = traj_init.eta.eval(t_init(:,1:end-1));
             else
                 z0(obj.eta_inds(:)) = .1*rand(length(obj.eta_inds(:)),1);
             end
             
             if isfield(traj_init,'s')
-                z0(obj.s_inds) = traj_init.s.eval(t_init);
+                z0(obj.s_inds) = traj_init.s.eval(t_init(:,1:end-1));
             else
                 z0(obj.s_inds(:)) = 1;
             end
