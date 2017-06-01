@@ -133,6 +133,9 @@ classdef Valkyrie < TimeSteppingRigidBodyManipulator & Biped
       end
     end
 
+    function x0 = getZeroConfiguration(obj)
+      x0= zeros(obj.getNumStates,1);
+    end
     function obj = setInitialState(obj,x0)
       if isa(x0,'Point')
         obj.x0 = double(x0); %.inFrame(obj.getStateFrame));
