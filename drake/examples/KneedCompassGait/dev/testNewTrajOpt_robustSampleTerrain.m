@@ -30,7 +30,7 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 250;
+N = 50;
 T = 5;
 T0 = 5;
 
@@ -120,6 +120,7 @@ snprint('snopt.out');
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
