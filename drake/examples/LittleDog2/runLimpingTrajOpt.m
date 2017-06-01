@@ -1,5 +1,7 @@
 function [p,xtraj,utraj,ctraj,btraj,straj,z,F,info,traj_opt] = runLimpingTrajOpt()
 
+load_saved = false;
+
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 options.ignore_self_collisions = true;
@@ -24,19 +26,24 @@ N = 30;
 q1 = [0.6;q0(2:end)];
 x1 = [q1;zeros(nv,1)];
 
-load('limping_traj.mat');
-
-t_init = linspace(xtraj.tspan(0),xtraj.tspan(1),N);
-traj_init.x = xtraj;
-traj_init.u = utraj;
-traj_init.s = straj;
-traj_init.c = PPTrajectory(zoh(t_init
-
-t_init = linspace(0,T0,N);
-% traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
-traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
-traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
-T_span = [1 T0];
+if load_saved
+    load('limping_traj.mat');
+    t_saved = linspace(xtraj.tspan(1),xtraj.tspan(2),length(xtraj.getBreaks));
+    t_init = linspace(xtraj.tspan(1),xtraj.tspan(2),N);
+    traj_init.x = xtraj;
+    traj_init.u = utraj;
+    traj_init.c = ctraj;
+    traj_init.b = btraj;
+    traj_init.eta = PPTrajectory(zoh(t_saved,[z(eta_inds),z(eta_inds(:,end))]));
+    traj_init.psi = PPTrajectory(zoh(t_saved,[z(psi_inds),z(psi_inds(:,end))]));
+    T_span = [1 T0];
+else
+    t_init = linspace(0,T0,N);
+    % traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
+    traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
+    traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
+    T_span = [1 T0];
+end
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
