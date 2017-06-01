@@ -1,4 +1,4 @@
-function [p,xtraj,utraj,z,F,info,traj_opt] = runLimpingTrajOpt()
+function [p,xtraj,utraj,ctraj,btraj,straj,z,F,info,traj_opt] = runLimpingTrajOpt()
 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
@@ -24,6 +24,14 @@ N = 30;
 q1 = [0.6;q0(2:end)];
 x1 = [q1;zeros(nv,1)];
 
+load('limping_traj.mat');
+
+t_init = linspace(xtraj.tspan(0),xtraj.tspan(1),N);
+traj_init.x = xtraj;
+traj_init.u = utraj;
+traj_init.s = straj;
+traj_init.c = PPTrajectory(zoh(t_init
+
 t_init = linspace(0,T0,N);
 % traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
@@ -47,13 +55,13 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1
 state_cost = Point(getStateFrame(p),ones(nx,1));
 state_cost.base_x = 0;
 state_cost.base_y = 0;
-state_cost.base_pitch = 30;
+state_cost.base_pitch = 10;
 state_cost.base_roll = 10;
 state_cost.base_yaw = 10;
-state_cost.front_left_hip_roll = 5;
-state_cost.front_right_hip_roll = 5;
-state_cost.back_left_hip_roll = 5;
-state_cost.back_right_hip_roll = 5;
+% state_cost.front_left_hip_roll = 5;
+% state_cost.front_right_hip_roll = 5;
+% state_cost.back_left_hip_roll = 5;
+% state_cost.back_right_hip_roll = 5;
 state_cost = double(state_cost);
 Q = diag(state_cost); 
 
@@ -76,6 +84,10 @@ tic
 toc
 
 v.playback(xtraj,struct('slider',true));
+
+eta_inds = traj_opt.eta_inds;
+psi_inds = traj_opt.psi_inds;
+save('limping_traj','xtraj','utraj','ctraj','btraj','straj','eta_inds','psi_inds','z');
 
 function [f,df] = running_cost_fun(h,x,u)
   R = 10*eye(nu);
