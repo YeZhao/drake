@@ -678,12 +678,35 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                 z0(obj.v0_inds) = xsamp(nQ+(1:nQ),1);
             end
             
-            %Set contact + smoothing parameters
-            z0(obj.psi_inds(:)) = .1*rand(length(obj.psi_inds(:)),1);
-            z0(obj.eta_inds(:)) = .1*rand(length(obj.eta_inds(:)),1);
-            z0(obj.c_inds(:)) = .1*rand(length(obj.c_inds(:)),1);
-            z0(obj.b_inds(:)) = .1*rand(length(obj.b_inds(:)),1);
-            z0(obj.s_inds(:)) = 1;
+            if isfield(traj_init,'c')
+                z0(obj.c_inds) = traj_init.c.eval(t_init);
+            else
+                z0(obj.c_inds(:)) = .1*rand(length(obj.c_inds(:)),1);
+            end
+            
+            if isfield(traj_init,'b')
+                z0(obj.b_inds) = traj_init.b.eval(t_init);
+            else
+                z0(obj.b_inds(:)) = .1*rand(length(obj.b_inds(:)),1);
+            end
+            
+            if isfield(traj_init,'psi')
+                z0(obj.psi_inds) = traj_init.psi.eval(t_init);
+            else
+                z0(obj.psi_inds(:)) = .1*rand(length(obj.psi_inds(:)),1);
+            end
+            
+            if isfield(traj_init,'eta')
+                z0(obj.eta_inds) = traj_init.eta.eval(t_init);
+            else
+                z0(obj.eta_inds(:)) = .1*rand(length(obj.eta_inds(:)),1);
+            end
+            
+            if isfield(traj_init,'s')
+                z0(obj.s_inds) = traj_init.s.eval(t_init);
+            else
+                z0(obj.s_inds(:)) = 1;
+            end
         end
     end
 end
