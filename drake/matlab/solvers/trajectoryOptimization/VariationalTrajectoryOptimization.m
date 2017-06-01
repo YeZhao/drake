@@ -40,8 +40,14 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                 options.twoD = false;
             end
             
-            obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
+            if ~isfield(options,'s_weight')
+                options.s_weight = 10;
+            end            
+            if ~isfield(options,'add_ccost')
+                options.add_ccost = false;
+            end            
             
+            obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
         end
         
         function obj = setupVariables(obj, N)
@@ -166,6 +172,12 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                             obj = obj.addConstraint(s_constraints{i}, obj.s_inds(i));
                         end
                         obj = obj.addCost(FunctionHandleObjective(length(obj.s_inds),@(s)scost(obj,s),1), obj.s_inds(:));
+
+                        if obj.options.add_ccost
+                          for ii=1:obj.N-2
+                            obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{obj.c_inds(:,ii);obj.c_inds(:,ii+1)});
+                          end
+                        end
                     end
                     
                     dyn_inds{1} = {obj.h_inds(1); obj.x_inds(:,1); obj.v0_inds(:); obj.x_inds(:,2); obj.u_inds(:,1); obj.c_inds(:,1); obj.b_inds(:,1)};
@@ -543,9 +555,16 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             
         end
         
+        function [c,dc] = ccost(~,c1,c2)
+          cdiff = c1-c2;
+          c = 0.5*(cdiff'*cdiff);
+          I = eye(length(c1));
+          dc = [cdiff'*I,-cdiff'*I];
+        end
+        
         function [c,dc] = scost(obj, s)
-            c = 10*sum(s);
-            dc = 10*ones(1,length(s));
+            c = obj.options.s_weight*sum(s);
+            dc = obj.options.s_weight*ones(1,length(s));
         end
         
         function [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
