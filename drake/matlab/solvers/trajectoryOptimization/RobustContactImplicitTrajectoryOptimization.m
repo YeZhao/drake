@@ -70,6 +70,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             N = obj.N;
             
             constraints = cell(N-1,1);
+            step_length_constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
             obj.nonlincompl_constraints = cell(N-1,1);
             obj.nonlincompl_slack_inds = cell(N-1,1);
@@ -80,13 +81,19 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
+            cnstr_step_length = FunctionHandleConstraint(-inf(1),zeros(1),nX,@obj.step_length_constraint_fun);
+            
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
                 constraints{i} = cnstr;
-                
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
+                
+                % add step length constraint
+                step_length_inds{i} = {obj.x_inds(:,i)};
+                step_length_constraints{i} = cnstr_step_length;
+                obj = obj.addConstraint(step_length_constraints{i}, step_length_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -274,6 +281,29 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             f = [fq;fv];
             df = [dfq;dfv];
+        end
+        
+        function [f,df] = step_length_constraint_fun(obj,x)
+            nq = obj.plant.getNumPositions;
+            nv = obj.plant.getNumVelocities;
+
+            % hard coding fwd kinematics
+            CoM_x_pos = x(1);
+            q_stance_hip = x(3);
+            q_stance_knee = x(4);
+            q_swing_hip = x(5);
+            q_swing_knee = x(6);
+            l_thigh  = 0.5;
+            l_calf  = 0.5;
+            %swing foot sagittal position
+            x_swing = CoM_x_pos - l_thigh*sin(q_swing_hip) - l_calf*sin(q_swing_knee + q_swing_hip);
+            x_stance = CoM_x_pos - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee);
+            
+            foot_horizontal_distance_max = 0.2;
+            
+            f = x_swing - x_stance - foot_horizontal_distance_max;
+            df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
+                 -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv)];
         end
         
         function [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)

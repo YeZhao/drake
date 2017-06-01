@@ -17,7 +17,7 @@ for i = 1:SampleNum
     elseif (paramerr(i) < -0.3)
         paramerr(i) = -0.3;
     end
-    options(i).terrain = RigidBodyStepTerrainVaryingHeight(paramerr(i));
+    options(i).terrain = RigidBodyStepTerrainMultipleSteps();%RigidBodyStepTerrainVaryingHeight(paramerr(i));
     options(i).floating = true;
     options(i).ignore_self_collisions = true;
     p_perturb(i) = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options(i));
@@ -30,7 +30,7 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 50;
+N = 250;
 T = 5;
 T0 = 5;
 
@@ -57,14 +57,15 @@ R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
 x0 = [0;1;zeros(10,1)];
-xf = [.4;1.;zeros(10,1)];
+%xf = [.4;1.;zeros(10,1)];
+xf = [3.2;1.;zeros(10,1)];
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
     %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [.3;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
+    x1 = [2;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
@@ -83,7 +84,8 @@ T_span = [1 T];
 
 x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
-xf_min = [.4;-inf(11,1)];
+%xf_min = [.4;-inf(11,1)];
+xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
 scale = 0.01;
@@ -123,8 +125,9 @@ tic
 toc
 
 v.playback(xtraj,struct('slider',true));
+xlim([-1.5, 6])
 % Create an animation movie
-%v.playbackAVI(xtraj, 'trial1.avi');
+v.playbackAVI(xtraj, 'trial1.avi');
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
@@ -211,7 +214,8 @@ disp('finish traj opt')
         ts = [0;cumsum(h)];
         for i=1:length(ts)
             v.drawWrapper(ts(i),x(:,i));
-                  pause(h(1)/10);
+            xlim([-1.5, 6])
+                  pause(h(1)/5);
         end
         
         LCP_slack = LCP_slack';
