@@ -291,12 +291,12 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </collision>
   </link>
-  <joint name="rightShoulderPitch" type="fixed">
+  <joint name="rightShoulderPitch" type="revolute">
     <origin rpy="0.0 0.0 0.0" xyz="-0.0316 0.0 0.2984"/>
     <axis xyz="0 1 0"/>
     <parent link="torso"/>
     <child link="rightShoulderPitchLink"/>
-    <limit effort="190" lower="-2.85" upper="2.0" velocity="5.89"/>
+    <limit effort="190" lower="-0.75" upper=".75" velocity="5.89"/>
     <controller_gains Kd="400" Kp="20000"/>
     <dynamics damping="0.1" friction="0.0"/>
   </joint>
@@ -305,7 +305,7 @@
     <implicitSpringDamper>1</implicitSpringDamper>
   </gazebo>
   <joint name="rightShoulderRoll" type="fixed">
-    <origin rpy="1.3 0.0 0.0" xyz="0.0 -0.2499 0.0"/>
+    <origin rpy="1.4 0.0 0.0" xyz="0.0 -0.2499 0.0"/>
     <axis xyz="1 0 0"/>
     <parent link="rightShoulderPitchLink"/>
     <child link="rightShoulderRollLink"/>
@@ -414,7 +414,7 @@
     <implicitSpringDamper>1</implicitSpringDamper>
   </gazebo>
   <joint name="rightWristRoll" type="fixed">
-    <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.2871 0.0"/>
+    <origin rpy="0 1.57 0" xyz="0.0 -0.2871 0.0"/>
     <axis xyz="1 0 0"/>
     <parent link="rightForearmLink"/>
     <child link="rightWristRollLink"/>
@@ -879,12 +879,12 @@
       <origin rpy="0 0 0" xyz="0 0 0"/>
     </collision>
   </link>
-  <joint name="leftShoulderPitch" type="fixed">
+  <joint name="leftShoulderPitch" type="revolute">
     <origin rpy="0.0 0.0 0.0" xyz="-0.0316 0.0 0.2984"/>
     <axis xyz="0 1 0"/>
     <parent link="torso"/>
     <child link="leftShoulderPitchLink"/>
-    <limit effort="190" lower="-2.85" upper="2.0" velocity="5.89"/>
+    <limit effort="190" lower="-.75" upper=".75" velocity="5.89"/>
     <controller_gains Kd="400" Kp="20000"/>
     <dynamics damping="0.1" friction="0.0"/>
   </joint>
@@ -893,7 +893,7 @@
     <implicitSpringDamper>1</implicitSpringDamper>
   </gazebo>
   <joint name="leftShoulderRoll" type="fixed">
-    <origin rpy="-1.3 0.0 0.0" xyz="0.0 0.2499 0.0"/>
+    <origin rpy="-1.4 0.0 0.0" xyz="0.0 0.2499 0.0"/>
     <axis xyz="1 0 0"/>
     <parent link="leftShoulderPitchLink"/>
     <child link="leftShoulderRollLink"/>
@@ -1002,7 +1002,7 @@
     <implicitSpringDamper>1</implicitSpringDamper>
   </gazebo>
   <joint name="leftWristRoll" type="fixed">
-    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.2871 0.0"/>
+    <origin rpy="0.0 1.57 0.0" xyz="0.0 0.2871 0.0"/>
     <axis xyz="1 0 0"/>
     <parent link="leftForearmLink"/>
     <child link="leftWristRollLink"/>

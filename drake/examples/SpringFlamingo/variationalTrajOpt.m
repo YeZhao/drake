@@ -45,8 +45,8 @@ options.add_ccost = true;
 
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
+traj_opt = traj_opt.addRunningCost(@foot_height_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
-% traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm),7);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1),N);
 traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint([-0.25;zeros(nv-1,1)]),1);
 [q_lb, q_ub] = getJointLimits(p);
@@ -83,6 +83,23 @@ function [f,df] = running_cost_fun(h,x,u)
   df = [g, h*(x-x1)'*Q, h*u'*R];
 end
 
+  function [f,df] = foot_height_fun(h,x,u)
+    q = x(1:nq);
+    
+    [phi,~,~,~,~,~,~,~,n] = p.contactConstraints(q,false,struct('terrain_only',true));
+    phi0 = [.1;.1;.1;.1];
+    K = 10;
+    I = find(phi < phi0);
+    f = K*(phi(I) - phi0(I))'*(phi(I) - phi0(I));
+    % phi: 2x1
+    % n: 2xnq
+    df = [0 2*K*(phi(I)-phi0(I))'*n(I,:) zeros(1,nv+nu)];
+
+%    K = 100;
+%    K_log = 100;
+%    f = sum(-K*log(K_log*phi + .2));
+%    df = [0 sum(-K*K_log*n./(K_log*repmat(phi,1,length(q)) + .2)) zeros(1,15)];
+  end
 
   function displayTraj(h,x,u)
   

@@ -19,6 +19,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     z_inactive_guess_tol = .01;
     multiple_contacts = false;
     gurobi_present = false;
+    body
   end
 
   methods
@@ -89,6 +90,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 
       obj = setSampleTime(obj,[timestep;0]);
 
+      obj.body = manip.body;
       obj = compile(obj);
     end
 

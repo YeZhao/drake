@@ -2,8 +2,13 @@ function [p,xtraj,utraj,z,F,info,traj_opt] = runVariationalTrajOpt()
 
 robot_options = struct(); 
 
+l = 0.4;
+h = 0.2;
+boxes = [0.25+l, 0.0, 2*l, 1, h;
+         0.25+l+l/2, 0.0, l, 1, 2*h];
+
 robot_options = applyDefaults(robot_options, struct('use_bullet', false,...
-                                                    'terrain', RigidBodyFlatTerrain,...
+                                                    'terrain', RigidBodyStepTerrain(boxes),...
                                                     'floating', true,...
                                                     'ignore_self_collisions', true,...
                                                     'ignore_friction', true,...
@@ -31,48 +36,45 @@ nu = p.getNumInputs();
 % Load nominal data
 x0 = zeros(p.getNumStates,1);
 x0(3) = 1.1734; 
-x0(nq+1) = 0.1; 
+x0(nq+1) = 0.15; 
 q0 = x0(1:nq);
 v0 = x0(nq+(1:nv));
-T0 = 1.5;
-N = 10;
+T0 = 3;
+N = 25;
 
+v.draw(0,x0);
 % ----- Initial Guess ----- %
-q1 = [0.4;q0(2:end)];
+q1 = [0.8;0;q0(3)+2*h;q0(4:end)];
 x1 = [q1;zeros(nv,1)];
 
 t_init = linspace(0,T0,N);
-% traj_init.x = PPTrajectory(foh([0 T0/2 T0],[x0, xm, x1]));
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
-T_span = [.25 T0];
+T_span = [.5 T0];
 
 options.add_ccost = true;
 traj_opt = VariationalTrajectoryOptimization(p,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
-% traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm),7);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1),N);
 traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(v0),1);
 
 [q_lb, q_ub] = getJointLimits(p);
-q_ub(3) = q0(3) + 0.03;
-q_lb(3) = q0(3) - 0.15;
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
 
 
 state_cost = Point(getStateFrame(p),ones(nx,1));
 state_cost.base_x = 0;
 state_cost.base_y = 1;
-state_cost.base_z = 5;
+state_cost.base_z = 0;
 state_cost.base_pitch = 10;
 state_cost.base_roll = 10;
 state_cost.base_yaw = 10;
-state_cost.leftAnklePitch=2;
+state_cost.leftAnklePitch=1;
 state_cost.leftHipRoll = 2;
 state_cost.leftHipPitch = 0;
 state_cost.leftKneePitch = 0;
-state_cost.rightAnklePitch=2;
+state_cost.rightAnklePitch=1;
 state_cost.rightHipRoll = 2;
 state_cost.rightHipPitch = 0;
 state_cost.rightKneePitch = 0;
@@ -86,7 +88,7 @@ Q = diag(state_cost);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
 
-traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',20000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
@@ -97,7 +99,7 @@ tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 
-save('val_traj.mat','xtraj','utraj','ctraj','btraj','straj','z','F');
+save('val_traj2.mat','xtraj','utraj','ctraj','btraj','straj','z','F');
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
