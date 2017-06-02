@@ -31,7 +31,7 @@ nu = p.getNumInputs();
 
 % ----- Initial Guess ----- %
 q0 = [0; .875; 0; 0;0;0;0;0;0];
-q1 = [-0.3; .875; 0; 0;0;0;0;0;0];
+q1 = [-0.9; .875; 0; 0;0;0;0;0;0];
 x0 = [q0;zeros(nv,1)];
 x1 = [q1;zeros(nv,1)];
 
@@ -41,7 +41,9 @@ traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
 T_span = [.5 T0];
 
-traj_opt = VariationalTrajectoryOptimization(p,N,T_span);
+options.add_ccost = true;
+
+traj_opt = VariationalTrajectoryOptimization(p,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm),7);
