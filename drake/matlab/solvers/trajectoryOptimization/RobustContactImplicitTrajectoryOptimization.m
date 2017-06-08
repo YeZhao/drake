@@ -84,7 +84,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
             cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
-                        
+            cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
+            
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
             for i=1:obj.N-1,
@@ -101,6 +102,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
+                
+                % add max CoM vertical velocity constraint
+                CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
+                CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
+                obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -345,6 +351,13 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
                  l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
                  zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
+        end
+        
+        function [f,df] = CoM_vertical_velocity_fun(obj,CoM_z_vel)
+            CoM_vertical_velocity_max = 0.4;
+            
+            f = [CoM_z_vel];
+            df = [ones(1)];
         end
         
         function [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
