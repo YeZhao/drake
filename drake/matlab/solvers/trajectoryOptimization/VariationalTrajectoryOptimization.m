@@ -56,7 +56,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                     
                     obj.integration_method = VariationalTrajectoryOptimization.MIDPOINT;
                     
-                    [phi,~,d] = obj.plant.contactConstraints(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);
+                    [phi,~,d] = obj.plant.contactConstraints(getZeroConfiguration(obj.plant), obj.options.multiple_contacts, obj.options.active_collision_options);
                     
                     %Find indices that correspond to joint angles so we can
                     %watch out for wrap-around issues
@@ -348,7 +348,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             kinopts = struct();
             kinopts.compute_gradients = true;
             kin = obj.plant.doKinematics(q1, vm, kinopts);
-            [~,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts);
+            [~,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts,obj.options.active_collision_options);
             if isempty(n)
                 n = zeros(0,nQ);
                 dn = zeros(0,nQ);
@@ -420,7 +420,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             kinopts = struct();
             kinopts.compute_gradients = true;
             kin2 = obj.plant.doKinematics(q3, vm2, kinopts);
-            [~,~,~,~,~,~,~,~,n2,D2,dn2,dD2] = obj.plant.contactConstraints(kin2, obj.options.multiple_contacts);
+            [~,~,~,~,~,~,~,~,n2,D2,dn2,dD2] = obj.plant.contactConstraints(kin2, obj.options.multiple_contacts,obj.options.active_collision_options);
             if isempty(n2)
                 n2 = zeros(0,nQ);
                 dn2 = zeros(0,nQ);
@@ -476,7 +476,7 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             kinopts = struct();
             kinopts.compute_gradients = true;
             kin = obj.plant.doKinematics(q2, vm, kinopts);
-            [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts);
+            [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts, obj.options.active_collision_options);
             if isempty(n)
                 n = zeros(0,nQ);
                 dn = zeros(0,nQ);
