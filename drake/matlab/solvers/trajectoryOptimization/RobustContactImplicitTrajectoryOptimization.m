@@ -18,6 +18,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         
         nonlincompl_constraints_purturb
         nonlincompl_slack_inds_purturb
+        
+        % complementarity matrix
+        W
+        r
+        M
     end
     
     properties (Constant)
@@ -134,8 +139,16 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
                     end
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    
+                    % add expected residual minimization cost
+                    obj.W = W;
+                    obj.r = r;
+                    obj.M = M;
+                    
+                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    
                 end
                 
                 if obj.nJL > 0
@@ -151,6 +164,31 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+            end
+            
+            function [f,df] = ERMcost(obj, lambda, gamma)
+%                 x = y(1:xdim);
+%                 z = y(xdim+1:end-1);
+%                 slack_var = y(end);
+
+                zdim = size(obj.W,2);
+                xdim = size(obj.M,2);
+                
+                g = obj.W*gamma + obj.M*lambda + obj.r;
+                dg = [obj.M obj.W];
+                
+                % distribution-free version
+                delta = 100;% coefficient
+                f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+                df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
+                % probabilistic version
+                sigma = 0.5;
+                mu_cov = sigma^2*[lambda(1);lambda(4)];
+                delta = 100;% coefficient
+                f = delta/2 * norm(gamma.*g - mu_cov)^2;% - slack_var*ones(zdim,1);
+                df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
             end
             
             % nonlinear complementarity constraints:
