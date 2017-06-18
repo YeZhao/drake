@@ -125,6 +125,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
+                    % add ERM cost for sliding velocity constraint uncertainty
+                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_velocity(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
                     %
@@ -147,7 +150,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.r = r;
                     obj.M = M;
                     
-                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    assert(size(lambda_inds,1) == 6);
+                    assert(size(gamma_inds,1) == 2);
+                    
+                    % add ERM cost for friction cone coefficient uncertainty
+                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
                     
                 end
                 
@@ -166,16 +173,111 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
             
-            function [f,df] = ERMcost(obj, lambda, gamma)
-%                 x = y(1:xdim);
-%                 z = y(xdim+1:end-1);
-%                 slack_var = y(end);
-
+            function [f,df] = ERMcost_friction(obj, lambda, gamma)
+                %                 x = y(1:xdim);
+                %                 z = y(xdim+1:end-1);
+                %                 slack_var = y(end);
+                
                 zdim = size(obj.W,2);
                 xdim = size(obj.M,2);
                 
                 g = obj.W*gamma + obj.M*lambda + obj.r;
                 dg = [obj.M obj.W];
+                
+                % distribution-free version
+                delta = 100;% coefficient
+                f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+                df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
+                % probabilistic version
+                sigma = 0.5;
+                mu_cov = sigma^2*[lambda(1);lambda(4)];
+                delta = 100;% coefficient
+                f = delta/2 * norm(gamma.*g - mu_cov)^2;% - slack_var*ones(zdim,1);
+                df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
+            end
+            
+            function [f,df] = ERMcost_velocity(obj, lambda, gamma)
+                %                 x = y(1:xdim);
+                %                 z = y(xdim+1:end-1);
+                %                 slack_var = y(end);
+                
+                zdim = size(obj.W,2);
+                xdim = size(obj.M,2);
+                
+                g = obj.W*gamma + obj.M*lambda + obj.r;
+                dg = [obj.M obj.W];
+                
+                % von Mises-Fisher distribution for quaternion rotation vector
+                mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+                kappa = 10;
+                I_kappa_plus = exp(kappa) + exp(-kappa);
+                I_kappa_minus = exp(kappa) - exp(-kappa);
+                
+                h_kappa = (kappa*I_kappa_plus - I_kappa_minus)/(kappa*I_kappa_minus);
+                mu_r = mu_dirc*h_kappa;
+                Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_q*mu_q';
+                
+                mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
+                
+                Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
+                    2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
+                    2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
+                
+                % normal direction n
+                F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
+                    -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
+                    2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
+                
+                Fc = Rbar(:,3) - F*mu_q;
+                
+                % tangential direction D_{r,x}
+                G = [2*mu_w, 2*mu_x, -2*mu_y, -2*mu_z;
+                    2*mu_z, 2*mu_y, 2*mu_x,  2*mu_w;
+                    -2*mu_y, 2*mu_z, -2*mu_w, 2*mu_x];
+                
+                Gc = Rbar(:,1) - G*mu_q;
+                
+                % tangential direction D_{r,y}
+                H = [-2*mu_z, 2*mu_y,  2*mu_x, -2*mu_w;
+                    2*mu_w,  -2*mu_x, 2*mu_y, -2*mu_z;
+                    2*mu_x,  2*mu_w,  2*mu_z, 2*mu_y];
+                
+                Hc = Rbar(:,2) - H*mu_q;
+                
+                % Manipulator dynamics
+                % ...
+                Minv = eye(6);%inv(M);
+                for i=1:6
+                    dM(:,:,i) = eye(6);
+                end
+                Jg = ones(3,6);
+                
+                
+                % Composed matrices
+                K = Minv*Jg'*G;
+                L = Minv*Jg'*Gc;
+                Wx = K'*Jg'*G;
+                Yx = K'*Jg'*Gc;
+                
+                % expectation of M_v_x
+                
+                E_Drx_Drx = trace(Wx*Sigma_r) + mu_r'*Wx*mu_r + L'*Jg'*(2*G*mu_r + Gc);
+                V_Drx_Drx = 2*trace(K*Sigma_r*Wx*Sigma_r*G'*Jg) + 4*(mu_r'*Wx + Yx')*Sigma_r*(Wx*mu_r + Yx) ...
+                    +(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc)^2 - E_Drx_Drx^2;
+                
+                for i=1:6
+                    dE_Drx_Drx(i) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r'*mu_r)*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dM(:,:,i) );
+                    dV_Drx_Drx_first_chain(:,:,i) = -4*K*Sigma_r*Wx*Sigma_r*K' + 4*(-K*mu_r*mu_r'*Wx*Sigma_r*K' - K*Sigma_r*Wx*mu_r*mu_r'*K' ...
+                        -2*K*mu_r*Yx'*Sigma_r*K'-2*K*Sigma_r*Wx*mu_r*L'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
+                        +2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
+                        *(-K*(Sigma_r + mu_r*mu_r')*K' - 2*K*mu_r*L' - L*L');
+                    dV_Drx_Drx(i) = trace(dV_Drx_Drx_first_chain(:,:,i)'*dM(:,:,i));
+                    dV_Drx_Drx(i) = dV_Drx_Drx(i) - 2*E_Drx_Drx*dE_Drx_Drx(i);
+                end
+                
+                % be careful with constant h
                 
                 % distribution-free version
                 delta = 100;% coefficient
@@ -336,7 +438,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         
         function [f,df] = foot_horizontal_distance_constraint_fun(obj,x)
             nv = obj.plant.getNumVelocities;
-
+            
             % hard coding fwd kinematics
             CoM_x_pos = x(1);
             q_stance_hip = x(3);
@@ -355,18 +457,18 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             CoM_stance_foot_horizontal_distance_max = 0.2;
             
             f = [x_swing - x_stance - foot_horizontal_distance_max;
-                 x_swing - CoM_x_pos - CoM_swing_foot_horizontal_distance_max];
-                 % x_stance - CoM_x_pos - CoM_stance_foot_horizontal_distance_max
-                 
+                x_swing - CoM_x_pos - CoM_swing_foot_horizontal_distance_max];
+            % x_stance - CoM_x_pos - CoM_stance_foot_horizontal_distance_max
+            
             df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
-                 -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv);
-                 zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv)];
-                 % zeros(1,2), -l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,2+nv)
+                -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv);
+                zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv)];
+            % zeros(1,2), -l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,2+nv)
         end
         
         function [f,df] = foot_height_diff_constraint_fun(obj,x)
             nv = obj.plant.getNumVelocities;
-
+            
             % hard coding fwd kinematics
             CoM_z_pos = x(1);
             q_stance_hip = x(3);
@@ -384,11 +486,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             CoM_foot_height_diff_max = 0.6;
             
             f = [z_swing - z_stance - foot_height_distance_max;
-                 CoM_foot_height_diff_max - CoM_z_pos + z_swing];
-                 
+                CoM_foot_height_diff_max - CoM_z_pos + z_swing];
+            
             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
-                 l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
-                 zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
+                l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
+                zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
         end
         
         function [f,df] = CoM_vertical_velocity_fun(obj,CoM_z_vel)
