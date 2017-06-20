@@ -661,7 +661,9 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
         
         function qm = qavg(obj,q1,q2)
             qm = (q1+q2)/2;
-            qm(obj.angle_inds) = angleAverage(q1(obj.angle_inds),q2(obj.angle_inds));
+            if ~isempty(obj.angle_inds)
+              qm(obj.angle_inds) = angleAverage(q1(obj.angle_inds),q2(obj.angle_inds));
+            end
         end
         
         function vm = qdiff(obj,q1,q2,h)

@@ -1,34 +1,46 @@
-function contactImplicitBrick(visualize,position_tol,velocity_tol)
+function xtraj=contactImplicitBrick(plant,N)
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
-rng(0)
-if nargin < 1, visualize = false; end
-if nargin < 2, position_tol = 1.5e-2; end
-if nargin < 3, velocity_tol = 1e-1; end
-
+if nargin<1
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
-w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
-warning(w);
-x0 = [0;0;.8;0.05*randn(3,1);zeros(6,1)];
+%plant = PlanarRigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
+%x0 = [0; 1; .1; 0; 0; 0];
+file = fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf');
+plant = RigidBodyManipulator(file,options);
+end
+if nargin < 2
+  N=10;
+end
 
-N=5; tf=.5;
+q0 = [0
+      0
+      1.0000
+      0.1
+     -0.1
+      0.0];
+    
+x0 = [q0;0*q0];
 
-plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
-w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-xtraj_ts = simulate(plant_ts,[0 tf],x0);
-x0 = xtraj_ts.eval(0);
-warning(w);
+tf=1.0;
+
+
+%[0;0;.8;0.05*randn(3,1);zeros(6,1)];
+visualize=false;
+
+% plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
+% w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
+% xtraj_ts = simulate(plant_ts,[0 tf],x0);
+% x0 = xtraj_ts.eval(0);
+% warning(w);
 if visualize
-  v = constructVisualizer(plant_ts);
-  v.playback(xtraj_ts);
+  v = constructVisualizer(plant);
 end
 
 options = struct();
 options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-scale_sequence = [1;.001;0];
+scale_sequence = [1;.01;0.0001];
 
 for i=1:length(scale_sequence)
   scale = scale_sequence(i);
@@ -58,17 +70,37 @@ for i=1:length(scale_sequence)
 end
 
 if visualize
-  v.playback(xtraj);
+  v.playback(xtraj,struct('slider',true));
 end
 
-% check if the two simulations did the same thing:
-ts = getBreaks(xtraj_ts);
-valuecheck(ts,getBreaks(xtraj));
-xtraj_data = xtraj.eval(ts); 
-xtraj_ts_data = xtraj_ts.eval(ts);
-nq = plant.getNumPositions();
-nv = plant.getNumVelocities();
-valuecheck(xtraj_data(1:nq,:),xtraj_ts_data(1:nq,:),position_tol); % is there a correct tolerance here?
-valuecheck(xtraj_data(nq+(1:nv),:),xtraj_ts_data(nq+(1:nv),:),velocity_tol); % is there a correct tolerance here?
+% ts_plant = TimeSteppingRigidBodyManipulator(plant,0.0005,options);
 
-% TIMEOUT 750
+% sim_traj = ts_plant.simulate([0,tf],x0);
+
+% 
+% ts = sim_traj.getBreaks();
+% %tt = xtraj.getBreaks();
+% xx = xtraj.eval(ts);
+% xs = sim_traj.eval(ts);
+% 
+% figure(1);
+% for i=1:12
+%   subplot(2,6,i);
+%   plot(ts,xx(i,:),'b');
+%   hold on;
+%   plot(ts,xs(i,:),'r');
+%   hold off;
+% end
+
+
+% % check if the two simulations did the same thing:
+% ts = getBreaks(xtraj_ts);
+% valuecheck(ts,getBreaks(xtraj));
+% xtraj_data = xtraj.eval(ts); 
+% xtraj_ts_data = xtraj_ts.eval(ts);
+% nq = plant.getNumPositions();
+% nv = plant.getNumVelocities();
+% valuecheck(xtraj_data(1:nq,:),xtraj_ts_data(1:nq,:),position_tol); % is there a correct tolerance here?
+% valuecheck(xtraj_data(nq+(1:nv),:),xtraj_ts_data(nq+(1:nv),:),velocity_tol); % is there a correct tolerance here?
+% 
+% % TIMEOUT 750
