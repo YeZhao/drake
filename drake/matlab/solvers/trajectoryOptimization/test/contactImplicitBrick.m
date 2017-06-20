@@ -1,4 +1,4 @@
-function xtraj=contactImplicitBrick(plant,N)
+function xtraj=contactImplicitBrick(plant,N,x0)
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
 if nargin<1
@@ -12,7 +12,7 @@ end
 if nargin < 2
   N=10;
 end
-
+if nargin<3
 q0 = [0
       0
       1.0000
@@ -21,12 +21,13 @@ q0 = [0
       0.0];
     
 x0 = [q0;0*q0];
+end
 
 tf=1.0;
 
 
 %[0;0;.8;0.05*randn(3,1);zeros(6,1)];
-visualize=false;
+visualize=true;
 
 % plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 % w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
@@ -70,7 +71,7 @@ for i=1:length(scale_sequence)
 end
 
 if visualize
-  v.playback(xtraj,struct('slider',true));
+  v.playback(xtraj);
 end
 
 % ts_plant = TimeSteppingRigidBodyManipulator(plant,0.0005,options);
