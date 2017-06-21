@@ -1,4 +1,4 @@
-function xtraj=contactImplicitBrick(plant,N,x0)
+function xtraj=contactImplicitBrick(plant,N,x0,integration)
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
 if nargin<1
@@ -39,7 +39,19 @@ if visualize
 end
 
 options = struct();
-options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
+if nargin > 3
+    if strcmp(integration, 'midpoint')
+        options.integration_method = ContactImplicitTrajectoryOptimization.MIDPOINT;
+    elseif strcmp(integration, 'backward')
+        options.integration_method = ContactImplicitTrajectoryOptimization.BACKWARD_EULER;
+    elseif strcmp(integration, 'forward')
+        options.integration_method = ContactImplicitTrajectoryOptimization.FORWARD_EULER;
+    else
+        options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
+    end
+else
+    options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
+end
 
 scale_sequence = [1;.01;0.0001];
 
@@ -67,7 +79,9 @@ for i=1:length(scale_sequence)
     traj_init.x = xtraj;
     traj_init.l = ltraj;
   end
+  tic
   [xtraj,utraj,ltraj,~,z,F,info] = solveTraj(prog,tf,traj_init);
+  toc
 end
 
 if visualize

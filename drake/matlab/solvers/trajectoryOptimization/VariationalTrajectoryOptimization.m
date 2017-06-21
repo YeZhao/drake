@@ -633,34 +633,37 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
                     q = x(1:nQ,:);
                     qtraj = PPTrajectory(foh(t,q));
                     
-                    h = z(obj.h_inds);
-                    u = z(obj.u_inds);
-                    c = z(obj.c_inds);
-                    b = z(obj.b_inds);
+                    v = [diff(x,1,2)/z(obj.h_inds(1)), zeros(nQ,1)]; %zoh (correctly in this case) ignores the last entry in v
+                    vtraj = PPTrajectory(zoh(t,v));
                     
-                    v = zeros(size(q));
-                    v(:,1) = z(obj.v0_inds);
-                    for k = 1:(obj.N-1)
-                        qm = obj.qavg(q(:,k),q(:,k+1));
-                        vm = obj.qdiff(q(:,k),q(:,k+1),h(k));
-                        
-                        [D1L,D2L,~,~,~,B] = obj.LagrangianDerivs(qm,vm);
-                        M1 = manipulatorDynamics(obj.plant, q(:,k+1), vm);
-                        
-                        %Contact basis
-                        kin = obj.plant.doKinematics(q(:,k+1));
-                        [~,~,~,~,~,~,~,~,n,D] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts,obj.options.active_collision_options);
-                        if isempty(n)
-                            n = zeros(0,nQ);
-                        end
-                        D = reshape(cell2mat(D')',nQ,nC*nD)';
-                        
-                        p1 = (h(k)/2)*D1L + D2L + (h(k)/2)*B*u(:,k) + (h(k)/2)*(n'*c(:,k) + D'*b(:,k));
-                        
-                        v(:,k+1) = M1\p1;
-                    end
-                    
-                    vtraj = PPTrajectory(foh(t,v));
+%                     h = z(obj.h_inds);
+%                     u = z(obj.u_inds);
+%                     c = z(obj.c_inds);
+%                     b = z(obj.b_inds);
+%                     
+%                     v = zeros(size(q));
+%                     v(:,1) = z(obj.v0_inds);
+%                     for k = 1:(obj.N-1)
+%                         qm = obj.qavg(q(:,k),q(:,k+1));
+%                         vm = obj.qdiff(q(:,k),q(:,k+1),h(k));
+%                         
+%                         [D1L,D2L,~,~,~,B] = obj.LagrangianDerivs(qm,vm);
+%                         M1 = manipulatorDynamics(obj.plant, q(:,k+1), vm);
+%                         
+%                         %Contact basis
+%                         kin = obj.plant.doKinematics(q(:,k+1));
+%                         [~,~,~,~,~,~,~,~,n,D] = obj.plant.contactConstraints(kin, obj.options.multiple_contacts,obj.options.active_collision_options);
+%                         if isempty(n)
+%                             n = zeros(0,nQ);
+%                         end
+%                         D = reshape(cell2mat(D')',nQ,nC*nD)';
+%                         
+%                         p1 = (h(k)/2)*D1L + D2L + (h(k)/2)*B*u(:,k) + (h(k)/2)*(n'*c(:,k) + D'*b(:,k));
+%                         
+%                         v(:,k+1) = M1\p1;
+%                     end
+%                     
+%                     vtraj = PPTrajectory(foh(t,v));
                     
                 case VariationalTrajectoryOptimization.SIMPSON
                     

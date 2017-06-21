@@ -9,7 +9,7 @@ file = fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickCon
 plant = RigidBodyManipulator(file,options);
 end
 if nargin < 2
-  N=10;
+  N=11;
 end
 if nargin<3
 q0 = [0
@@ -34,17 +34,17 @@ traj_opt = VariationalTrajectoryOptimization(plant,N,tf,options);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(x0(1:nq)),1);  
 traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(x0(nq+(1:nq))),1);
 
-traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+%traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+traj_opt = traj_opt.setSolver('ipopt');
+traj_opt = traj_opt.setSolverOptions('ipopt',
+
 
 tic
-[xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
+[xtraj,utraj,ctraj,btraj,straj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
 toc
 
-v = constructVisualizer(plant);
-v.playback(xtraj);
+% v = constructVisualizer(plant);
+% v.playback(xtraj);
 
 % ts_plant = TimeSteppingRigidBodyManipulator(plant,0.0005,options);
 
