@@ -23,6 +23,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         W
         r
         M
+        
+        %debugging var
+        verbose_print
     end
     
     properties (Constant)
@@ -144,10 +147,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.r = r;
                     obj.M = M;
                     
-                    % add ERM cost for sliding velocity constraint uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    if i==N-1
+                        obj.verbose_print = 1;
+                    else
+                        obj.verbose_print = 0;
+                    end
                     
+                    % add ERM cost for sliding velocity constraint uncertainty
+                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
                     %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
@@ -278,385 +286,409 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         J(1+j:1+obj.nD:end,:) = D{j};
                         dJ(1+j:1+obj.nD:end,:) = dD{j};
                     end
-                    Jg = J;% update notation
-                end
-                Jg = J(1:3,:);% temporarily define it for one foot contact point
-                
-                % Composed matrices
-                Fy = H;
-                Fyc = Hc;
-                U = Minv*Jg'*F;
-                V = U'*Jg'*G;
-                Vy = U'*Jg'*Fy;
-                Vyy = Fy'*Jg*Minv*Jg'*G;
-                Z = Minv*Jg'*Fc;
-                Zy = Minv*Jg'*Fyc;
-                X = G'*Jg*Z;
-                Xy = Fy'*Jg*Z;
-                Xyy = G'*Jg*Zy;
-                K = Minv*Jg'*G;
-                Ky = Minv*Jg'*Fy;
-                L = Minv*Jg'*Gc;
-                Ly = Minv*Jg'*Fyc;
-                Wx = K'*Jg'*G;
-                Wy = Ky'*Jg'*Fy;
-                Yx = K'*Jg'*Gc;
-                Yy = Ky'*Jg'*Fyc;
-                Q = U'*Jg'*Gc;
-                Qy = U'*Jg'*Fyc;
-                Qyy = Ky'*Jg'*Gc;
-                O = (V+V')*mu_r+X+Q;
-                Oy = (Vy+Vy')*mu_r+Xy+Qy;
-                Oyy = (Vyy+Vyy')*mu_r+Xyy+Qyy;
-                
-                J_blk = Jg*(qdot_prev + Minv*(B*u_prev - C)*h);
-                T = G'*J_blk;
-                Tc = Gc'*J_blk;
-                Ty = Fy'*J_blk;
-                Tyc = Fyc'*J_blk;
-                
-                %--------------- second LCP condition ---------------%
-                % note: the first LCP condition will be added in another addcost() function
-                % expectation and covariance of M_v_x
-                E_M_Drx_nr = trace(V*Sigma_r) + mu_r'*V*mu_r + Z'*Jg'*(G*mu_r + Gc) + mu_r'*U'*Jg'*Gc;
-                V_M_Drx_nr = trace(U*Sigma_r*(V+V')*Sigma_r*G'*Jg) + O'*Sigma_r*O ...
-                    +(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc)^2 - E_M_Drx_nr^2;
-                
-                E_M_Drx_Drx = trace(Wx*Sigma_r) + mu_r'*Wx*mu_r + L'*Jg'*(2*G*mu_r + Gc);
-                V_M_Drx_Drx = 2*trace(K*Sigma_r*Wx*Sigma_r*G'*Jg) + 4*(mu_r'*Wx + Yx')*Sigma_r*(Wx*mu_r + Yx) ...
-                    +(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc)^2 - E_M_Drx_Drx^2;
-                
-                E_M_Drx_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r + Fyc);
-                E_M_Dry_Drx = E_M_Drx_Dry;
-                
-                for i=1:nq
-                    % expectation derivative w.r.t q and qdot
-                    dE_M_Drx_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*G' + Fc*(G*mu_r + Gc)' + F*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
-                    dE_M_Drx_nr_dqdot(i,:) = 0;
-                    % [ToDo: derivative w.r.t Jacobian]
-                    
-                    dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) );
-                    dE_M_Drx_Drx_dqdot(i,:) = 0;
-                    % [ToDo: derivative w.r.t Jacobian]
-                    
-                    dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
-                    dE_M_Drx_Dry_dqdot(i,:) = 0;
-                    % [ToDo: derivative w.r.t Jacobian]
-
-                    dE_M_Dry_Drx_dq(i,:) = dE_M_Drx_Dry_dq(i);
-                    dE_M_Dry_Drx_dqdot(i,:) = 0;
-                    
-                    % covariance derivative w.r.t q and qdot
-                    dV_M_Drx_nr_dq_first_chain(:,:,i) = -K*Sigma_r*(V+V')*Sigma_r*U' - U*Sigma_r*V*Sigma_r*K' - K*Sigma_r*V*Sigma_r*U' ...
-                        -U*(mu_r*O'+O*mu_r')*K'-K*(mu_r*O'+O*mu_r')*U'-Z*O'*K'-L*O'*U'-K*O*Z'-U*O*L' ...
-                        +2*(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc) ...
-                        *(-K*Sigma_r*U' - U*mu_r*mu_r'*K' - U*mu_r*L' - Z*mu_r'*K' - Z*L');
-                    dV_M_Drx_nr_dq(i,:) = trace(dV_M_Drx_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
-                    dV_M_Drx_nr_dq(i,:) = dV_M_Drx_nr_dq(i) - 2*E_M_Drx_nr*dE_M_Drx_nr_dq(i);%[double check this part]
-                    
-                    dV_M_Drx_nr_dqdot(i,:) = 0;
-                    
-                    dV_M_Drx_Drx_dq_first_chain(:,:,i) = -4*K*Sigma_r*Wx*Sigma_r*K' + 4*(-K*mu_r*mu_r'*Wx*Sigma_r*K' - K*Sigma_r*Wx*mu_r*mu_r'*K' ...
-                        -2*K*mu_r*Yx'*Sigma_r*K'-2*K*Sigma_r*Wx*mu_r*L'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
-                        +2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
-                        *(-K*(Sigma_r + mu_r*mu_r')*K' - 2*K*mu_r*L' - L*L');
-                    dV_M_Drx_Drx_dq(i,:) = trace(dV_M_Drx_Drx_dq_first_chain(:,:,i)'*dMdq(:,:,i));
-                    dV_M_Drx_Drx_dq(i,:) = dV_M_Drx_Drx_dq(i) - 2*E_M_Drx_Drx*dE_M_Drx_Drx_dq(i);%[double check this part]
-                    
-                    dV_M_Drx_Drx_dqdot(i,:) = 0;
-                    
-                    dV_M_Drx_Dry_dq_first_chain(:,:,i) = -K*Sigma_r*(Vyy+Vyy')*Sigma_r*Ky' - Ky*Sigma_r*Vyy*Sigma_r*K' - K*Sigma_r*Vyy*Sigma_r*Ky' ...
-                        -Ky*(mu_r*Oyy'+Oyy*mu_r')*K'-K*(mu_r*Oyy'+Oyy*mu_r')*Ky'-Zy*Oyy'*K'-L*Oyy'*Ky'-K*Oyy*Zy'-Ky*Oyy*L' ...
-                        +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Vyy*mu_r+mu_r'*Qyy+Xyy'*mu_r+Zy'*Jg'*Gc) ...
-                        *(-K*Sigma_r*Ky' - Ky*mu_r*mu_r'*K' - Ky*mu_r*L' - Zy*mu_r'*K' - Zy*L');
-                    dV_M_Drx_Dry_dq(i,:) = trace(dV_M_Drx_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
-                    dV_M_Drx_Dry_dq(i,:) = dV_M_Drx_Dry_dq(i) - 2*E_M_Drx_Dry*dE_M_Drx_Dry_dq(i);%[double check this part]
-                    
-                    dV_M_Drx_Dry_dqdot(i,:) = 0;
-                    
-                    dV_M_Dry_Drx_dq(i,:) = dV_M_Drx_Dry_dq(i);
-                    dV_M_Dry_Drx_dqdot(i,:) = 0;
                 end
                 
-                dE_M_Drx_nr = [0;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;zeros(3,1);zeros(8,1)];
-                dE_M_Drx_Drx = [0;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;zeros(3,1);zeros(8,1)];
-                dE_M_Drx_Dry = [0;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
-                dE_M_Dry_Drx = dE_M_Drx_Dry;
-                
-                % expectation and covariance of b_v_x
-                E_b_Drx = (mu_r'*G' + Gc')*J_blk;
-                V_b_Drx = trace(T*T'*Sigma_r);
-                
-                for i=1:nq
-                    dE_b_Drx_dq(i,:) = trace( (-h*(K*mu_r + L)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(K*mu_r + L)'*dCdq(:,i));
-                    dE_b_Drx_dqdot(i,:) = - trace( h*(K*mu_r + L)'*dCdqdot(:,i));
-                    
-                    dV_b_Drx_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*T'*Sigma_r*K' -h*K*Sigma_r*T*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
-                        - trace( (2*h*K*Sigma_r*T)'*dCdq(:,i));
-                    dV_b_Drx_dqdot(i,:) = - trace( (2*h*K*Sigma_r*T)'*dCdqdot(:,i));
-                end
-                
-                dE_b_Drx_dh = (mu_r'*G' + Gc')*Jg*Minv*(B*u_prev - C);
-                dE_b_Drx_du = ((mu_r'*G' + Gc')*Jg*Minv*B*h)';
-                
-                dE_b_Drx = [dE_b_Drx_dh;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_du;zeros(8,1)];
-                
-                dV_b_Drx_dh = 2*h*trace(G'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*G*Sigma_r) + trace(G'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*G*Sigma_r);
-                dV_b_Drx_du = (G'*Jg*Minv*B)'*Sigma_r*h*(T) + h*B'*Minv*Jg'*G*Sigma_r*T;
-                dV_b_Drx = [dV_b_Drx_dh;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_du;zeros(8,1)];
-
-                % be careful with constant h
-                
-                lambda_n = lambda(1);
-                lambda_tx = lambda(2);
-                lambda_ty = lambda(3);
-                gamma_left = gamma(1);
-                lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_left];
-
                 E_Phi = zeros(4,1);
                 V_Phi = zeros(4,1);
-                
-                E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1]';
-                E_Mvx_lambda_plus_bvx = E_M_v_x'*lambda_vec + E_b_Drx;
-                
-                dE_M_v_x = [h*dE_M_Drx_nr, h*dE_M_Drx_Drx, h*dE_M_Drx_Dry, zeros(36,1)]';
-                
-                % NCP residual, currently assume no smoothing func applied
-                E_Phi(1) = lambda_tx*E_Mvx_lambda_plus_bvx;
-                % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dE_Phi_dh(1) = lambda_tx*(E_M_v_x'*lambda_vec/h + dE_b_Drx_dh);% the last part is dE_b_Drx/dh
-                dE_Phi_dq0(:,1) = lambda_tx*h*(dE_M_Drx_nr_dq*lambda_n+dE_M_Drx_Drx_dq*lambda_tx+dE_M_Drx_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
-                dE_Phi_dv0(:,1) = lambda_tx*h*(dE_M_Drx_nr_dqdot*lambda_n+dE_M_Drx_Drx_dqdot*lambda_tx+dE_M_Drx_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
-                dE_Phi_dq1(:,1) = dE_Phi_dq0(:,1);
-                dE_Phi_dv1(:,1) = dE_Phi_dv0(:,1);
-                dE_Phi_du(:,1) = lambda_tx*dE_b_Drx_du;
-                dE_Phi_dlambda_n(1) = lambda_tx*h*E_M_Drx_nr;
-                dE_Phi_dlambda_tx(1) = E_Mvx_lambda_plus_bvx + h*E_M_Drx_Drx*lambda_tx;
-                dE_Phi_dlambda_ty(1) = lambda_tx*h*E_M_Drx_Dry;
-                
-                dE_Phi(:,1) = [dE_Phi_dh(1); dE_Phi_dq0(:,1); dE_Phi_dv0(:,1); dE_Phi_dq1(:,1); dE_Phi_dv1(:,1); dE_Phi_du(:,1);dE_Phi_dlambda_n(1); ...
-                               dE_Phi_dlambda_tx(1);dE_Phi_dlambda_ty(1);zeros(3,1);lambda_tx;0];
-                
-                %--------------- third LCP condition ---------------%
-                % expectation and covariance of M_v_y
-                E_M_Dry_nr = trace(Vy*Sigma_r) + mu_r'*Vy*mu_r + Z'*Jg'*(Fy*mu_r + Fyc) + mu_r'*U'*Jg'*Fyc;
-                E_M_nr_Dry = trace(Vy'*Sigma_r) + mu_r'*Vy'*mu_r + Ly'*Jg'*(F*mu_r + Fc) + mu_r'*Ky'*Jg'*Fc;%==E_M_Dry_nr
-                E_M_Dry_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r+Fyc);
-                
-                for i=1:nq
-                    % expectation derivative w.r.t q and qdot
-                    dE_M_Dry_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*Fy' + Fc*(Fy*mu_r + Fyc)' + F*mu_r*Fyc')*Jg*Minv)'*dMdq(:,:,i) );
-                    dE_M_Dry_nr_dqdot(i,:) = 0;
-                    % [ToDo: derivative w.r.t Jacobian]
                     
-                    dE_M_Dry_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*Fy' + Fyc*(2*Fy*mu_r + Fyc)')*Jg*Minv)'*dMdq(:,:,i) );
-                    dE_M_Dry_Dry_dqdot(i,:) = 0;
-                    % [ToDo: derivative w.r.t Jacobian]
-                    
-                    % covariance derivative w.r.t q and qdot
-                    dV_M_Dry_Dry_dq_first_chain(:,:,i) = -4*Ky*Sigma_r*Wy*Sigma_r*Ky' + 4*(-Ky*mu_r*mu_r'*Wy*Sigma_r*Ky' - Ky*Sigma_r*Wy*mu_r*mu_r'*Ky' ...
-                        -2*Ky*mu_r*Yy'*Sigma_r*Ky'-2*Ky*Sigma_r*Wy*mu_r*Ly'-Ly*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*Ly') ...
-                        +2*(trace(Ky*Sigma_r*Fy'*Jg)+mu_r'*Wy*mu_r+2*mu_r'*Yy+Ly'*Jg'*Fyc) ...
-                        *(-Ky*(Sigma_r + mu_r*mu_r')*Ky' - 2*Ky*mu_r*Ly' - Ly*Ly');
-                    dV_M_Dry_Dry_dq(i,:) = trace(dV_M_Dry_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
-                    dV_M_Dry_Dry_dq(i,:) = dV_M_Dry_Dry_dq(i) - 2*E_M_Dry_Dry*dE_M_Dry_Dry_dq(i);%[double check this part]
-                    
-                    dV_M_Dry_Dry_dqdot(i,:) = 0;
-                    
-                    dV_M_Dry_nr_dq_first_chain(:,:,i) = -Ky*Sigma_r*(Vy+Vy')*Sigma_r*U' - U*Sigma_r*Vy*Sigma_r*Ky' - Ky*Sigma_r*Vy*Sigma_r*U' ...
-                        -U*(mu_r*Oy'+Oy*mu_r')*Ky'-Ky*(mu_r*Oy'+Oy*mu_r')*U'-Z*Oy'*Ky'-Ly*Oy'*U'-Ky*Oy*Z'-U*Oy*Ly' ...
-                        +2*(trace(U*Sigma_r*Fy'*Jg)+mu_r'*Vy*mu_r+mu_r'*Qy+Xy'*mu_r+Z'*Jg'*Fyc) ...
-                        *(-Ky*Sigma_r*U' - U*mu_r*mu_r'*Ky' - U*mu_r*Ly' - Z*mu_r'*Ky' - Z*Ly');
-                    dV_M_Dry_nr_dq(i,:) = trace(dV_M_Dry_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
-                    dV_M_Dry_nr_dq(i,:) = dV_M_Dry_nr_dq(i) - 2*E_M_Dry_nr*dE_M_Dry_nr_dq(i);%[double check this part]
-                    
-                    dV_M_Dry_nr_dqdot(i,:) = 0;
-                end
-                
-                %[h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dE_M_Dry_nr = [0;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;zeros(3,1);zeros(8,1)];
-                dE_M_Dry_Dry = [0;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
-                
-                % expectation and covariance of b_v_y
-                E_b_Dry = (mu_r'*Fy' + Fyc')*J_blk;
-                V_b_Dry = trace(Ty*Ty'*Sigma_r);
-                
-                for i=1:nq
-                    dE_b_Dry_dq(i,:) = trace( (-h*(Ky*mu_r + Ly)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(Ky*mu_r + Ly)'*dCdq(:,i));
-                    dE_b_Dry_dqdot(i,:) = - trace( h*(Ky*mu_r + Ly)'*dCdqdot(:,i));
-                    
-                    dV_b_Dry_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*Ty'*Sigma_r*Ky' -h*K*Sigma_r*Ty*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
-                        - trace( (2*h*Ky*Sigma_r*Ty)'*dCdq(:,i));
-                    dV_b_Dry_dqdot(i,:) = - trace( (2*h*Ky*Sigma_r*Ty)'*dCdqdot(:,i));
-                end
-                dE_b_Dry_dh = (mu_r'*Fy' + Fyc')*Jg*Minv*(B*u_prev - C);
-                dE_b_Dry_du = ((mu_r'*Fy' + Fyc')*Jg*Minv*B*h)';
-                
-                dE_b_Dry = [dE_b_Dry_dh;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_du;zeros(8,1)];
-                
-                dV_b_Dry_dh = 2*h*trace(Fy'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*Fy*Sigma_r) + trace(Fy'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*Fy*Sigma_r);
-                dV_b_Dry_du = (Fy'*Jg*Minv*B)'*Sigma_r*h*(Ty) + h*B'*Minv*Jg'*Fy*Sigma_r*Ty;
-                dV_b_Dry = [dV_b_Dry_dh;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_du;zeros(8,1)];
-                
-                % vectrozie these components
-                E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
-                E_Mvy_lambda_plus_bvy = E_M_v_y'*lambda_vec + E_b_Dry;
-                
-                dE_M_v_y = [h*dE_M_Dry_nr, h*dE_M_Dry_Drx, h*dE_M_Dry_Dry, zeros(36,1)]';
-                
-                % NCP residual, currently assume no smoothing func applied
-                E_Phi(2) = lambda_ty*E_Mvy_lambda_plus_bvy;
-                % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dE_Phi_dh(2) = lambda_ty*(E_M_v_y'*lambda_vec/h + dE_b_Dry_dh);% the last part is dE_b_Dry/dh
-                dE_Phi_dq0(:,2) = lambda_ty*h*(dE_M_Dry_nr_dq*lambda_n+dE_M_Dry_Drx_dq*lambda_tx+dE_M_Dry_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
-                dE_Phi_dv0(:,2) = lambda_ty*h*(dE_M_Dry_nr_dqdot*lambda_n+dE_M_Dry_Drx_dqdot*lambda_tx+dE_M_Dry_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
-                dE_Phi_dq1(:,2) = dE_Phi_dq0(:,2);
-                dE_Phi_dv1(:,2) = dE_Phi_dv0(:,2);
-                dE_Phi_du(:,2) = lambda_ty*dE_b_Dry_du;
-                dE_Phi_dlambda_n(2) = lambda_ty*h*E_M_Dry_nr;
-                dE_Phi_dlambda_tx(2) = lambda_ty*h*E_M_Dry_Drx;
-                dE_Phi_dlambda_ty(2) = E_Mvy_lambda_plus_bvy + lambda_ty*h*E_M_Drx_Dry;
-                
-                dE_Phi(:,2) = [dE_Phi_dh(2); dE_Phi_dq0(:,2); dE_Phi_dv0(:,2); dE_Phi_dq1(:,2); dE_Phi_dv1(:,2); dE_Phi_du(:,2);dE_Phi_dlambda_n(2); ...
-                               dE_Phi_dlambda_tx(2);dE_Phi_dlambda_ty(2);zeros(3,1);0;lambda_ty];
-                           
-                % LCP variance matrix of V_Mvx_lambda_plus_bvx
-                %fourth order expectation 
-                [E_xnxn,dE_xnxn_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xnxx,dE_xnxx_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xnxy,dE_xnxy_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                [E_xxxn,dE_xxxn_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xxxx,dE_xxxx_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xxxy,dE_xxxy_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                [E_xyxn,dE_xyxn_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xyxx,dE_xyxx_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_xyxy,dE_xyxy_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                E_Mvx_lambda_lambda_Mvx_quad = h^2*(E_xnxn*lambda_n^2 + E_xnxx*lambda_n*lambda_tx + E_xnxy*lambda_n*lambda_ty ...
-                    + E_xxxn*lambda_tx*lambda_n + E_xxxx*lambda_tx^2 + E_xxxy*lambda_tx*lambda_ty ...
-                    + E_xyxn*lambda_ty*lambda_n + E_xyxx*lambda_ty*lambda_tx + E_xyxy*lambda_ty^2);
-                E_Mvx_lambda_lambda_Mvx_linear = 2*h*E_M_Drx_nr*lambda_n*gamma_left + 2*h*E_M_Drx_Drx*lambda_tx*gamma_left ...
-                                          + 2*h*E_M_Drx_Dry*lambda_ty*gamma_left + gamma_left^2;
-                E_Mvx_lambda_lambda_Mvx = E_Mvx_lambda_lambda_Mvx_quad + E_Mvx_lambda_lambda_Mvx_linear;
-                
-                % computing derivative of E_Mvx_lambda_lambda_Mvx
-                dE_Mvx_lambda_lambda_Mvx_dh = 2*E_Mvx_lambda_lambda_Mvx_quad/h + (E_Mvx_lambda_lambda_Mvx_linear-gamma_left^2)/h;
-                dE_Mvx_lambda_lambda_Mvx_dq0 = h^2/2*(dE_xnxn_dq*lambda_n^2 + dE_xnxx_dq*lambda_n*lambda_tx + dE_xnxy_dq*lambda_n*lambda_ty ...
-                    + dE_xxxn_dq*lambda_tx*lambda_n + dE_xxxx_dq*lambda_tx^2 + dE_xxxy_dq*lambda_tx*lambda_ty ...
-                    + dE_xyxn_dq*lambda_ty*lambda_n + dE_xyxx_dq*lambda_ty*lambda_tx + dE_xyxy_dq*lambda_ty^2) + h*dE_M_Drx_nr_dq*lambda_n*gamma_left ...
-                    + h*dE_M_Drx_Drx_dq*lambda_tx*gamma_left + h*dE_M_Drx_Dry_dq*lambda_ty*gamma_left;
-                dE_Mvx_lambda_lambda_Mvx_dv0 = zeros(nv,1);
-                dE_Mvx_lambda_lambda_Mvx_dq1 = dE_Mvx_lambda_lambda_Mvx_dq0;
-                dE_Mvx_lambda_lambda_Mvx_dv1 = zeros(nv,1);
-                dE_Mvx_lambda_lambda_Mvx_du = zeros(nu,1);
-                dE_Mvx_lambda_lambda_Mvx_dlambda_n = h^2*(2*E_xnxn*lambda_n + E_xnxx*lambda_tx + E_xnxy*lambda_ty + E_xxxn*lambda_tx + E_xyxn*lambda_ty) ...
-                                                     + 2*h*E_M_Drx_nr*gamma_left;
-                dE_Mvx_lambda_lambda_Mvx_dlambda_tx = h^2*(E_xnxx*lambda_n + E_xxxn*lambda_n + 2*E_xxxx*lambda_tx + E_xxxy*lambda_ty + E_xyxx*lambda_ty) ...
-                                                      + 2*h*E_M_Drx_Drx*gamma_left;
-                dE_Mvx_lambda_lambda_Mvx_dlambda_ty = h^2*(E_xnxy*lambda_n + E_xxxy*lambda_tx + E_xyxn*lambda_n + E_xyxx*lambda_tx + 2* E_xyxy*lambda_ty) ...
-                                                      + 2*h*E_M_Drx_Dry*gamma_left;
-                dE_Mvx_lambda_lambda_Mvx_dgamma = 2*h*E_M_Drx_nr*lambda_n + 2*h*E_M_Drx_Drx*lambda_tx ...
-                                                    + 2*h*E_M_Drx_Dry*lambda_ty + 2*gamma_left;
-                
-                dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
-                                            dE_Mvx_lambda_lambda_Mvx_dv1;dE_Mvx_lambda_lambda_Mvx_du;dE_Mvx_lambda_lambda_Mvx_dlambda_n;dE_Mvx_lambda_lambda_Mvx_dlambda_tx; ...
-                                            dE_Mvx_lambda_lambda_Mvx_dgamma;zeros(3,1);dE_Mvx_lambda_lambda_Mvx_dgamma;0];
-                                        
-                %cov(M_{v,x}^T,b_{v,x}) = E[(M_{v,x}^T - E(M_{v,x}^T))(b_{v,x}-E(b_{v,x}))] = E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}];
-                % E[M_{v,x}^T*b_{v,x}]
-                [E_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_nr_Drx_dq,dE_Mvx_bvx_Drx_nr_Drx_dqdot,dE_Mvx_bvx_Drx_nr_Drx_dh,dE_Mvx_bvx_Drx_nr_Drx_du] = expectation_third_order_multiply(G,Gc,F,Fc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                [E_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Drx_Drx_dq,dE_Mvx_bvx_Drx_Drx_Drx_dqdot,dE_Mvx_bvx_Drx_Drx_Drx_dh,dE_Mvx_bvx_Drx_Drx_Drx_du] = expectation_third_order_multiply(G,Gc,G,Gc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                [E_Mvx_bvx_Drx_Dry_Drx,dE_Mvx_bvx_Drx_Dry_Drx_dq,dE_Mvx_bvx_Drx_Dry_Drx_dqdot,dE_Mvx_bvx_Drx_Dry_Drx_dh,dE_Mvx_bvx_Drx_Dry_Drx_du] = expectation_third_order_multiply(G,Gc,Fy,Fyc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                E_Mvx_bvx = [E_Mvx_bvx_Drx_nr_Drx;E_Mvx_bvx_Drx_Drx_Drx;E_Mvx_bvx_Drx_Dry_Drx;E_b_Drx];
-                
-                dE_Mvx_bvx_Drx_nr_Drx = [dE_Mvx_bvx_Drx_nr_Drx_dh;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_du;zeros(8,1)];
-                dE_Mvx_bvx_Drx_Drx_Drx = [dE_Mvx_bvx_Drx_Drx_Drx_dh;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_du;zeros(8,1)];
-                dE_Mvx_bvx_Drx_Dry_Drx = [dE_Mvx_bvx_Drx_Dry_Drx_dh;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_du;zeros(8,1)];
-                
-                dE_Mvx_bvx = [dE_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Dry_Drx,dE_b_Drx]';
+                for foot_indx = 1:2
+                    Jg(1,:) = J(3*foot_indx-2,:);
+                    Jg(2:3,:) = J(3*foot_indx-1:3*foot_indx,:);
 
-                %  V[M_{v,x}*lambda+b_{v,x}] = V[M_{v,x}*lambda] + cov(M_{v,x}*lambda,b_{v,x}) + cov(b_{v,x},M_{v,x}*lambda) + V[b_{v,x}]
-                % = V[M_{v,x}*lambda] + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
-                % =E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
-                % =E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*(E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}]) + V[b_{v,x}]
-                V_Mvx_lambda_plus_bvx = E_Mvx_lambda_lambda_Mvx - (E_M_v_x'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvx_bvx - E_M_v_x*E_b_Drx) + V_b_Drx;
-                
-                V_Phi(1) = lambda_tx^2*V_Mvx_lambda_plus_bvx;
-                % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dV_Phi(:,1) = lambda_tx^2*(dE_Mvx_lambda_lambda_Mvx - 2*(E_M_v_x'*lambda_vec)*(dE_M_v_x'*lambda_vec) + (2*lambda_vec'*dE_Mvx_bvx)' - 2*lambda_vec'*E_M_v_x*dE_b_Drx ...
-                            -(2*lambda_vec'*dE_M_v_x*E_b_Drx)' + dV_b_Drx);
-                
-                % LCP variance matrix of V_Mvy_lambda_plus_bvy
-                %fourth order expectation
-                [E_ynyn,dE_ynyn_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_ynyx,dE_ynyx_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_ynyy,dE_ynyy_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                [E_yxyn,dE_yxyn_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_yxyx,dE_yxyx_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_yxyy,dE_yxyy_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                [E_yyyn,dE_yyyn_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_yyyx,dE_yyyx_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                [E_yyyy,dE_yyyy_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
-                
-                % computing E_Mvy_lambda_lambda_Mvy
-                E_Mvy_lambda_lambda_Mvy_quad = h^2*(E_ynyn*lambda_n^2 + E_ynyx*lambda_n*lambda_tx + E_ynyy*lambda_n*lambda_ty ...
-                    + E_yxyn*lambda_tx*lambda_n + E_yxyx*lambda_tx^2 + E_yxyy*lambda_tx*lambda_ty ...
-                    + E_yyyn*lambda_ty*lambda_n + E_yyyx*lambda_ty*lambda_tx + E_yyyy*lambda_ty^2);
-                E_Mvy_lambda_lambda_Mvy_linear = 2*h*E_M_Dry_nr*lambda_n*gamma_left + 2*h*E_M_Dry_Drx*lambda_tx*gamma_left ...
-                                          + 2*h*E_M_Dry_Dry*lambda_ty*gamma_left + gamma_left^2;
-                E_Mvy_lambda_lambda_Mvy = E_Mvy_lambda_lambda_Mvy_quad + E_Mvy_lambda_lambda_Mvy_linear;
-                
-                % computing derivative of E_Mvy_lambda_lambda_Mvy
-                dE_Mvy_lambda_lambda_Mvy_dh = 2*E_Mvy_lambda_lambda_Mvy_quad/h + (E_Mvy_lambda_lambda_Mvy_linear-gamma_left^2)/h;
-                dE_Mvy_lambda_lambda_Mvy_dq0 = h^2/2*(dE_ynyn_dq*lambda_n^2 + dE_ynyx_dq*lambda_n*lambda_tx + dE_ynyy_dq*lambda_n*lambda_ty ...
-                    + dE_yxyn_dq*lambda_tx*lambda_n + dE_yxyx_dq*lambda_tx^2 + dE_yxyy_dq*lambda_tx*lambda_ty ...
-                    + dE_yyyn_dq*lambda_ty*lambda_n + dE_yyyx_dq*lambda_ty*lambda_tx + dE_yyyy_dq*lambda_ty^2) + h*dE_M_Dry_nr_dq*lambda_n*gamma_left ...
-                    + h*dE_M_Dry_Drx_dq*lambda_tx*gamma_left + h*dE_M_Dry_Dry_dq*lambda_ty*gamma_left;
-                dE_Mvy_lambda_lambda_Mvy_dv0 = zeros(nv,1);
-                dE_Mvy_lambda_lambda_Mvy_dq1 = dE_Mvy_lambda_lambda_Mvy_dq0;
-                dE_Mvy_lambda_lambda_Mvy_dv1 = zeros(nv,1);
-                dE_Mvy_lambda_lambda_Mvy_du = zeros(nu,1);
-                dE_Mvy_lambda_lambda_Mvy_dlambda_n = h^2*(2*E_ynyn*lambda_n + E_ynyx*lambda_tx + E_ynyy*lambda_ty + E_yxyn*lambda_tx + E_yyyn*lambda_ty) ...
-                                                     + 2*h*E_M_Dry_nr*gamma_left;
-                dE_Mvy_lambda_lambda_Mvy_dlambda_tx = h^2*(E_ynyx*lambda_n + E_yxyn*lambda_n + 2*E_yxyx*lambda_tx + E_yxyy*lambda_ty + E_yyyx*lambda_ty) ...
-                                                      + 2*h*E_M_Dry_Drx*gamma_left;
-                dE_Mvy_lambda_lambda_Mvy_dlambda_ty = h^2*(E_ynyy*lambda_n + E_yxyy*lambda_tx + E_yyyn*lambda_n + E_yyyx*lambda_tx + 2* E_yyyy*lambda_ty) ...
-                                                      + 2*h*E_M_Dry_Dry*gamma_left;
-                dE_Mvy_lambda_lambda_Mvy_dgamma = 2*h*E_M_Dry_nr*lambda_n + 2*h*E_M_Dry_Drx*lambda_tx ...
-                                                    + 2*h*E_M_Dry_Dry*lambda_ty + 2*gamma_left;
-                
-                dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
-                                            dE_Mvy_lambda_lambda_Mvy_dv1;dE_Mvy_lambda_lambda_Mvy_du;dE_Mvy_lambda_lambda_Mvy_dlambda_n;dE_Mvy_lambda_lambda_Mvy_dlambda_tx; ...
-                                            dE_Mvy_lambda_lambda_Mvy_dgamma;zeros(3,1);dE_Mvy_lambda_lambda_Mvy_dgamma;0];
-                
-                %Computing cov(M_{v,y}^T,b_{v,y}) = E[(M_{v,y}^T - E(M_{v,y}^T))(b_{v,y}-E(b_{v,y}))] = E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}];
-                
-                % E[M_{v,y}^T*b_{v,y}]
-                [E_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_nr_Dry_dq,dE_Mvy_bvy_Dry_nr_Dry_dqdot,dE_Mvy_bvy_Dry_nr_Dry_dh,dE_Mvy_bvy_Dry_nr_Dry_du] = expectation_third_order_multiply(H,Hc,F,Fc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                [E_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Drx_Dry_dq,dE_Mvy_bvy_Dry_Drx_Dry_dqdot,dE_Mvy_bvy_Dry_Drx_Dry_dh,dE_Mvy_bvy_Dry_Drx_Dry_du] = expectation_third_order_multiply(H,Hc,G,Gc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                [E_Mvy_bvy_Dry_Dry_Dry,dE_Mvy_bvy_Dry_Dry_Dry_dq,dE_Mvy_bvy_Dry_Dry_Dry_dqdot,dE_Mvy_bvy_Dry_Dry_Dry_dh,dE_Mvy_bvy_Dry_Dry_Dry_du] = expectation_third_order_multiply(H,Hc,H,Hc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
-                E_Mvy_bvy = [E_Mvy_bvy_Dry_nr_Dry;E_Mvy_bvy_Dry_Drx_Dry;E_Mvy_bvy_Dry_Dry_Dry;E_b_Dry];
-                
-                dE_Mvy_bvy_Dry_nr_Dry = [dE_Mvy_bvy_Dry_nr_Dry_dh;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_du;zeros(8,1)];
-                dE_Mvy_bvy_Dry_Drx_Dry = [dE_Mvy_bvy_Dry_Drx_Dry_dh;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_du;zeros(8,1)];
-                dE_Mvy_bvy_Dry_Dry_Dry = [dE_Mvy_bvy_Dry_Dry_Dry_dh;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_du;zeros(8,1)];
-                
-                dE_Mvy_bvy = [dE_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Dry_Dry,dE_b_Dry]';
-                
-                %  V[M_{v,y}*lambda+b_{v,y}] = V[M_{v,y}*lambda] + cov(M_{v,y}*lambda,b_{v,y}) + cov(b_{v,y},M_{v,y}*lambda) + V[b_{v,y}]
-                % = V[M_{v,y}*lambda] + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
-                % =E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
-                % =E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*(E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}]) + V[b_{v,y}]
-                V_Mvy_lambda_plus_bvy = E_Mvy_lambda_lambda_Mvy - (E_M_v_y'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvy_bvy - E_M_v_y*E_b_Dry) + V_b_Dry;
-                
-                V_Phi(2) = lambda_ty^2*V_Mvy_lambda_plus_bvy;
-                % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dV_Phi(:,2) = lambda_ty^2*(dE_Mvy_lambda_lambda_Mvy - 2*(E_M_v_y'*lambda_vec)*(dE_M_v_y'*lambda_vec) + (2*lambda_vec'*dE_Mvy_bvy)' - 2*lambda_vec'*E_M_v_y*dE_b_Dry ...
-                            -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
+                    % Composed matrices
+                    Fy = H;
+                    Fyc = Hc;
+                    U = Minv*Jg'*F;
+                    V = U'*Jg'*G;
+                    Vy = U'*Jg'*Fy;
+                    Vyy = Fy'*Jg*Minv*Jg'*G;
+                    Z = Minv*Jg'*Fc;
+                    Zy = Minv*Jg'*Fyc;
+                    X = G'*Jg*Z;
+                    Xy = Fy'*Jg*Z;
+                    Xyy = G'*Jg*Zy;
+                    K = Minv*Jg'*G;
+                    Ky = Minv*Jg'*Fy;
+                    L = Minv*Jg'*Gc;
+                    Ly = Minv*Jg'*Fyc;
+                    Wx = K'*Jg'*G;
+                    Wy = Ky'*Jg'*Fy;
+                    Yx = K'*Jg'*Gc;
+                    Yy = Ky'*Jg'*Fyc;
+                    Q = U'*Jg'*Gc;
+                    Qy = U'*Jg'*Fyc;
+                    Qyy = Ky'*Jg'*Gc;
+                    O = (V+V')*mu_r+X+Q;
+                    Oy = (Vy+Vy')*mu_r+Xy+Qy;
+                    Oyy = (Vyy+Vyy')*mu_r+Xyy+Qyy;
+
+                    J_blk = Jg*(qdot_prev + Minv*(B*u_prev - C)*h);
+                    T = G'*J_blk;
+                    Tc = Gc'*J_blk;
+                    Ty = Fy'*J_blk;
+                    Tyc = Fyc'*J_blk;
+
+                    %--------------- second LCP condition ---------------%
+                    % note: the first LCP condition will be added in another addcost() function
+                    % expectation and covariance of M_v_x
+                    E_M_Drx_nr = trace(V*Sigma_r) + mu_r'*V*mu_r + Z'*Jg'*(G*mu_r + Gc) + mu_r'*U'*Jg'*Gc;
+                    V_M_Drx_nr = trace(U*Sigma_r*(V+V')*Sigma_r*G'*Jg) + O'*Sigma_r*O ...
+                        +(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc)^2 - E_M_Drx_nr^2;
+
+                    E_M_Drx_Drx = trace(Wx*Sigma_r) + mu_r'*Wx*mu_r + L'*Jg'*(2*G*mu_r + Gc);
+                    V_M_Drx_Drx = 2*trace(K*Sigma_r*Wx*Sigma_r*G'*Jg) + 4*(mu_r'*Wx + Yx')*Sigma_r*(Wx*mu_r + Yx) ...
+                        +(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc)^2 - E_M_Drx_Drx^2;
+
+                    E_M_Drx_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r + Fyc);
+                    E_M_Dry_Drx = E_M_Drx_Dry;
+
+                    for i=1:nq
+                        % expectation derivative w.r.t q and qdot
+                        dE_M_Drx_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*G' + Fc*(G*mu_r + Gc)' + F*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Drx_nr_dqdot(i,:) = 0;
+                        % [ToDo: derivative w.r.t Jacobian]
+
+                        dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Drx_Drx_dqdot(i,:) = 0;
+                        % [ToDo: derivative w.r.t Jacobian]
+
+                        dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Drx_Dry_dqdot(i,:) = 0;
+                        % [ToDo: derivative w.r.t Jacobian]
+
+                        dE_M_Dry_Drx_dq(i,:) = dE_M_Drx_Dry_dq(i);
+                        dE_M_Dry_Drx_dqdot(i,:) = 0;
+
+                        % covariance derivative w.r.t q and qdot
+                        dV_M_Drx_nr_dq_first_chain(:,:,i) = -K*Sigma_r*(V+V')*Sigma_r*U' - U*Sigma_r*V*Sigma_r*K' - K*Sigma_r*V*Sigma_r*U' ...
+                            -U*(mu_r*O'+O*mu_r')*K'-K*(mu_r*O'+O*mu_r')*U'-Z*O'*K'-L*O'*U'-K*O*Z'-U*O*L' ...
+                            +2*(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc) ...
+                            *(-K*Sigma_r*U' - U*mu_r*mu_r'*K' - U*mu_r*L' - Z*mu_r'*K' - Z*L');
+                        dV_M_Drx_nr_dq(i,:) = trace(dV_M_Drx_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                        dV_M_Drx_nr_dq(i,:) = dV_M_Drx_nr_dq(i) - 2*E_M_Drx_nr*dE_M_Drx_nr_dq(i);%[double check this part]
+
+                        dV_M_Drx_nr_dqdot(i,:) = 0;
+
+                        dV_M_Drx_Drx_dq_first_chain(:,:,i) = -4*K*Sigma_r*Wx*Sigma_r*K' + 4*(-K*mu_r*mu_r'*Wx*Sigma_r*K' - K*Sigma_r*Wx*mu_r*mu_r'*K' ...
+                            -2*K*mu_r*Yx'*Sigma_r*K'-2*K*Sigma_r*Wx*mu_r*L'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
+                            +2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
+                            *(-K*(Sigma_r + mu_r*mu_r')*K' - 2*K*mu_r*L' - L*L');
+                        dV_M_Drx_Drx_dq(i,:) = trace(dV_M_Drx_Drx_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                        dV_M_Drx_Drx_dq(i,:) = dV_M_Drx_Drx_dq(i) - 2*E_M_Drx_Drx*dE_M_Drx_Drx_dq(i);%[double check this part]
+
+                        dV_M_Drx_Drx_dqdot(i,:) = 0;
+
+                        dV_M_Drx_Dry_dq_first_chain(:,:,i) = -K*Sigma_r*(Vyy+Vyy')*Sigma_r*Ky' - Ky*Sigma_r*Vyy*Sigma_r*K' - K*Sigma_r*Vyy*Sigma_r*Ky' ...
+                            -Ky*(mu_r*Oyy'+Oyy*mu_r')*K'-K*(mu_r*Oyy'+Oyy*mu_r')*Ky'-Zy*Oyy'*K'-L*Oyy'*Ky'-K*Oyy*Zy'-Ky*Oyy*L' ...
+                            +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Vyy*mu_r+mu_r'*Qyy+Xyy'*mu_r+Zy'*Jg'*Gc) ...
+                            *(-K*Sigma_r*Ky' - Ky*mu_r*mu_r'*K' - Ky*mu_r*L' - Zy*mu_r'*K' - Zy*L');
+                        dV_M_Drx_Dry_dq(i,:) = trace(dV_M_Drx_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                        dV_M_Drx_Dry_dq(i,:) = dV_M_Drx_Dry_dq(i) - 2*E_M_Drx_Dry*dE_M_Drx_Dry_dq(i);%[double check this part]
+
+                        dV_M_Drx_Dry_dqdot(i,:) = 0;
+
+                        dV_M_Dry_Drx_dq(i,:) = dV_M_Drx_Dry_dq(i);
+                        dV_M_Dry_Drx_dqdot(i,:) = 0;
+                    end
+
+                    dE_M_Drx_nr = [0;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;zeros(3,1);zeros(8,1)];
+                    dE_M_Drx_Drx = [0;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;zeros(3,1);zeros(8,1)];
+                    dE_M_Drx_Dry = [0;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
+                    dE_M_Dry_Drx = dE_M_Drx_Dry;
+
+                    % expectation and covariance of b_v_x
+                    E_b_Drx = (mu_r'*G' + Gc')*J_blk;
+                    V_b_Drx = trace(T*T'*Sigma_r);
+
+                    for i=1:nq
+                        dE_b_Drx_dq(i,:) = trace( (-h*(K*mu_r + L)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(K*mu_r + L)'*dCdq(:,i));
+                        dE_b_Drx_dqdot(i,:) = - trace( h*(K*mu_r + L)'*dCdqdot(:,i));
+
+                        dV_b_Drx_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*T'*Sigma_r*K' -h*K*Sigma_r*T*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
+                            - trace( (2*h*K*Sigma_r*T)'*dCdq(:,i));
+                        dV_b_Drx_dqdot(i,:) = - trace( (2*h*K*Sigma_r*T)'*dCdqdot(:,i));
+                    end
+
+                    dE_b_Drx_dh = (mu_r'*G' + Gc')*Jg*Minv*(B*u_prev - C);
+                    dE_b_Drx_du = ((mu_r'*G' + Gc')*Jg*Minv*B*h)';
+
+                    dE_b_Drx = [dE_b_Drx_dh;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_du;zeros(8,1)];
+
+                    dV_b_Drx_dh = 2*h*trace(G'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*G*Sigma_r) + trace(G'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*G*Sigma_r);
+                    dV_b_Drx_du = (G'*Jg*Minv*B)'*Sigma_r*h*(T) + h*B'*Minv*Jg'*G*Sigma_r*T;
+                    dV_b_Drx = [dV_b_Drx_dh;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_du;zeros(8,1)];
+
+                    % be careful with constant h
+
+                    lambda_n = lambda(1+3*(foot_indx-1));
+                    lambda_tx = lambda(2+3*(foot_indx-1));
+                    lambda_ty = lambda(3+3*(foot_indx-1));
+                    gamma_left = gamma(foot_indx);
+                    lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_left];
+
+                    E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1]';
+                    E_Mvx_lambda_plus_bvx = E_M_v_x'*lambda_vec + E_b_Drx;
+
+                    dE_M_v_x = [h*dE_M_Drx_nr, h*dE_M_Drx_Drx, h*dE_M_Drx_Dry, zeros(36,1)]';
+
+                    % NCP residual, currently assume no smoothing func applied
+                    E_Phi(1+2*(foot_indx-1)) = lambda_tx*E_Mvx_lambda_plus_bvx;
+                    % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                    dE_Phi_dh(1+2*(foot_indx-1)) = lambda_tx*(E_M_v_x'*lambda_vec/h + dE_b_Drx_dh);% the last part is dE_b_Drx/dh
+                    dE_Phi_dq0(:,1+2*(foot_indx-1)) = lambda_tx*h*(dE_M_Drx_nr_dq*lambda_n+dE_M_Drx_Drx_dq*lambda_tx+dE_M_Drx_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                    dE_Phi_dv0(:,1+2*(foot_indx-1)) = lambda_tx*h*(dE_M_Drx_nr_dqdot*lambda_n+dE_M_Drx_Drx_dqdot*lambda_tx+dE_M_Drx_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                    dE_Phi_dq1(:,1+2*(foot_indx-1)) = dE_Phi_dq0(:,1+2*(foot_indx-1));
+                    dE_Phi_dv1(:,1+2*(foot_indx-1)) = dE_Phi_dv0(:,1+2*(foot_indx-1));
+                    dE_Phi_du(:,1+2*(foot_indx-1)) = lambda_tx*dE_b_Drx_du;
+                    dE_Phi_dlambda_n(1+2*(foot_indx-1)) = lambda_tx*h*E_M_Drx_nr;
+                    dE_Phi_dlambda_tx(1+2*(foot_indx-1)) = E_Mvx_lambda_plus_bvx + h*E_M_Drx_Drx*lambda_tx;
+                    dE_Phi_dlambda_ty(1+2*(foot_indx-1)) = lambda_tx*h*E_M_Drx_Dry;
+
+                    if(foot_indx == 1)
+                        dE_Phi(:,1) = [dE_Phi_dh(1); dE_Phi_dq0(:,1); dE_Phi_dv0(:,1); dE_Phi_dq1(:,1); dE_Phi_dv1(:,1); dE_Phi_du(:,1);dE_Phi_dlambda_n(1); ...
+                                       dE_Phi_dlambda_tx(1);dE_Phi_dlambda_ty(1);zeros(3,1);lambda_tx;0];
+                    elseif(foot_indx == 2)
+                        dE_Phi(:,3) = [dE_Phi_dh(3); dE_Phi_dq0(:,3); dE_Phi_dv0(:,3); dE_Phi_dq1(:,3); dE_Phi_dv1(:,3); dE_Phi_du(:,3);zeros(3,1); ...
+                                       dE_Phi_dlambda_n(3);dE_Phi_dlambda_tx(3);dE_Phi_dlambda_ty(3);0;lambda_tx];
+                    end
+                    
+                    %--------------- third LCP condition ---------------%
+                    % expectation and covariance of M_v_y
+                    E_M_Dry_nr = trace(Vy*Sigma_r) + mu_r'*Vy*mu_r + Z'*Jg'*(Fy*mu_r + Fyc) + mu_r'*U'*Jg'*Fyc;
+                    E_M_nr_Dry = trace(Vy'*Sigma_r) + mu_r'*Vy'*mu_r + Ly'*Jg'*(F*mu_r + Fc) + mu_r'*Ky'*Jg'*Fc;%==E_M_Dry_nr
+                    E_M_Dry_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r+Fyc);
+
+                    for i=1:nq
+                        % expectation derivative w.r.t q and qdot
+                        dE_M_Dry_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*Fy' + Fc*(Fy*mu_r + Fyc)' + F*mu_r*Fyc')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Dry_nr_dqdot(i,:) = 0;
+                        % [ToDo: derivative w.r.t Jacobian]
+
+                        dE_M_Dry_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*Fy' + Fyc*(2*Fy*mu_r + Fyc)')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Dry_Dry_dqdot(i,:) = 0;
+                        % [ToDo: derivative w.r.t Jacobian]
+
+                        % covariance derivative w.r.t q and qdot
+                        dV_M_Dry_Dry_dq_first_chain(:,:,i) = -4*Ky*Sigma_r*Wy*Sigma_r*Ky' + 4*(-Ky*mu_r*mu_r'*Wy*Sigma_r*Ky' - Ky*Sigma_r*Wy*mu_r*mu_r'*Ky' ...
+                            -2*Ky*mu_r*Yy'*Sigma_r*Ky'-2*Ky*Sigma_r*Wy*mu_r*Ly'-Ly*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*Ly') ...
+                            +2*(trace(Ky*Sigma_r*Fy'*Jg)+mu_r'*Wy*mu_r+2*mu_r'*Yy+Ly'*Jg'*Fyc) ...
+                            *(-Ky*(Sigma_r + mu_r*mu_r')*Ky' - 2*Ky*mu_r*Ly' - Ly*Ly');
+                        dV_M_Dry_Dry_dq(i,:) = trace(dV_M_Dry_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                        dV_M_Dry_Dry_dq(i,:) = dV_M_Dry_Dry_dq(i) - 2*E_M_Dry_Dry*dE_M_Dry_Dry_dq(i);%[double check this part]
+
+                        dV_M_Dry_Dry_dqdot(i,:) = 0;
+
+                        dV_M_Dry_nr_dq_first_chain(:,:,i) = -Ky*Sigma_r*(Vy+Vy')*Sigma_r*U' - U*Sigma_r*Vy*Sigma_r*Ky' - Ky*Sigma_r*Vy*Sigma_r*U' ...
+                            -U*(mu_r*Oy'+Oy*mu_r')*Ky'-Ky*(mu_r*Oy'+Oy*mu_r')*U'-Z*Oy'*Ky'-Ly*Oy'*U'-Ky*Oy*Z'-U*Oy*Ly' ...
+                            +2*(trace(U*Sigma_r*Fy'*Jg)+mu_r'*Vy*mu_r+mu_r'*Qy+Xy'*mu_r+Z'*Jg'*Fyc) ...
+                            *(-Ky*Sigma_r*U' - U*mu_r*mu_r'*Ky' - U*mu_r*Ly' - Z*mu_r'*Ky' - Z*Ly');
+                        dV_M_Dry_nr_dq(i,:) = trace(dV_M_Dry_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                        dV_M_Dry_nr_dq(i,:) = dV_M_Dry_nr_dq(i) - 2*E_M_Dry_nr*dE_M_Dry_nr_dq(i);%[double check this part]
+
+                        dV_M_Dry_nr_dqdot(i,:) = 0;
+                    end
+
+                    %[h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                    dE_M_Dry_nr = [0;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;zeros(3,1);zeros(8,1)];
+                    dE_M_Dry_Dry = [0;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
+
+                    % expectation and covariance of b_v_y
+                    E_b_Dry = (mu_r'*Fy' + Fyc')*J_blk;
+                    V_b_Dry = trace(Ty*Ty'*Sigma_r);
+
+                    for i=1:nq
+                        dE_b_Dry_dq(i,:) = trace( (-h*(Ky*mu_r + Ly)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(Ky*mu_r + Ly)'*dCdq(:,i));
+                        dE_b_Dry_dqdot(i,:) = - trace( h*(Ky*mu_r + Ly)'*dCdqdot(:,i));
+
+                        dV_b_Dry_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*Ty'*Sigma_r*Ky' -h*K*Sigma_r*Ty*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
+                            - trace( (2*h*Ky*Sigma_r*Ty)'*dCdq(:,i));
+                        dV_b_Dry_dqdot(i,:) = - trace( (2*h*Ky*Sigma_r*Ty)'*dCdqdot(:,i));
+                    end
+                    dE_b_Dry_dh = (mu_r'*Fy' + Fyc')*Jg*Minv*(B*u_prev - C);
+                    dE_b_Dry_du = ((mu_r'*Fy' + Fyc')*Jg*Minv*B*h)';
+
+                    dE_b_Dry = [dE_b_Dry_dh;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_du;zeros(8,1)];
+
+                    dV_b_Dry_dh = 2*h*trace(Fy'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*Fy*Sigma_r) + trace(Fy'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*Fy*Sigma_r);
+                    dV_b_Dry_du = (Fy'*Jg*Minv*B)'*Sigma_r*h*(Ty) + h*B'*Minv*Jg'*Fy*Sigma_r*Ty;
+                    dV_b_Dry = [dV_b_Dry_dh;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_du;zeros(8,1)];
+
+                    % vectrozie these components
+                    E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
+                    E_Mvy_lambda_plus_bvy = E_M_v_y'*lambda_vec + E_b_Dry;
+
+                    dE_M_v_y = [h*dE_M_Dry_nr, h*dE_M_Dry_Drx, h*dE_M_Dry_Dry, zeros(36,1)]';
+
+                    % NCP residual, currently assume no smoothing func applied
+                    E_Phi(2+2*(foot_indx-1)) = lambda_ty*E_Mvy_lambda_plus_bvy;
+                    % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                    dE_Phi_dh(2+2*(foot_indx-1)) = lambda_ty*(E_M_v_y'*lambda_vec/h + dE_b_Dry_dh);% the last part is dE_b_Dry/dh
+                    dE_Phi_dq0(:,2+2*(foot_indx-1)) = lambda_ty*h*(dE_M_Dry_nr_dq*lambda_n+dE_M_Dry_Drx_dq*lambda_tx+dE_M_Dry_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                    dE_Phi_dv0(:,2+2*(foot_indx-1)) = lambda_ty*h*(dE_M_Dry_nr_dqdot*lambda_n+dE_M_Dry_Drx_dqdot*lambda_tx+dE_M_Dry_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                    dE_Phi_dq1(:,2+2*(foot_indx-1)) = dE_Phi_dq0(:,2+2*(foot_indx-1));
+                    dE_Phi_dv1(:,2+2*(foot_indx-1)) = dE_Phi_dv0(:,2+2*(foot_indx-1));
+                    dE_Phi_du(:,2+2*(foot_indx-1)) = lambda_ty*dE_b_Dry_du;
+                    dE_Phi_dlambda_n(2+2*(foot_indx-1)) = lambda_ty*h*E_M_Dry_nr;
+                    dE_Phi_dlambda_tx(2+2*(foot_indx-1)) = lambda_ty*h*E_M_Dry_Drx;
+                    dE_Phi_dlambda_ty(2+2*(foot_indx-1)) = E_Mvy_lambda_plus_bvy + lambda_ty*h*E_M_Drx_Dry;
+
+                    if(foot_indx == 1)
+                        dE_Phi(:,2) = [dE_Phi_dh(2); dE_Phi_dq0(:,2); dE_Phi_dv0(:,2); dE_Phi_dq1(:,2); dE_Phi_dv1(:,2); dE_Phi_du(:,2);dE_Phi_dlambda_n(2); ...
+                                       dE_Phi_dlambda_tx(2);dE_Phi_dlambda_ty(2);zeros(3,1);lambda_ty;0];
+                    elseif(foot_indx == 2)
+                        dE_Phi(:,4) = [dE_Phi_dh(4); dE_Phi_dq0(:,4); dE_Phi_dv0(:,4); dE_Phi_dq1(:,4); dE_Phi_dv1(:,4); dE_Phi_du(:,4);zeros(3,1); ...
+                                       dE_Phi_dlambda_n(4);dE_Phi_dlambda_tx(4);dE_Phi_dlambda_ty(4);0;lambda_ty];
+                    end
+                    
+                    % LCP variance matrix of V_Mvx_lambda_plus_bvx
+                    %fourth order expectation 
+                    [E_xnxn,dE_xnxn_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xnxx,dE_xnxx_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xnxy,dE_xnxy_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    [E_xxxn,dE_xxxn_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xxxx,dE_xxxx_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xxxy,dE_xxxy_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    [E_xyxn,dE_xyxn_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xyxx,dE_xyxx_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_xyxy,dE_xyxy_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    E_Mvx_lambda_lambda_Mvx_quad = h^2*(E_xnxn*lambda_n^2 + E_xnxx*lambda_n*lambda_tx + E_xnxy*lambda_n*lambda_ty ...
+                        + E_xxxn*lambda_tx*lambda_n + E_xxxx*lambda_tx^2 + E_xxxy*lambda_tx*lambda_ty ...
+                        + E_xyxn*lambda_ty*lambda_n + E_xyxx*lambda_ty*lambda_tx + E_xyxy*lambda_ty^2);
+                    E_Mvx_lambda_lambda_Mvx_linear = 2*h*E_M_Drx_nr*lambda_n*gamma_left + 2*h*E_M_Drx_Drx*lambda_tx*gamma_left ...
+                                              + 2*h*E_M_Drx_Dry*lambda_ty*gamma_left + gamma_left^2;
+                    E_Mvx_lambda_lambda_Mvx = E_Mvx_lambda_lambda_Mvx_quad + E_Mvx_lambda_lambda_Mvx_linear;
+
+                    % computing derivative of E_Mvx_lambda_lambda_Mvx
+                    dE_Mvx_lambda_lambda_Mvx_dh = 2*E_Mvx_lambda_lambda_Mvx_quad/h + (E_Mvx_lambda_lambda_Mvx_linear-gamma_left^2)/h;
+                    dE_Mvx_lambda_lambda_Mvx_dq0 = h^2/2*(dE_xnxn_dq*lambda_n^2 + dE_xnxx_dq*lambda_n*lambda_tx + dE_xnxy_dq*lambda_n*lambda_ty ...
+                        + dE_xxxn_dq*lambda_tx*lambda_n + dE_xxxx_dq*lambda_tx^2 + dE_xxxy_dq*lambda_tx*lambda_ty ...
+                        + dE_xyxn_dq*lambda_ty*lambda_n + dE_xyxx_dq*lambda_ty*lambda_tx + dE_xyxy_dq*lambda_ty^2) + h*dE_M_Drx_nr_dq*lambda_n*gamma_left ...
+                        + h*dE_M_Drx_Drx_dq*lambda_tx*gamma_left + h*dE_M_Drx_Dry_dq*lambda_ty*gamma_left;
+                    dE_Mvx_lambda_lambda_Mvx_dv0 = zeros(nv,1);
+                    dE_Mvx_lambda_lambda_Mvx_dq1 = dE_Mvx_lambda_lambda_Mvx_dq0;
+                    dE_Mvx_lambda_lambda_Mvx_dv1 = zeros(nv,1);
+                    dE_Mvx_lambda_lambda_Mvx_du = zeros(nu,1);
+                    dE_Mvx_lambda_lambda_Mvx_dlambda_n = h^2*(2*E_xnxn*lambda_n + E_xnxx*lambda_tx + E_xnxy*lambda_ty + E_xxxn*lambda_tx + E_xyxn*lambda_ty) ...
+                                                         + 2*h*E_M_Drx_nr*gamma_left;
+                    dE_Mvx_lambda_lambda_Mvx_dlambda_tx = h^2*(E_xnxx*lambda_n + E_xxxn*lambda_n + 2*E_xxxx*lambda_tx + E_xxxy*lambda_ty + E_xyxx*lambda_ty) ...
+                                                          + 2*h*E_M_Drx_Drx*gamma_left;
+                    dE_Mvx_lambda_lambda_Mvx_dlambda_ty = h^2*(E_xnxy*lambda_n + E_xxxy*lambda_tx + E_xyxn*lambda_n + E_xyxx*lambda_tx + 2* E_xyxy*lambda_ty) ...
+                                                          + 2*h*E_M_Drx_Dry*gamma_left;
+                    dE_Mvx_lambda_lambda_Mvx_dgamma = 2*h*E_M_Drx_nr*lambda_n + 2*h*E_M_Drx_Drx*lambda_tx ...
+                                                        + 2*h*E_M_Drx_Dry*lambda_ty + 2*gamma_left;
+
+                    if(foot_indx == 1)                               
+                        dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
+                                                    dE_Mvx_lambda_lambda_Mvx_dv1;dE_Mvx_lambda_lambda_Mvx_du;dE_Mvx_lambda_lambda_Mvx_dlambda_n;dE_Mvx_lambda_lambda_Mvx_dlambda_tx; ...
+                                                    dE_Mvx_lambda_lambda_Mvx_dlambda_ty;zeros(3,1);dE_Mvx_lambda_lambda_Mvx_dgamma;0];
+                    elseif(foot_indx == 2)
+                        dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
+                                                    dE_Mvx_lambda_lambda_Mvx_dv1;dE_Mvx_lambda_lambda_Mvx_du;zeros(3,1);dE_Mvx_lambda_lambda_Mvx_dlambda_n; ...
+                                                    dE_Mvx_lambda_lambda_Mvx_dlambda_tx;dE_Mvx_lambda_lambda_Mvx_dlambda_ty;0;dE_Mvx_lambda_lambda_Mvx_dgamma];
+                    end
+                    
+                    %cov(M_{v,x}^T,b_{v,x}) = E[(M_{v,x}^T - E(M_{v,x}^T))(b_{v,x}-E(b_{v,x}))] = E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}];
+                    % E[M_{v,x}^T*b_{v,x}]
+                    [E_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_nr_Drx_dq,dE_Mvx_bvx_Drx_nr_Drx_dqdot,dE_Mvx_bvx_Drx_nr_Drx_dh,dE_Mvx_bvx_Drx_nr_Drx_du] = expectation_third_order_multiply(G,Gc,F,Fc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    [E_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Drx_Drx_dq,dE_Mvx_bvx_Drx_Drx_Drx_dqdot,dE_Mvx_bvx_Drx_Drx_Drx_dh,dE_Mvx_bvx_Drx_Drx_Drx_du] = expectation_third_order_multiply(G,Gc,G,Gc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    [E_Mvx_bvx_Drx_Dry_Drx,dE_Mvx_bvx_Drx_Dry_Drx_dq,dE_Mvx_bvx_Drx_Dry_Drx_dqdot,dE_Mvx_bvx_Drx_Dry_Drx_dh,dE_Mvx_bvx_Drx_Dry_Drx_du] = expectation_third_order_multiply(G,Gc,Fy,Fyc,G,Gc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    E_Mvx_bvx = [E_Mvx_bvx_Drx_nr_Drx;E_Mvx_bvx_Drx_Drx_Drx;E_Mvx_bvx_Drx_Dry_Drx;E_b_Drx];
+
+                    dE_Mvx_bvx_Drx_nr_Drx = [dE_Mvx_bvx_Drx_nr_Drx_dh;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_du;zeros(8,1)];
+                    dE_Mvx_bvx_Drx_Drx_Drx = [dE_Mvx_bvx_Drx_Drx_Drx_dh;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_du;zeros(8,1)];
+                    dE_Mvx_bvx_Drx_Dry_Drx = [dE_Mvx_bvx_Drx_Dry_Drx_dh;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_du;zeros(8,1)];
+
+                    dE_Mvx_bvx = [dE_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Dry_Drx,dE_b_Drx]';
+
+                    %  V[M_{v,x}*lambda+b_{v,x}] = V[M_{v,x}*lambda] + cov(M_{v,x}*lambda,b_{v,x}) + cov(b_{v,x},M_{v,x}*lambda) + V[b_{v,x}]
+                    % = V[M_{v,x}*lambda] + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
+                    % =E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
+                    % =E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*(E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}]) + V[b_{v,x}]
+                    V_Mvx_lambda_plus_bvx = E_Mvx_lambda_lambda_Mvx - (E_M_v_x'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvx_bvx - E_M_v_x*E_b_Drx) + V_b_Drx;
+
+                    V_Phi(1+2*(foot_indx-1)) = lambda_tx^2*V_Mvx_lambda_plus_bvx;
+                    % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                    dV_Phi(:,1+2*(foot_indx-1)) = lambda_tx^2*(dE_Mvx_lambda_lambda_Mvx - 2*(E_M_v_x'*lambda_vec)*(dE_M_v_x'*lambda_vec) + (2*lambda_vec'*dE_Mvx_bvx)' - 2*lambda_vec'*E_M_v_x*dE_b_Drx ...
+                                -(2*lambda_vec'*dE_M_v_x*E_b_Drx)' + dV_b_Drx);
+
+                    % LCP variance matrix of V_Mvy_lambda_plus_bvy
+                    %fourth order expectation
+                    [E_ynyn,dE_ynyn_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_ynyx,dE_ynyx_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_ynyy,dE_ynyy_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    [E_yxyn,dE_yxyn_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_yxyx,dE_yxyx_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_yxyy,dE_yxyy_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    [E_yyyn,dE_yyyn_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_yyyx,dE_yyyx_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,G,Gc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+                    [E_yyyy,dE_yyyy_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,H,Hc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
+
+                    % computing E_Mvy_lambda_lambda_Mvy
+                    E_Mvy_lambda_lambda_Mvy_quad = h^2*(E_ynyn*lambda_n^2 + E_ynyx*lambda_n*lambda_tx + E_ynyy*lambda_n*lambda_ty ...
+                        + E_yxyn*lambda_tx*lambda_n + E_yxyx*lambda_tx^2 + E_yxyy*lambda_tx*lambda_ty ...
+                        + E_yyyn*lambda_ty*lambda_n + E_yyyx*lambda_ty*lambda_tx + E_yyyy*lambda_ty^2);
+                    E_Mvy_lambda_lambda_Mvy_linear = 2*h*E_M_Dry_nr*lambda_n*gamma_left + 2*h*E_M_Dry_Drx*lambda_tx*gamma_left ...
+                                              + 2*h*E_M_Dry_Dry*lambda_ty*gamma_left + gamma_left^2;
+                    E_Mvy_lambda_lambda_Mvy = E_Mvy_lambda_lambda_Mvy_quad + E_Mvy_lambda_lambda_Mvy_linear;
+
+                    % computing derivative of E_Mvy_lambda_lambda_Mvy
+                    dE_Mvy_lambda_lambda_Mvy_dh = 2*E_Mvy_lambda_lambda_Mvy_quad/h + (E_Mvy_lambda_lambda_Mvy_linear-gamma_left^2)/h;
+                    dE_Mvy_lambda_lambda_Mvy_dq0 = h^2/2*(dE_ynyn_dq*lambda_n^2 + dE_ynyx_dq*lambda_n*lambda_tx + dE_ynyy_dq*lambda_n*lambda_ty ...
+                        + dE_yxyn_dq*lambda_tx*lambda_n + dE_yxyx_dq*lambda_tx^2 + dE_yxyy_dq*lambda_tx*lambda_ty ...
+                        + dE_yyyn_dq*lambda_ty*lambda_n + dE_yyyx_dq*lambda_ty*lambda_tx + dE_yyyy_dq*lambda_ty^2) + h*dE_M_Dry_nr_dq*lambda_n*gamma_left ...
+                        + h*dE_M_Dry_Drx_dq*lambda_tx*gamma_left + h*dE_M_Dry_Dry_dq*lambda_ty*gamma_left;
+                    dE_Mvy_lambda_lambda_Mvy_dv0 = zeros(nv,1);
+                    dE_Mvy_lambda_lambda_Mvy_dq1 = dE_Mvy_lambda_lambda_Mvy_dq0;
+                    dE_Mvy_lambda_lambda_Mvy_dv1 = zeros(nv,1);
+                    dE_Mvy_lambda_lambda_Mvy_du = zeros(nu,1);
+                    dE_Mvy_lambda_lambda_Mvy_dlambda_n = h^2*(2*E_ynyn*lambda_n + E_ynyx*lambda_tx + E_ynyy*lambda_ty + E_yxyn*lambda_tx + E_yyyn*lambda_ty) ...
+                                                         + 2*h*E_M_Dry_nr*gamma_left;
+                    dE_Mvy_lambda_lambda_Mvy_dlambda_tx = h^2*(E_ynyx*lambda_n + E_yxyn*lambda_n + 2*E_yxyx*lambda_tx + E_yxyy*lambda_ty + E_yyyx*lambda_ty) ...
+                                                          + 2*h*E_M_Dry_Drx*gamma_left;
+                    dE_Mvy_lambda_lambda_Mvy_dlambda_ty = h^2*(E_ynyy*lambda_n + E_yxyy*lambda_tx + E_yyyn*lambda_n + E_yyyx*lambda_tx + 2* E_yyyy*lambda_ty) ...
+                                                          + 2*h*E_M_Dry_Dry*gamma_left;
+                    dE_Mvy_lambda_lambda_Mvy_dgamma = 2*h*E_M_Dry_nr*lambda_n + 2*h*E_M_Dry_Drx*lambda_tx ...
+                                                        + 2*h*E_M_Dry_Dry*lambda_ty + 2*gamma_left;
+
+                    if(foot_indx == 1)                                
+                        dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
+                                                    dE_Mvy_lambda_lambda_Mvy_dv1;dE_Mvy_lambda_lambda_Mvy_du;dE_Mvy_lambda_lambda_Mvy_dlambda_n; ...
+                                                    dE_Mvy_lambda_lambda_Mvy_dlambda_tx;dE_Mvy_lambda_lambda_Mvy_dlambda_ty;zeros(3,1);dE_Mvy_lambda_lambda_Mvy_dgamma;0];
+                    elseif(foot_indx == 2)
+                        dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
+                                                    dE_Mvy_lambda_lambda_Mvy_dv1;dE_Mvy_lambda_lambda_Mvy_du;zeros(3,1);dE_Mvy_lambda_lambda_Mvy_dlambda_n; ...
+                                                    dE_Mvy_lambda_lambda_Mvy_dlambda_tx;dE_Mvy_lambda_lambda_Mvy_dlambda_ty;0;dE_Mvy_lambda_lambda_Mvy_dgamma];
+                    end
+                    %Computing cov(M_{v,y}^T,b_{v,y}) = E[(M_{v,y}^T - E(M_{v,y}^T))(b_{v,y}-E(b_{v,y}))] = E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}];
+
+                    % E[M_{v,y}^T*b_{v,y}]
+                    [E_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_nr_Dry_dq,dE_Mvy_bvy_Dry_nr_Dry_dqdot,dE_Mvy_bvy_Dry_nr_Dry_dh,dE_Mvy_bvy_Dry_nr_Dry_du] = expectation_third_order_multiply(H,Hc,F,Fc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    [E_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Drx_Dry_dq,dE_Mvy_bvy_Dry_Drx_Dry_dqdot,dE_Mvy_bvy_Dry_Drx_Dry_dh,dE_Mvy_bvy_Dry_Drx_Dry_du] = expectation_third_order_multiply(H,Hc,G,Gc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    [E_Mvy_bvy_Dry_Dry_Dry,dE_Mvy_bvy_Dry_Dry_Dry_dq,dE_Mvy_bvy_Dry_Dry_Dry_dqdot,dE_Mvy_bvy_Dry_Dry_Dry_dh,dE_Mvy_bvy_Dry_Dry_Dry_du] = expectation_third_order_multiply(H,Hc,H,Hc,H,Hc,Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r);
+                    E_Mvy_bvy = [E_Mvy_bvy_Dry_nr_Dry;E_Mvy_bvy_Dry_Drx_Dry;E_Mvy_bvy_Dry_Dry_Dry;E_b_Dry];
+
+                    dE_Mvy_bvy_Dry_nr_Dry = [dE_Mvy_bvy_Dry_nr_Dry_dh;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_du;zeros(8,1)];
+                    dE_Mvy_bvy_Dry_Drx_Dry = [dE_Mvy_bvy_Dry_Drx_Dry_dh;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_du;zeros(8,1)];
+                    dE_Mvy_bvy_Dry_Dry_Dry = [dE_Mvy_bvy_Dry_Dry_Dry_dh;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_du;zeros(8,1)];
+
+                    dE_Mvy_bvy = [dE_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Dry_Dry,dE_b_Dry]';
+
+                    %  V[M_{v,y}*lambda+b_{v,y}] = V[M_{v,y}*lambda] + cov(M_{v,y}*lambda,b_{v,y}) + cov(b_{v,y},M_{v,y}*lambda) + V[b_{v,y}]
+                    % = V[M_{v,y}*lambda] + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
+                    % =E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
+                    % =E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*(E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}]) + V[b_{v,y}]
+                    V_Mvy_lambda_plus_bvy = E_Mvy_lambda_lambda_Mvy - (E_M_v_y'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvy_bvy - E_M_v_y*E_b_Dry) + V_b_Dry;
+
+                    V_Phi(2+2*(foot_indx-1)) = lambda_ty^2*V_Mvy_lambda_plus_bvy;
+                    % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                    dV_Phi(:,2+2*(foot_indx-1)) = lambda_ty^2*(dE_Mvy_lambda_lambda_Mvy - 2*(E_M_v_y'*lambda_vec)*(dE_M_v_y'*lambda_vec) + (2*lambda_vec'*dE_Mvy_bvy)' - 2*lambda_vec'*E_M_v_y*dE_b_Dry ...
+                                -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
+                end
                 
                 function [E,dEdq,dEdqdot,dEdh,dEdu] = expectation_third_order_multiply(Ain, ain, Bin, bin, Cin, cin, Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r)
                     %refactor inputs matrix
@@ -736,17 +768,17 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 
                 % second foot, to be modified
-                z_right_foot = [lambda(4:6);gamma(2)]';
-                E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1];
-                E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
-                E_Phi(3) = 0;%lambda(2)*(E_M_v_x*z_right_foot + E_b_Drx);
-                E_Phi(4) = 0;%lambda(3)*(E_M_v_y'*z_right_foot + E_b_Dry);
-                V_Phi(3) = 0;
-                V_Phi(4) = 0;
-                dE_Phi(:,3) = zeros(36,1);
-                dE_Phi(:,4) = zeros(36,1);
-                dV_Phi(:,3) = zeros(36,1);
-                dV_Phi(:,4) = zeros(36,1);
+                %z_right_foot = [lambda(4:6);gamma(2)]';
+                %E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1];
+                %E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
+                %E_Phi(3) = 0;%lambda(2)*(E_M_v_x*z_right_foot + E_b_Drx);
+                %E_Phi(4) = 0;%lambda(3)*(E_M_v_y'*z_right_foot + E_b_Dry);
+                %V_Phi(3) = 0;
+                %V_Phi(4) = 0;
+                %dE_Phi(:,3) = zeros(36,1);
+                %E_Phi(:,4) = zeros(36,1);
+                %dV_Phi(:,3) = zeros(36,1);
+                %dV_Phi(:,4) = zeros(36,1);
                 % to be modified
                 
                 %g = obj.W*gamma + obj.M*lambda + obj.r;
@@ -761,6 +793,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
                 df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                if obj.verbose_print == 1
+                    f
+                end
+                
+                % test non-zero values
+                nonzero_index_set = find(abs(dE_Phi) > 1e-3);
+                if length(nonzero_index_set) > 4
+                    disp('number of nonzero index set elements > 4')
+                end
                 
             end
             
