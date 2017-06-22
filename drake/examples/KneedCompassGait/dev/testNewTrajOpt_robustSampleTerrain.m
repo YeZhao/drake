@@ -204,6 +204,20 @@ xlabel('t');
 ylabel('Knee joint 2')
 hold on;
 
+% simulate with LQR gains
+% LQR Cost Matrices
+Q = diag(10*ones(1,12));
+R = .1*eye(3);
+Qf = 100*eye(12);
+
+ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+
+sys=feedback(p,ltvsys);
+
+xtraj_new = simulate(sys,xtraj.tspan, x0);%+0.05*randn(4,1)
+v = AcrobotVisualizer(p);
+v.playback(xtraj_new,struct('slider',true));
+
 disp('finish traj opt')
 
     function [f,df] = running_cost_fun(h,x,u)

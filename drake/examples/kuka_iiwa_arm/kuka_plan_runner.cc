@@ -40,23 +40,11 @@ using Eigen::Vector3d;
 #include <string>
 #include <list>
 
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/config.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/spline.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/ilqrsolver.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/udpsolver.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/kuka_arm.h"
-#include "drake/examples/kuka_iiwa_arm/DDP_traj_gen/cost_function_kuka_arm.h"
-#define UDP_TRAJ_DIR "/home/yezhao/kuka-dev/drake/drake/examples/kuka_iiwa_arm/DDP_traj_gen/trajectory/"
-
 #include <time.h>
 #include <sys/time.h>
 
 using namespace std;
 using namespace Eigen;
-
-#define useILQRSolver 0
-#define useUDPSolver 1
-/* DDP trajectory generation */
 
 static std::list< const char*> gs_fileName;
 static std::list< std::string > gs_fileName_string;
@@ -147,158 +135,6 @@ class RobotPlanRunner {
     }
   }
 
-  void RunUDP() {
-    struct timeval tbegin,tend;
-    double texec = 0.0;
-    stateVec_t xinit,xgoal;
-
-    xinit << 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-    xgoal << 0.0,pi/4,0.0,-pi/3,0.0,pi/3,0.0, 0.0,0.0,0.0,0.0,0.0,0.0,0.0;
-
-    double dt = TimeStep;
-    unsigned int N = NumberofKnotPt;
-    double tolFun = 1;//1e-5;//relaxing default value: 1e-10;
-    double tolGrad = 1e-5;//relaxing default value: 1e-10;
-    unsigned int iterMax = 150;
-    #if useILQRSolver
-        ILQRSolver::traj lastTraj;
-        KukaArm KukaArmModel(dt, N, xgoal);
-        CostFunctionKukaArm costKukaArm;
-        ILQRSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
-        testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, iterMax, tolFun, tolGrad);    
-    #endif
-    #if useUDPSolver
-        double scale = 1e-4;//[To be optimized]
-        KukaArm KukaArmModel(dt, N, xgoal);
-        KukaArm::timeprofile finalTimeProfile;
-        UDPSolver::traj lastTraj;
-        CostFunctionKukaArm costKukaArm;
-        UDPSolver testSolverKukaArm(KukaArmModel,costKukaArm,ENABLE_FULLDDP,ENABLE_QPBOX);
-        testSolverKukaArm.firstInitSolver(xinit, xgoal, N, dt, scale, iterMax, tolFun, tolGrad);    
-    #endif
-
-    // run one or multiple times and then average
-    unsigned int Num_run = 1;
-    gettimeofday(&tbegin,NULL);
-    for(unsigned int i=0;i<Num_run;i++) testSolverKukaArm.solveTrajectory();
-    gettimeofday(&tend,NULL);
-
-    lastTraj = testSolverKukaArm.getLastSolvedTrajectory();
-    finalTimeProfile = KukaArmModel.getFinalTimeProfile();
-
-    joint_state_traj.resize(N+1);
-    joint_state_traj_interp.resize(N*InterpolationScale+1);
-    for(unsigned int i=0;i<=N;i++){
-      joint_state_traj[i] = lastTraj.xList[i];
-    }
-    torque_traj = lastTraj.uList;
-
-    //linear interpolation to 1ms
-    for(unsigned int i=0;i<stateSize;i++){
-      for(unsigned int j=0;j<N*InterpolationScale;j++){
-       unsigned int index = j/10;
-       joint_state_traj_interp[j](i,0) =  joint_state_traj[index](i,0) + ((double)j-(double)index*10.0)*(joint_state_traj[index+1](i,0) - joint_state_traj[index](i,0))/10.0;
-      }
-      joint_state_traj_interp[N*InterpolationScale](i,0) = joint_state_traj[N](i,0);
-    }
-
-    texec=((double)(1000*(tend.tv_sec-tbegin.tv_sec)+((tend.tv_usec-tbegin.tv_usec)/1000)))/1000.;
-    texec /= Num_run;
-
-    cout << endl;
-    cout << "Number of iterations: " << lastTraj.iter + 1 << endl;
-    cout << "Final cost: " << lastTraj.finalCost << endl;
-    cout << "Final gradient: " << lastTraj.finalGrad << endl;
-    cout << "Final lambda: " << lastTraj.finalLambda << endl;
-    cout << "Execution time by time step (second): " << texec/N << endl;
-    cout << "Execution time per iteration (second): " << texec/lastTraj.iter << endl;
-    cout << "Total execution time of the solver (second): " << texec << endl;
-    cout << "\tTime of derivative (second): " << lastTraj.time_derivative.sum() << " (" << 100.0*lastTraj.time_derivative.sum()/texec << "%)" << endl;
-    cout << "\tTime of backward pass (second): " << lastTraj.time_backward.sum() << " (" << 100.0*lastTraj.time_backward.sum()/texec << "%)" << endl;
-    cout << "\t\tUDP backward propagation (second): " << lastTraj.time_range1.sum() << " (" << 100.0*lastTraj.time_range1.sum()/texec << "%)" << endl;
-    cout << "\t\t\t20 multi-threading computation (second): " << lastTraj.time_range2.sum() << " (" << 100.0*lastTraj.time_range2.sum()/texec << "%)" << endl;
-    cout << "\t\t\tMain thread computation (second): " << lastTraj.time_range3.sum() << " (" << 100.0*lastTraj.time_range3.sum()/texec << "%)" << endl;
-    cout << "\tTime of forward pass (second): " << lastTraj.time_forward.sum() << " (" << 100.0*lastTraj.time_forward.sum()/texec << "%)" << endl;
-    cout << "\tTotal number of a forward dynamics in main thread: " << finalTimeProfile.counter0_ << endl;
-    cout << "\tTotal number of a forward dynamics in one worker thread: " << finalTimeProfile.counter1_ << endl;
-    cout << "\tTotal number of a forward dynamics in one worker thread: " << finalTimeProfile.counter2_ << endl;
-
-    // cout << "-----------" << endl;
-    cout << "\tTime of one RBT block in main thread (second): " << finalTimeProfile.time_period1 << " (" << 100.0*finalTimeProfile.time_period1/texec << "%)" << endl;
-    cout << "\tTime of one RBT block in one worker thread (second): " << finalTimeProfile.time_period2 << " (" << 100.0*finalTimeProfile.time_period2/texec << "%)" << endl;
-    cout << "\tTime of one RBT block in one worker thread (second): " << finalTimeProfile.time_period3 << " (" << 100.0*finalTimeProfile.time_period3/texec << "%)" << endl;
-    cout << "\tTime of update func (second): " << finalTimeProfile.time_period4 << " (" << 100.0*finalTimeProfile.time_period4/texec << "%)" << endl;
-    // cout << "\tTime of RBT massMatrix.inverse (second): " << finalTimeProfile.time_period2 << " (" << 100.0*finalTimeProfile.time_period2/texec << "%)" << endl;
-    // cout << "\tTime of RBT f_ext instantiation (second): " << finalTimeProfile.time_period3 << " (" << 100.0*finalTimeProfile.time_period3/texec << "%)" << endl;
-    // cout << "\tTime of RBT dynamicsBiasTerm (second): " << finalTimeProfile.time_period4 << " (" << 100.0*finalTimeProfile.time_period4/texec << "%)" << endl;
-    
-    // // debugging trajectory and control outputs (print func)
-    // cout << "--------- final joint state trajectory ---------" << endl;
-    // for(unsigned int i=0;i<=N;i++){
-    //   cout << "lastTraj.xList[" << i << "]:" << lastTraj.xList[i].transpose() << endl;
-    // }
-    // cout << "--------- final joint torque trajectory ---------" << endl;
-    
-    // for(unsigned int i=0;i<=N;i++){
-    //   cout << "lastTraj.uList[" << i << "]:" << lastTraj.uList[i].transpose() << endl;
-    // }
-
-    cout << "lastTraj.xList[" << N << "]:" << lastTraj.xList[N].transpose() << endl;
-    cout << "lastTraj.uList[" << N << "]:" << lastTraj.uList[N].transpose() << endl;
-
-    cout << "lastTraj.xList[0]:" << lastTraj.xList[0].transpose() << endl;
-    cout << "lastTraj.uList[0]:" << lastTraj.uList[0].transpose() << endl;
-
-    // saving data file
-    for(unsigned int i=0;i<N;i++){
-      saveVector(joint_state_traj[i], "joint_trajectory");
-      saveVector(torque_traj[i], "joint_torque_command");
-    }
-    saveVector(lastTraj.xList[N], "joint_trajectory");
-
-    for(unsigned int i=0;i<=N*InterpolationScale;i++){
-      saveVector(joint_state_traj_interp[i], "joint_trajectory_interpolated");
-    }
-
-    cout << "-------- DDP Trajectory Generation Finished! --------" << endl;
-  }
-
-  void saveVector(const Eigen::MatrixXd & _vec, const char * _name){
-      std::string _file_name = UDP_TRAJ_DIR;
-      _file_name += _name;
-      _file_name += ".csv";
-      clean_file(_name, _file_name);
-
-      std::ofstream save_file;
-      save_file.open(_file_name, std::fstream::app);
-      for (int i(0); i < _vec.rows(); ++i){
-          save_file<<_vec(i,0)<< "\t";
-      }
-      save_file<<"\n";
-      save_file.flush();
-      save_file.close();
-  }
-
-  void saveValue(double _value, const char * _name){
-      std::string _file_name = UDP_TRAJ_DIR;
-      _file_name += _name;
-      _file_name += ".csv";
-      clean_file(_name, _file_name);
-
-      std::ofstream save_file;
-      save_file.open(_file_name, std::fstream::app);
-      save_file<<_value <<"\n";
-      save_file.flush();
-  }
-
-  void clean_file(const char * _file_name, std::string & _ret_file){
-      std::list<std::string>::iterator iter = std::find(gs_fileName_string.begin(), gs_fileName_string.end(), _file_name);
-      if(gs_fileName_string.end() == iter){
-          gs_fileName_string.push_back(_file_name);
-          remove(_ret_file.c_str());
-      }
-  }
-
  private:
   void HandleStatus(const lcm::ReceiveBuffer* rbuf, const std::string& chan,
                     const lcmt_iiwa_status* status) {
@@ -360,7 +196,6 @@ int do_main(int argc, const char* argv[]) {
       multibody::joints::kFixed, tree.get());
 
   RobotPlanRunner runner(*tree);
-  runner.RunUDP();
   runner.Run();
 
   return 0;

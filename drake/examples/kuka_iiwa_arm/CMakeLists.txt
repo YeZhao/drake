@@ -56,7 +56,6 @@ if(lcm_FOUND)
 
   add_executable(kuka_plan_runner kuka_plan_runner.cc)
   target_link_libraries(kuka_plan_runner
-    drakeKukaArmDDPTraj
     drakeKukaIiwaArmCommon
     drakeTrajectories
     drakeMultibodyParsers
@@ -117,7 +116,6 @@ if(lcm_FOUND)
             
   add_executable(kuka_control kuka_control.cc)
   target_link_libraries(kuka_control
-    drakeKukaArmDDPTraj
     drakeKukaIiwaArmCommon
     drakeTrajectories
     drakeRBM
@@ -198,7 +196,6 @@ endif()
 
 add_subdirectory(controlled_kuka)
 add_subdirectory(iiwa_world)
-add_subdirectory(DDP_traj_gen)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
