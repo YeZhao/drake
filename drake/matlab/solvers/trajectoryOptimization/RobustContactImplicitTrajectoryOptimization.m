@@ -315,6 +315,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 Ty = Fy'*J_blk;
                 Tyc = Fyc'*J_blk;
                 
+                %--------------- second LCP condition ---------------%
+                % note: the first LCP condition will be added in another addcost() function
                 % expectation and covariance of M_v_x
                 E_M_Drx_nr = trace(V*Sigma_r) + mu_r'*V*mu_r + Z'*Jg'*(G*mu_r + Gc) + mu_r'*U'*Jg'*Gc;
                 V_M_Drx_nr = trace(U*Sigma_r*(V+V')*Sigma_r*G'*Jg) + O'*Sigma_r*O ...
@@ -376,7 +378,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     dV_M_Dry_Drx_dqdot(i,:) = 0;
                 end
                 
-                dE_M_Dry_Drx = [0;dE_M_Dry_Drx_dq/2;dE_M_Dry_Drx_dqdot/2;dE_M_Dry_Drx_dq/2;dE_M_Dry_Drx_dqdot/2;zeros(3,1);zeros(8,1)];
+                dE_M_Drx_nr = [0;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;zeros(3,1);zeros(8,1)];
+                dE_M_Drx_Drx = [0;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;zeros(3,1);zeros(8,1)];
+                dE_M_Drx_Dry = [0;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
+                dE_M_Dry_Drx = dE_M_Drx_Dry;
                 
                 % expectation and covariance of b_v_x
                 E_b_Drx = (mu_r'*G' + Gc')*J_blk;
@@ -409,6 +414,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_left];
 
                 E_Phi = zeros(4,1);
+                V_Phi = zeros(4,1);
                 
                 E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1]';
                 E_Mvx_lambda_plus_bvx = E_M_v_x'*lambda_vec + E_b_Drx;
@@ -418,12 +424,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 % NCP residual, currently assume no smoothing func applied
                 E_Phi(1) = lambda_tx*E_Mvx_lambda_plus_bvx;
                 % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
-                dE_Phi_dh(1) = lambda_tx*(E_M_v_x'*lambda_vec/h + (mu_r'*G' + Gc')*Jg*Minv*(B*u_prev - C));% the last part is dE_b_Drx/dh
+                dE_Phi_dh(1) = lambda_tx*(E_M_v_x'*lambda_vec/h + dE_b_Drx_dh);% the last part is dE_b_Drx/dh
                 dE_Phi_dq0(:,1) = lambda_tx*h*(dE_M_Drx_nr_dq*lambda_n+dE_M_Drx_Drx_dq*lambda_tx+dE_M_Drx_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
                 dE_Phi_dv0(:,1) = lambda_tx*h*(dE_M_Drx_nr_dqdot*lambda_n+dE_M_Drx_Drx_dqdot*lambda_tx+dE_M_Drx_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
                 dE_Phi_dq1(:,1) = dE_Phi_dq0(:,1);
                 dE_Phi_dv1(:,1) = dE_Phi_dv0(:,1);
-                dE_Phi_du(:,1) = lambda_tx*(mu_r'*G' + Gc')*Jg*Minv*B*h;
+                dE_Phi_du(:,1) = lambda_tx*dE_b_Drx_du;
                 dE_Phi_dlambda_n(1) = lambda_tx*h*E_M_Drx_nr;
                 dE_Phi_dlambda_tx(1) = E_Mvx_lambda_plus_bvx + h*E_M_Drx_Drx*lambda_tx;
                 dE_Phi_dlambda_ty(1) = lambda_tx*h*E_M_Drx_Dry;
@@ -500,8 +506,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 
                 % NCP residual, currently assume no smoothing func applied
                 E_Phi(2) = lambda_ty*E_Mvy_lambda_plus_bvy;
-                %dE_Phi(2) =
+                % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                dE_Phi_dh(2) = lambda_ty*(E_M_v_y'*lambda_vec/h + dE_b_Dry_dh);% the last part is dE_b_Dry/dh
+                dE_Phi_dq0(:,2) = lambda_ty*h*(dE_M_Dry_nr_dq*lambda_n+dE_M_Dry_Drx_dq*lambda_tx+dE_M_Dry_Dry_dq*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                dE_Phi_dv0(:,2) = lambda_ty*h*(dE_M_Dry_nr_dqdot*lambda_n+dE_M_Dry_Drx_dqdot*lambda_tx+dE_M_Dry_Dry_dqdot*lambda_ty)/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                dE_Phi_dq1(:,2) = dE_Phi_dq0(:,2);
+                dE_Phi_dv1(:,2) = dE_Phi_dv0(:,2);
+                dE_Phi_du(:,2) = lambda_ty*dE_b_Dry_du;
+                dE_Phi_dlambda_n(2) = lambda_ty*h*E_M_Dry_nr;
+                dE_Phi_dlambda_tx(2) = lambda_ty*h*E_M_Dry_Drx;
+                dE_Phi_dlambda_ty(2) = E_Mvy_lambda_plus_bvy + lambda_ty*h*E_M_Drx_Dry;
                 
+                dE_Phi(:,2) = [dE_Phi_dh(2); dE_Phi_dq0(:,2); dE_Phi_dv0(:,2); dE_Phi_dq1(:,2); dE_Phi_dv1(:,2); dE_Phi_du(:,2);dE_Phi_dlambda_n(2); ...
+                               dE_Phi_dlambda_tx(2);dE_Phi_dlambda_ty(2);zeros(3,1);0;lambda_ty];
+                           
                 % LCP variance matrix of V_Mvx_lambda_plus_bvx
                 %fourth order expectation 
                 [E_xnxn,dE_xnxn_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,F,Fc,Minv, Jg, dMdq, nq, Sigma_r, mu_r);
@@ -568,7 +586,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 V_Phi(1) = lambda_tx^2*V_Mvx_lambda_plus_bvx;
                 % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
                 dV_Phi(:,1) = lambda_tx^2*(dE_Mvx_lambda_lambda_Mvx - 2*(E_M_v_x'*lambda_vec)*(dE_M_v_x'*lambda_vec) + (2*lambda_vec'*dE_Mvx_bvx)' - 2*lambda_vec'*E_M_v_x*dE_b_Drx ...
-                            -(2*lambda_vec'*dE_M_v_x*E_b_Drx)');
+                            -(2*lambda_vec'*dE_M_v_x*E_b_Drx)' + dV_b_Drx);
                 
                 % LCP variance matrix of V_Mvy_lambda_plus_bvy
                 %fourth order expectation
@@ -638,7 +656,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 V_Phi(2) = lambda_ty^2*V_Mvy_lambda_plus_bvy;
                 % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
                 dV_Phi(:,2) = lambda_ty^2*(dE_Mvy_lambda_lambda_Mvy - 2*(E_M_v_y'*lambda_vec)*(dE_M_v_y'*lambda_vec) + (2*lambda_vec'*dE_Mvy_bvy)' - 2*lambda_vec'*E_M_v_y*dE_b_Dry ...
-                            -(2*lambda_vec'*dE_M_v_y*E_b_Dry)');
+                            -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
                 
                 function [E,dEdq,dEdqdot,dEdh,dEdu] = expectation_third_order_multiply(Ain, ain, Bin, bin, Cin, cin, Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r)
                     %refactor inputs matrix
@@ -717,27 +735,32 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                 end
                 
-                
-                
                 % second foot, to be modified
                 z_right_foot = [lambda(4:6);gamma(2)]';
                 E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1];
                 E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
-                E_Phi(3) = lambda(2)*(E_M_v_x*z_right_foot + E_b_Drx);
-                E_Phi(4) = lambda(3)*(E_M_v_y'*z_right_foot + E_b_Dry);
+                E_Phi(3) = 0;%lambda(2)*(E_M_v_x*z_right_foot + E_b_Drx);
+                E_Phi(4) = 0;%lambda(3)*(E_M_v_y'*z_right_foot + E_b_Dry);
+                V_Phi(3) = 0;
+                V_Phi(4) = 0;
+                dE_Phi(:,3) = zeros(36,1);
+                dE_Phi(:,4) = zeros(36,1);
+                dV_Phi(:,3) = zeros(36,1);
+                dV_Phi(:,4) = zeros(36,1);
                 % to be modified
                 
-                g = obj.W*gamma + obj.M*lambda + obj.r;
-                dg = [obj.M obj.W];
+                %g = obj.W*gamma + obj.M*lambda + obj.r;
+                %dg = [obj.M obj.W];
                 
                 % probabilistic version
-                sigma = 0.5;
-                lambda_parallel = [lambda(2);lambda(3);lambda(5);lambda(6)];
+                %sigma = 0.5;
+                %lambda_parallel = [lambda(2);lambda(3);lambda(5);lambda(6)];
                 
                 %mu_cov = sigma^2*[lambda(1);lambda(4)];
                 delta = 100;% coefficient
                 f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
-                df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
+                %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
                 
             end
             
