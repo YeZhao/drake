@@ -96,7 +96,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
                     
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint_original(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
                     
@@ -114,7 +114,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                         M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
                     end
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
+                    lincompl_constraints{i} = LinearComplementarityConstraint_original(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
                 end
                 
@@ -123,7 +123,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     % lambda_jl /perp [q - lb_jl; -q + ub_jl]
                     W_jl = zeros(obj.nJL);
                     [r_jl,M_jl] = jointLimitConstraints(obj.plant,q0);
-                    jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
+                    jlcompl_constraints{i} = LinearComplementarityConstraint_original(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
                     
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i)]);
                 end
@@ -403,7 +403,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     % lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
-                    obj.nonlincompl_constraints_purturb{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
+                    obj.nonlincompl_constraints_purturb{i} = NonlinearComplementarityConstraint_original(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
                     obj.nonlincompl_slack_inds_purturb{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints_purturb{i}.n_slack;
                     obj = obj.addConstraint(obj.nonlincompl_constraints_purturb{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
                     
@@ -421,7 +421,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                         M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
                     end
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
+                    lincompl_constraints{i} = LinearComplementarityConstraint_original(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
                 end
                 
@@ -430,7 +430,7 @@ classdef ContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
                     % lambda_jl /perp [q - lb_jl; -q + ub_jl]
                     W_jl = zeros(obj.nJL);
                     [r_jl,M_jl] = jointLimitConstraints(plant_perturb,q0);
-                    jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
+                    jlcompl_constraints{i} = LinearComplementarityConstraint_original(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
                     
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i)]);
                 end

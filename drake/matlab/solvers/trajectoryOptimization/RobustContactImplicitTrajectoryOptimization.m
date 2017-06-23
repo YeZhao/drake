@@ -154,8 +154,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     end
                     
                     % add ERM cost for sliding velocity constraint uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                    %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
                     %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
@@ -230,28 +230,32 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 mu_r = mu_dirc*h_kappa;
                 Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
                 
+                % remove distribution
+                mu_r=[1;0;0;0];
+                Sigma_r = zeros(4);
+                
                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
                 
                 Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
-                    2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
-                    2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
+                        2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
+                        2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
                 
                 % normal direction n
                 F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
                     -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
-                    2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
+                     2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
                 Fc = Rbar(:,3) - F*mu_r;
                 
                 % tangential direction D_{r,x}
                 G = [2*mu_w, 2*mu_x, -2*mu_y, -2*mu_z;
-                    2*mu_z, 2*mu_y, 2*mu_x,  2*mu_w;
+                     2*mu_z, 2*mu_y, 2*mu_x,  2*mu_w;
                     -2*mu_y, 2*mu_z, -2*mu_w, 2*mu_x];
                 Gc = Rbar(:,1) - G*mu_r;
                 
                 % tangential direction D_{r,y}
                 H = [-2*mu_z, 2*mu_y,  2*mu_x, -2*mu_w;
-                    2*mu_w,  -2*mu_x, 2*mu_y, -2*mu_z;
-                    2*mu_x,  2*mu_w,  2*mu_z, 2*mu_y];
+                     2*mu_w,  -2*mu_x, 2*mu_y, -2*mu_z;
+                     2*mu_x,  2*mu_w,  2*mu_z, 2*mu_y];
                 Hc = Rbar(:,2) - H*mu_r;
                 
                 % RigidBodyManipulator dynamics
@@ -314,7 +318,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     Wx = K'*Jg'*G;
                     Wy = Ky'*Jg'*Fy;
                     Yx = K'*Jg'*Gc;
-                    Yy = Ky'*Jg'*Fyc;
+                    Yy = Ky'*Jg'*Fyc;%[double check]
                     Q = U'*Jg'*Gc;
                     Qy = U'*Jg'*Fyc;
                     Qyy = Ky'*Jg'*Gc;
@@ -423,8 +427,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     lambda_n = lambda(1+3*(foot_indx-1));
                     lambda_tx = lambda(2+3*(foot_indx-1));
                     lambda_ty = lambda(3+3*(foot_indx-1));
-                    gamma_left = gamma(foot_indx);
-                    lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_left];
+                    gamma_single = gamma(foot_indx);
+                    lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_single];
 
                     E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1]';
                     E_Mvx_lambda_plus_bvx = E_M_v_x'*lambda_vec + E_b_Drx;
@@ -557,28 +561,28 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     E_Mvx_lambda_lambda_Mvx_quad = h^2*(E_xnxn*lambda_n^2 + E_xnxx*lambda_n*lambda_tx + E_xnxy*lambda_n*lambda_ty ...
                         + E_xxxn*lambda_tx*lambda_n + E_xxxx*lambda_tx^2 + E_xxxy*lambda_tx*lambda_ty ...
                         + E_xyxn*lambda_ty*lambda_n + E_xyxx*lambda_ty*lambda_tx + E_xyxy*lambda_ty^2);
-                    E_Mvx_lambda_lambda_Mvx_linear = 2*h*E_M_Drx_nr*lambda_n*gamma_left + 2*h*E_M_Drx_Drx*lambda_tx*gamma_left ...
-                                              + 2*h*E_M_Drx_Dry*lambda_ty*gamma_left + gamma_left^2;
+                    E_Mvx_lambda_lambda_Mvx_linear = 2*h*E_M_Drx_nr*lambda_n*gamma_single + 2*h*E_M_Drx_Drx*lambda_tx*gamma_single ...
+                                              + 2*h*E_M_Drx_Dry*lambda_ty*gamma_single + gamma_single^2;
                     E_Mvx_lambda_lambda_Mvx = E_Mvx_lambda_lambda_Mvx_quad + E_Mvx_lambda_lambda_Mvx_linear;
 
                     % computing derivative of E_Mvx_lambda_lambda_Mvx
-                    dE_Mvx_lambda_lambda_Mvx_dh = 2*E_Mvx_lambda_lambda_Mvx_quad/h + (E_Mvx_lambda_lambda_Mvx_linear-gamma_left^2)/h;
+                    dE_Mvx_lambda_lambda_Mvx_dh = 2*E_Mvx_lambda_lambda_Mvx_quad/h + (E_Mvx_lambda_lambda_Mvx_linear-gamma_single^2)/h;
                     dE_Mvx_lambda_lambda_Mvx_dq0 = h^2/2*(dE_xnxn_dq*lambda_n^2 + dE_xnxx_dq*lambda_n*lambda_tx + dE_xnxy_dq*lambda_n*lambda_ty ...
                         + dE_xxxn_dq*lambda_tx*lambda_n + dE_xxxx_dq*lambda_tx^2 + dE_xxxy_dq*lambda_tx*lambda_ty ...
-                        + dE_xyxn_dq*lambda_ty*lambda_n + dE_xyxx_dq*lambda_ty*lambda_tx + dE_xyxy_dq*lambda_ty^2) + h*dE_M_Drx_nr_dq*lambda_n*gamma_left ...
-                        + h*dE_M_Drx_Drx_dq*lambda_tx*gamma_left + h*dE_M_Drx_Dry_dq*lambda_ty*gamma_left;
+                        + dE_xyxn_dq*lambda_ty*lambda_n + dE_xyxx_dq*lambda_ty*lambda_tx + dE_xyxy_dq*lambda_ty^2) + h*dE_M_Drx_nr_dq*lambda_n*gamma_single ...
+                        + h*dE_M_Drx_Drx_dq*lambda_tx*gamma_single + h*dE_M_Drx_Dry_dq*lambda_ty*gamma_single;
                     dE_Mvx_lambda_lambda_Mvx_dv0 = zeros(nv,1);
                     dE_Mvx_lambda_lambda_Mvx_dq1 = dE_Mvx_lambda_lambda_Mvx_dq0;
                     dE_Mvx_lambda_lambda_Mvx_dv1 = zeros(nv,1);
                     dE_Mvx_lambda_lambda_Mvx_du = zeros(nu,1);
                     dE_Mvx_lambda_lambda_Mvx_dlambda_n = h^2*(2*E_xnxn*lambda_n + E_xnxx*lambda_tx + E_xnxy*lambda_ty + E_xxxn*lambda_tx + E_xyxn*lambda_ty) ...
-                                                         + 2*h*E_M_Drx_nr*gamma_left;
+                                                         + 2*h*E_M_Drx_nr*gamma_single;
                     dE_Mvx_lambda_lambda_Mvx_dlambda_tx = h^2*(E_xnxx*lambda_n + E_xxxn*lambda_n + 2*E_xxxx*lambda_tx + E_xxxy*lambda_ty + E_xyxx*lambda_ty) ...
-                                                          + 2*h*E_M_Drx_Drx*gamma_left;
+                                                          + 2*h*E_M_Drx_Drx*gamma_single;
                     dE_Mvx_lambda_lambda_Mvx_dlambda_ty = h^2*(E_xnxy*lambda_n + E_xxxy*lambda_tx + E_xyxn*lambda_n + E_xyxx*lambda_tx + 2* E_xyxy*lambda_ty) ...
-                                                          + 2*h*E_M_Drx_Dry*gamma_left;
+                                                          + 2*h*E_M_Drx_Dry*gamma_single;
                     dE_Mvx_lambda_lambda_Mvx_dgamma = 2*h*E_M_Drx_nr*lambda_n + 2*h*E_M_Drx_Drx*lambda_tx ...
-                                                        + 2*h*E_M_Drx_Dry*lambda_ty + 2*gamma_left;
+                                                        + 2*h*E_M_Drx_Dry*lambda_ty + 2*gamma_single;
 
                     if(foot_indx == 1)                               
                         dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
@@ -632,28 +636,28 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     E_Mvy_lambda_lambda_Mvy_quad = h^2*(E_ynyn*lambda_n^2 + E_ynyx*lambda_n*lambda_tx + E_ynyy*lambda_n*lambda_ty ...
                         + E_yxyn*lambda_tx*lambda_n + E_yxyx*lambda_tx^2 + E_yxyy*lambda_tx*lambda_ty ...
                         + E_yyyn*lambda_ty*lambda_n + E_yyyx*lambda_ty*lambda_tx + E_yyyy*lambda_ty^2);
-                    E_Mvy_lambda_lambda_Mvy_linear = 2*h*E_M_Dry_nr*lambda_n*gamma_left + 2*h*E_M_Dry_Drx*lambda_tx*gamma_left ...
-                                              + 2*h*E_M_Dry_Dry*lambda_ty*gamma_left + gamma_left^2;
+                    E_Mvy_lambda_lambda_Mvy_linear = 2*h*E_M_Dry_nr*lambda_n*gamma_single + 2*h*E_M_Dry_Drx*lambda_tx*gamma_single ...
+                                              + 2*h*E_M_Dry_Dry*lambda_ty*gamma_single + gamma_single^2;
                     E_Mvy_lambda_lambda_Mvy = E_Mvy_lambda_lambda_Mvy_quad + E_Mvy_lambda_lambda_Mvy_linear;
 
                     % computing derivative of E_Mvy_lambda_lambda_Mvy
-                    dE_Mvy_lambda_lambda_Mvy_dh = 2*E_Mvy_lambda_lambda_Mvy_quad/h + (E_Mvy_lambda_lambda_Mvy_linear-gamma_left^2)/h;
+                    dE_Mvy_lambda_lambda_Mvy_dh = 2*E_Mvy_lambda_lambda_Mvy_quad/h + (E_Mvy_lambda_lambda_Mvy_linear-gamma_single^2)/h;
                     dE_Mvy_lambda_lambda_Mvy_dq0 = h^2/2*(dE_ynyn_dq*lambda_n^2 + dE_ynyx_dq*lambda_n*lambda_tx + dE_ynyy_dq*lambda_n*lambda_ty ...
                         + dE_yxyn_dq*lambda_tx*lambda_n + dE_yxyx_dq*lambda_tx^2 + dE_yxyy_dq*lambda_tx*lambda_ty ...
-                        + dE_yyyn_dq*lambda_ty*lambda_n + dE_yyyx_dq*lambda_ty*lambda_tx + dE_yyyy_dq*lambda_ty^2) + h*dE_M_Dry_nr_dq*lambda_n*gamma_left ...
-                        + h*dE_M_Dry_Drx_dq*lambda_tx*gamma_left + h*dE_M_Dry_Dry_dq*lambda_ty*gamma_left;
+                        + dE_yyyn_dq*lambda_ty*lambda_n + dE_yyyx_dq*lambda_ty*lambda_tx + dE_yyyy_dq*lambda_ty^2) + h*dE_M_Dry_nr_dq*lambda_n*gamma_single ...
+                        + h*dE_M_Dry_Drx_dq*lambda_tx*gamma_single + h*dE_M_Dry_Dry_dq*lambda_ty*gamma_single;
                     dE_Mvy_lambda_lambda_Mvy_dv0 = zeros(nv,1);
                     dE_Mvy_lambda_lambda_Mvy_dq1 = dE_Mvy_lambda_lambda_Mvy_dq0;
                     dE_Mvy_lambda_lambda_Mvy_dv1 = zeros(nv,1);
                     dE_Mvy_lambda_lambda_Mvy_du = zeros(nu,1);
                     dE_Mvy_lambda_lambda_Mvy_dlambda_n = h^2*(2*E_ynyn*lambda_n + E_ynyx*lambda_tx + E_ynyy*lambda_ty + E_yxyn*lambda_tx + E_yyyn*lambda_ty) ...
-                                                         + 2*h*E_M_Dry_nr*gamma_left;
+                                                         + 2*h*E_M_Dry_nr*gamma_single;
                     dE_Mvy_lambda_lambda_Mvy_dlambda_tx = h^2*(E_ynyx*lambda_n + E_yxyn*lambda_n + 2*E_yxyx*lambda_tx + E_yxyy*lambda_ty + E_yyyx*lambda_ty) ...
-                                                          + 2*h*E_M_Dry_Drx*gamma_left;
+                                                          + 2*h*E_M_Dry_Drx*gamma_single;
                     dE_Mvy_lambda_lambda_Mvy_dlambda_ty = h^2*(E_ynyy*lambda_n + E_yxyy*lambda_tx + E_yyyn*lambda_n + E_yyyx*lambda_tx + 2* E_yyyy*lambda_ty) ...
-                                                          + 2*h*E_M_Dry_Dry*gamma_left;
+                                                          + 2*h*E_M_Dry_Dry*gamma_single;
                     dE_Mvy_lambda_lambda_Mvy_dgamma = 2*h*E_M_Dry_nr*lambda_n + 2*h*E_M_Dry_Drx*lambda_tx ...
-                                                        + 2*h*E_M_Dry_Dry*lambda_ty + 2*gamma_left;
+                                                        + 2*h*E_M_Dry_Dry*lambda_ty + 2*gamma_single;
 
                     if(foot_indx == 1)                                
                         dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
@@ -767,28 +771,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                 end
                 
-                % second foot, to be modified
-                %z_right_foot = [lambda(4:6);gamma(2)]';
-                %E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1];
-                %E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
-                %E_Phi(3) = 0;%lambda(2)*(E_M_v_x*z_right_foot + E_b_Drx);
-                %E_Phi(4) = 0;%lambda(3)*(E_M_v_y'*z_right_foot + E_b_Dry);
-                %V_Phi(3) = 0;
-                %V_Phi(4) = 0;
-                %dE_Phi(:,3) = zeros(36,1);
-                %E_Phi(:,4) = zeros(36,1);
-                %dV_Phi(:,3) = zeros(36,1);
-                %dV_Phi(:,4) = zeros(36,1);
-                % to be modified
-                
-                %g = obj.W*gamma + obj.M*lambda + obj.r;
-                %dg = [obj.M obj.W];
-                
-                % probabilistic version
-                %sigma = 0.5;
-                %lambda_parallel = [lambda(2);lambda(3);lambda(5);lambda(6)];
-                
-                %mu_cov = sigma^2*[lambda(1);lambda(4)];
                 delta = 100;% coefficient
                 f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
                 df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
