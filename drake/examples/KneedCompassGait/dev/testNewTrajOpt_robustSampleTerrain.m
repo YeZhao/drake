@@ -214,8 +214,7 @@ ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
 
 sys=feedback(p,ltvsys);
 
-xtraj_new = simulate(sys,xtraj.tspan, x0);%+0.05*randn(4,1)
-v = AcrobotVisualizer(p);
+xtraj_new = simulate(sys,xtraj.tspan, x0);
 v.playback(xtraj_new,struct('slider',true));
 
 disp('finish traj opt')

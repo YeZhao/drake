@@ -9,7 +9,7 @@ p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 %todo: add joint limits, periodicity constraint
 
-N = 10;
+N = 50;
 T = 3;
 T0 = 3;
 
@@ -83,9 +83,24 @@ snprint('snopt.out');
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',100);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',200000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+
 [xtraj,utraj,ltraj,ljltraj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
 
 v = p.constructVisualizer;
+v.playback(xtraj,struct('slider',true));
+
+% simulate with LQR gains
+% LQR Cost Matrices
+Q = diag(10*ones(1,12));
+R = .1*eye(3);
+Qf = 100*eye(12);
+ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+
+sys=feedback(p,ltvsys);
+
+xtraj_new = simulate(sys,xtraj.tspan, x0);
+v.playback(xtraj_new,struct('slider',true));
 
 disp('come here')
 
