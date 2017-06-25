@@ -7,6 +7,7 @@
 ///
 /// When a plan is received, it will immediately begin executing that
 /// plan on the arm (replacing any plan in progress).
+#include <memory>
 
 #include <lcm/lcm-cpp.hpp>
 
@@ -17,11 +18,12 @@
 #include "drake/common/trajectories/piecewise_polynomial.h"
 #include "drake/common/trajectories/piecewise_polynomial_trajectory.h"
 #include "drake/examples/kuka_iiwa_arm/iiwa_common.h"
+#include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
 #include "drake/multibody/rigid_body_tree.h"
 
+#include "drake/lcmt_iiwa_command.hpp"
 #include "drake/lcmt_iiwa_status.hpp"
-#include "drake/lcmt_robot_controller_reference.hpp"
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
@@ -30,32 +32,13 @@ using drake::Vector1d;
 using Eigen::Vector2d;
 using Eigen::Vector3d;
 
-/* DDP trajectory generation */
-#include <iostream>
-#include <fstream>
-#include <cmath>
-#include <vector>
-#include <stdio.h>
-#include <fstream>
-#include <string>
-#include <list>
-
-#include <time.h>
-#include <sys/time.h>
-
-using namespace std;
-using namespace Eigen;
-
-static std::list< const char*> gs_fileName;
-static std::list< std::string > gs_fileName_string;
-
 namespace drake {
 namespace examples {
 namespace kuka_iiwa_arm {
 namespace {
 
 const char* const kLcmStatusChannel = "IIWA_STATUS";
-const char* const kLcmControlRefChannel = "CONTROLLER_REFERENCE";
+const char* const kLcmCommandChannel = "IIWA_COMMAND";
 const char* const kLcmPlanChannel = "COMMITTED_ROBOT_PLAN";
 const int kNumJoints = 7;
 
@@ -76,23 +59,19 @@ class RobotPlanRunner {
   }
 
   void Run() {
-    cout << "-------- Waiting for sending out the trajectory! --------" << endl;
-
     int cur_plan_number = plan_number_;
     int64_t cur_time_us = -1;
-    // int64_t start_time_us = -1;
+    int64_t start_time_us = -1;
 
-    // Initialize the timestamp to an invalid number so we can detect the first message.
+    // Initialize the timestamp to an invalid number so we can detect
+    // the first message.
     iiwa_status_.utime = cur_time_us;
 
-    lcmt_robot_controller_reference robot_controller_reference;
-    robot_controller_reference.num_joints = kNumJoints;
-    robot_controller_reference.joint_position_desired.resize(kNumJoints, 0.);
-    robot_controller_reference.joint_velocity_desired.resize(kNumJoints, 0.);
-    robot_controller_reference.joint_accel_desired.resize(kNumJoints, 0.);
-    robot_controller_reference.u_nominal.resize(kNumJoints, 0.);
-
-    traj_knot_number_ = 0;
+    lcmt_iiwa_command iiwa_command;
+    iiwa_command.num_joints = kNumJoints;
+    iiwa_command.joint_position.resize(kNumJoints, 0.);
+    iiwa_command.num_torques = 0;
+    iiwa_command.joint_torque.resize(kNumJoints, 0.);
 
     while (true) {
       // Call lcm handle until at least one message is processed
@@ -101,36 +80,24 @@ class RobotPlanRunner {
       DRAKE_ASSERT(iiwa_status_.utime != -1);
       cur_time_us = iiwa_status_.utime;
 
-      if (qtraj_) {
+      if (plan_) {
         if (plan_number_ != cur_plan_number) {
           std::cout << "Starting new plan." << std::endl;
-          // start_time_us = cur_time_us;
+          start_time_us = cur_time_us;
           cur_plan_number = plan_number_;
         }
-        // const double cur_traj_time_s = static_cast<double>(cur_time_us - start_time_us) / 1e6;
-        
-        // const auto q_ref = qtraj_->value(cur_traj_time_s);
-        // const auto qd_ref = qdtraj_->value(cur_traj_time_s);
-        // const auto qdd_ref = qddtraj_->value(cur_traj_time_s);
 
-        const auto q_ref = joint_state_traj_interp[traj_knot_number_].head(stateSize/2);
-        const auto qd_ref = joint_state_traj_interp[traj_knot_number_].tail(stateSize/2);
-        const auto qdd_ref = stateVec_half_t::Zero();
+        const double cur_traj_time_s =
+            static_cast<double>(cur_time_us - start_time_us) / 1e6;
+        const auto desired_next = plan_->value(cur_traj_time_s);
 
-        if (traj_knot_number_ < NumberofKnotPt*InterpolationScale){
-          traj_knot_number_ += 1;
+        iiwa_command.utime = iiwa_status_.utime;
+
+        for (int joint = 0; joint < kNumJoints; joint++) {
+          iiwa_command.joint_position[joint] = desired_next(joint);
         }
 
-        robot_controller_reference.utime = iiwa_status_.utime;
-
-        for(int joint = 0; joint < kNumJoints; joint++){
-          robot_controller_reference.joint_position_desired[joint] = q_ref(joint);
-          robot_controller_reference.joint_velocity_desired[joint] = qd_ref(joint);
-          robot_controller_reference.joint_accel_desired[joint] = qdd_ref(joint);
-        }
-
-        // publish robot controller reference to kuka control runner
-        lcm_.publish(kLcmControlRefChannel, &robot_controller_reference);
+        lcm_.publish(kLcmCommandChannel, &iiwa_command);
       }
     }
   }
@@ -144,9 +111,9 @@ class RobotPlanRunner {
   void HandlePlan(const lcm::ReceiveBuffer* rbuf, const std::string& chan,
                   const robotlocomotion::robot_plan_t* plan) {
     std::cout << "New plan received." << std::endl;
-    Eigen::MatrixXd traj_mat(kNumJoints, plan->num_states);
-    traj_mat.fill(0);
 
+    std::vector<Eigen::MatrixXd> knots(plan->num_states,
+                                       Eigen::MatrixXd::Zero(kNumJoints, 1));
     std::map<std::string, int> name_to_idx =
         tree_.computePositionNameToIndexMap();
     for (int i = 0; i < plan->num_states; ++i) {
@@ -155,49 +122,39 @@ class RobotPlanRunner {
         if (name_to_idx.count(state.joint_name[j]) == 0) {
           continue;
         }
-        traj_mat(name_to_idx[state.joint_name[j]], i) =
-            state.joint_position[j];
+        // Treat the matrix at knots[i] as a column vector.
+        knots[i](name_to_idx[state.joint_name[j]], 0) = state.joint_position[j];
       }
     }
 
-    std::cout << traj_mat << std::endl;
+    for (int i = 0; i < plan->num_states; ++i) {
+      std::cout << knots[i] << std::endl;
+    }
 
     std::vector<double> input_time;
     for (int k = 0; k < static_cast<int>(plan->plan.size()); ++k) {
       input_time.push_back(plan->plan[k].utime / 1e6);
     }
-    qtraj_.reset(new PiecewisePolynomialTrajectory(traj_mat, input_time));
-    qdtraj_.reset(new PiecewisePolynomialTrajectory(qtraj_->getPP().derivative(1)));
-    qddtraj_.reset(new PiecewisePolynomialTrajectory(qdtraj_->getPP().derivative(1)));
+    plan_.reset(new PiecewisePolynomialTrajectory(
+        PiecewisePolynomial<double>::FirstOrderHold(input_time, knots)));
     ++plan_number_;
   }
 
   lcm::LCM lcm_;
   const RigidBodyTree<double>& tree_;
   int plan_number_{};
-  std::unique_ptr<PiecewisePolynomialTrajectory> qtraj_;
-  std::unique_ptr<PiecewisePolynomialTrajectory> qdtraj_;
-  std::unique_ptr<PiecewisePolynomialTrajectory> qddtraj_;
+  std::unique_ptr<PiecewisePolynomialTrajectory> plan_;
   lcmt_iiwa_status iiwa_status_;
-
-  //UDP parameters
-  stateVecTab_t joint_state_traj;
-  commandVecTab_t torque_traj;
-  stateVecTab_t joint_state_traj_interp;
-  commandVecTab_t torque_traj_interp;
-  unsigned int traj_knot_number_;
 };
 
 int do_main(int argc, const char* argv[]) {
-
   auto tree = std::make_unique<RigidBodyTree<double>>();
   parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
-      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14_estimated_params_fixed_gripper.urdf",
+      GetDrakePath() + "/examples/kuka_iiwa_arm/urdf/iiwa14.urdf",
       multibody::joints::kFixed, tree.get());
 
   RobotPlanRunner runner(*tree);
   runner.Run();
-
   return 0;
 }
 
@@ -205,6 +162,7 @@ int do_main(int argc, const char* argv[]) {
 }  // namespace kuka_iiwa_arm
 }  // namespace examples
 }  // namespace drake
+
 
 int main(int argc, const char* argv[]) {
   return drake::examples::kuka_iiwa_arm::do_main(argc, argv);

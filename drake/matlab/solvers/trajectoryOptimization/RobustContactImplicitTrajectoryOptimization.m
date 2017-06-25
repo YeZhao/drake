@@ -23,6 +23,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         W
         r
         M
+        Jg
         
         %debugging var
         verbose_print
@@ -154,8 +155,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     end
                     
                     % add ERM cost for sliding velocity constraint uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                    %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
                     %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
@@ -222,6 +223,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 
                 % von Mises-Fisher distribution for quaternion rotation vector
                 mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+                
+                mu_dirc = [0.2,0.15,0.3,0.9206]';
                 kappa = 10;
                 I_kappa_plus = exp(kappa) + exp(-kappa);
                 I_kappa_minus = exp(kappa) - exp(-kappa);
@@ -231,8 +234,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
                 
                 % remove distribution
-                mu_r=[1;0;0;0];
-                Sigma_r = zeros(4);
+                %mu_r=[1;0;0;0];
+                %Sigma_r = zeros(4);
                 
                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
                 
@@ -284,12 +287,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     J = zeros(nl,nq);
                     J(1:1+obj.nD:end,:) = n;
                     dJ = zeros(nl*nq,nq);
-                    dJ(1:1+obj.nD:end,:) = dn;
+                    dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
                     
                     for j=1:length(D),
                         J(1+j:1+obj.nD:end,:) = D{j};
                         dJ(1+j:1+obj.nD:end,:) = dD{j};
-                    end
+                    end 
                 end
                 
                 E_Phi = zeros(4,1);
@@ -298,33 +301,44 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 for foot_indx = 1:2
                     Jg(1,:) = J(3*foot_indx-2,:);
                     Jg(2:3,:) = J(3*foot_indx-1:3*foot_indx,:);
-
+                    
+                    for i=1:nq
+                        for j =1:((1+obj.nD)*2)
+                            if foot_indx == 1
+                                dJgdq(:,j,i) = dJ(2*(1+obj.nD)*(j-1)+1:2*(1+obj.nD)*(j-1)+3,i);
+                            elseif foot_indx == 2
+                                dJgdq(:,j,i) = dJ(2*(1+obj.nD)*(j-1)+4:2*(1+obj.nD)*(j-1)+6,i);
+                            end
+                        end
+                    end
+                    
                     % Composed matrices
                     Fy = H;
                     Fyc = Hc;
                     U = Minv*Jg'*F;
                     V = U'*Jg'*G;
                     Vy = U'*Jg'*Fy;
-                    Vyy = Fy'*Jg*Minv*Jg'*G;
                     Z = Minv*Jg'*Fc;
                     Zy = Minv*Jg'*Fyc;
                     X = G'*Jg*Z;
                     Xy = Fy'*Jg*Z;
-                    Xyy = G'*Jg*Zy;
+                    Xxy = G'*Jg*Zy;
                     K = Minv*Jg'*G;
                     Ky = Minv*Jg'*Fy;
                     L = Minv*Jg'*Gc;
                     Ly = Minv*Jg'*Fyc;
                     Wx = K'*Jg'*G;
                     Wy = Ky'*Jg'*Fy;
+                    Wxy = K'*Jg'*Fy;
+                    Y = U'*Jg'*Fc;
                     Yx = K'*Jg'*Gc;
                     Yy = Ky'*Jg'*Fyc;%[double check]
                     Q = U'*Jg'*Gc;
                     Qy = U'*Jg'*Fyc;
-                    Qyy = Ky'*Jg'*Gc;%[double check
+                    Qxy = Ky'*Jg'*Gc;%[double check]
                     O = (V+V')*mu_r+X+Q;
                     Oy = (Vy+Vy')*mu_r+Xy+Qy;
-                    Oyy = (Vyy+Vyy')*mu_r+Xyy+Qyy;
+                    Oxy = (Wxy+Wxy')*mu_r+Xxy+Qxy;
 
                     J_blk = Jg*(qdot_prev + Minv*(B*u_prev - C)*h);
                     T = G'*J_blk;
@@ -332,10 +346,14 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     Ty = Fy'*J_blk;
                     Tyc = Fyc'*J_blk;
 
+                    obj.Jg = Jg;
+                    obj.Minv = Minv;
+                    
                     %--------------- second LCP condition ---------------%
                     % note: the first LCP condition will be added in another addcost() function
                     % expectation and covariance of M_v_x
                     E_M_Drx_nr = trace(V*Sigma_r) + mu_r'*V*mu_r + Z'*Jg'*(G*mu_r + Gc) + mu_r'*U'*Jg'*Gc;
+                    
                     V_M_Drx_nr = trace(U*Sigma_r*(V+V')*Sigma_r*G'*Jg) + O'*Sigma_r*O ...
                         +(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc)^2 - E_M_Drx_nr^2;
 
@@ -343,21 +361,28 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     V_M_Drx_Drx = 2*trace(K*Sigma_r*Wx*Sigma_r*G'*Jg) + 4*(mu_r'*Wx + Yx')*Sigma_r*(Wx*mu_r + Yx) ...
                         +(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc)^2 - E_M_Drx_Drx^2; %[not used]
 
-                    E_M_Drx_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r + Fyc);
+                    E_M_Drx_Dry = trace(Wxy*Sigma_r) + mu_r'*Wxy*mu_r + L'*Jg'*(Fy*mu_r + Fyc) + mu_r'*K'*Jg'*Fyc;
                     E_M_Dry_Drx = E_M_Drx_Dry;
                     % no V_M_Drx_Dry defined, not used
-                    
+                              
                     for i=1:nq
                         % expectation derivative w.r.t q and qdot
-                        dE_M_Drx_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*G' + Fc*(G*mu_r + Gc)' + F*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
+                        obj.dJgdq_i = dJgdq(:,:,i);
+                        dE_M_Drx_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*G' + Fc*(G*mu_r + Gc)' + F*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                              + jacobian_gradient(F',G*Sigma_r) + jacobian_gradient(mu_r'*F',G*mu_r) ...
+                                              + jacobian_gradient(Fc',G*mu_r + Gc) + jacobian_gradient(mu_r'*F',Gc);
                         dE_M_Drx_nr_dqdot(i,:) = 0;
                         % [ToDo: derivative w.r.t Jacobian]
 
-                        dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                               + jacobian_gradient(G',G*Sigma_r) + jacobian_gradient(mu_r'*G',G*mu_r) ...
+                                               + jacobian_gradient(Gc',2*G*mu_r+Gc);
                         dE_M_Drx_Drx_dqdot(i,:) = 0;
                         % [ToDo: derivative w.r.t Jacobian]
 
-                        dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) );
+                        dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                               + jacobian_gradient(Fy',G*Sigma_r) + jacobian_gradient(mu_r'*Fy',G*mu_r) ...
+                                               + jacobian_gradient(Fyc',G*mu_r + Gc) + jacobian_gradient(mu_r'*Fy',Gc);
                         dE_M_Drx_Dry_dqdot(i,:) = 0;
                         % [ToDo: derivative w.r.t Jacobian]
 
@@ -371,11 +396,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             *(-K*Sigma_r*U' - U*mu_r*mu_r'*K' - U*mu_r*L' - Z*mu_r'*K' - Z*L');
                         dV_M_Drx_nr_dq(i,:) = trace(dV_M_Drx_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
                         dV_M_Drx_nr_dq(i,:) = dV_M_Drx_nr_dq(i,:) - 2*E_M_Drx_nr*dE_M_Drx_nr_dq(i,:);%[double check this part]
-
+                        
                         dV_M_Drx_nr_dqdot(i,:) = 0;
 
                         dV_M_Drx_Drx_dq_first_chain(:,:,i) = -4*K*Sigma_r*Wx*Sigma_r*K' + 4*(-K*mu_r*mu_r'*Wx*Sigma_r*K' - K*Sigma_r*Wx*mu_r*mu_r'*K' ...
-                            -2*K*mu_r*Yx'*Sigma_r*K'-2*K*Sigma_r*Wx*mu_r*L'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
+                            -K*mu_r*Yx'*Sigma_r*K'-K*Sigma_r*Wx*mu_r*L'-L*mu_r'*Wx*Sigma_r*K'-K*Sigma_r*Yx*mu_r'*K'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
                             +2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
                             *(-K*(Sigma_r + mu_r*mu_r')*K' - 2*K*mu_r*L' - L*L');
                         dV_M_Drx_Drx_dq(i,:) = trace(dV_M_Drx_Drx_dq_first_chain(:,:,i)'*dMdq(:,:,i));
@@ -383,9 +408,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
 
                         dV_M_Drx_Drx_dqdot(i,:) = 0;
 
-                        dV_M_Drx_Dry_dq_first_chain(:,:,i) = -K*Sigma_r*(Vyy+Vyy')*Sigma_r*Ky' - Ky*Sigma_r*Vyy*Sigma_r*K' - K*Sigma_r*Vyy*Sigma_r*Ky' ...
-                            -Ky*(mu_r*Oyy'+Oyy*mu_r')*K'-K*(mu_r*Oyy'+Oyy*mu_r')*Ky'-Zy*Oyy'*K'-L*Oyy'*Ky'-K*Oyy*Zy'-Ky*Oyy*L' ...
-                            +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Vyy*mu_r+mu_r'*Qyy+Xyy'*mu_r+Zy'*Jg'*Gc) ...
+                        dV_M_Drx_Dry_dq_first_chain(:,:,i) = -K*Sigma_r*(Wxy+Wxy')*Sigma_r*Ky' - Ky*Sigma_r*Wxy*Sigma_r*K' - K*Sigma_r*Wxy*Sigma_r*Ky' ...
+                            -Ky*(mu_r*Oxy'+Oxy*mu_r')*K'-K*(mu_r*Oxy'+Oxy*mu_r')*Ky'-Zy*Oxy'*K'-L*Oxy'*Ky'-K*Oxy*Zy'-Ky*Oxy*L' ...
+                            +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Wxy*mu_r+mu_r'*Qxy+Xxy'*mu_r+Zy'*Jg'*Gc) ...
                             *(-K*Sigma_r*Ky' - Ky*mu_r*mu_r'*K' - Ky*mu_r*L' - Zy*mu_r'*K' - Zy*L');
                         dV_M_Drx_Dry_dq(i,:) = trace(dV_M_Drx_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
                         dV_M_Drx_Dry_dq(i,:) = dV_M_Drx_Dry_dq(i,:) - 2*E_M_Drx_Dry*dE_M_Drx_Dry_dq(i,:);%[double check this part]
@@ -484,7 +509,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         dV_M_Dry_nr_dqdot(i,:) = 0;
                         
                         dV_M_Dry_Dry_dq_first_chain(:,:,i) = -4*Ky*Sigma_r*Wy*Sigma_r*Ky' + 4*(-Ky*mu_r*mu_r'*Wy*Sigma_r*Ky' - Ky*Sigma_r*Wy*mu_r*mu_r'*Ky' ...
-                            -2*Ky*mu_r*Yy'*Sigma_r*Ky'-2*Ky*Sigma_r*Wy*mu_r*Ly'-Ly*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*Ly') ...
+                            -Ky*mu_r*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Wy*mu_r*Ly'-Ly*mu_r'*Wy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*mu_r'*Ky'-Ly*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*Ly') ...
                             +2*(trace(Ky*Sigma_r*Fy'*Jg)+mu_r'*Wy*mu_r+2*mu_r'*Yy+Ly'*Jg'*Fyc) ...
                             *(-Ky*(Sigma_r + mu_r*mu_r')*Ky' - 2*Ky*mu_r*Ly' - Ly*Ly');
                         dV_M_Dry_Dry_dq(i,:) = trace(dV_M_Dry_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
@@ -697,6 +722,14 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                                 -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
                 end
                 
+                function dX_dq = jacobian_gradient(A,B)
+                    %X = trace(A*Jg*Minv*Jg'*B)
+                    dX_dJ = A'*B'*obj.Jg*obj.Minv + B*A*obj.Jg*obj.Minv;
+                    
+                    dX_dq = trace(dX_dJ'*obj.dJgdq_i);
+                end
+                
+                    
                 function [E,dEdq,dEdqdot,dEdh,dEdu] = expectation_third_order_multiply(Ain, ain, Bin, bin, Cin, cin, Minv, Jg, J_blk, B, u, C, dMdq, dCdq, dCdqdot, nq, h, Sigma_r, mu_r)
                     %refactor input matrices
                     AAin = h*Minv*Jg'*Ain;
