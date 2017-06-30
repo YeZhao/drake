@@ -14,14 +14,18 @@ q0 = [0
       0];
     
 v0 = zeros(6,1);
-v0(1) = 10.0;
+v0(1) = 12.0;
+v0(5) = 0.75;
 x0 = [q0;v0];
 
-tf=1.0;
+tf=2.0;
 
 ts_plant = TimeSteppingRigidBodyManipulator(plant,0.0005,options);
 
 sim_traj = ts_plant.simulate([0,tf],x0);
+v=plant.constructVisualizer;
+v.playback(sim_traj)
+
 sim_traj = PPTrajectory(foh(sim_traj.getBreaks(), sim_traj.eval(sim_traj.getBreaks())));
 
 N = 2:2:20;
