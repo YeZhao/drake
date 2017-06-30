@@ -1,8 +1,9 @@
-function [xtraj,utraj,ctraj,btraj,straj,z] = variationalBrick(plant,N,x0)
+function xtraj = variationalBrick(plant,N,x0)
 
 if nargin<1
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
+options.use_bullet = false;
 %plant = PlanarRigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 %x0 = [0; 1; .1; 0; 0; 0];
 file = fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf');
@@ -22,29 +23,40 @@ q0 = [0
 x0 = [q0;0*q0];
 end
 
-tf=1.0;
+tf=2.0;
+dt = tf/(N-1);
 
-t_init = linspace(0,tf,N);
-traj_init.x = PPTrajectory(foh([0 tf],[x0, x0]));
-
-options.s_weight = 10;
-nq = plant.getNumPositions;
-
-traj_opt = VariationalTrajectoryOptimization(plant,N,tf,options);
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(x0(1:nq)),1);  
-traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(x0(nq+(1:nq))),1);
-
-%traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
-traj_opt = traj_opt.setSolver('ipopt');
-traj_opt = traj_opt.setSolverOptions('ipopt',
-
+%p = TimeSteppingRigidBodyManipulator(s,.1,options);
+p = VariationalRigidBodyManipulator(plant,dt);
 
 tic
-[xtraj,utraj,ctraj,btraj,straj,z,F,info] = traj_opt.solveTraj(t_init,traj_init);
+xtraj = p.simulate([0 tf],x0);
 toc
 
-% v = constructVisualizer(plant);
-% v.playback(xtraj);
+% v = p.constructVisualizer();
+% v.playback(xtraj,struct('slider',true));
+
+% t_init = linspace(0,tf,N);
+% traj_init.x = PPTrajectory(foh([0 tf],[x0, x0]));
+% 
+% options.s_weight = 10;
+% nq = plant.getNumPositions;
+% 
+% traj_opt = VariationalTrajectoryOptimization(plant,N,tf,options);
+% traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(x0(1:nq)),1);  
+% traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(x0(nq+(1:nq))),1);
+% 
+% %traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+% traj_opt = traj_opt.setSolver('ipopt');
+% 
+% tic
+% xtraj = traj_opt.solveTraj(t_init,traj_init);
+% toc
+
+
+
+v = constructVisualizer(plant);
+v.playback(xtraj);
 
 % ts_plant = TimeSteppingRigidBodyManipulator(plant,0.0005,options);
 
