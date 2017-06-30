@@ -1653,6 +1653,8 @@ classdef NonlinearProgram
                 msg = 'insufficient memory';
               case -199
                 msg = 'internal error';
+              otherwise
+                msg = 'unknown error';
             end
             warning('Drake:NonlinearProgram:IPOPTExitFlag','Ipopt %4d %s',exitflag,msg);
             exitflag = exitflag-100;

@@ -567,16 +567,20 @@ classdef VariationalTrajectoryOptimization < DirectTrajectoryOptimization
             dc = obj.options.s_weight*ones(1,length(s));
         end
         
-        function [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
+        function [xtraj,utraj,ctraj,btraj,psitraj,etatraj,straj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
             [xtraj,utraj,z,F,info,infeasible_constraint_name] = solveTraj@DirectTrajectoryOptimization(obj,t_init,traj_init);
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ctraj = PPTrajectory(zoh(t,[reshape(z(obj.c_inds),[],obj.N-1),z(obj.c_inds(:,end))]));
                 btraj = PPTrajectory(zoh(t,[reshape(z(obj.b_inds),[],obj.N-1),z(obj.b_inds(:,end))]));
+                psitraj = PPTrajectory(zoh(t,[reshape(z(obj.psi_inds),[],obj.N-1),z(obj.psi_inds(:,end))]));
+                etatraj = PPTrajectory(zoh(t,[reshape(z(obj.eta_inds),[],obj.N-1),z(obj.eta_inds(:,end))]));
                 straj = PPTrajectory(zoh(t,[reshape(z(obj.s_inds),[],obj.N-1),z(obj.s_inds(end))]));
             else
                 ctraj = [];
                 btraj = [];
+                psitraj = [];
+                etatraj = [];
                 straj = [];
             end
         end
