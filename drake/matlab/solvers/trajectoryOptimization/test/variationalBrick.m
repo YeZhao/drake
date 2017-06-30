@@ -53,6 +53,15 @@ toc
 % xtraj = traj_opt.solveTraj(t_init,traj_init);
 % toc
 
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
+% traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+% traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+% traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-7);
+% % traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-7);
+% traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-7);
+% traj_opt = traj_opt.setSolverOptions('snopt','constraint_err_tol',1e-5);
 
 
 v = constructVisualizer(plant);

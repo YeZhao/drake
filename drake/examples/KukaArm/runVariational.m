@@ -10,8 +10,6 @@ options.active_collision_options.terrain_only = false;
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
 r = KukaArm(options);
-options.floating = true;
-r = r.addRobotFromURDF('urdf/box.urdf',[],[],options);
 
 nq = r.getNumPositions();
 nv = r.getNumVelocities();

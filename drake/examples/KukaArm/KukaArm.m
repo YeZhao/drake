@@ -3,6 +3,9 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
   properties
     hand_name = 'iiwa_link_ee';
     disturbance_type = 1; % 1 ee-force, 2-state error, 3-torque
+    brick_id
+    left_finger_id
+    right_finger_id
   end
   
   methods
@@ -61,6 +64,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
       end
       
       obj = obj.removeCollisionGroupsExcept({'manip'});
+      options.floating = true;
+      obj = obj.addRobotFromURDF('urdf/box.urdf',[],[],options);
+
+      obj.brick_id = obj.findLinkId('brick');
+      obj.left_finger_id = obj.findLinkId('left_finger');
+      obj.right_finger_id = obj.findLinkId('iiwa_link_7+iiwa_link_ee+base_link+right_finger+iiwa_link_ee_kuka');
+      
       obj = compile(obj);
 
     end
@@ -164,8 +174,73 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
       [f,df] = dynamics(obj,t,x,u+w);
       df = [df,df(:,1+obj.getNumStates+(1:obj.getNumInputs))];
     end 
-  end
     
+      
+    function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints(obj,kinsol,allow_multiple_contacts,active_collision_options)
+
+      % @retval phi (m x 1) Vector of gap function values (typically contact distance), for m possible contacts
+      % @retval normal (3 x m) Contact normal vector in world coordinates, points from B to A
+      % @retval d {k} (3 x m) Contact friction basis vectors in world coordinates, points from B to A
+      % @retval xA (3 x m) The closest point on body A to contact with body B, relative to body A origin and in body A frame
+      % @retval xB (3 x m) The closest point on body B to contact with body A, relative to body B origin and in body B frame
+      % @retval idxA (m x 1) The index of body A. 0 is the special case for the environment/terrain
+      % @retval idxB (m x 1) The index of body B. 0 is the special case for the environment/terrain
+      % @retval mu (m x 1) Coefficients of friction
+      % @retval n (m x n) normal vector in joint coordinates, state vector length n
+      % @retval D {2k}(m x n) friction cone basis in joint coordinates, for k directions
+      % @retval dn (mn x n) dn/dq derivative
+      % @retval dD {2k}(mn x n) dD/dq derivative
+
+      compute_first_derivative = nargout > 8;
+      compute_kinematics_gradients = nargout > 10;
+
+      if ~isstruct(kinsol)
+        % treat input as contactPositions(obj,q)
+        kin_options = struct('compute_gradients', compute_kinematics_gradients);
+        kinsol = doKinematics(obj, kinsol, [], kin_options);
+      end
+      brick_size = 0.06;
+      finger_contact_left = [0;0;.04];
+      finger_contact_right = [-0.0001;  0.0400;  0.1225];
+
+      box_pose = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
+      left_finger_tip = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left,0);
+      right_finger_tip = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right,0);
+
+      xA = [finger_contact_right, finger_contact_left];
+      idxA = [obj.right_finger_id; obj.left_finger_id];
+      idxB = [obj.brick_id; obj.brick_id];
+      mu = 1.0;
+      
+      R_box = rpy2rotmat(box_pose(4:6));
+      right_normal = R_box*[1;0;0];
+      left_normal = R_box*[-1;0;0];
+      
+      normal = [right_normal, left_normal];
+      d = cell(1,2);
+      d{1} = [R_box*[0;1;0],R_box*[0;1;0]];
+      d{2} = [R_box*[0;0;1],R_box*[0;0;1]];
+
+      right_finger_in_B = right_finger_tip-box_pose(1:3);
+      left_finger_in_B = left_finger_tip-box_pose(1:3);
+      
+      phi_right = right_finger_in_B'*right_normal - brick_size/2.0;
+      phi_left = left_finger_in_B'*left_normal - brick_size/2.0;
+      xB = [right_finger_in_B - right_finger_in_B'*right_normal *right_normal + [brick_size/2;0;0], ...
+        left_finger_in_B - left_finger_in_B'*left_normal * left_normal - [brick_size/2;0;0]];
+      
+      phi = [phi_right;phi_left];
+      
+      if phi<0
+        keyboard
+      end
+      if compute_kinematics_gradients
+        [n, D, dn, dD] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
+      elseif compute_first_derivative
+        [n, D] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
+      end
+    end
+  end
   
 end
 
