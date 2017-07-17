@@ -4,7 +4,8 @@ warning('off','Drake:RigidBodyManipulator:WeldedLinkInd');
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 options.ignore_self_collisions = true;
-p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
+%p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
+p = TimeSteppingRigidBodyManipulator('../KneedCompassGait.urdf',0.01,options);
 % trajopt = ContactImplicitTrajectoryOptimization(p,[],[],[],10,[1 1]);
 
 %todo: add joint limits, periodicity constraint
@@ -93,7 +94,7 @@ v.playback(xtraj,struct('slider',true));
 % simulate with LQR gains
 % LQR Cost Matrices
 Q = diag(10*ones(1,12));
-R = .1*eye(3);
+R = 1*eye(3);
 Qf = 100*eye(12);
 ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
 

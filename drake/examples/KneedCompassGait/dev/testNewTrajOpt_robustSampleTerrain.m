@@ -30,7 +30,7 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 50;
+N = 5;
 T = 5;
 T0 = 5;
 
@@ -89,7 +89,7 @@ xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
 scale = 0.01;
-to_options.nlcc_mode = 2;
+to_options.nlcc_mode = 5;% robust mode %2;
 to_options.lincc_mode = 1;
 to_options.compl_slack = scale*.01;
 to_options.lincompl_slack = scale*.001;

@@ -35,7 +35,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         qdot_blk
         Sigma_r
         mu_r
-        
         h
         
         dMdq
@@ -142,7 +141,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     % lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     
-                    obj.options.nlcc_mode = 5;% robust mode
                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
@@ -184,7 +182,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                     % add ERM cost for friction cone coefficient uncertainty
                     obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
-                    
                 end
                 
                 if obj.nJL > 0
@@ -203,9 +200,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             
             function [f,df] = ERMcost_friction(obj, lambda, gamma)
-                %                 x = y(1:xdim);
-                %                 z = y(xdim+1:end-1);
-                %                 slack_var = y(end);
                 
                 zdim = size(obj.W,2);
                 xdim = size(obj.M,2);
@@ -228,9 +222,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             
             function [f,df] = ERMcost_slidingVelocity(obj, h, x0, x1, u, lambda, gamma)
-                %                 x = y(1:xdim);
-                %                 z = y(xdim+1:end-1);
-                %                 slack_var = y(end);
                 
                 zdim = size(obj.W,2);
                 xdim = size(obj.M,2);
@@ -246,7 +237,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj.h = h;
                 
                 % von Mises-Fisher distribution for quaternion rotation vector
-                mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+                mu_dirc = [1,0,0,0]'; % this is for flat terrain, aligned with global coordinate. can be terrain dependent.
                 
                 mu_dirc = [0.2,0.15,0.3,0.9206]';
                 kappa = 10;
@@ -261,8 +252,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj.Sigma_r = Sigma_r;
                 
                 % remove distribution
-                %mu_r=[1;0;0;0];
-                %Sigma_r = zeros(4);
+                mu_r=[1;0;0;0];
+                Sigma_r = zeros(4);
                 
                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
                 
@@ -295,7 +286,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 v1 = x1(nq+1:nq+nv);
                 
                 % currently only implement MIDPOINT method
-                [M,C,B,dM,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                %[M,C,B,dM,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                [M,C,B,dM,dC,dB] = obj.plant.manipulatorDynamics(q1,v1);
                 Minv = inv(M);
                 obj.C = C;
                 obj.B = B;
@@ -408,20 +400,17 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                                               + jacobian_gradient(F',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*F',Minv,G*mu_r) ...
                                               + jacobian_gradient(Fc',Minv,G*mu_r + Gc) + jacobian_gradient(mu_r'*F',Minv,Gc);
                         dE_M_Drx_nr_dqdot(i,:) = 0;
-                        % [ToDo: derivative w.r.t Jacobian]
 
                         dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) ) ...
                                                + jacobian_gradient(G',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*G',Minv,G*mu_r) ...
                                                + jacobian_gradient(Gc',Minv,2*G*mu_r+Gc);
                         dE_M_Drx_Drx_dqdot(i,:) = 0;
-                        % [ToDo: derivative w.r.t Jacobian]
 
                         dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) ) ...
                                                + jacobian_gradient(Fy',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*Fy',Minv,G*mu_r) ...
                                                + jacobian_gradient(Fyc',Minv,G*mu_r + Gc) + jacobian_gradient(mu_r'*Fy',Minv,Gc);
                         dE_M_Drx_Dry_dqdot(i,:) = 0;
-                        % [ToDo: derivative w.r.t Jacobian]
-
+                        
                         dE_M_Dry_Drx_dq(i,:) = dE_M_Drx_Dry_dq(i,:);
                         dE_M_Dry_Drx_dqdot(i,:) = 0;
 
@@ -553,14 +542,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                                               + jacobian_gradient(F',Minv,Fy*Sigma_r) + jacobian_gradient(mu_r'*F',Minv,Fy*mu_r) ...
                                               + jacobian_gradient(Fc',Minv,Fy*mu_r + Fyc) + jacobian_gradient(mu_r'*F',Minv,Fyc);
                         dE_M_Dry_nr_dqdot(i,:) = 0;
-                        % [ToDo: derivative w.r.t Jacobian]
 
                         dE_M_Dry_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*Fy' + Fyc*(2*Fy*mu_r + Fyc)')*Jg*Minv)'*dMdq(:,:,i) ) ...
                                                + jacobian_gradient(Fy',Minv,Fy*Sigma_r) + jacobian_gradient(mu_r'*Fy',Minv,Fy*mu_r) ...
                                                + jacobian_gradient(Fyc',Minv,2*Fy*mu_r+Fyc);
                         dE_M_Dry_Dry_dqdot(i,:) = 0;
-                        % [ToDo: derivative w.r.t Jacobian]
-
+                        
                         % covariance derivative w.r.t q and qdot
                         dV_M_Dry_nr_dq_first_chain(:,:,i) = -Ky*Sigma_r*(Vy+Vy')*Sigma_r*U' - U*Sigma_r*Vy*Sigma_r*Ky' - Ky*Sigma_r*Vy*Sigma_r*U' ...
                             -U*(mu_r*Oy'+Oy*mu_r')*Ky'-Ky*(mu_r*Oy'+Oy*mu_r')*U'-Z*Oy'*Ky'-Ly*Oy'*U'-Ky*Oy*Z'-U*Oy*Ly' ...
@@ -907,16 +894,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                     dEdh = E/obj.h + term1*obj.Sigma_r*Cin'*obj.Jg*obj.Minv*(obj.B*obj.u - obj.C) +term3*(obj.mu_r'*Cin' + cin')*obj.Jg*obj.Minv*(obj.B*obj.u - obj.C);
                     
-                    dEdJdq = jacobian_gradient6(obj.mu_r'*Ain'+ain',obj.Minv*obj.h,Bin*obj.Sigma_r*Cin',obj.qdot_blk) ...
+                    dEdJ_times_dJdq = jacobian_gradient6(obj.mu_r'*Ain'+ain',obj.Minv*obj.h,Bin*obj.Sigma_r*Cin',obj.qdot_blk) ...
                              + jacobian_gradient6(obj.mu_r'*Bin'+bin',obj.h*obj.Minv,Ain*obj.Sigma_r*Cin',obj.qdot_blk) ...
                              + jacobian_gradient7(obj.h*obj.Minv,Ain*obj.Sigma_r*Bin',obj.mu_r'*Cin',obj.qdot_blk) ...
                              + jacobian_gradient8(obj.mu_r'*Ain'+ain',obj.Minv*obj.h,(Bin*obj.mu_r+bin)*obj.mu_r'*Cin',obj.qdot_blk);
                              
                     for i=1:nq
-                        dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + trace(dEdC'*obj.dCdq(:,i));
+                        dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + trace(dEdC'*obj.dCdq(:,i)) + dEdJ_times_dJdq;
                         dEdqdot(i,:) = trace(dEdC'*obj.dCdqdot(:,i));
                     end
-                    %[ToDo] take gradient w.r.t C and Jq
                     
                     dEdu = (term1*obj.Sigma_r*Cin'*obj.Jg*(obj.Minv*obj.B*obj.h))' - (term3*(obj.mu_r'*Cin'+cin')*obj.Jg*obj.Minv*obj.B*obj.h)';
                 end
@@ -950,7 +936,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     dEdM = dEdM -obj.Minv*term4*BBin*obj.Sigma_r*AAin' -(AAin*obj.mu_r+aain)*term4*(BBin*obj.mu_r+bbin)'*obj.Minv - obj.Minv*term3*DDin*obj.Sigma_r*CCin'...
                          - (CCin*obj.mu_r+ccin)*term3*(DDin*obj.mu_r+ddin)'*obj.Minv;
                     
-                    dEdJdq = jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Cin',obj.Minv,Din*obj.Sigma_r*Bin',eye(nq)) ...
+                    dEdJ_times_dJdq = jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Cin',obj.Minv,Din*obj.Sigma_r*Bin',eye(nq)) ...
                              + jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Din',obj.Minv,Cin*obj.Sigma_r*Bin',eye(nq)) ...
                              + jacobian_gradient2(obj.mu_r'*Ain'+ain',obj.Minv,Bin*obj.Sigma_r*Cin',obj.Minv,Din*obj.mu_r+din) ...
                              + jacobian_gradient2(obj.mu_r'*Ain'+ain',obj.Minv,Bin*obj.Sigma_r*Din',obj.Minv,Cin*obj.mu_r+cin) ...
@@ -964,7 +950,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     %dEdC = 0;
                     
                     for i=1:nq
-                        dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + dEdJdq;
+                        dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + dEdJ_times_dJdq;
                         dEdqot(i,:) = 0;
                     end
                     
@@ -1000,6 +986,34 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                 end
             end
+            
+%             % nonlinear complementarity constraint:
+%             %   lambda_fi /perp gamma + Di*psi(q,v)
+%             % x = [q;v;gamma]
+%             % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
+%             function [f,df] = nonlincompl_single_fun(y)
+%                 nq = obj.plant.getNumPositions;
+%                 nv = obj.plant.getNumVelocities;
+%                 x = y(1:nq+nv+obj.nC);
+%                 z = y(nq+nv+obj.nC+1:end);
+%                 gamma = x(nq+nv+1:end);
+%                 q = x(1:nq);
+%                 v = x(nq+1:nq+nv);
+%                 
+%                 [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+%                 
+%                 f = zeros(obj.nC,1);
+%                 df = zeros(obj.nC,nq+nv+obj.nC*(2+obj.nD));
+%                 
+%                 f(1:1+obj.nD:end) = phi;
+%                 df(1:1+obj.nD:end,1:nq) = n;
+%                 for j=1:obj.nD
+%                     f(1+j:1+obj.nD:end) = gamma+D{j}*v;
+%                     df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+%                     df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+%                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+%                 end
+%             end
         end
         
         function [c,dc] = robustLCPcost(obj, slack_var)

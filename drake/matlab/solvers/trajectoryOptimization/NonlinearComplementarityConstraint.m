@@ -57,6 +57,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     constraints{3} = FunctionHandleConstraint(-inf(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackprod);%[diff slack var]
                     n = zdim;
             end
+            
             function [f,df] = prodfun(y)
                 z = y(xdim+1:xdim+zdim);
                 [g,dg] = fun(y);
@@ -109,15 +110,6 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 
                 f = z.*gamma - slack_var*ones(zdim,1);%[single slack var]
                 df = [zeros(zdim,xdim) diag(gamma) -ones(zdim,1) diag(z)];%[single slack var]
-            end
-            
-            function [f,df] = robustslackprod_nonnegative(y)
-                x = y(1:xdim);
-                z = y(xdim+1:xdim+zdim);
-                gamma = y(xdim+zdim+2:end);
-                
-                f = z.*gamma;
-                df = [zeros(zdim,xdim) diag(gamma) zeros(zdim,1) diag(z)];
             end
             
             function [f,df] = fbfun(y)
