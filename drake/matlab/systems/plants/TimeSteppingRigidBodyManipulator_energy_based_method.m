@@ -297,7 +297,24 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                 return;
             end
             
+            persistent pathlcp_z_norm;
+            persistent admmlcp_z_norm;
+            persistent z_norm_diff;
+            persistent num_lcp;
+            persistent num_admmlcp;
+            persistent num_pathlcp;
+            persistent num_z_admm_violation;
+            persistent num_compl_cond_violation;
+            persistent num_v_zero;
+            persistent num_v_non_zero;
+            persistent total_norm_diff; 
+            persistent total_z_admm_negative;
+            persistent total_compl_cond_admm_negative;
+            persistent admm_complementarity_condition_residual;%z'*(M*z+w)
+            persistent path_complementarity_condition_residual;
             persistent sovleLCP_index;
+            persistent min_normal_distance;
+            persistent max_normal_force;
             
             % global active_set_fail_count
             % do LCP time-stepping
@@ -715,20 +732,213 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
                         end
                     end
                     
+                    if isempty(sovleLCP_index)
+                        sovleLCP_index = 1;
+                    else
+                        sovleLCP_index = sovleLCP_index + 1;
+                    end
                     disp('-----solverLCP iteration-----')
                     fprintf('%10d\n', sovleLCP_index);
-                    
+                                        
                     if QP_FAILED && obj.enable_path_lcp
                         % then the active set has changed, call pathlcp
                         z = pathlcp(M,w,lb,ub);
                         obj.LCP_cache.data.fastqp_active_set = [];
                     end
-                    
+                    if(isempty(path_complementarity_condition_residual))
+                        path_complementarity_condition_residual = z'*(M*z+w);
+                    else
+                        path_complementarity_condition_residual = [path_complementarity_condition_residual, z'*(M*z+w)];
+                    end
+                                        
                     z = zeros(size(M,2),1);% remove the pathlcp solver
                     
                     %admm solver
                     z_admm = obj.admmlcp(M, w, n, Hinv, D, h, vToqdot, v, tau, z, phiC, nC, nL, nP, mC, mu);
                     compl_cond = M*z_admm+w;
+                    
+                    
+                    if(isempty(admm_complementarity_condition_residual))
+                        admm_complementarity_condition_residual = z_admm'*compl_cond;
+                    else
+                        admm_complementarity_condition_residual = [admm_complementarity_condition_residual, z_admm'*compl_cond];
+                    end
+                    
+                    if(any(z_admm(1:nC) < -1e-4))
+                        disp('----------------debug-------------------\n')
+                        if (isempty(num_z_admm_violation))
+                            num_z_admm_violation = 1;
+                        else
+                            num_z_admm_violation = num_z_admm_violation + 1;
+                        end
+                    end
+                    
+                    if(any(z_admm(nC+(1:nC*mC)) < -1e-3))
+                        disp('----------------debug-------------------\n')
+                        if (isempty(num_z_admm_violation))
+                            num_z_admm_violation = 1;
+                        else
+                            num_z_admm_violation = num_z_admm_violation + 1;
+                        end
+                    end
+                    
+                    if(any(z_admm(nC*(1+mC)+(1:nC)) < -1e-4))
+                        disp('----------------debug-------------------\n')
+                        if (isempty(num_z_admm_violation))
+                            num_z_admm_violation = 1;
+                        else
+                            num_z_admm_violation = num_z_admm_violation + 1;
+                        end
+                    end
+                    
+                    if(any(compl_cond < -1e-2))
+                        disp('----------------debug-------------------\n')
+                        if (isempty(num_compl_cond_violation))
+                            num_compl_cond_violation = 1;
+                        else
+                            num_compl_cond_violation = num_compl_cond_violation + 1;
+                        end
+                    end
+                    
+                    % debugging stuff for path lcp
+                    compl_cond_original = M*z+w;
+                    if(any(z(1:nC) < -1e-4))
+                        disp('----------------debug-------------------\n')
+                    end
+                    
+                    if(any(z(nC+(1:nC*mC)) < -1e-4))
+                        disp('----------------debug-------------------\n')
+                    end
+                    
+                    if(any(z(nC*(1+mC)+(1:nC)) < -1e-4))
+                        disp('----------------debug-------------------\n')
+                    end
+                    
+                    if(any(compl_cond_original < -1e-6))
+                        disp('----------------debug-------------------\n')
+                    end
+                    
+                    pathlcp_z_norm = [pathlcp_z_norm, norm(z)];
+                    admmlcp_z_norm = [admmlcp_z_norm, norm(z_admm)];
+                    z_norm_diff = [z_norm_diff, norm(z - z_admm)];
+                                        
+                    if length(pathlcp_z_norm) > 260 %hard-coding
+                        
+                        if isempty(total_compl_cond_admm_negative)
+                            total_compl_cond_admm_negative = 0;
+                        end
+                        
+                        if isempty(num_pathlcp)
+                            num_pathlcp = 0;
+                        end
+
+                        if isempty(num_admmlcp)
+                            num_admmlcp = 0;
+                        end
+                        
+                        if isempty(num_z_admm_violation)
+                            num_z_admm_violation = 0;
+                        end
+                        
+                        if isempty(num_compl_cond_violation)
+                            num_compl_cond_violation = 0;
+                        end
+                        
+                        disp('--------------------------solver result--------------------------');
+                        fprintf('%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n', 'num of lcp solve', 'num of admmlcp solve', 'num of pathlcp solve', ...
+                            'total norm diff of z vector', 'sum of z vector negative elements', 'sum of compl condition vector negative elements');
+                        fprintf('\t%3d\t\t\t%3d\t\t%3d\t\t%5f\t\t%5f\t\t\t\t%5f\n', num_lcp, num_admmlcp, num_pathlcp, total_norm_diff, total_z_admm_negative, total_compl_cond_admm_negative);
+                        
+                        fprintf('%10s\t\t%10s\t\t%10s\t\t%10s\n', 'num of z admm violation', 'num of complementarity condition admm violation', 'admm complementarity condition residual', 'path complementarity condition residual');
+                        fprintf('\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\t\t\t\t\t\t%3d\n', num_z_admm_violation, num_compl_cond_violation, sum(abs(admm_complementarity_condition_residual)), sum(abs(path_complementarity_condition_residual)));
+                        
+                        % figure(1)
+                        % plot(pathlcp_z_norm,'b-');
+                        % hold on;
+                        % plot(admmlcp_z_norm,'r-');
+                        % xlim([-100 600])
+                        % legend('pathlcp z vector norm','admmlcp z vector norm');
+                        % title('norm of lcp decision vector z solved from path and admm algorithms');
+                        %
+                        % figure(2)
+                        % plot(z_norm_diff,'b-');
+                        % xlim([-100 600])
+                        % legend('norm z difference');
+                        % title('norm of two lcp decision vector z difference');
+                        %
+                        % figure(3)
+                        % plot(admm_complementarity_condition_residual,'b-');
+                        % xlim([-100 600])
+                        % title('sum of admm complementarity condition residual');
+                        %
+                        % figure(4)
+                        % plot(path_complementarity_condition_residual,'b-');
+                        % xlim([-100 600])
+                        % title('sum of path complementarity condition residual');
+                          
+                    end
+                    
+                    if (isempty(num_lcp))
+                        num_lcp = 1;
+                    else
+                        num_lcp = num_lcp + 1;
+                    end
+                    
+                    if obj.enable_admm_lcp
+                        if (isempty(total_norm_diff))
+                            total_norm_diff = norm(z - z_admm);
+                        else
+                            total_norm_diff = total_norm_diff + norm(z - z_admm);
+                        end
+                        
+                        z = z_admm;
+                        if (isempty(num_admmlcp))
+                            num_admmlcp = 1;
+                        else
+                            num_admmlcp = num_admmlcp + 1;
+                        end
+                    elseif obj.enable_path_lcp
+                        if (isempty(num_pathlcp))
+                            num_pathlcp = 1;
+                        else
+                            num_pathlcp = num_pathlcp + 1;
+                        end
+                    end
+                    
+                    for i = 1:length(z_admm)
+                        if z_admm(i) < 0
+                            if isempty(total_z_admm_negative)
+                                total_z_admm_negative = z_admm(i);
+                            else
+                                total_z_admm_negative = total_z_admm_negative + z_admm(i);
+                            end
+                        end
+                        
+                        if compl_cond(i) < 0
+                            if isempty(total_compl_cond_admm_negative)
+                                total_compl_cond_admm_negative = compl_cond(i);
+                            else
+                                total_compl_cond_admm_negative = total_compl_cond_admm_negative + compl_cond(i);
+                            end
+                        end                        
+                    end
+                    
+                    for i = 1:nC
+                        if(any(abs(z(nC*(1+mC)+i)) < 1e-4))
+                            if (isempty(num_v_zero))
+                                num_v_zero = 1;
+                            else
+                                num_v_zero = num_v_zero + 1;
+                            end
+                        else
+                            if (isempty(num_v_non_zero))
+                                num_v_non_zero = 1;
+                            else
+                                num_v_non_zero = num_v_non_zero + 1;
+                            end
+                        end
+                        
+                    end
                                         
                     % for debugging
                     %cN = z(nL+nP+(1:nC))
@@ -860,7 +1070,7 @@ classdef TimeSteppingRigidBodyManipulator_energy_based_method < DrakeSystem
             ABSTOL   = 1e-4;
             RELTOL   = 1e-2;
             RELTOL_DUAL = 1e-2;
-            alpha = 1.5;% over-relaxation parameter [Ye: To be implemented]
+            alpha = 1.5;% over-relaxation parameter
             rho_scalar = 0.2;
             rho = rho_scalar*ones(6+mC*3,1);% penalty parameters
             rho(6+2*mC+(1:mC)) = rho_scalar*ones(mC,1);
