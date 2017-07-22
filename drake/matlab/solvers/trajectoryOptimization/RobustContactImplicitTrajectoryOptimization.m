@@ -18,7 +18,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         
         nonlincompl_constraints
         nonlincompl_slack_inds
-        
+         
         nonlincompl_constraints_purturb
         nonlincompl_slack_inds_purturb
         
@@ -35,7 +35,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         qdot_blk
         Sigma_r
         mu_r
-        
         h
         
         dMdq
@@ -81,7 +80,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             if ~isfield(options,'active_collision_options')
                 options.active_collision_options.terrain_only = true;
-            end
+            end 
             if ~isfield(options,'integration_method')
                 options.integration_method = RobustContactImplicitTrajectoryOptimization.MIDPOINT;
             end
@@ -99,6 +98,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             constraints = cell(N-1,1);
             foot_horizontal_distance_constraints = cell(N-1,1);
             foot_height_diff_constraints = cell(N-1,1);
+            CoM_vertical_velocity_constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
             obj.nonlincompl_constraints = cell(N-1,1);
             obj.nonlincompl_slack_inds = cell(N-1,1);
@@ -166,7 +166,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.r = r;
                     obj.M = M;
                     
-                    if i==N-1
+                    if i==obj.N-1
                         obj.verbose_print = 1;
                     else
                         obj.verbose_print = 0;
@@ -184,7 +184,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                     % add ERM cost for friction cone coefficient uncertainty
                     obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
-                    
                 end
                 
                 if obj.nJL > 0
@@ -252,12 +251,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
                 
                 %remove distribution and make it deterministic
-                mu_r=[1;0;0;0];
-                Sigma_r = zeros(4);
+                %mu_r=[1;0;0;0];
+                %Sigma_r = zeros(4);
                 
                 obj.mu_r = mu_r;
                 obj.Sigma_r = Sigma_r;
-                
                 
                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
                 
@@ -795,9 +793,18 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
                 
-                if obj.verbose_print == 1
-                    f
+                persistent LCP_ERM_NCP_residual
+                LCP_ERM_NCP_residual = [LCP_ERM_NCP_residual, f/(delta/2)];
+                if length(LCP_ERM_NCP_residual) == obj.N-1
+                    LCP_ERM_NCP_residual
+                    LCP_ERM_NCP_residual = [];
                 end
+                
+%                obj.verbose_print = 1;
+%                 if obj.verbose_print == 1
+%                     disp('ERM NCP residual square');
+%                     f
+%                 end
                 
                 %% debugging
                 %------- begin comparison ----------
@@ -818,16 +825,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 
                 Phi = f_deter.*lambda;
-
-                E_Phi
-                Phi
+                %E_Phi
+                %Phi
                 %% ------- end comparison ----------
                 
-                % test non-zero values
-                nonzero_index_set = find(abs(dE_Phi) > 1e-3);
-                if length(nonzero_index_set) > 4
-                    disp('number of nonzero index set elements > 4')
-                end
+                % % test non-zero values
+                % nonzero_index_set = find(abs(dE_Phi) > 1e-3);
+                % if length(nonzero_index_set) > 4
+                %     disp('number of nonzero index set elements > 4')
+                % end
                 
                 function dX_dq = jacobian_gradient(A,B,C)
                     %X = trace(A*Jg*B*Jg'*C)
@@ -1028,6 +1034,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
                     df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                end
+                
+                persistent LCP_non_robust_NCP_residual
+                if obj.verbose_print == 1
+                    NCP_residual = f.*z;
+                    % compute the sum of tangential components
+                    NCP_residual_tangential = sum(NCP_residual(2:3));
+                    NCP_residual_tangential = NCP_residual_tangential + sum(NCP_residual(5:6));
+                    %disp('non-robust NCP residual square');
+                    LCP_non_robust_NCP_residual = [LCP_non_robust_NCP_residual NCP_residual_tangential^2];
+                    if length(LCP_non_robust_NCP_residual) == obj.N-1
+                        LCP_non_robust_NCP_residual
+                        LCP_non_robust_NCP_residual = [];
+                    end
                 end
             end
         end

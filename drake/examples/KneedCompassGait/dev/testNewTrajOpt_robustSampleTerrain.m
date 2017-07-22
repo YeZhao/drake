@@ -30,7 +30,7 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 5;
+N = 50;
 T = 5;
 T0 = 5;
 
@@ -57,15 +57,15 @@ R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
 x0 = [0;1;zeros(10,1)];
-%xf = [.4;1.;zeros(10,1)];
-xf = [3.2;1.;zeros(10,1)];
+xf = [2;1.;zeros(10,1)];
+%xf = [3.2;1.;zeros(10,1)];
 
 N2 = floor(N/2);
 
 if nargin < 2
     %Try to come up with a reasonable trajectory
-    %x1 = [.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
-    x1 = [2;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
+    x1 = [1;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
+    %x1 = [2;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
@@ -84,12 +84,12 @@ T_span = [1 T];
 
 x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
-%xf_min = [.4;-inf(11,1)];
-xf_min = [3.2;-inf(11,1)];
+xf_min = [2;-inf(11,1)];
+%xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
 scale = 0.01;
-to_options.nlcc_mode = 5;% robust mode %2;
+to_options.nlcc_mode = 5;% robust mode %original: 2;
 to_options.lincc_mode = 1;
 to_options.compl_slack = scale*.01;
 to_options.lincompl_slack = scale*.001;
@@ -121,6 +121,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -128,7 +132,7 @@ toc
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
-v.playbackAVI(xtraj, 'trial1.avi');
+v.playbackAVI(xtraj, 'trial4_small_terrain_perturb_with_ERM_cost_three_walking_constraints.avi');
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
@@ -204,18 +208,18 @@ xlabel('t');
 ylabel('Knee joint 2')
 hold on;
 
-% simulate with LQR gains
-% LQR Cost Matrices
-Q = diag(10*ones(1,12));
-R = .1*eye(3);
-Qf = 100*eye(12);
-
-ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
-
-sys=feedback(p,ltvsys);
-
-xtraj_new = simulate(sys,xtraj.tspan, x0);
-v.playback(xtraj_new,struct('slider',true));
+% % simulate with LQR gains
+% % LQR Cost Matrices
+% Q = diag(10*ones(1,12));
+% R = .1*eye(3);
+% Qf = 100*eye(12);
+% 
+% ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+% 
+% sys=feedback(p,ltvsys);
+% 
+% xtraj_new = simulate(sys,xtraj.tspan, x0);
+% v.playback(xtraj_new,struct('slider',true));
 
 disp('finish traj opt')
 

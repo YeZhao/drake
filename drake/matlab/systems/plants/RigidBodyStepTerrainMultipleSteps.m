@@ -7,9 +7,9 @@ classdef RigidBodyStepTerrainMultipleSteps < RigidBodyTerrain
     %  X center, Y center, Width (x), Length (y), Height (z)
     methods
         function obj = RigidBodyStepTerrainMultipleSteps(boxes)
-            height = 1/15*randn(1,15);
+            height = 0.01*randn(1,15);
             obj.height = height;
-            if nargin < 2
+            if nargin < 2 
                 boxes(1,:) = [0.4, 0.0, 0.4, 2, 0.5];
                 for i=2:length(height)
                     boxes(i,:) = [0.4*i, 0.0, 0.4, 2, 0.5];
