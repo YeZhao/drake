@@ -69,7 +69,7 @@ if nargin < 2
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
-    traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));
+    traj_init.u = PPTrajectory(foh(t_init,zeros(3,N)));%randn(3,N)
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
     traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
@@ -121,9 +121,9 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+%traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+%traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
+%traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
 
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
@@ -132,7 +132,7 @@ toc
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
-v.playbackAVI(xtraj, 'trial4_small_terrain_perturb_with_ERM_cost_three_walking_constraints.avi');
+v.playbackAVI(xtraj, 'trial6_small_terrain_perturb_with_two_ERM_cost_full_nonlcompl_three_walking_constraints.avi');
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
