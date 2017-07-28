@@ -1,4 +1,4 @@
-classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimization
+classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOptimization
     % phi, lambda
     properties
         nC
@@ -54,7 +54,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
     end
     
     methods
-        function obj = RobustContactImplicitTrajectoryOptimization(plant,N,duration,options)
+        function obj = RobustContactImplicitTrajectoryOptimization_Brick(plant,N,duration,options)
             if nargin<4, options=struct(); end
             
             if ~isfield(options,'nlcc_mode')
@@ -82,7 +82,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 options.active_collision_options.terrain_only = true;
             end 
             if ~isfield(options,'integration_method')
-                options.integration_method = RobustContactImplicitTrajectoryOptimization.MIDPOINT;
+                options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT;
             end
             
             obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
@@ -96,22 +96,22 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             N = obj.N;
             
             constraints = cell(N-1,1);
-            foot_horizontal_distance_constraints = cell(N-1,1);
-            %foot_height_diff_constraints = cell(N-1,1);
-            CoM_vertical_velocity_constraints = cell(N-1,1);
+%             foot_horizontal_distance_constraints = cell(N-1,1);
+%             foot_height_diff_constraints = cell(N-1,1);
+%             CoM_vertical_velocity_constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
             obj.nonlincompl_constraints = cell(N-1,1);
             obj.nonlincompl_slack_inds = cell(N-1,1);
             jlcompl_constraints = cell(N-1,1);
             dyn_inds = cell(N-1,1);
-             
+            
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
-            cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
-            %cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
-            cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
+%             cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
+%             cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
+%             cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
@@ -120,20 +120,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 constraints{i} = cnstr;
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
-                % add foot horizontal distance constraint
-                foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
-                foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
-                obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
-                 
+%                 % add foot horizontal distance constraint
+%                 foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
+%                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
+%                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
+%                 
 %                 % add foot height diff constraint
 %                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
 %                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
 %                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
-                
-                % add max CoM vertical velocity constraint
-                CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
-                CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
-                obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
+%                 
+%                 % add max CoM vertical velocity constraint
+%                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
+%                 CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
+%                 obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -147,7 +147,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-
+                    
                     % only normal LCP constraint
                     % obj.options.nlcc_mode = 6;% robust mode 
                     % obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_normal_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
@@ -185,25 +185,19 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     %obj = obj.addCost(FunctionHandleObjective(nX+obj.nC+obj.nC*(1+obj.nD),@(x1,gamma,lambda)deterministic_cost_slidingVelocity(obj,x1,gamma,lambda),1), ...
                     %      {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
-                    assert(size(lambda_inds,1) == 6);
-                    assert(size(gamma_inds,1) == 2);
+                    %assert(size(lambda_inds,1) == 6);
+                    %assert(size(gamma_inds,1) == 2);
                      
                     % add ERM cost for sliding velocity constraint uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                    %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     % add ERM cost for friction cone coefficient uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    %obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
 
                     % add ERM cost for normal distance uncertainty
                     %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_normaldistance(obj,h,x0,x1,u,lambda,gamma),1), ...
                     %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
-                    
-                    %(to be continued)
-                    % (simple version) add ERM cost for normal distance uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(nX+obj.nC*(1+obj.nD),@(x1,lambda)ERMcost_normaldistance_Gaussian(obj,x1,lambda),1), ...
-                    %      {obj.x_inds(:,i+1);lambda_inds});
-                    
                 end
                 
                 if obj.nJL > 0
@@ -237,7 +231,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 % probabilistic version
                 sigma = 0.5;
                 mu_cov = sigma^2*[lambda(1)^2;lambda(4)^2];% make sure it is squared
-                delta = 10^7;% coefficient
+                delta = 1000;% coefficient
                 f = delta/2 * (norm(diag(gamma)*g)^2 + norm(mu_cov)^2);% - slack_var*ones(zdim,1);
                 df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
                     + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
@@ -1401,7 +1395,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                                 -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
                 end
                 
-                delta = 10^7;% coefficient
+                delta = 1000;% coefficient
                 f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
                 df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
@@ -1639,69 +1633,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
             end
             
-            function [f,df] = ERMcost_normaldistance_Gaussian(obj, x1, lambda)
-                
-                nq = obj.plant.getNumPositions;
-                nv = obj.plant.getNumVelocities;
-                x = x1;
-                z = lambda;
-                q = x(1:nq);
-                v = x(nq+1:nq+nv);
-                
-                % von Mises-Fisher distribution for quaternion rotation vector
-                mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
-                
-                kappa = 10;
-                I_kappa_plus = exp(kappa) + exp(-kappa);
-                I_kappa_minus = exp(kappa) - exp(-kappa);
-                
-                h_kappa = (kappa*I_kappa_plus - I_kappa_minus)/(kappa*I_kappa_minus);
-                mu_r = mu_dirc*h_kappa;
-                Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
-                
-                %remove distribution and make it deterministic
-                mu_r=[1;0;0;0];
-                Sigma_r = zeros(4);
-                
-                obj.mu_r = mu_r;
-                obj.Sigma_r = Sigma_r;
-                
-                mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
-                
-                Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
-                        2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
-                        2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
-                
-                % normal direction n
-                F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
-                    -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
-                     2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
-                Fc = Rbar(:,3) - F*mu_r;
-                
-                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
-                phi_offset = n*q - phi; 
-                f_vec = zeros(obj.nC,1);
-                df_vec = zeros(obj.nC,nq+nv+obj.nC*(2+obj.nD));
-                
-                sigma_height = 0.05;
-                kappa = 1;% covariance coefficient
-                E_phi = (mu_r'*F' + Fc')*n*q + phi_offset;
-                V_phi = F*Sigma_r*F'*n*q;
-                dE_phi(:,1:nq) = (mu_r'*F' + Fc')*n;
-                dV_phi(:,1:nq) = F*Sigma_r*F'*n;
-                
-                delta = 10;% coefficient
-                f = delta/2 * (norm(E_Phi.*[z(1);z(4)])^2 + norm(kappa*V_Phi.*[z(1);z(4)])^2);
-                df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi').*[z(1)^2;z(4)^2];
-
-                persistent normal_LCP_robust_NCP
-                normal_LCP_robust_NCP = [normal_LCP_robust_NCP, f_vec.*[z(2);z(3);z(5);z(6)]];
-                if length(normal_LCP_robust_NCP) == obj.N-1
-                    normal_LCP_robust_NCP
-                    normal_LCP_robust_NCP = [];
-                end
-            end
-            
             % nonlinear complementarity constraints:
             %   lambda_N /perp phi(q)
             %   lambda_fi /perp gamma + Di*psi(q,v)
@@ -1717,7 +1648,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 v = x(nq+1:nq+nv);
                 
                 [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
-                
+                 
                 %% debugging
                 % a test of using q0 to derive v1, instead of using v1
                 % x0 = zeros(12,1);
@@ -1832,7 +1763,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             v1 = x1(nq+1:nq+nv);
             
             switch obj.options.integration_method
-                case RobustContactImplicitTrajectoryOptimization.MIDPOINT
+                case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
                     dH0 = dH/2;
                     dC0 = dC/2;
@@ -1840,17 +1771,17 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     dH1 = dH/2;
                     dC1 = dC/2;
                     dB1 = dB/2;
-                case RobustContactImplicitTrajectoryOptimization.FORWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
                     [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
                     dH1 = zeros(nq^2,2*nq);
                     dC1 = zeros(nq,2*nq);
                     dB1 = zeros(nq*nu,2*nq);
-                case RobustContactImplicitTrajectoryOptimization.BACKWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
                     [H,C,B,dH1,dC1,dB1] = obj.plant.manipulatorDynamics(q1,v1);
                     dH0 = zeros(nq^2,2*nq);
                     dC0 = zeros(nq,2*nq);
                     dB0 = zeros(nq*nu,2*nq);
-                case RobustContactImplicitTrajectoryOptimization.MIXED
+                case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
                     [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
                     dH1 = zeros(nq^2,2*nq);
                     dC1 = zeros(nq,2*nq);
@@ -1867,19 +1798,19 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             
             switch obj.options.integration_method
-                case RobustContactImplicitTrajectoryOptimization.MIDPOINT
+                case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*(v0 + v1)/2;
                     dfq = [-(v1+v0)/2, -eye(nq), -h/2*eye(nq), eye(nq), -h/2*eye(nq) zeros(nq,nu+nl+njl)];
-                case RobustContactImplicitTrajectoryOptimization.FORWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*v0;
                     dfq = [-v0, -eye(nq), -h*eye(nq), eye(nq), zeros(nq,nv) zeros(nq,nu+nl+njl)];
-                case RobustContactImplicitTrajectoryOptimization.BACKWARD_EULER
+                case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
                     % q1 = q0 + h*v1
                     fq = q1 - q0 - h*v1;
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
-                case RobustContactImplicitTrajectoryOptimization.MIXED
+                case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
                     fq = q1 - q0 - h*v1;
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
             end
@@ -1955,7 +1886,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             nv = obj.plant.getNumVelocities;
             
             % hard coding fwd kinematics
-            CoM_z_pos = x(2);
+            CoM_z_pos = x(1);
             q_stance_hip = x(3);
             q_stance_knee = x(4);
             q_swing_hip = x(5);

@@ -89,7 +89,7 @@ xf_min = [2;-inf(11,1)];
 xf_max = inf(12,1);
 
 scale = 0.01;
-to_options.nlcc_mode = 5;% robust mode %original: 2;
+to_options.nlcc_mode = 2;% robust mode %original: 2;
 to_options.lincc_mode = 1;
 to_options.compl_slack = scale*.01;
 to_options.lincompl_slack = scale*.001;
@@ -115,12 +115,13 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt.nonlincompl_slack_inds{i} = traj_opt.num_vars+1:traj_opt.num_vars + traj_opt.nonlincompl_constraints{i}.n_slack;
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
 
-% traj_opt = traj_opt.setCheckGrad(true);
-%snprint('snopt.out');
+%traj_opt = traj_opt.setCheckGrad(true);
+snprint('snopt.out');
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 %traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 %traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
 %traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
@@ -128,6 +129,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
+snprint('snopt.out');
 
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
