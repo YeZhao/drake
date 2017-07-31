@@ -13,7 +13,7 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 x0 = [0;0;.8;0.05*randn(3,1);zeros(6,1)];
 
-N=5; tf=.5;
+N=20; tf=3.5;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
@@ -28,7 +28,7 @@ end
 options = struct();
 options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-scale_sequence = [1;.001;0];
+scale_sequence = [10;1;.001;0];
 
 for i=1:length(scale_sequence)
   scale = scale_sequence(i);

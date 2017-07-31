@@ -56,6 +56,11 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[the last element is about slack variable but not used]%[diff slack var]
                     constraints{3} = FunctionHandleConstraint(-inf(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackprod);%[diff slack var]
                     n = zdim;
+                case 6
+                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-8;zeros(2,1)],[inf(zdim+xdim,1);1;inf(2,1)]);%[diff slack var]
+                    constraints{2} = FunctionHandleConstraint(zeros(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackeq_normal);%[the last element is about slack variable but not used]%[diff slack var]
+                    constraints{3} = FunctionHandleConstraint(-inf(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackprod_normal);%[diff slack var]
+                    n = 2;
             end
             
             function [f,df] = prodfun(y)
@@ -112,6 +117,36 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 df = [zeros(zdim,xdim) diag(gamma) -ones(zdim,1) diag(z)];%[single slack var]
             end
             
+            function [f,df] = robustslackeq_normal(y)
+                x = y(1:xdim);
+                z = y(xdim+1:xdim+zdim);
+                %gamma = y(xdim+zdim+3:end);%[diff slack var]
+                gamma = y(xdim+zdim+2:end);%[single slack var]
+                [f,df] = fun([x;z]);
+                f = f - gamma;
+                %df = [df zeros(zdim, zdim+2)] - [zeros(zdim,zdim+xdim) zeros(zdim,2) eye(zdim)];%[diff slack var]
+                df = [df zeros(2, 2+1)] - [zeros(2,zdim+xdim) zeros(2,1) eye(2)];%[single slack var]
+            end
+            
+            function [f,df] = robustslackprod_normal(y)
+                x = y(1:xdim);
+                z = y(xdim+1:xdim+zdim);
+                %slack_var = y(xdim+zdim+(1:2));%[diff slack var]
+                %gamma = y(xdim+zdim+3:end);%[diff slack var]
+                slack_var = y(xdim+zdim+1);%[single slack var]
+                gamma = y(xdim+zdim+2:end);%[single slack var]
+                
+                %[diff slack var]
+                %f = z.*gamma - repmat([slack_var(1);slack_var(2);slack_var(2)],2,1);
+                %dslack_var1 = repmat([1;0;0],2,1);
+                %dslack_var2 = repmat([0;1;1],2,1);
+                %df = [zeros(zdim,xdim) diag(gamma) -dslack_var1 -dslack_var2 diag(z)];
+                
+                f = [z(1);z(4)].*gamma - slack_var*ones(2,1);%[single slack var]
+                dfdz = [gamma(1),zeros(1,5);zeros(1,3),gamma(2),zeros(1,2)];
+                df = [zeros(2,xdim) dfdz -ones(2,1) diag([z(1),z(4)])];%[single slack var]
+            end
+            
             function [f,df] = fbfun(y)
                 x = y(1:xdim);
                 z = y(xdim+1:xdim+zdim);
@@ -146,6 +181,8 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 case 3
                 case 4
                 case 5
+                    obj.slack_fun = fun;
+                case 6
                     obj.slack_fun = fun;
             end
         end

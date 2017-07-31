@@ -40,8 +40,7 @@ classdef NonlinearProgram
                % nlcon{i}.eval(x(nlcon_xind{i}{1},x(nlcon_xind{i}{2},...)
     cost_xind_cell % A cell array, cost_xind{i} is a cell array of int vectors recording the indices of x that is used in evaluating obj.cost{i}
     bbcon_xind % A cell array, bbcon_xind{i} is an int vector recording the indices of x used in i'th BoundingBoxConstraint
-
-
+    
     % a cell array like nlcon_xind, where shared_data_xind_cell{i} is a
     % cell array of int vectors recording indices used in evaluating the
     % shared_data_function
@@ -167,7 +166,7 @@ classdef NonlinearProgram
       obj.solver_options.snopt.SuperbasicsLimit = 300;
       obj.solver_options.snopt.VerifyLevel = 0;
       obj.solver_options.snopt.DerivativeOption = 1;
-      obj.solver_options.snopt.print = '';
+      obj.solver_options.snopt.print = 'Major';
       obj.solver_options.snopt.ScaleOption = 0;
       obj.solver_options.snopt.NewBasisFile = 0;
       obj.solver_options.snopt.OldBasisFile = 0;
@@ -210,7 +209,7 @@ classdef NonlinearProgram
         xind{i} = [xind{i};(obj.num_vars + 1 : obj.num_vars + n_slack)'];
       end
       obj = obj.addDecisionVariable(n_slack);
-
+      
       if nargin < 4
         args = {xind};
       else

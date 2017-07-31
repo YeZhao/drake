@@ -169,7 +169,6 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
         % algorithm
         % @param display_fun a function handle of the form displayFun(t,x,u)
         %       where t is a 1-by-N, x is n-by-N and u is m-by-N
-        
       obj = addDisplayFunction(obj,@(z) display_fun(z(obj.h_inds),z(obj.x_inds),z(obj.u_inds),z(obj.LCP_slack_inds)));
     end
     
