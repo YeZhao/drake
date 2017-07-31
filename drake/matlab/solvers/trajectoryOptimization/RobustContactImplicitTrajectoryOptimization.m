@@ -104,7 +104,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.nonlincompl_slack_inds = cell(N-1,1);
             jlcompl_constraints = cell(N-1,1);
             dyn_inds = cell(N-1,1);
-             
+            
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);

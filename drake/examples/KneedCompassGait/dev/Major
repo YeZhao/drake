@@ -1,0 +1,159 @@
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit           10000
+      Minor iterations limit          200000
+      Major optimality tolerance  1.00000000E-06
+      Major feasibility tolerance  1.00000000E-06
+      Minor feasibility tolerance  1.00000000E-06
+      Superbasics limit            1000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               0
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column    790 of the Jacobian is empty.
+ ===>  WARNING - Column    791 of the Jacobian is empty.
+ ===>  WARNING - Column    792 of the Jacobian is empty.
+ ===>  WARNING - Column   1185 of the Jacobian is empty.
+ ===>  WARNING - Column   1186 of the Jacobian is empty.
+ ===>  WARNING - Column   1187 of the Jacobian is empty.
+ ===>  WARNING - Column   1188 of the Jacobian is empty.
+ ===>  WARNING - Column   1189 of the Jacobian is empty.
+ ===>  WARNING - Column   1190 of the Jacobian is empty.
+ ===>  WARNING - Column   1191 of the Jacobian is empty.
+ ===>  WARNING - Column   1192 of the Jacobian is empty.
+ ===>  WARNING - Column   1291 of the Jacobian is empty.
+ ===>  WARNING - Column   1292 of the Jacobian is empty.
+ ===>  WARNING - Row         4 of the Jacobian is empty.
+ ===>  WARNING - Row      1767 of the Jacobian is empty.
+ ===>  WARNING - Row      1768 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-06       Iteration limit........   1000000
+ Scale option...........         0       Minor optimality  tol..  5.00E-07       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      1635
+                                         New superbasics........        99       Prtl price section (-I)      1778
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1230       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      1000       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      1000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.     10000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.    200000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                           
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit           10000
+      Minor iterations limit          200000
+      Major optimality tolerance  1.00000000E-06
+      Major feasibility tolerance  1.00000000E-06
+      Minor feasibility tolerance  1.00000000E-06
+      Superbasics limit            1000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               0
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column    790 of the Jacobian is empty.
+ ===>  WARNING - Column    791 of the Jacobian is empty.
+ ===>  WARNING - Column    792 of the Jacobian is empty.
+ ===>  WARNING - Column   1185 of the Jacobian is empty.
+ ===>  WARNING - Column   1186 of the Jacobian is empty.
+ ===>  WARNING - Column   1187 of the Jacobian is empty.
+ ===>  WARNING - Column   1188 of the Jacobian is empty.
+ ===>  WARNING - Column   1189 of the Jacobian is empty.
+ ===>  WARNING - Column   1190 of the Jacobian is empty.
+ ===>  WARNING - Column   1191 of the Jacobian is empty.
+ ===>  WARNING - Column   1192 of the Jacobian is empty.
+ ===>  WARNING - Column   1291 of the Jacobian is empty.
+ ===>  WARNING - Column   1292 of the Jacobian is empty.
+ ===>  WARNING - Row         4 of the Jacobian is empty.
+ ===>  WARNING - Row      1767 of the Jacobian is empty.
+ ===>  WARNING - Row      1768 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-06       Iteration limit........   1000000
+ Scale option...........         0       Minor optimality  tol..  5.00E-07       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      1635
+                                         New superbasics........        99       Prtl price section (-I)      1778
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1230       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      1000       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      1000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.     10000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.    200000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                           

@@ -11,11 +11,11 @@ options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
-%x0 = [0;0;1.0;0;-0.5;0;1.5;zeros(5,1)];
-x0 = [0;0;1.0;0;0;0;zeros(6,1)];
-xf = [2;0;0.5;0;0;0;zeros(6,1)];
+x0 = [0;0;1.0;0;0;0;1.5;zeros(5,1)];
+%x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
+xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
-N=100; tf=2.5;
+N=30; tf=2.5;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
@@ -28,10 +28,10 @@ if visualize
 end
 
 options = struct();
-%options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
-options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
+options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
+%options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-scale_sequence = [.001;1;0];
+scale_sequence = [10;1;.001;0];
 
 for i=1:length(scale_sequence)
     scale = scale_sequence(i);
@@ -40,35 +40,52 @@ for i=1:length(scale_sequence)
     options.lincompl_slack = scale*.001;
     options.jlcompl_slack = scale*.01;
     
-    %prog = RobustContactImplicitTrajectoryOptimization_Brick(plant,N,tf,options);
-    prog = ContactImplicitTrajectoryOptimization(plant,N,tf,options);
+    prog = RobustContactImplicitTrajectoryOptimization_Brick(plant,N,tf,options);
+    %prog = ContactImplicitTrajectoryOptimization(plant,N,tf,options);
     prog = prog.setSolverOptions('snopt','MajorIterationsLimit',200);
     prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
-    prog = prog.setSolverOptions('snopt','IterationsLimit',20000000);%default: 200000
+    prog = prog.setSolverOptions('snopt','IterationsLimit',200000);
+    prog = prog.setSolverOptions('snopt','SuperbasicsLimit',1000);
+
     % prog = prog.setCheckGrad(true);
     
     %   snprint('snopt.out');
     
     % initial conditions constraint
     prog = addStateConstraint(prog,ConstantConstraint(x0),1);
-    %prog = addStateConstraint(prog,ConstantConstraint(xf),N);
+    prog = addStateConstraint(prog,ConstantConstraint(xf),N);
     prog = prog.addTrajectoryDisplayFunction(@displayTraj);
-    
+    prog = prog.addRunningCost(@running_cost_fun);
+
     if i == 1,
         traj_init.x = PPTrajectory(foh([0,tf],[x0,x0]));
+        traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
+        %traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
     else
         traj_init.x = xtraj;
         traj_init.l = ltraj;
+        traj_init.F_ext = F_exttraj;
     end
-    [xtraj,utraj,ltraj,~,z,F,info] = solveTraj(prog,tf,traj_init);
+    [xtraj,utraj,ltraj,~,F_exttraj,z,F,info] = solveTraj(prog,tf,traj_init);
     
     if visualize
-        v.playback(xtraj);
+        v.playback(xtraj,struct('slider',true));
+        % Create an animation movie
+        %v.playbackAVI(xtraj, 'throwingBrick.avi');
+
+        ts = getBreaks(xtraj);
+        F_exttraj_data = F_exttraj.eval(ts);
+        x_traj_data = xtraj.eval(ts);
+        
     end
-    
 end
 
-    function displayTraj(h,x,u)%LCP_slack
+    function [f,df] = running_cost_fun(h,x,force)
+        f = h*force'*force;
+        df = [force'*force zeros(1,12) 2*h*force'];
+    end
+
+    function displayTraj(h,x,u,force)
         ts = [0;cumsum(h)];
         for i=1:length(ts)
             v.drawWrapper(ts(i),x(:,i));
