@@ -15,7 +15,7 @@ x0 = [0;0;1.0;0;0;0;1.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
-N=30; tf=2.5;
+N=50; tf=1.5;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
@@ -31,7 +31,7 @@ options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-scale_sequence = [10;1;.001;0];
+scale_sequence = [1;.1;.01;.001;0];
 
 for i=1:length(scale_sequence)
     scale = scale_sequence(i);
@@ -41,11 +41,13 @@ for i=1:length(scale_sequence)
     options.jlcompl_slack = scale*.01;
     
     prog = RobustContactImplicitTrajectoryOptimization_Brick(plant,N,tf,options);
-    %prog = ContactImplicitTrajectoryOptimization(plant,N,tf,options);
-    prog = prog.setSolverOptions('snopt','MajorIterationsLimit',200);
+    prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
     prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
-    prog = prog.setSolverOptions('snopt','IterationsLimit',200000);
-    prog = prog.setSolverOptions('snopt','SuperbasicsLimit',1000);
+    prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
+    prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
+    prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
+    prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
+    prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
 
     % prog = prog.setCheckGrad(true);
     
@@ -56,7 +58,7 @@ for i=1:length(scale_sequence)
     prog = addStateConstraint(prog,ConstantConstraint(xf),N);
     prog = prog.addTrajectoryDisplayFunction(@displayTraj);
     prog = prog.addRunningCost(@running_cost_fun);
-
+    
     if i == 1,
         traj_init.x = PPTrajectory(foh([0,tf],[x0,x0]));
         traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
@@ -66,7 +68,7 @@ for i=1:length(scale_sequence)
         traj_init.l = ltraj;
         traj_init.F_ext = F_exttraj;
     end
-    [xtraj,utraj,ltraj,~,F_exttraj,z,F,info] = solveTraj(prog,tf,traj_init);
+    [xtraj,utraj,ltraj,~,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
     
     if visualize
         v.playback(xtraj,struct('slider',true));
@@ -83,6 +85,18 @@ end
     function [f,df] = running_cost_fun(h,x,force)
         f = h*force'*force;
         df = [force'*force zeros(1,12) 2*h*force'];
+        
+        f_numeric = f;
+        df_numeric = df;
+%        disp('check gradient')
+%         [f_numeric,df_numeric] = geval(@(h,x,force) running_cost_fun_check(h,x,force),h,x,force,struct('grad_method','numerical'));
+%         valuecheck(df,df_numeric,1e-3);
+%         valuecheck(f,f_numeric,1e-3);
+        
+        function [f,df] = running_cost_fun_check(h,x,force)
+            f = h*force'*force;
+            df = [force'*force zeros(1,12) 2*h*force'];
+        end
     end
 
     function displayTraj(h,x,u,force)

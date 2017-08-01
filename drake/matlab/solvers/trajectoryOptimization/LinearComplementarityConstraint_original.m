@@ -41,6 +41,11 @@ classdef LinearComplementarityConstraint_original < CompositeConstraint
           bcon = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1)],inf(zdim+xdim,1));
           lincon = LinearConstraint(-q,inf(zdim,1),[M W]);
           nlcon = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1)+slack,xdim+zdim,@prodfun);
+          
+          bcon = bcon.setName(sprintf('LinearLCPBoundingBoxConstraint'));
+          lincon = lincon.setName(sprintf('LinearLCPLinearConstraint'));
+          nlcon = nlcon.setName(sprintf('LinearLCPProd'));
+          
           constraints = {bcon;lincon;nlcon};
         case 3
           constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),zdim,@fbfun);

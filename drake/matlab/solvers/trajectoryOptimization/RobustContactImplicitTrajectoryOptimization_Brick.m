@@ -41,7 +41,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         dMdq
         dCdq
         dCdqdot
-        dJgdq_i  
+        dJgdq_i
         
         %debugging var
         verbose_print
@@ -114,12 +114,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i);obj.F_ext_inds(:,i)};
-                constraints{i} = cnstr;
+                constraints{i} = cnstr.setName(sprintf('dynamics[%d]',i));
                 
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
                 %constraint for bounded external force
-                external_force_constraints{i} = external_force_cnstr;
+                external_force_constraints{i} = external_force_cnstr.setName(sprintf('externalForce[%d]',i));
                 obj = obj.addConstraint(external_force_constraints{i}, [obj.F_ext_inds(:,i)]);
                 
                 if obj.nC > 0
@@ -156,12 +156,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
                     
                     % add ERM cost for sliding velocity constraint uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                        {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                    %    {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     % add ERM cost for friction cone coefficient uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    %obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
                     
+                    % (simple version) add ERM cost for normal distance uncertainty
+                    %obj = obj.addCost(FunctionHandleObjective(nX+obj.nC*(1+obj.nD),@(x,lambda)ERMcost_normaldistance_Gaussian(obj,x,lambda),1), ...
+                    %      {obj.x_inds(:,i+1);lambda_inds});
+
                 end
                 
                 if obj.nJL > 0
@@ -204,31 +208,151 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                 end
                 
+                f_numeric = f;
+                df_numeric = df;
+%                disp('check gradient')
+%                 [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
+%                 valuecheck(df,df_numeric,1e-3);
+%                 valuecheck(f,f_numeric,1e-3);
+                
+                function [f_num,df_num] = nonlincompl_fun_check(y)
+                    nq = obj.plant.getNumPositions;
+                    nv = obj.plant.getNumVelocities;
+                    x = y(1:nq+nv+obj.nC);
+                    z = y(nq+nv+obj.nC+1:end);
+                    gamma = x(nq+nv+1:end);
+                    
+                    q = x(1:nq);
+                    v = x(nq+1:nq+nv);
+                    
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    
+                    f_num = zeros(obj.nC*(1+obj.nD),1);
+                    df_num = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                    
+                    f_num(1:1+obj.nD:end) = phi;
+                    df_num(1:1+obj.nD:end,1:nq) = n;
+                    for j=1:obj.nD,
+                        f_num(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                        df_num(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                        df_num(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                        df_num(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                    end
+                end
+                
             end
         end
         
-        function [f,df] = ERMcost_friction(obj, lambda, gamma)
-                
-                zdim = size(obj.W,2);
-                xdim = size(obj.M,2);
-                
-                g = obj.W*gamma + obj.M*lambda + obj.r;
-                dg = [obj.M obj.W];
-                
-%                 % distribution-free version
-%                 delta = 1000;% coefficient
-%                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
-%                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
-                
-                % probabilistic version
-                sigma = 0.5;
-                mu_cov = sigma^2*[lambda(1)^2;lambda(4)^2];% make sure it is squared
-                delta = 10^7;% coefficient
-                f = delta/2 * (norm(diag(gamma)*g)^2 + norm(mu_cov)^2);% - slack_var*ones(zdim,1);
-                df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
-                    + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
+        function [f,df] = ERMcost_normaldistance_Gaussian(obj, x, lambda)
+            
+            nq = obj.plant.getNumPositions;
+            nv = obj.plant.getNumVelocities;
+            z = lambda;
+            q = x(1:nq);
+            v = x(nq+1:nq+nv);
+            
+            %                 % von Mises-Fisher distribution for quaternion rotation vector
+            %                 mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+            %
+            %                 kappa = 10;
+            %                 I_kappa_plus = exp(kappa) + exp(-kappa);
+            %                 I_kappa_minus = exp(kappa) - exp(-kappa);
+            %
+            %                 h_kappa = (kappa*I_kappa_plus - I_kappa_minus)/(kappa*I_kappa_minus);
+            %                 mu_r = mu_dirc*h_kappa;
+            %                 Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
+            %
+            %                 %remove distribution and make it deterministic
+            %                 mu_r=[1;0;0;0];
+            %                 Sigma_r = zeros(4);
+            %
+            %                 obj.mu_r = mu_r;
+            %                 obj.Sigma_r = Sigma_r;
+            %
+            %                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
+            %
+            %                 Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
+            %                         2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
+            %                         2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
+            %
+            %                 % normal direction n
+            %                 F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
+            %                     -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
+            %                      2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
+            %                 Fc = Rbar(:,3) - F*mu_r;
+            
+            [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+            
+            %                 phi_offset = n*q - phi;
+            %                 f_vec = zeros(obj.nC,1);
+            %                 df_vec = zeros(obj.nC,nq+nv+obj.nC*(2+obj.nD));
+            
+            %                 for contact_index = 1:obj.nC
+            %                     Jg(1:obj.nD,:) = [D{1}(contact_index,:); D{2}(contact_index,:); D{3}(contact_index,:); D{4}(contact_index,:)];
+            %                     Jg(1+obj.nD,:) = n(contact_index,:);
+            %                 end
+            
+            %                 sigma_height = 0.05;
+            %                 kappa = 1;% covariance coefficient
+            %                 E_phi = (mu_r'*F' + Fc')*n*q + phi_offset;
+            %                 V_phi = F*Sigma_r*F'*n*q;
+            %                 dE_phi(:,1:nq) = (mu_r'*F' + Fc')*n;
+            %                 dV_phi(:,1:nq) = F*Sigma_r*F'*n;
+            
+            
+            lambda_n = z(1:1+obj.nD:end);
+            
+            % normal distance uncertainty
+            mu_phi = zeros(obj.nC,1);
+            Sigma_phi = 0.1*ones(obj.nC,1);
+            kappa = 1;% covariance coefficient
+            E_Phi = phi + mu_phi;
+            V_Phi = Sigma_phi;
+            E_Phi = E_Phi.*lambda_n;
+            V_Phi = kappa*V_Phi.*lambda_n;
+            
+            dE_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+            dV_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+            
+            for contact_index = 1:obj.nC
+                dE_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = phi(contact_index) + mu_phi(contact_index);
+                dV_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = kappa*Sigma_phi(contact_index);
+            end
+             
+            delta = 1000;% coefficient
+            f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);
+            df = delta*(E_Phi'*dE_Phi + V_Phi'*dV_Phi);
+            
+            %                 persistent normal_LCP_robust_NCP
+            %                 normal_LCP_robust_NCP = [normal_LCP_robust_NCP, f_vec.*[z(2);z(3);z(5);z(6)]];
+            %                 if length(normal_LCP_robust_NCP) == obj.N-1
+            %                     normal_LCP_robust_NCP
+            %                     normal_LCP_robust_NCP = [];
+            %                 end
         end
-        
+            
+        function [f,df] = ERMcost_friction(obj, lambda, gamma)
+            
+            zdim = size(obj.W,2);
+            xdim = size(obj.M,2);
+            
+            g = obj.W*gamma + obj.M*lambda + obj.r;
+            dg = [obj.M obj.W];
+            
+            %                 % distribution-free version
+            %                 delta = 1000;% coefficient
+            %                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+            %                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+            
+            % probabilistic version
+            sigma = 0.5;
+            mu_cov = sigma^2*[lambda(1)^2;lambda(4)^2];% make sure it is squared
+            delta = 10^7;% coefficient
+            f = delta/2 * (norm(diag(gamma)*g)^2 + norm(mu_cov)^2);% - slack_var*ones(zdim,1);
+            df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
+                + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
+        end
+            
         function [f,df] = ERMcost_slidingVelocity(obj, h, x0, x1, u, lambda, gamma)
             
             zdim = size(obj.W,2);
@@ -1078,7 +1202,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
             %    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
             % expand the dimension with Fext
-            dfvdFext = [1;zeros(5,1)];
+            dfvdFext = -h*[1;zeros(5,1)];
             dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl), dfvdFext] + ...
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,1+nu+nl+njl)];
             
@@ -1110,10 +1234,132 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             f = [fq;fv];
             df = [dfq;dfv];
+            
+            f_numeric = f;
+            df_numeric = df;
+%            disp('check gradient')
+
+%             [f_numeric,df_numeric] = geval(@(h,x0,x1,lambda,Fext) dynamics_constraint_fun_check(obj,h,x0,x1,u,lambda,lambda_jl,Fext),h,x0,x1,lambda,Fext,struct('grad_method','numerical'));
+%             valuecheck(df,df_numeric,1e-3);
+%             valuecheck(f,f_numeric,1e-3);
+            
+            function [f_num,df_num] = dynamics_constraint_fun_check(obj,h,x0,x1,u,lambda,lambda_jl,Fext)
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                nu = obj.plant.getNumInputs;
+                nl = length(lambda);
+                njl = length(lambda_jl);
+                
+                lambda = lambda*obj.options.lambda_mult;
+                lambda_jl = lambda_jl*obj.options.lambda_jl_mult;
+                
+                assert(nq == nv) % not quite ready for the alternative
+                
+                q0 = x0(1:nq);
+                v0 = x0(nq+1:nq+nv);
+                q1 = x1(1:nq);
+                v1 = x1(nq+1:nq+nv);
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
+                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                        dH0 = dH/2;
+                        dC0 = dC/2;
+                        dB0 = dB/2;
+                        dH1 = dH/2;
+                        dC1 = dC/2;
+                        dB1 = dB/2;
+                    case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
+                        [H,C,B,dH1,dC1,dB1] = obj.plant.manipulatorDynamics(q1,v1);
+                        dH0 = zeros(nq^2,2*nq);
+                        dC0 = zeros(nq,2*nq);
+                        dB0 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                end
+                
+                BuminusC = B*u-C + [Fext;zeros(5,1)];% manually add an external force
+                if nu>0,
+                    dBuminusC0 = matGradMult(dB0,u) - dC0;
+                    dBuminusC1 = matGradMult(dB1,u) - dC1;
+                else
+                    dBuminusC0 = -dC0;
+                    dBuminusC1 = -dC1;
+                end
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*(v0 + v1)/2;
+                        dfq = [-(v1+v0)/2, -eye(nq), -h/2*eye(nq), eye(nq), -h/2*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v0;
+                        dfq = [-v0, -eye(nq), -h*eye(nq), eye(nq), zeros(nq,nv) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v1;
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
+                        fq = q1 - q0 - h*v1;
+                        %dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq), zeros(nq,nu+nl+njl)];
+                        dfqdFext = zeros(nq,1);
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq), zeros(nq,nu+nl+njl), dfqdFext];% expand the dimension with Fext
+                end
+                
+                % H*v1 = H*v0 + h*(B*u - C) + n^T lambda_N + d^T * lambda_f
+                fv = H*(v1 - v0) - h*BuminusC;
+                % [h q0 v0 q1 v1 u l ljl]
+                
+                %dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
+                %    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
+                % expand the dimension with Fext
+                dfvdFext = [1;zeros(5,1)];
+                dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl), dfvdFext] + ...
+                    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,1+nu+nl+njl)];
+                
+                if nl>0
+                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                    % construct J and dJ from n,D,dn, and dD so they relate to the
+                    % lambda vector
+                    J = zeros(nl,nq);
+                    J(1:2+obj.nD:end,:) = n;
+                    dJ = zeros(nl*nq,nq);
+                    dJ(1:2+obj.nD:end,:) = dn;
+                    
+                    for j=1:length(D),
+                        J(1+j:2+obj.nD:end,:) = D{j};
+                        dJ(1+j:2+obj.nD:end,:) = dD{j};
+                    end
+                    
+                    fv = fv - J'*lambda;
+                    dfv(:,2+nq+nv:1+2*nq+nv) = dfv(:,2+nq+nv:1+2*nq+nv) - matGradMult(dJ,lambda,true);
+                    dfv(:,2+2*nq+2*nv+nu:1+2*nq+2*nv+nu+nl) = -J'*obj.options.lambda_mult;
+                end
+                
+                if njl>0
+                    [~,J_jl] = jointLimitConstraints(obj.plant,q1);
+                    
+                    fv = fv - J_jl'*lambda_jl;
+                    dfv(:,2+2*nq+2*nv+nu+nl:1+2*nq+2*nv+nu+nl+njl) = -J_jl'*obj.options.lambda_jl_mult;
+                end
+                
+                f_num = [fq;fv];
+                df_num = [dfq;dfv];
+            end
+            
         end
         
-        function [xtraj,utraj,ltraj,ljltraj,Fexttraj,z,F,info] = solveTraj(obj,t_init,traj_init)
-            [xtraj,utraj,z,F,info] = solveTraj@DirectTrajectoryOptimization_Brick(obj,t_init,traj_init);
+        function [xtraj,utraj,ltraj,ljltraj,Fexttraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
+            [xtraj,utraj,z,F,info,infeasible_constraint_name] = solveTraj@DirectTrajectoryOptimization_Brick(obj,t_init,traj_init);
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ltraj = PPTrajectory(foh(t,reshape(z(obj.l_inds),[],obj.N)));
