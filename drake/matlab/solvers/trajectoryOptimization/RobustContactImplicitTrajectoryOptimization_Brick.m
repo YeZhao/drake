@@ -6,6 +6,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         nq
         nv
         nu
+        nx
+        nlambda
+        lambda_inds
+        cached_Vxx
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
@@ -95,7 +99,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nX = obj.plant.getNumStates();
             nU = obj.plant.getNumInputs();
             nq = obj.plant.getNumPositions();
+            nL = obj.nC*(1+obj.nD);
             N = obj.N;
+            obj.nx = nX;
+            obj.nu = nU;
+            obj.nlambda = nL;
             
             constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
@@ -129,6 +137,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % awkward way to pull out these indices, for (i) lambda_N and
                     % lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
+                    obj.lambda_inds(:,i) = lambda_inds;
                     
                     obj.options.nlcc_mode = 5;% robust mode
                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
@@ -181,6 +190,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
             end
             
+            % robust variance cost with feedback control
+            x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
+            u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+            lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
+            obj.cached_Vxx = zeros(obj.nx,obj.nx,obj.N);
+            obj.cached_Vxx(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
+            
+            obj = obj.addCost(FunctionHandleObjective(1+obj.N*(nX+nU)+(obj.N-1)*nL,@(h,x_inds,u_inds,lambda_inds)robustVariancecost(obj,h,x_inds,u_inds,lambda_inds),1),{obj.h_inds(1);x_inds_stack;u_inds_stack;lambda_inds_stack});
+                        
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
@@ -252,6 +270,93 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
             end
+        end
+        
+        function [c,dc] = robustVariancecost(obj, h, x_full, u_full, lambda_full)
+            x = reshape(x_full, obj.nx, obj.N);
+            u = reshape(u_full, obj.nu, obj.N);
+            lambda = reshape(lambda_full, obj.nlambda, obj.N-1);
+            nq = obj.plant.getNumPositions;
+            nv = obj.plant.getNumVelocities;
+            nu = obj.plant.getNumInputs;
+            nl = obj.nlambda;
+            
+            % sigma points
+            Vxx = zeros(obj.nx,obj.nx,obj.N);
+            Vxx(:,:,1) = obj.cached_Vxx(:,:,1);
+            
+            % disturbance variance
+            % currently only consider terrain height and friction coefficient
+            Vww = diag([0.01, 0.04]); %[to be tuned]
+            w_phi = normrnd(zeros(1,obj.N),sqrt(Vww(1,1)),1,obj.N);%height noise
+            w_mu = normrnd(zeros(1,obj.N),sqrt(Vww(2,2)),1,obj.N);%friction coefficient noise
+            w = [w_phi;w_mu];
+            
+            scale = .01;% [to be tuned]
+            nw = size(Vww,1);
+            K = ones(nu,nq+nv);
+            
+            %initialize c and dc
+            c = 0;
+            dc = zeros(1, 1+obj.N*(obj.nx+obj.nu)+(obj.N-1)*obj.nlambda);
+            kappa = 1;
+            x_mean = zeros(obj.nx, obj.N);
+            
+            for i = 1:obj.N-1%[Ye: double check the index]
+                %Generate sigma points from Vxx(i+1) and cuu(i+1)
+                [S,d] = chol(blkdiag(Vxx(:,:,i), Vww), 'lower');
+                if d
+                    diverge  = i;
+                    return;
+                end
+                S = scale*S;
+                Sig = [S -S];
+                for j = 1:(2*(obj.nx+nw))
+                    Sig(:,j) = Sig(:,j) + [x(:,i); w(:,i)];
+                end
+                
+                %Propagate sigma points through nonlinear dynamics
+                for j = 1:(2*(obj.nx+nw))
+                    [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j),Sig(obj.nx/2+1:obj.nx,j));
+                    Hinv = inv(H);
+                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
+                    J = zeros(nl,nq);
+                    J(1:1+obj.nD:end,:) = n;
+                    dJ = zeros(nl*nq,nq);
+                    dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
+                    
+                    for k=1:length(D)
+                        J(1+k:1+obj.nD:end,:) = D{k};
+                        dJ(1+k:1+obj.nD:end,:) = dD{k};
+                    end
+                    
+                    % add feedback control
+                    u_fdb_i = u(:,i) - K*(Sig(1:obj.nx,j) - x(:,i));
+                    
+                    Sig(obj.nx/2+1:obj.nx,j) = Hinv*h*(B*u_fdb_i + J'*lambda(:,i) - C) + Sig(obj.nx/2+1:obj.nx,j);
+                    Sig(1:obj.nx/2,j) = Sig(1:obj.nx/2,j) + h*Sig(obj.nx/2+1:obj.nx,j);
+                end
+                
+                %Calculate mean and variance w.r.t. [x_k] from sigma points
+                x_mean(:,i) = zeros(obj.nx,1);
+                for j = 1:(2*(obj.nx+nw))
+                    x_mean(:,i) = x_mean(:,i) + (1/(2*(obj.nx+nw)))*Sig(1:obj.nx,j);
+                end
+                Vxx(:,:,i+1) = zeros(obj.nx);
+                %alpha = 1e-3;
+                %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
+                for j = 1:(2*(obj.nx+nw))
+                    Vxx(:,:,i+1) = Vxx(:,:,i+1) + (0.5/scale^2)*(Sig(1:obj.nx,j)-x_mean(:,i))*(Sig(1:obj.nx,j)-x_mean(:,i))';
+                end
+                % [double check whether something else is required]
+                
+                % returned cost
+                c = c + norm(x(:,i)-x_mean(:,i)) + kappa*trace(Vxx(:,:,i));
+            end
+            
+            % derivative of variance matrix
+            
+            obj.cached_Vxx = Vxx;
         end
         
         function [c,dc] = robustLCPcost(obj, slack_var)
