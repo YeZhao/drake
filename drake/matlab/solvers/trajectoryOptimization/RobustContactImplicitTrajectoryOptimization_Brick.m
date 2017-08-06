@@ -103,14 +103,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.nonlincompl_slack_inds = cell(N-1,1);
             jlcompl_constraints = cell(N-1,1);
             dyn_inds = cell(N-1,1);
-            
+             
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL + obj.nFext;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            external_force_max = 4;% random chosen value
+            external_force_max = 10;% random chosen value
             external_force_cnstr = BoundingBoxConstraint([-external_force_max],[external_force_max]);
             
             for i=1:obj.N-1,
@@ -134,7 +134,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                    
+                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
                     %
@@ -148,7 +148,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         M(k,1 + (k-1)*(1+obj.nD)) = mu(k);
                         M(k,(2:obj.nD+1) + (k-1)*(1+obj.nD)) = -ones(obj.nD,1);
                     end
-                     
+                    
                     % add expected residual minimization cost
                     obj.W = W;
                     obj.r = r;
@@ -216,11 +216,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 f_numeric = f;
                 df_numeric = df;
-                disp('check gradient')
+                %disp('check gradient')
                 
-                if(f > 1e-3 || any(df > 1e-3))
-                    disp('come here')
-                end
+%                 if(f > 1e-3 || max(any(df > 1e-3)) == 1)
+%                     disp('come here')
+%                 end
                 
 %                 [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
 %                 valuecheck(df,df_numeric,1e-3);
@@ -331,6 +331,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             dV_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
             
             for contact_index = 1:obj.nC
+                dE_Phi(contact_index, 1:nq) = n(contact_index,:);
                 dE_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = phi(contact_index) + mu_phi(contact_index);
                 dV_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = kappa*Sigma_phi(contact_index);
             end
@@ -346,13 +347,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %                     normal_LCP_robust_NCP = [];
             %                 end
             
-            disp('check gradient')
+            %disp('check gradient')
             f_numeric = f;
             df_numeric = df;
             
-            if (f > 1e-3 || any(df > 1e-3))
-                disp('come here')
-            end
+%             if (f > 1e-3 || max(any(df > 1e-3)) == 1)
+%                 disp('come here')
+%             end
             
 %             [f_numeric,df_numeric] = geval(@(x,lambda) ERMcost_normaldistance_Gaussian_check(obj,x,lambda),x,lambda,struct('grad_method','numerical'));
 %             valuecheck(df,df_numeric,1e-3);
@@ -436,7 +437,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             f_numeric = f;
             df_numeric = df;
             
-%             if (f > 1e-3 || any(df > 1e-3))
+%             if (f > 1e-3 || max(any(df > 1e-3)) == 1)
 %                 disp('come here')
 %             end
             

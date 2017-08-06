@@ -196,7 +196,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
       end
     end
-
+    
     function [xdn,df] = update(obj,t,x,u)
       if (nargout>1)
         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);

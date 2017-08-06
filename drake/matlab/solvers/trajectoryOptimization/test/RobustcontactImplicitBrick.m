@@ -11,11 +11,11 @@ options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
-x0 = [0;0;1.0;0;0;0;0.5;zeros(5,1)];
+x0 = [0;0;3.0;0;0;0;.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
-N=50; tf=1.5;
+N=50; tf=2;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
@@ -60,7 +60,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
     prog = prog.addRunningCost(@running_cost_fun);
     
     %     if i == 1,
-    traj_init.x = PPTrajectory(foh([0,tf],[x0,x0]));
+    traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
     traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
     traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
     slack_sum_vec = [];% vector storing the slack variable sum
@@ -79,8 +79,22 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 
         ts = getBreaks(xtraj);
         F_exttraj_data = F_exttraj.eval(ts);
-        x_traj_data = xtraj.eval(ts);
+        xtraj_data = xtraj.eval(ts);
+        ltraj_data = ltraj.eval(ts);
+        nD = 4;
+        nC = 8;
+        lambda_n_data = ltraj_data(1:nD+2:end,:);
         
+        %ltraj_data.
+        figure(1)
+        plot(ts, xtraj_data(3,:),'b-');
+        hold on;
+        for i=1:nC
+            plot(ts, lambda_n_data(i,:),'r-');
+            hold on;
+        end
+        
+        %plot(ts, F_exttraj_data,'r-');
     end
 % end
 
