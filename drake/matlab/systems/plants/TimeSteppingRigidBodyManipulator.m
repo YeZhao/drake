@@ -1043,6 +1043,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       [varargout{:}] = centroidalMomentumMatrixDotTimesV(obj.manip,varargin{:});
     end
 
+    function varargout = getZeroConfiguration(obj,varargin)
+      varargout=cell(1,nargout);
+      [varargout{:}] = getZeroConfiguration(obj.manip,varargin{:});
+    end   
+
+    function varargout = getNumJointLimitConstraints(obj,varargin)
+      varargout=cell(1,nargout);
+      [varargout{:}] = getNumJointLimitConstraints(obj.manip,varargin{:});
+    end
+    
     function varargout = centroidalMomentumMatrix(obj,varargin)
       varargout=cell(1,nargout);
       [varargout{:}] = centroidalMomentumMatrix(obj.manip,varargin{:});

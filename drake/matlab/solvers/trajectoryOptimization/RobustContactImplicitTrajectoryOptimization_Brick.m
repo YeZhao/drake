@@ -111,7 +111,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.nonlincompl_slack_inds = cell(N-1,1);
             jlcompl_constraints = cell(N-1,1);
             dyn_inds = cell(N-1,1);
-             
+            
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL + obj.nFext;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
@@ -317,24 +317,28 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %Propagate sigma points through nonlinear dynamics
                 for j = 1:(2*(obj.nx+nw))
-                    [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j),Sig(obj.nx/2+1:obj.nx,j));
-                    Hinv = inv(H);
-                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
-                    J = zeros(nl,nq);
-                    J(1:1+obj.nD:end,:) = n;
-                    dJ = zeros(nl*nq,nq);
-                    dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
-                    
-                    for k=1:length(D)
-                        J(1+k:1+obj.nD:end,:) = D{k};
-                        dJ(1+k:1+obj.nD:end,:) = dD{k};
-                    end
+%                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j),Sig(obj.nx/2+1:obj.nx,j));
+%                     Hinv = inv(H);
+%                     [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
+%                     J = zeros(nl,nq);
+%                     J(1:1+obj.nD:end,:) = n;
+%                     dJ = zeros(nl*nq,nq);
+%                     dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
+%                     
+%                     for k=1:length(D)
+%                         J(1+k:1+obj.nD:end,:) = D{k};
+%                         dJ(1+k:1+obj.nD:end,:) = dD{k};
+%                     end
                     
                     % add feedback control
+                    t = h;
                     u_fdb_i = u(:,i) - K*(Sig(1:obj.nx,j) - x(:,i));
+                    [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j),u_fdb_i);
                     
-                    Sig(obj.nx/2+1:obj.nx,j) = Hinv*h*(B*u_fdb_i + J'*lambda(:,i) - C) + Sig(obj.nx/2+1:obj.nx,j);
-                    Sig(1:obj.nx/2,j) = Sig(1:obj.nx/2,j) + h*Sig(obj.nx/2+1:obj.nx,j);
+                    Sig(1:obj.nx/2,j) = xdn(1:obj.nx/2);
+                    Sig(obj.nx/2+1:obj.nx,j) = xdn(obj.nx/2+1:obj.nx);
+                    dfdSig = df(:,2:obj.nx+1);
+                    dfdu = df(:,obj.nx+2:end);
                 end
                 
                 %Calculate mean and variance w.r.t. [x_k] from sigma points

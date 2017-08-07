@@ -40,7 +40,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 %     options.lincompl_slack = scale*.001;
 %     options.jlcompl_slack = scale*.01;
     
-    prog = RobustContactImplicitTrajectoryOptimization_Brick(plant,N,tf,options);
+    prog = RobustContactImplicitTrajectoryOptimization_Brick(plant_ts,N,tf,options);
     prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
     prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
     prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
