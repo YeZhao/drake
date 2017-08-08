@@ -196,7 +196,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
       end
     end
-
+    
     function [xdn,df] = update(obj,t,x,u)
       if (nargout>1)
         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -1043,6 +1043,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       [varargout{:}] = centroidalMomentumMatrixDotTimesV(obj.manip,varargin{:});
     end
 
+    function varargout = getZeroConfiguration(obj,varargin)
+      varargout=cell(1,nargout);
+      [varargout{:}] = getZeroConfiguration(obj.manip,varargin{:});
+    end   
+
+    function varargout = getNumJointLimitConstraints(obj,varargin)
+      varargout=cell(1,nargout);
+      [varargout{:}] = getNumJointLimitConstraints(obj.manip,varargin{:});
+    end
+    
     function varargout = centroidalMomentumMatrix(obj,varargin)
       varargout=cell(1,nargout);
       [varargout{:}] = centroidalMomentumMatrix(obj.manip,varargin{:});

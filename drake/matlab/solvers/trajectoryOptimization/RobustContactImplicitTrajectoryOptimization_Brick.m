@@ -6,9 +6,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         nq
         nv
         nu
+        nx
+        nlambda
+        lambda_inds
+        cached_Vxx
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
+        LCP_slack_inds % slack variable for LCP component <z,f(x,z) = LCP_slack > = 0
         lambda_mult
         ljl_inds  % joint limit forces
         jl_lb_ind  % joint indices where the lower bound is finite
@@ -41,7 +46,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         dMdq
         dCdq
         dCdqdot
-        dJgdq_i  
+        dJgdq_i
         
         %debugging var
         verbose_print
@@ -94,7 +99,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nX = obj.plant.getNumStates();
             nU = obj.plant.getNumInputs();
             nq = obj.plant.getNumPositions();
+            nL = obj.nC*(1+obj.nD);
             N = obj.N;
+            obj.nx = nX;
+            obj.nu = nU;
+            obj.nlambda = nL;
             
             constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
@@ -109,17 +118,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            external_force_max = 4;% random chosen value
+            external_force_max = 10;% random chosen value
             external_force_cnstr = BoundingBoxConstraint([-external_force_max],[external_force_max]);
             
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i);obj.F_ext_inds(:,i)};
-                constraints{i} = cnstr;
+                constraints{i} = cnstr.setName(sprintf('dynamics[%d]',i));
                 
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
                 %constraint for bounded external force
-                external_force_constraints{i} = external_force_cnstr;
+                external_force_constraints{i} = external_force_cnstr.setName(sprintf('externalForce[%d]',i));
                 obj = obj.addConstraint(external_force_constraints{i}, [obj.F_ext_inds(:,i)]);
                 
                 if obj.nC > 0
@@ -128,11 +137,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % awkward way to pull out these indices, for (i) lambda_N and
                     % lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
+                    obj.lambda_inds(:,i) = lambda_inds;
                     
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint_original(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode,obj.options.compl_slack);
+                    obj.options.nlcc_mode = 5;% robust mode
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
-                    
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
                     %
@@ -152,16 +163,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.r = r;
                     obj.M = M;
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint_original(W,r,M,obj.options.lincc_mode,obj.options.lincompl_slack);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds]);
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % add ERM cost for sliding velocity constraint uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                        {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                    %    {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     % add ERM cost for friction cone coefficient uncertainty
-                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(obj.nC*(2+obj.nD),@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
                     
+                    % (simple version) add ERM cost for normal distance uncertainty
+                    obj = obj.addCost(FunctionHandleObjective(nX+obj.nC*(1+obj.nD),@(x,lambda)ERMcost_normaldistance_Gaussian(obj,x,lambda),1), ...
+                          {obj.x_inds(:,i+1);lambda_inds});
+
                 end
                 
                 if obj.nJL > 0
@@ -169,10 +184,23 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % lambda_jl /perp [q - lb_jl; -q + ub_jl]
                     W_jl = zeros(obj.nJL);
                     [r_jl,M_jl] = jointLimitConstraints(obj.plant,q0);
-                    jlcompl_constraints{i} = LinearComplementarityConstraint_original(W_jl,r_jl,M_jl,obj.options.lincc_mode,obj.options.jlcompl_slack);
+                    jlcompl_constraints{i} = LinearComplementarityConstraint_original(W_jl,r_jl,M_jl,obj.options.lincc_mode);
                     
-                    obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i)]);
+                    obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
                 end
+            end
+            
+            % robust variance cost with feedback control
+            x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
+            u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+            lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
+            obj.cached_Vxx = zeros(obj.nx,obj.nx,obj.N);
+            obj.cached_Vxx(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
+            
+            obj = obj.addCost(FunctionHandleObjective(1+obj.N*(nX+nU)+(obj.N-1)*nL,@(h,x_inds,u_inds,lambda_inds)robustVariancecost(obj,h,x_inds,u_inds,lambda_inds),1),{obj.h_inds(1);x_inds_stack;u_inds_stack;lambda_inds_stack});
+                        
+            if (obj.nC > 0)
+                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
             
             % nonlinear complementarity constraints:
@@ -204,29 +232,365 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                 end
                 
+                f_numeric = f;
+                df_numeric = df;
+                %disp('check gradient')
+                
+%                 if(f > 1e-3 || max(any(df > 1e-3)) == 1)
+%                     disp('come here')
+%                 end
+                
+%                 [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
+%                 valuecheck(df,df_numeric,1e-3);
+%                 valuecheck(f,f_numeric,1e-3);
+                
+                function [f_num,df_num] = nonlincompl_fun_check(y)
+                    nq = obj.plant.getNumPositions;
+                    nv = obj.plant.getNumVelocities;
+                    x = y(1:nq+nv+obj.nC);
+                    z = y(nq+nv+obj.nC+1:end);
+                    gamma = x(nq+nv+1:end);
+                    
+                    q = x(1:nq);
+                    v = x(nq+1:nq+nv);
+                    
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    
+                    f_num = zeros(obj.nC*(1+obj.nD),1);
+                    df_num = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                    
+                    f_num(1:1+obj.nD:end) = phi;
+                    df_num(1:1+obj.nD:end,1:nq) = n;
+                    for j=1:obj.nD,
+                        f_num(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                        df_num(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                        df_num(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                        df_num(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                    end
+                end
+                
+            end
+        end
+        
+        function [c,dc] = robustVariancecost(obj, h, x_full, u_full, lambda_full)
+            x = reshape(x_full, obj.nx, obj.N);
+            u = reshape(u_full, obj.nu, obj.N);
+            lambda = reshape(lambda_full, obj.nlambda, obj.N-1);
+            nq = obj.plant.getNumPositions;
+            nv = obj.plant.getNumVelocities;
+            nu = obj.plant.getNumInputs;
+            nl = obj.nlambda;
+            
+            % sigma points
+            Vxx = zeros(obj.nx,obj.nx,obj.N);
+            Vxx(:,:,1) = obj.cached_Vxx(:,:,1);
+            
+            % disturbance variance
+            % currently only consider terrain height and friction coefficient
+            Vww = diag([0.01, 0.04]); %[to be tuned]
+            w_phi = normrnd(zeros(1,obj.N),sqrt(Vww(1,1)),1,obj.N);%height noise
+            w_mu = normrnd(zeros(1,obj.N),sqrt(Vww(2,2)),1,obj.N);%friction coefficient noise
+            w = [w_phi;w_mu];
+            
+            scale = .01;% [to be tuned]
+            nw = size(Vww,1);
+            K = ones(nu,nq+nv);
+            
+            %initialize c and dc
+            c = 0;
+            dc = zeros(1, 1+obj.N*(obj.nx+obj.nu)+(obj.N-1)*obj.nlambda);
+            kappa = 1;
+            x_mean = zeros(obj.nx, obj.N);
+            
+            for i = 1:obj.N-1%[Ye: double check the index]
+                %Generate sigma points from Vxx(i+1) and cuu(i+1)
+                [S,d] = chol(blkdiag(Vxx(:,:,i), Vww), 'lower');
+                if d
+                    diverge  = i;
+                    return;
+                end
+                S = scale*S;
+                Sig = [S -S];
+                for j = 1:(2*(obj.nx+nw))
+                    Sig(:,j) = Sig(:,j) + [x(:,i); w(:,i)];
+                end
+                
+                %Propagate sigma points through nonlinear dynamics
+                for j = 1:(2*(obj.nx+nw))
+%                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j),Sig(obj.nx/2+1:obj.nx,j));
+%                     Hinv = inv(H);
+%                     [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
+%                     J = zeros(nl,nq);
+%                     J(1:1+obj.nD:end,:) = n;
+%                     dJ = zeros(nl*nq,nq);
+%                     dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
+%                     
+%                     for k=1:length(D)
+%                         J(1+k:1+obj.nD:end,:) = D{k};
+%                         dJ(1+k:1+obj.nD:end,:) = dD{k};
+%                     end
+                    
+                    % add feedback control
+                    t = h;
+                    u_fdb_i = u(:,i) - K*(Sig(1:obj.nx,j) - x(:,i));
+                    [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j),u_fdb_i);
+                    
+                    Sig(1:obj.nx/2,j) = xdn(1:obj.nx/2);
+                    Sig(obj.nx/2+1:obj.nx,j) = xdn(obj.nx/2+1:obj.nx);
+                    dfdSig = df(:,2:obj.nx+1);
+                    dfdu = df(:,obj.nx+2:end);
+                end
+                
+                %Calculate mean and variance w.r.t. [x_k] from sigma points
+                x_mean(:,i) = zeros(obj.nx,1);
+                for j = 1:(2*(obj.nx+nw))
+                    x_mean(:,i) = x_mean(:,i) + (1/(2*(obj.nx+nw)))*Sig(1:obj.nx,j);
+                end
+                Vxx(:,:,i+1) = zeros(obj.nx);
+                %alpha = 1e-3;
+                %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
+                for j = 1:(2*(obj.nx+nw))
+                    Vxx(:,:,i+1) = Vxx(:,:,i+1) + (0.5/scale^2)*(Sig(1:obj.nx,j)-x_mean(:,i))*(Sig(1:obj.nx,j)-x_mean(:,i))';
+                end
+                % [double check whether something else is required]
+                
+                % returned cost
+                c = c + norm(x(:,i)-x_mean(:,i)) + kappa*trace(Vxx(:,:,i));
+            end
+            
+            % derivative of variance matrix
+            
+            obj.cached_Vxx = Vxx;
+        end
+        
+        function [c,dc] = robustLCPcost(obj, slack_var)
+            c = 1000*sum(slack_var);
+            dc = 1000*ones(1,length(slack_var));
+        end
+        
+        function [f,df] = ERMcost_normaldistance_Gaussian(obj, x, lambda)
+            
+            nq = obj.plant.getNumPositions;
+            nv = obj.plant.getNumVelocities;
+            z = lambda;
+            q = x(1:nq);
+            v = x(nq+1:nq+nv);
+            
+            %                 % von Mises-Fisher distribution for quaternion rotation vector
+            %                 mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+            %
+            %                 kappa = 10;
+            %                 I_kappa_plus = exp(kappa) + exp(-kappa);
+            %                 I_kappa_minus = exp(kappa) - exp(-kappa);
+            %
+            %                 h_kappa = (kappa*I_kappa_plus - I_kappa_minus)/(kappa*I_kappa_minus);
+            %                 mu_r = mu_dirc*h_kappa;
+            %                 Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
+            %
+            %                 %remove distribution and make it deterministic
+            %                 mu_r=[1;0;0;0];
+            %                 Sigma_r = zeros(4);
+            %
+            %                 obj.mu_r = mu_r;
+            %                 obj.Sigma_r = Sigma_r;
+            %
+            %                 mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
+            %
+            %                 Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
+            %                         2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
+            %                         2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
+            %
+            %                 % normal direction n
+            %                 F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
+            %                     -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
+            %                      2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
+            %                 Fc = Rbar(:,3) - F*mu_r;
+            
+            [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+            
+            %                 phi_offset = n*q - phi;
+            %                 f_vec = zeros(obj.nC,1);
+            %                 df_vec = zeros(obj.nC,nq+nv+obj.nC*(2+obj.nD));
+            
+            %                 for contact_index = 1:obj.nC
+            %                     Jg(1:obj.nD,:) = [D{1}(contact_index,:); D{2}(contact_index,:); D{3}(contact_index,:); D{4}(contact_index,:)];
+            %                     Jg(1+obj.nD,:) = n(contact_index,:);
+            %                 end
+            
+            %                 sigma_height = 0.05;
+            %                 kappa = 1;% covariance coefficient
+            %                 E_phi = (mu_r'*F' + Fc')*n*q + phi_offset;
+            %                 V_phi = F*Sigma_r*F'*n*q;
+            %                 dE_phi(:,1:nq) = (mu_r'*F' + Fc')*n;
+            %                 dV_phi(:,1:nq) = F*Sigma_r*F'*n;
+            
+            
+            lambda_n = z(1:1+obj.nD:end);
+            
+            % normal distance uncertainty
+            mu_phi = zeros(obj.nC,1);
+            Sigma_phi = 0.1*ones(obj.nC,1);
+            kappa = 1;% covariance coefficient
+            E_Phi = phi + mu_phi;
+            V_Phi = Sigma_phi;
+            E_Phi = E_Phi.*lambda_n;
+            V_Phi = kappa*V_Phi.*lambda_n;
+            
+            dE_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+            dV_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+            
+            for contact_index = 1:obj.nC
+                dE_Phi(contact_index, 1:nq) = n(contact_index,:);
+                dE_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = phi(contact_index) + mu_phi(contact_index);
+                dV_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = kappa*Sigma_phi(contact_index);
+            end
+             
+            delta = 1000;% coefficient
+            f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);
+            df = delta*(E_Phi'*dE_Phi + V_Phi'*dV_Phi);
+            
+            %                 persistent normal_LCP_robust_NCP
+            %                 normal_LCP_robust_NCP = [normal_LCP_robust_NCP, f_vec.*[z(2);z(3);z(5);z(6)]];
+            %                 if length(normal_LCP_robust_NCP) == obj.N-1
+            %                     normal_LCP_robust_NCP
+            %                     normal_LCP_robust_NCP = [];
+            %                 end
+            
+            %disp('check gradient')
+            f_numeric = f;
+            df_numeric = df;
+            
+%             if (f > 1e-3 || max(any(df > 1e-3)) == 1)
+%                 disp('come here')
+%             end
+            
+%             [f_numeric,df_numeric] = geval(@(x,lambda) ERMcost_normaldistance_Gaussian_check(obj,x,lambda),x,lambda,struct('grad_method','numerical'));
+%             valuecheck(df,df_numeric,1e-3);
+%             valuecheck(f,f_numeric,1e-3);
+
+            function [f,df] = ERMcost_normaldistance_Gaussian_check(obj, x, lambda)
+                
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                z = lambda;
+                q = x(1:nq);
+                v = x(nq+1:nq+nv);
+                
+                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                
+                lambda_n = z(1:1+obj.nD:end);
+                
+                % normal distance uncertainty
+                mu_phi = zeros(obj.nC,1);
+                Sigma_phi = 0.1*ones(obj.nC,1);
+                kappa = 1;% covariance coefficient
+                E_Phi = phi + mu_phi;
+                V_Phi = Sigma_phi;
+                E_Phi = E_Phi.*lambda_n;
+                V_Phi = kappa*V_Phi.*lambda_n;
+                
+                dE_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+                dV_Phi = zeros(obj.nC,nq+nv+obj.nC*(1+obj.nD));
+                
+                for contact_index = 1:obj.nC
+                    dE_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = phi(contact_index) + mu_phi(contact_index);
+                    dV_Phi(contact_index, nq+nv+1+(1+obj.nD)*(contact_index-1)) = kappa*Sigma_phi(contact_index);
+                end
+                
+                delta = 1000;% coefficient
+                f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);
+                df = delta*(E_Phi'*dE_Phi + V_Phi'*dV_Phi);
+                
             end
         end
         
         function [f,df] = ERMcost_friction(obj, lambda, gamma)
+            
+            zdim = size(obj.W,2);
+            xdim = size(obj.M,2);
+            
+            %  Wz+Mx+r = mu*lambda_N - sum(lambda_fi)
+            g = obj.W*gamma + obj.M*lambda + obj.r;
+            dg = [obj.M obj.W];
+            
+            %                 % distribution-free version
+            %                 delta = 1000;% coefficient
+            %                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+            %                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+            
+            % probabilistic version
+            sigma = 0.5;
+            lambda_n = lambda(1:1+obj.nD:end);
+            mu_cov = sigma^2*lambda_n.^2;% make sure it is squared
+            mu_mu = 1;
+            Sigma_mu = 0.25;
+            E_Phi = g.*gamma;
+            V_Phi = Sigma_mu*lambda_n.*gamma;
+            
+            dE_Phi = zeros(obj.nC,obj.nC*(2+obj.nD));
+            dV_Phi = zeros(obj.nC,obj.nC*(2+obj.nD));
+            
+            dE_Phi = [diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+            
+            for contact_index = 1:obj.nC
+                dV_Phi(contact_index, 1+(1+obj.nD)*(contact_index-1)) = Sigma_mu*gamma(contact_index);
+                dV_Phi(contact_index, (1+obj.nD)*obj.nC+contact_index) = Sigma_mu*lambda_n(contact_index);
+            end
+            
+            delta = 10^7;% penalty coefficient
+            f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);
+            df = delta*(E_Phi'*dE_Phi + V_Phi'*dV_Phi);
+            
+            
+            %disp('check gradient')
+            f_numeric = f;
+            df_numeric = df;
+            
+%             if (f > 1e-3 || max(any(df > 1e-3)) == 1)
+%                 disp('come here')
+%             end
+            
+%             [f_numeric,df_numeric] = geval(@(lambda,gamma) ERMcost_friction_check(obj,lambda,gamma),lambda,gamma,struct('grad_method','numerical'));
+%             valuecheck(df,df_numeric,1e-15);
+%             valuecheck(f,f_numeric,1e-15);
+            
+            function [f,df] = ERMcost_friction_check(obj, lambda, gamma)
                 
                 zdim = size(obj.W,2);
                 xdim = size(obj.M,2);
                 
+                %  Wz+Mx+r = mu*lambda_N - sum(lambda_fi)
                 g = obj.W*gamma + obj.M*lambda + obj.r;
                 dg = [obj.M obj.W];
                 
-%                 % distribution-free version
-%                 delta = 1000;% coefficient
-%                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
-%                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                %                 % distribution-free version
+                %                 delta = 1000;% coefficient
+                %                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+                %                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
                 
                 % probabilistic version
                 sigma = 0.5;
-                mu_cov = sigma^2*[lambda(1)^2;lambda(4)^2];% make sure it is squared
-                delta = 10^7;% coefficient
-                f = delta/2 * (norm(diag(gamma)*g)^2 + norm(mu_cov)^2);% - slack_var*ones(zdim,1);
-                df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
-                    + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
+                lambda_n = lambda(1:1+obj.nD:end);
+                mu_cov = sigma^2*lambda_n.^2;% make sure it is squared
+                mu_mu = 1;
+                Sigma_mu = 0.25;
+                E_Phi = g.*gamma;
+                V_Phi = Sigma_mu*lambda_n.*gamma;
+                
+                dE_Phi = zeros(obj.nC,obj.nC*(2+obj.nD));
+                dV_Phi = zeros(obj.nC,obj.nC*(2+obj.nD));
+                
+                dE_Phi = [diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
+                for contact_index = 1:obj.nC
+                    dV_Phi(contact_index, 1+(1+obj.nD)*(contact_index-1)) = Sigma_mu*gamma(contact_index);
+                    dV_Phi(contact_index, (1+obj.nD)*obj.nC+contact_index) = Sigma_mu*lambda_n(contact_index);
+                end
+                
+                delta = 10^7;% penalty coefficient
+                f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);
+                df = delta*(E_Phi'*dE_Phi + V_Phi'*dV_Phi);
+            end
         end
         
         function [f,df] = ERMcost_slidingVelocity(obj, h, x0, x1, u, lambda, gamma)
@@ -1078,7 +1442,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
             %    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
             % expand the dimension with Fext
-            dfvdFext = [1;zeros(5,1)];
+            dfvdFext = -h*[1;zeros(5,1)];
             dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl), dfvdFext] + ...
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,1+nu+nl+njl)];
             
@@ -1110,15 +1474,139 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             f = [fq;fv];
             df = [dfq;dfv];
+            
+            f_numeric = f;
+            df_numeric = df;
+%            disp('check gradient')
+
+%             [f_numeric,df_numeric] = geval(@(h,x0,x1,lambda,Fext) dynamics_constraint_fun_check(obj,h,x0,x1,u,lambda,lambda_jl,Fext),h,x0,x1,lambda,Fext,struct('grad_method','numerical'));
+%             valuecheck(df,df_numeric,1e-3);
+%             valuecheck(f,f_numeric,1e-3);
+            
+            function [f_num,df_num] = dynamics_constraint_fun_check(obj,h,x0,x1,u,lambda,lambda_jl,Fext)
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                nu = obj.plant.getNumInputs;
+                nl = length(lambda);
+                njl = length(lambda_jl);
+                
+                lambda = lambda*obj.options.lambda_mult;
+                lambda_jl = lambda_jl*obj.options.lambda_jl_mult;
+                
+                assert(nq == nv) % not quite ready for the alternative
+                
+                q0 = x0(1:nq);
+                v0 = x0(nq+1:nq+nv);
+                q1 = x1(1:nq);
+                v1 = x1(nq+1:nq+nv);
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
+                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                        dH0 = dH/2;
+                        dC0 = dC/2;
+                        dB0 = dB/2;
+                        dH1 = dH/2;
+                        dC1 = dC/2;
+                        dB1 = dB/2;
+                    case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
+                        [H,C,B,dH1,dC1,dB1] = obj.plant.manipulatorDynamics(q1,v1);
+                        dH0 = zeros(nq^2,2*nq);
+                        dC0 = zeros(nq,2*nq);
+                        dB0 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                end
+                
+                BuminusC = B*u-C + [Fext;zeros(5,1)];% manually add an external force
+                if nu>0,
+                    dBuminusC0 = matGradMult(dB0,u) - dC0;
+                    dBuminusC1 = matGradMult(dB1,u) - dC1;
+                else
+                    dBuminusC0 = -dC0;
+                    dBuminusC1 = -dC1;
+                end
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*(v0 + v1)/2;
+                        dfq = [-(v1+v0)/2, -eye(nq), -h/2*eye(nq), eye(nq), -h/2*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.FORWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v0;
+                        dfq = [-v0, -eye(nq), -h*eye(nq), eye(nq), zeros(nq,nv) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.BACKWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v1;
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Brick.MIXED
+                        fq = q1 - q0 - h*v1;
+                        %dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq), zeros(nq,nu+nl+njl)];
+                        dfqdFext = zeros(nq,1);
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq), zeros(nq,nu+nl+njl), dfqdFext];% expand the dimension with Fext
+                end
+                
+                % H*v1 = H*v0 + h*(B*u - C) + n^T lambda_N + d^T * lambda_f
+                fv = H*(v1 - v0) - h*BuminusC;
+                % [h q0 v0 q1 v1 u l ljl]
+                
+                %dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
+                %    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
+                % expand the dimension with Fext
+                dfvdFext = [1;zeros(5,1)];
+                dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl), dfvdFext] + ...
+                    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,1+nu+nl+njl)];
+                
+                if nl>0
+                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                    % construct J and dJ from n,D,dn, and dD so they relate to the
+                    % lambda vector
+                    J = zeros(nl,nq);
+                    J(1:2+obj.nD:end,:) = n;
+                    dJ = zeros(nl*nq,nq);
+                    dJ(1:2+obj.nD:end,:) = dn;
+                    
+                    for j=1:length(D),
+                        J(1+j:2+obj.nD:end,:) = D{j};
+                        dJ(1+j:2+obj.nD:end,:) = dD{j};
+                    end
+                    
+                    fv = fv - J'*lambda;
+                    dfv(:,2+nq+nv:1+2*nq+nv) = dfv(:,2+nq+nv:1+2*nq+nv) - matGradMult(dJ,lambda,true);
+                    dfv(:,2+2*nq+2*nv+nu:1+2*nq+2*nv+nu+nl) = -J'*obj.options.lambda_mult;
+                end
+                
+                if njl>0
+                    [~,J_jl] = jointLimitConstraints(obj.plant,q1);
+                    
+                    fv = fv - J_jl'*lambda_jl;
+                    dfv(:,2+2*nq+2*nv+nu+nl:1+2*nq+2*nv+nu+nl+njl) = -J_jl'*obj.options.lambda_jl_mult;
+                end
+                
+                f_num = [fq;fv];
+                df_num = [dfq;dfv];
+            end
+            
         end
         
-        function [xtraj,utraj,ltraj,ljltraj,Fexttraj,z,F,info] = solveTraj(obj,t_init,traj_init)
-            [xtraj,utraj,z,F,info] = solveTraj@DirectTrajectoryOptimization_Brick(obj,t_init,traj_init);
+        function [xtraj,utraj,ltraj,ljltraj,slacktraj,Fexttraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
+            [xtraj,utraj,z,F,info,infeasible_constraint_name] = solveTraj@DirectTrajectoryOptimization_Brick(obj,t_init,traj_init);
             t = [0; cumsum(z(obj.h_inds))];
             if obj.nC>0
                 ltraj = PPTrajectory(foh(t,reshape(z(obj.l_inds),[],obj.N)));
+                slacktraj = PPTrajectory(foh(t,[reshape(z(obj.LCP_slack_inds),size(obj.LCP_slack_inds,1),obj.N-1),z(obj.LCP_slack_inds(:,end))]));
             else
                 ltraj = [];
+                slacktraj = [];
             end
             if obj.nJL>0
                 ljltraj = PPTrajectory(foh(t,reshape(z(obj.ljl_inds),[],obj.N)));
@@ -1157,6 +1645,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             obj.F_ext_inds = reshape(obj.num_vars + (1:N), 1, N);
             obj = obj.addDecisionVariable(N);
+            
+            obj.LCP_slack_inds = reshape(obj.num_vars + (1:N-1), 1, N-1);
+            obj = obj.addDecisionVariable(N-1);
         end
         
         % evaluates the initial trajectories at the sampled times and
@@ -1210,6 +1701,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 z0(obj.F_ext_inds) = 0;
             end
             
+            if obj.nC > 0
+                % initialize LCP slack variables
+                if isfield(traj_init,'LCP_slack')
+                    LCP_slack_eval = traj_init.LCP_slack.eval(t_init);
+                    z0(obj.LCP_slack_inds) = LCP_slack_eval(:,1:obj.N-1); % take N-1 values
+                else
+                    z0(obj.LCP_slack_inds) = 0;
+                end
+            end
+        
             if obj.nJL > 0
                 if isfield(traj_init,'ljl')
                     z0(obj.ljl_inds) = traj_init.ljl.eval(t_init);

@@ -44,6 +44,11 @@ classdef NonlinearComplementarityConstraint_original < CompositeConstraint
           constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(2*zdim,1)],inf(2*zdim+xdim,1));
           constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim,@slackeq);
           constraints{3} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1)+slack,xdim+2*zdim,@slackprod);
+          
+          constraints{1} = constraints{1}.setName(sprintf('NonlinearLCPBoundingBoxConstraint-s'));
+          constraints{2} = constraints{2}.setName(sprintf('NonlinearLCPSlackEq-s'));
+          constraints{3} = constraints{3}.setName(sprintf('NonlinearLCPSlackProd-s'));
+          
           n = zdim;
         case 3
           constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+zdim,@fbfun);
