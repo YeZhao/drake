@@ -100,6 +100,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nU = obj.plant.getNumInputs();
             nq = obj.plant.getNumPositions();
             nL = obj.nC*(1+obj.nD);
+            nFext = obj.nFext;
             N = obj.N;
             obj.nx = nX;
             obj.nu = nU;
@@ -143,7 +144,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                     
+                    
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
                     %
@@ -176,7 +177,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % (simple version) add ERM cost for normal distance uncertainty
                     obj = obj.addCost(FunctionHandleObjective(nX+obj.nC*(1+obj.nD),@(x,lambda)ERMcost_normaldistance_Gaussian(obj,x,lambda),1), ...
                           {obj.x_inds(:,i+1);lambda_inds});
-
                 end
                 
                 if obj.nJL > 0
@@ -193,11 +193,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % robust variance cost with feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+            Fext_inds_stack = reshape(obj.F_ext_inds,obj.N*nFext,[]);
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Vxx = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Vxx(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
             
-            obj = obj.addCost(FunctionHandleObjective(1+obj.N*(nX+nU)+(obj.N-1)*nL,@(h,x_inds,u_inds,lambda_inds)robustVariancecost(obj,h,x_inds,u_inds,lambda_inds),1),{obj.h_inds(1);x_inds_stack;u_inds_stack;lambda_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(1+obj.N*(nX+nU)+(obj.N-1)*nL,@(h,x_inds,Fext_inds,lambda_inds)robustVariancecost(obj,h,x_inds,Fext_inds,lambda_inds),1),{obj.h_inds(1);x_inds_stack;Fext_inds_stack;lambda_inds_stack});
                         
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -272,13 +273,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
         end
         
-        function [c,dc] = robustVariancecost(obj, h, x_full, u_full, lambda_full)
+        function [c,dc] = robustVariancecost(obj, h, x_full, Fext_full, lambda_full)
             x = reshape(x_full, obj.nx, obj.N);
-            u = reshape(u_full, obj.nu, obj.N);
+            u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
             lambda = reshape(lambda_full, obj.nlambda, obj.N-1);
             nq = obj.plant.getNumPositions;
             nv = obj.plant.getNumVelocities;
-            nu = obj.plant.getNumInputs;
+            nu = obj.nFext;%obj.plant.getNumInputs;
             nl = obj.nlambda;
             
             % sigma points
@@ -290,7 +291,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             Vww = diag([0.01, 0.04]); %[to be tuned]
             w_phi = normrnd(zeros(1,obj.N),sqrt(Vww(1,1)),1,obj.N);%height noise
             w_mu = normrnd(zeros(1,obj.N),sqrt(Vww(2,2)),1,obj.N);%friction coefficient noise
-            w = [w_phi;w_mu];
+            w_noise = [w_phi;w_mu];
             
             scale = .01;% [to be tuned]
             nw = size(Vww,1);
@@ -302,23 +303,28 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             kappa = 1;
             x_mean = zeros(obj.nx, obj.N);
             
-            for i = 1:obj.N-1%[Ye: double check the index]
+            dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
+            
+            for k = 1:obj.N-1%[Ye: double check the index]
                 %Generate sigma points from Vxx(i+1) and cuu(i+1)
-                [S,d] = chol(blkdiag(Vxx(:,:,i), Vww), 'lower');
+                %[the sequential way to be modified]
+                [S,d] = chol(blkdiag(Vxx(:,:,k), Vww), 'lower');
                 if d
-                    diverge  = i;
+                    diverge  = k;
                     return;
                 end
                 S = scale*S;
-                Sig = [S -S];
+                Sig(:,:,k) = [S -S];
                 for j = 1:(2*(obj.nx+nw))
-                    Sig(:,j) = Sig(:,j) + [x(:,i); w(:,i)];
+                    Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
                 for j = 1:(2*(obj.nx+nw))
-%                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j),Sig(obj.nx/2+1:obj.nx,j));
-%                     Hinv = inv(H);
+                    [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
+                    Hinv(:,:,j,k) = inv(H);
+                    Bmatrix(:,:,j,k) = [1;zeros(5,1)];%B;hand coding [to be modified]
+                    
 %                     [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
 %                     J = zeros(nl,nq);
 %                     J(1:1+obj.nD:end,:) = n;
@@ -331,34 +337,63 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 %                     end
                     
                     % add feedback control
-                    t = h;
-                    u_fdb_i = u(:,i) - K*(Sig(1:obj.nx,j) - x(:,i));
-                    [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j),u_fdb_i);
+                    t = h;%[to be modified]
+                    u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
+                    [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                     
-                    Sig(1:obj.nx/2,j) = xdn(1:obj.nx/2);
-                    Sig(obj.nx/2+1:obj.nx,j) = xdn(obj.nx/2+1:obj.nx);
-                    dfdSig = df(:,2:obj.nx+1);
-                    dfdu = df(:,obj.nx+2:end);
+                    Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
+                    Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
+                    dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1);
+                    dfdu(:,:,j,k+1) = 0.01*ones(12,1);%df(:,obj.nx+2:end);%[to be modified]
                 end
                 
                 %Calculate mean and variance w.r.t. [x_k] from sigma points
-                x_mean(:,i) = zeros(obj.nx,1);
+                x_mean(:,k+1) = zeros(obj.nx,1);
                 for j = 1:(2*(obj.nx+nw))
-                    x_mean(:,i) = x_mean(:,i) + (1/(2*(obj.nx+nw)))*Sig(1:obj.nx,j);
+                    x_mean(:,k+1) = x_mean(:,k+1) + (1/(2*(obj.nx+nw)))*Sig(1:obj.nx,j,k+1);
                 end
-                Vxx(:,:,i+1) = zeros(obj.nx);
+                Vxx(:,:,k+1) = zeros(obj.nx);
                 %alpha = 1e-3;
                 %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
+                w = 0.5/scale^2;
                 for j = 1:(2*(obj.nx+nw))
-                    Vxx(:,:,i+1) = Vxx(:,:,i+1) + (0.5/scale^2)*(Sig(1:obj.nx,j)-x_mean(:,i))*(Sig(1:obj.nx,j)-x_mean(:,i))';
+                    Vxx(:,:,k+1) = Vxx(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                 end
                 % [double check whether something else is required]
                 
                 % returned cost
-                c = c + norm(x(:,i)-x_mean(:,i)) + kappa*trace(Vxx(:,:,i));
+                c = c + norm(x(:,k+1)-x_mean(:,k+1)) + kappa*trace(Vxx(:,:,k+1));
+                
+                % derivative of variance matrix
+                dTrVdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
+                for j=k:-1:1
+                    dTrVdx(j,:,k+1) = zeros(1,obj.nx);
+                    for i=1:2*(obj.nx+nw)
+                        dSig_m_kplus1_dx_sum = zeros(obj.nx);
+                        for m = 1:(2*(obj.nx+nw))
+                            if m ~= i
+                                dSig_m_kplus1_dx = zeros(obj.nx);
+                                chain_indx = k-j;
+                                dSig_m_kplus1_dx = [h^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K;h*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K];
+                                while(chain_indx>0)
+                                    dSig_m_kplus1_dx = dfdSig(:,:,m,k+1-chain_indx)*dSig_m_kplus1_dx;
+                                    chain_indx = chain_indx - 1;
+                                end
+                                dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
+                            end
+                        end
+                        dSig_i_kplus1_dx = zeros(obj.nx);
+                        chain_indx = k-j;
+                        dSig_i_kplus1_dx = [h^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K;h*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K];
+                        while(chain_indx>0)
+                            dSig_i_kplus1_dx = dfdSig(:,:,i,k+1-chain_indx)*dSig_i_kplus1_dx;
+                            chain_indx = chain_indx - 1;
+                        end
+                        
+                        dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*((1-w)*dSig_i_kplus1_dx - w*dSig_m_kplus1_dx_sum);
+                    end
+                end
             end
-            
-            % derivative of variance matrix
             
             obj.cached_Vxx = Vxx;
         end
