@@ -198,7 +198,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.cached_Vxx = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Vxx(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
             
-            obj = obj.addCost(FunctionHandleObjective(1+obj.N*(nX+nU)+(obj.N-1)*nL,@(h,x_inds,Fext_inds,lambda_inds)robustVariancecost(obj,h,x_inds,Fext_inds,lambda_inds),1),{obj.h_inds(1);x_inds_stack;Fext_inds_stack;lambda_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
                         
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -273,14 +273,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
         end
         
-        function [c,dc] = robustVariancecost(obj, h, x_full, Fext_full, lambda_full)
+        function [c,dc] = robustVariancecost(obj, x_full, Fext_full)
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
-            lambda = reshape(lambda_full, obj.nlambda, obj.N-1);
             nq = obj.plant.getNumPositions;
             nv = obj.plant.getNumVelocities;
             nu = obj.nFext;%obj.plant.getNumInputs;
-            nl = obj.nlambda;
             
             % sigma points
             Vxx = zeros(obj.nx,obj.nx,obj.N);
@@ -299,10 +297,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             %initialize c and dc
             c = 0;
-            dc = zeros(1, 1+obj.N*(obj.nx+obj.nu)+(obj.N-1)*obj.nlambda);
+            dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
             kappa = 1;
             x_mean = zeros(obj.nx, obj.N);
             
+            % initialize gradient of Tr(V) w.r.t state vector x
             dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
             
             for k = 1:obj.N-1%[Ye: double check the index]
@@ -337,14 +336,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 %                     end
                     
                     % add feedback control
-                    t = h;%[to be modified]
+                    t = obj.h*(k-1);%[to be modified]
                     u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                     [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                     
                     Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
                     Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
-                    dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1);
-                    dfdu(:,:,j,k+1) = 0.01*ones(12,1);%df(:,obj.nx+2:end);%[to be modified]
+                    dfdu(:,:,j,k+1) = 0.01*ones(12,1);%df(:,obj.nx+2:end);%[to be modified: to be consistent]
+                    dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) + dfdu(:,:,j,k+1)*(-K);
+                    dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;% should be comparable with [h^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)*K;h*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)*K]
                 end
                 
                 %Calculate mean and variance w.r.t. [x_k] from sigma points
@@ -365,6 +365,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 c = c + norm(x(:,k+1)-x_mean(:,k+1)) + kappa*trace(Vxx(:,:,k+1));
                 
                 % derivative of variance matrix
+                % gradient of Tr(V) w.r.t state vector x
                 dTrVdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
                 for j=k:-1:1
                     dTrVdx(j,:,k+1) = zeros(1,obj.nx);
@@ -374,7 +375,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             if m ~= i
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 chain_indx = k-j;
-                                dSig_m_kplus1_dx = [h^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K;h*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K];
+                                dSig_m_kplus1_dx = [obj.h^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K;obj.h*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K];
                                 while(chain_indx>0)
                                     dSig_m_kplus1_dx = dfdSig(:,:,m,k+1-chain_indx)*dSig_m_kplus1_dx;
                                     chain_indx = chain_indx - 1;
@@ -384,7 +385,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         end
                         dSig_i_kplus1_dx = zeros(obj.nx);
                         chain_indx = k-j;
-                        dSig_i_kplus1_dx = [h^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K;h*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K];
+                        dSig_i_kplus1_dx = [obj.h^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K;obj.h*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K];
                         while(chain_indx>0)
                             dSig_i_kplus1_dx = dfdSig(:,:,i,k+1-chain_indx)*dSig_i_kplus1_dx;
                             chain_indx = chain_indx - 1;
@@ -394,6 +395,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     end
                 end
             end
+            
+            dTrV_sum_dx_k = zeros(1, obj.nx);
+            dc = [];
+            for k=1:obj.N % index for x_k
+                for kk = k+1:obj.N % index for TrV_kk
+                    dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(k,:,kk);
+                end
+                dc = [dc, kappa*dTrV_sum_dx_k];
+            end
+            % ToDo: expand for du
             
             obj.cached_Vxx = Vxx;
         end
@@ -1404,6 +1415,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nu = obj.plant.getNumInputs;
             nl = length(lambda);
             njl = length(lambda_jl);
+            obj.h = h;
             
             lambda = lambda*obj.options.lambda_mult;
             lambda_jl = lambda_jl*obj.options.lambda_jl_mult;
