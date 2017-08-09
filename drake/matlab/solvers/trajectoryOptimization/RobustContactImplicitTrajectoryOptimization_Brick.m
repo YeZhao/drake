@@ -9,7 +9,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         nx
         nlambda
         lambda_inds
-        cached_Vxx
+        cached_Px
         
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
@@ -195,8 +195,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
             Fext_inds_stack = reshape(obj.F_ext_inds,obj.N*nFext,[]);
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
-            obj.cached_Vxx = zeros(obj.nx,obj.nx,obj.N);
-            obj.cached_Vxx(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
+            obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
+            obj.cached_Px(:,:,1) = eye(obj.nx); %[ToDo: To be modified]
             
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
                         
@@ -281,18 +281,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nu = obj.nFext;%obj.plant.getNumInputs;
             
             % sigma points
-            Vxx = zeros(obj.nx,obj.nx,obj.N);
-            Vxx(:,:,1) = obj.cached_Vxx(:,:,1);
+            Px = zeros(obj.nx,obj.nx,obj.N);
+            Px(:,:,1) = obj.cached_Px(:,:,1);
             
             % disturbance variance
             % currently only consider terrain height and friction coefficient
-            Vww = diag([0.01, 0.04]); %[to be tuned]
-            w_phi = normrnd(zeros(1,obj.N),sqrt(Vww(1,1)),1,obj.N);%height noise
-            w_mu = normrnd(zeros(1,obj.N),sqrt(Vww(2,2)),1,obj.N);%friction coefficient noise
+            Pw = diag([0.01, 0.04]); %[to be tuned]
+            w_phi = normrnd(zeros(1,obj.N),sqrt(Pw(1,1)),1,obj.N);%height noise
+            w_mu = normrnd(zeros(1,obj.N),sqrt(Pw(2,2)),1,obj.N);%friction coefficient noise
             w_noise = [w_phi;w_mu];
             
             scale = .01;% [to be tuned]
-            nw = size(Vww,1);
+            nw = size(Pw,1);
             K = ones(nu,nq+nv);
             
             %initialize c and dc
@@ -300,22 +300,32 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
             kappa = 1;
             x_mean = zeros(obj.nx, obj.N);
-            
+
+            % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
+            c = kappa*trace(Px(:,:,1));
+
             % initialize gradient of Tr(V) w.r.t state vector x
             dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
+            dTrVdu(:,:,1) = zeros(obj.N-1,nu);
+            
+            tStart = tic;
             
             for k = 1:obj.N-1%[Ye: double check the index]
-                %Generate sigma points from Vxx(i+1) and cuu(i+1)
+                %Generate sigma points from Px(i+1)
                 %[the sequential way to be modified]
-                [S,d] = chol(blkdiag(Vxx(:,:,k), Vww), 'lower');
-                if d
-                    diverge  = k;
-                    return;
-                end
-                S = scale*S;
-                Sig(:,:,k) = [S -S];
-                for j = 1:(2*(obj.nx+nw))
-                    Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                % currently, only use the initial variance matrix for the
+                % propogation
+                if k == 1
+                    [S,d] = chol(blkdiag(Px(:,:,k), Pw), 'lower');
+                    if d
+                        diverge  = k;
+                        return;
+                    end
+                    S = scale*S;
+                    Sig(:,:,k) = [S -S];
+                    for j = 1:(2*(obj.nx+nw))
+                        Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                    end
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
@@ -336,7 +346,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 %                     end
                     
                     % add feedback control
-                    t = obj.h*(k-1);%[to be modified]
+                    t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
                     u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                     [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                     
@@ -352,61 +362,105 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for j = 1:(2*(obj.nx+nw))
                     x_mean(:,k+1) = x_mean(:,k+1) + (1/(2*(obj.nx+nw)))*Sig(1:obj.nx,j,k+1);
                 end
-                Vxx(:,:,k+1) = zeros(obj.nx);
+                Px(:,:,k+1) = zeros(obj.nx);
                 %alpha = 1e-3;
                 %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
                 w = 0.5/scale^2;
                 for j = 1:(2*(obj.nx+nw))
-                    Vxx(:,:,k+1) = Vxx(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
+                    Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                 end
-                % [double check whether something else is required]
                 
-                % returned cost
-                c = c + norm(x(:,k+1)-x_mean(:,k+1)) + kappa*trace(Vxx(:,:,k+1));
+                % accumulate returned cost
+                c = c + norm(x(:,k+1)-x_mean(:,k+1));
+                for j = 1:(2*(obj.nx+nw))
+                    V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
+                    c = c + kappa*trace(w*V_comp);
+                end
                 
                 % derivative of variance matrix
                 % gradient of Tr(V) w.r.t state vector x
                 dTrVdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
+                dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
+                dmeanRdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
+                dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+                
                 for j=k:-1:1
                     dTrVdx(j,:,k+1) = zeros(1,obj.nx);
+                    dTrVu(j,:,k+1) = zeros(1,nu);
+                    dmeanRdx(j,:,k+1) = zeros(1,obj.nx);
+                    dmeanRdu(j,:,k+1) = zeros(1,nu);
+                    
+                    % gradient w.r.t state x
+                    dSig_m_kplus1_dx_sum = zeros(obj.nx);
+                    % gradient w.r.t control u
+                    dSig_m_kplus1_du_sum = zeros(obj.nx,1);
+                    
                     for i=1:2*(obj.nx+nw)
-                        dSig_m_kplus1_dx_sum = zeros(obj.nx);
-                        for m = 1:(2*(obj.nx+nw))
-                            if m ~= i
+                        if i == 1
+                            for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
+                                dSig_m_kplus1_du = zeros(obj.nx,1);
+                                
                                 chain_indx = k-j;
-                                dSig_m_kplus1_dx = [obj.h^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K;obj.h*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K];
+                                dSig_m_kplus1_dx = [obj.plant.timestep^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K;obj.plant.timestep*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)*K];
+                                dSig_m_kplus1_du = [obj.plant.timestep^2*Hinv(:,:,m,j)*Bmatrix(:,:,m,j);obj.plant.timestep*Hinv(:,:,m,j)*Bmatrix(:,:,m,j)];
                                 while(chain_indx>0)
                                     dSig_m_kplus1_dx = dfdSig(:,:,m,k+1-chain_indx)*dSig_m_kplus1_dx;
+                                    dSig_m_kplus1_du = dfdSig(:,:,m,k+1-chain_indx)*dSig_m_kplus1_du;
                                     chain_indx = chain_indx - 1;
                                 end
                                 dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
+                                dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
                             end
                         end
+                        
                         dSig_i_kplus1_dx = zeros(obj.nx);
+                        dSig_i_kplus1_du = zeros(obj.nx,1);
                         chain_indx = k-j;
-                        dSig_i_kplus1_dx = [obj.h^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K;obj.h*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K];
+                        dSig_i_kplus1_dx = [obj.plant.timestep^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K;obj.plant.timestep*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)*K];
+                        dSig_i_kplus1_du = [obj.plant.timestep^2*Hinv(:,:,i,j)*Bmatrix(:,:,i,j);obj.plant.timestep*Hinv(:,:,i,j)*Bmatrix(:,:,i,j)];
                         while(chain_indx>0)
                             dSig_i_kplus1_dx = dfdSig(:,:,i,k+1-chain_indx)*dSig_i_kplus1_dx;
+                            dSig_i_kplus1_du = dfdSig(:,:,i,k+1-chain_indx)*dSig_i_kplus1_du;
                             chain_indx = chain_indx - 1;
                         end
                         
-                        dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*((1-w)*dSig_i_kplus1_dx - w*dSig_m_kplus1_dx_sum);
+                        dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w*dSig_m_kplus1_dx_sum);
+                        dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w*dSig_m_kplus1_du_sum);
                     end
+                    
+                    % gradient of mean residual w.r.t state x and control u
+                    dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(eye(obj.nx)-dSig_m_kplus1_dx_sum);
+                    dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-dSig_m_kplus1_du_sum);
                 end
             end
+            tElapsed = toc(tStart);
             
             dTrV_sum_dx_k = zeros(1, obj.nx);
+            dmeanR_sum_dx_k = zeros(1, obj.nx);
             dc = [];
+            % cost gradient w.r.t x at first time step is zero
             for k=1:obj.N % index for x_k
-                for kk = k+1:obj.N % index for TrV_kk
+                for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
                     dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(k,:,kk);
+                    dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(k,:,kk);
                 end
-                dc = [dc, kappa*dTrV_sum_dx_k];
+                dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
             end
-            % ToDo: expand for du
+            dTrV_sum_du_k = zeros(1, nu);
+            dmeanR_sum_du_k = zeros(1, nu);
+            % cost gradient w.r.t u at first time step is zero, since
+            % c(k=1) = Px(:,:,1)
+            for k=1:obj.N % index for u_k
+                for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                    dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(k,:,kk);
+                    dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(k,:,kk);
+                end
+                dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
+            end
             
-            obj.cached_Vxx = Vxx;
+            obj.cached_Px = Px;
         end
         
         function [c,dc] = robustLCPcost(obj, slack_var)
