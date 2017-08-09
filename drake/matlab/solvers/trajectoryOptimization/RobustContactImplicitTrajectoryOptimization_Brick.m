@@ -308,6 +308,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
             dTrVdu(:,:,1) = zeros(obj.N-1,nu);
             
+            tStart = tic;
+            
             for k = 1:obj.N-1%[Ye: double check the index]
                 %Generate sigma points from Px(i+1)
                 %[the sequential way to be modified]
@@ -388,23 +390,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dmeanRdx(j,:,k+1) = zeros(1,obj.nx);
                     dmeanRdu(j,:,k+1) = zeros(1,nu);
                     
-                    % [to be removed]
                     % gradient w.r.t state x
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,1);
-                    dSig_i_kplus1_dx = zeros(obj.nx);
-                    dSig_i_kplus1_du = zeros(obj.nx,1);
-                    % [to be removed]
                     
                     for i=1:2*(obj.nx+nw)
-                        % gradient w.r.t state x
-                        dSig_m_kplus1_dx_sum = zeros(obj.nx);
-                        % gradient w.r.t control u
-                        dSig_m_kplus1_du_sum = zeros(obj.nx,1);
-                        
-                        for m = 1:(2*(obj.nx+nw))
-                            if m ~= i
+                        if i == 1
+                            for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                 % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -421,6 +414,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                 dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
                             end
                         end
+                        
                         dSig_i_kplus1_dx = zeros(obj.nx);
                         dSig_i_kplus1_du = zeros(obj.nx,1);
                         chain_indx = k-j;
@@ -432,18 +426,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             chain_indx = chain_indx - 1;
                         end
                         
-                        dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*((1-w)*dSig_i_kplus1_dx - w*dSig_m_kplus1_dx_sum);
-                        dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*((1-w)*dSig_i_kplus1_du - w*dSig_m_kplus1_du_sum);
+                        dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w*dSig_m_kplus1_dx_sum);
+                        dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w*dSig_m_kplus1_du_sum);
                     end
-                    % gradient of mean residual w.r.t state x and control u
-                    % no need to distinguish m and i, all sum up
-                    dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum + dSig_i_kplus1_dx;
-                    dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum + dSig_i_kplus1_du;
                     
+                    % gradient of mean residual w.r.t state x and control u
                     dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(eye(obj.nx)-dSig_m_kplus1_dx_sum);
                     dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-dSig_m_kplus1_du_sum);
                 end
             end
+            tElapsed = toc(tStart);
             
             dTrV_sum_dx_k = zeros(1, obj.nx);
             dmeanR_sum_dx_k = zeros(1, obj.nx);
