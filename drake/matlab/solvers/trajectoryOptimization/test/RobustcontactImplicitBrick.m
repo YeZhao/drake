@@ -11,7 +11,7 @@ options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
-x0 = [0;0;3.0;0;0;0;.5;zeros(5,1)];
+x0 = [0;0;2.0;0;0;0;.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
@@ -94,7 +94,8 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
             hold on;
         end
         
-        %plot(ts, F_exttraj_data,'r-');
+        figure(2)
+        plot(ts, F_exttraj_data,'r-');
     end
 % end
 
@@ -132,12 +133,16 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
         xlabel('t');
         ylabel('slack variable');
         hold off;
-        %         figure(4)
-        %         plot(ts, LCP_slack(2,:), color_line_type, 'LineWidth',nominal_linewidth);
-        %         xlabel('t');
-        %         ylabel('slack variable');
-        %         hold off;
+        
+        figure(4)
+        plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
+        xlabel('t');
+        ylabel('external force');
+        hold off;
+        
        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
+       fprintf('sum of external force along traj: %4.4f\n',sum(force));
+
        slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
 
