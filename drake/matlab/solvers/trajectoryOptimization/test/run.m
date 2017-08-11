@@ -1,0 +1,3 @@
+megaclear
+clear
+RobustcontactImplicitBrick(1)

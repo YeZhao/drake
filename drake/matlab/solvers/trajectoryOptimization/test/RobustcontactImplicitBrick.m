@@ -1,7 +1,7 @@
 function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
-rng(0)
+% rng(0)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
@@ -15,7 +15,7 @@ x0 = [0;0;2.0;0;0;0;.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
-N=50; tf=2;
+N=15; tf=2;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
