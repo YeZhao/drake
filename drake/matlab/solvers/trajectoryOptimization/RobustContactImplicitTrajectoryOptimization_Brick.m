@@ -414,7 +414,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,1);
-                    %                         dSig_m_kplus1_dSigma1_sum = zeros(obj.nx);
                     
                     for i=1:2*(obj.nx+nw)
                         if i == 1
@@ -422,7 +421,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                 % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
-                                %                                     dSig_m_kplus1_dSigma1 = zeros(obj.nx);
                                 
                                 chain_rule_indx = k-j;
                                 if j ~= 1
@@ -438,11 +436,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                     chain_rule_indx = chain_rule_indx - 1;
                                 end
                                 dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
-                                dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
-                                
-                                %                                     if j == 1% consider a special chain rule w.r.t initial sigma point, i.e., k = 1
-                                %                                         dSig_m_kplus1_dSigma1_sum = dSig_m_kplus1_dSigma1_sum + dfdSig(:,:,m,k+1);
-                                %                                     end
+                                dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;                                
                             end
                         end
                         
@@ -524,16 +518,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             c_numeric = c;
             dc_numeric = dc;
             
-%             if (f > 1e-3 || max(any(df > 1e-3)) == 1)
-%                 disp('come here')
-%             end
-            
             X0 = [x_full; Fext_full];
+            X0 = X0 + randn(size(X0))*0.1;
             
-            u0 = Fext_full;
             fun = @(X0) robustVariancecost_check(obj, X0)
             DerivCheck(fun, X0)
-
+            
+            u0 = Fext_full;
             fun = @(u) robustVariancecost_check_uonly(obj, u, X0)
             DerivCheck(fun, u0)
 
@@ -542,8 +533,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             DerivCheck(fun, x0)
 
             [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
-%             valuecheck(dc,dc_numeric,1e-5);
-%             valuecheck(c,c_numeric,1e-5);
+            valuecheck(dc,dc_numeric,1e-5);
+            valuecheck(c,c_numeric,1e-5);
             
             function DerivCheck(funptr, X0, ~, varargin)
                 
@@ -561,15 +552,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % Pick a random small vector in parameter space
                 tol = 1e-6;  % Size of numerical step to take
-                rr = randn(length(X0),1)*tol;  % Generate small random-direction vector
-                %sqrt(eps(X0));%
-                
-%                 rr_tmp = rr
-                
-%                 rr(13:24) = zeros(12,1);
-%                 rr(1:36) = zeros(36,1);
-                %rr(49:end) = zeros(4,1);
-
+                rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
                 
                 % Evaluate at symmetric points around X0
                 f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
@@ -577,7 +560,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % Print results
                 fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', dot(rr, JJ), f2-f1);
-                
                 dd =  dot(rr, JJ)-f2+f1
             end
             
@@ -652,17 +634,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         Hinv(:,:,j,k) = inv(H);
                         Bmatrix(:,:,j,k) = [1;zeros(5,1)];%B;hand coding
                         
-                        %                     [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j),false,obj.options.active_collision_options);
-                        %                     J = zeros(nl,nq);
-                        %                     J(1:1+obj.nD:end,:) = n;
-                        %                     dJ = zeros(nl*nq,nq);
-                        %                     dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
-                        %
-                        %                     for k=1:length(D)
-                        %                         J(1+k:1+obj.nD:end,:) = D{k};
-                        %                         dJ(1+k:1+obj.nD:end,:) = dD{k};
-                        %                     end
-                        
                         % add feedback control
                         t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
@@ -672,13 +643,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
                         dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
-                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
-                        
-                        % useless
-%                         if k == 2 % define gradient component when k=1 (initial gradient)
-%                             dfdu(:,:,j,1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
-%                             dfdx(:,:,j,1) = dfdu(:,:,j,1)*K;
-%                         end
+                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;                        
                     end
                     
                     %Calculate mean and variance w.r.t. [x_k] from sigma points
@@ -710,8 +675,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
                     dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
                     
-                    %dmeanRdx(k,:,k) = 2*(x(:,k)-x_mean(:,k))';
-                    
                     for j=k:-1:1
                         dTrVdx(j,:,k+1) = zeros(1,obj.nx);
                         dTrVu(j,:,k+1) = zeros(1,nu);
@@ -722,7 +685,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dSig_m_kplus1_dx_sum = zeros(obj.nx);
                         % gradient w.r.t control u
                         dSig_m_kplus1_du_sum = zeros(obj.nx,1);
-%                         dSig_m_kplus1_dSigma1_sum = zeros(obj.nx);
                         
                         for i=1:2*(obj.nx+nw)
                             if i == 1
@@ -730,7 +692,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                     % gradient of Tr(V_{k+1}) w.r.t control x and u
                                     dSig_m_kplus1_dx = zeros(obj.nx);
                                     dSig_m_kplus1_du = zeros(obj.nx,1);
-%                                     dSig_m_kplus1_dSigma1 = zeros(obj.nx);
                                     
                                     chain_rule_indx = k-j;
                                     if j ~= 1
@@ -746,11 +707,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                         chain_rule_indx = chain_rule_indx - 1;
                                     end
                                     dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
-                                    dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
-                                    
-%                                     if j == 1% consider a special chain rule w.r.t initial sigma point, i.e., k = 1
-%                                         dSig_m_kplus1_dSigma1_sum = dSig_m_kplus1_dSigma1_sum + dfdSig(:,:,m,k+1);
-%                                     end
+                                    dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;                                    
                                 end
                             end
                             
@@ -780,6 +737,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     end
                 end
                 tElapsed = toc(tStart);
+                
+                for j = 1:(2*(obj.nx+nw))
+                    k = 1;
+                    sigma_0 = Sig(1:obj.nx,j,k);
+                    [L,dL_u,dL_x,dL_sigma,sigma_nn] = test_xk_n(x_full,Fext_full,sigma_0,K,obj,obj.N); 
+                end
                 
                 dc = [];
                 % cost gradient w.r.t x at first time step is zero
@@ -828,10 +791,70 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 obj.cached_Px = Px;
             end
-        
+            
+            function [L,dL_u,dL_x,dL_sigma,sigma_nn] = test_xk_n(X0,U0,sigma_0,K,obj,N)
+                
+                dL_u = ones(1,12,N);
+                dL_x = ones(12,12,N);
+                dL_sigma = 1;
+                dL_sigma_test = 1;
+                sigma_nn = sigma_0;
+                
+                for nn = 1:N-1                    
+                    %% hat(X_N+1)
+                    x_nn = X0((nn-1)*12+1:nn*12,:);
+                    u_nn = U0(nn);
+                    t = obj.plant.timestep*(nn-1);
+                    [~,~,sigma_nn_1,dfdx_nn,dfdu_nn,dfdSig_nn] = test_xk(t,x_nn,sigma_nn,u_nn,K,obj);
+                    
+                    dL_u(:,:,nn) = dfdu_nn';
+                    dL_x(:,:,nn) = dfdx_nn';
+                    dL_sigma = dL_sigma*dfdSig_nn';
+                    dL_sigma_test = dfdSig_nn*dL_sigma_test;
+                    
+                    if nn>1
+                        uu = dL_u(:,:,1:nn-1);
+                        uu = permute(uu,[3,1,2]);
+                        [nx,ny,nz] = size(uu);
+                        uu = reshape(uu,[],size(uu,3));
+                        uu = uu*dfdSig_nn';
+                        uu = permute(reshape(uu,[nx,ny,nz]),[2,3,1]);
+                        dL_u(:,:,1:nn-1) = uu;
+                        
+                        xx = dL_x(:,:,1:nn-1);
+                        xx = permute(xx,[3,1,2]);
+                        [nx,ny,nz] = size(xx);
+                        xx = reshape(xx,[],size(xx,3));
+                        xx = xx*dfdSig_nn';
+                        xx = reshape(xx,[nx,ny,nz]);
+                        xx = permute(reshape(xx,[nx,ny,nz]),[2,3,1]);
+                        dL_x(:,:,1:nn-1) = xx;
+                    end
+                    
+                    %% X_N+1
+                    sigma_nn = sigma_nn_1;
+                end                
+                L = sum(sigma_nn); 
+            end
+
+            function [f,df,xdn,dfdx,dfdu,dfdSig] = test_xk(t,x,sigma,u,K,obj)
+                
+                %% obj
+                u_fdb_k = u - K*(sigma - x);
+                
+                [xdn,df] = obj.plant.update(t,sigma,u_fdb_k);
+                f = sum(xdn);
+                
+                %% gradient
+                [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(sigma(1:obj.nx/2),sigma(obj.nx/2+1:obj.nx));
+                Hinv = inv(H);
+                Bmatrix = [1;zeros(5,1)];%B;hand coding
+                
+                dfdu = [obj.plant.timestep^2*Hinv*Bmatrix;obj.plant.timestep*Hinv*Bmatrix];
+                dfdSig = df(:,2:obj.nx+1) - dfdu*K;
+                dfdx = dfdu*K;
+            end
         end
-        
-        
             
         function [c,dc] = robustLCPcost(obj, slack_var)
             c = 1000*sum(slack_var);

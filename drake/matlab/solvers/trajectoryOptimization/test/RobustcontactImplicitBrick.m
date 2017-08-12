@@ -15,7 +15,7 @@ x0 = [0;0;2.0;0;0;0;.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
 
-N=15; tf=2;
+N=5; tf=2;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
