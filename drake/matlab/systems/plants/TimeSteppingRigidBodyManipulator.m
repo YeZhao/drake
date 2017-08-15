@@ -208,14 +208,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
         end
         
-        function [phiC,normal,V,n,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol)
+        function [phiC,normal,V,n,D,dn,dD,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol)
             
             if nargin<3
-                kinsol = doKinematics(obj, q);
+                kinematics_options.compute_gradients = 1;
+                kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            [phiC,normal,d,xA,xB,idxA,idxB,mu,n] = contactConstraints(obj,kinsol,obj.multiple_contacts);
-            
+            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
+                            
             % TODO: clean up
             nk = length(d);
             V = cell(1,2*nk);
@@ -256,12 +257,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             q=x(1:num_q);
             v=x(num_q+(1:obj.manip.getNumVelocities));
             
-            kinsol = doKinematics(obj, q);
+            kinematics_options.compute_gradients = 1;
+            kinsol = doKinematics(obj, q, [], kinematics_options);
             vToqdot = obj.manip.vToqdot(kinsol);
             
             [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
             
-            [phiC,normal,V,n,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol);
+            [phiC,normal,V,n,D,dn,dD,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol);
             num_c = length(phiC);
             
             if nargin<5
@@ -330,10 +332,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 f = [];
                 Mvn = [];
                 wvn = v + Hinv*tau*h;
-                %                 obj.LCP_cache.data.z = z;
-                %                 obj.LCP_cache.data.Mqdn = Mvn;
-                %                 obj.LCP_cache.data.wqdn = wvn;
-                
+                % obj.LCP_cache.data.z = z;
+                % obj.LCP_cache.data.Mqdn = Mvn;
+                % obj.LCP_cache.data.wqdn = wvn;
+                % 
                 %obj.LCP_cache.data.dz = dz;
                 %obj.LCP_cache.data.dMqdn = dMvn;
                 %obj.LCP_cache.data.dwqdn = dwvn;
@@ -472,7 +474,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 vn = v + Hinv*(tau*h + vToqdot'*J'*f);
                 qdn = vToqdot*vn;
                 qn = q + qdn*h;
-                %
+                
                 %         v = A*f + c
                 %         v2 = Ain*result.x - bin + v_min
                 %
@@ -482,6 +484,65 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 %
                 
                 % compute gradient component
+%                 if isempty(possible_contact_indices)
+%                     possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;
+%                 end
+                
+                possible_contact_indices = zeros(length(phiC),1);
+                for i = 1:length(active)
+                    possible_contact_indices(active(i)) = 1;
+                end
+                
+                nP = 0;
+                nC = sum(possible_contact_indices);
+                mC = length(D);
+                
+                % derive jacobian
+                J_size = [nL + nP + (mC+2)*nC,num_q];
+                J = zeros(J_size)*q(1); % *q(1) is for taylorvar
+                %lb = zeros(nL+nP+(mC+2)*nC,1);
+                %ub = Big*ones(nL+nP+(mC+2)*nC,1);
+                D = vertcat(D{:});
+                % just keep the likely contacts (and store data to check the unlikely):
+%                 possible_limit_indices = [];% [Ye: to be modified for the checker]
+%                 phi_check = phiL(~possible_limit_indices);
+%                 J_check = zeros(0,num_q);
+%                 phi_check = [phi_check;phiC(~possible_contact_indices)];
+%                 J_check = [J_check; n(~possible_contact_indices,:)];
+                phiC = phiC(possible_contact_indices);
+                n = n(possible_contact_indices,:);
+                D = D(repmat(possible_contact_indices,mC,1),:);
+                mu = mu(possible_contact_indices,:);
+                
+%                 if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
+%                         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
+%                         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
+%                     possible_indices_changed = true;
+%                 end
+                
+                obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
+                
+                J(nL+nP+(1:nC),:) = n;
+                J(nL+nP+nC+(1:mC*nC),:) = D;
+                                
+                dJ = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
+                possible_contact_indices_found = find(possible_contact_indices);
+                n_size = [numel(possible_contact_indices), num_q];
+                col_indices = 1 : num_q;
+                dn = getSubMatrixGradient(reshape(dn, [], num_q), possible_contact_indices_found, col_indices, n_size);
+                dJ = setSubMatrixGradient(dJ, dn, nL+nP+(1:nC), 1 : J_size(2), J_size);
+                D_size = size(D);
+                dD_matrix = zeros(prod(D_size), num_q);
+                row_start = 0;
+                for i = 1 : mC
+                    dD_possible_contact = getSubMatrixGradient(dD{i}, possible_contact_indices_found, col_indices, n_size);
+                    dD_matrix = setSubMatrixGradient(dD_matrix, dD_possible_contact, row_start + (1 : nC), col_indices, D_size);
+                    row_start = row_start + nC;
+                end
+                dD = dD_matrix;
+                dJ = setSubMatrixGradient(dJ, dD, nL+nP+nC + (1 : mC * nC), col_indices, J_size);
+                dJ = reshape(dJ, [], num_q^2);
+
                 M = zeros(nL+nP+(mC+2)*nC)*q(1);
                 w = zeros(nL+nP+(mC+2)*nC,1)*q(1);
                 
@@ -490,6 +551,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 dM = zeros(size(M,1),size(M,2),1+num_q+num_v+obj.num_Fext);
                 dw = zeros(size(w,1),1+num_q+num_v+obj.num_Fext);
+                
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_Fext)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_Fext)];
                 dJtranspose = reshape(permute(reshape(dJ,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
@@ -534,7 +596,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             xdn = [qn;vn];
             
-            if (nargout>1)  % compute gradients
+            % compute gradients
+            
+            if (nargout>1)  
                 if isempty(f)
                     dqdn = dwvn;
                 else

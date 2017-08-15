@@ -128,17 +128,17 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
         LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
-        figure(3)
-        plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
-        xlabel('t');
-        ylabel('slack variable');
-        hold off;
-        
-        figure(4)
-        plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
-        xlabel('t');
-        ylabel('external force');
-        hold off;
+%         figure(3)
+%         plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+%         xlabel('t');
+%         ylabel('slack variable');
+%         hold off;
+%         
+%         figure(4)
+%         plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
+%         xlabel('t');
+%         ylabel('external force');
+%         hold off;
         
        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
        fprintf('sum of external force along traj: %4.4f\n',sum(force));
