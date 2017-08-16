@@ -271,6 +271,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
             
             active = find(phiC + h*n*vToqdot*v < obj.active_threshold);
+            
+            if ~isempty(active) && sum(active) ~= 36
+                disp('come here')
+            end
+            
             phiC = phiC(active);
             normal = normal(:,active);
             
@@ -283,7 +288,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             dJA = []; dJAx = []; dJAy = []; dJAz = [];
             world_pts = [];
             for i=1:length(Aidx)
-                [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));
+                [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
                 JA = [JA; J_];
                 JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];                
                 dJA = [dJA;dJ_];
@@ -347,9 +352,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_Fext)];
                 dMvn = zeros(0,1+obj.num_x+obj.num_Fext);
                 
-                f = [];
+                lambda = [];
                 Mvn = [];
                 wvn = v + Hinv*tau*h;
+                dlambda = [];
                 % obj.LCP_cache.data.z = z;
                 % obj.LCP_cache.data.Mqdn = Mvn;
                 % obj.LCP_cache.data.wqdn = wvn;
@@ -604,7 +610,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 %A = J*vToqdot*Hinv*vToqdot'*J';
                 %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
-                dAdq = - J*vToqdot*Hinv*matGradMult(dH(:,1:num_q),Hinv*vToqdot'*J');
+                %dAdq = - J*vToqdot*Hinv*matGradMult(dH(:,1:num_q),Hinv*vToqdot'*J');
+                dlambda = zeros(length(f), 1+obj.num_x+obj.num_Fext);
             end
             
             % Find quaternion indices
@@ -623,10 +630,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             % compute gradients            
             if (nargout>1)  
-                if isempty(f)
+                if isempty(lambda)
                     dqdn = dwvn;
                 else
-                    dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
+                    dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
                 end
                 df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
@@ -647,10 +654,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [xdn,df] = update(obj,t,x,u)
-%             if obj.update_convex && nargout>1
-%                 [xdn,df] = updateConvex(obj,t,x,u);
-%                 return;
-%             end
+            if obj.update_convex && nargout>1
+                [xdn,df] = updateConvex(obj,t,x,u);
+                return;
+            end
             
             if (nargout>1)
                 [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -913,31 +920,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                 possible_contact_indices_found = find(possible_contact_indices);
                                 n_size = [numel(possible_contact_indices), num_q];
                                 col_indices = 1 : num_q;
-                                
-                                dnn = dn;
-                                
-                                dn = getSubMatrixGradient(reshape(dn, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                                
-                                if ~isempty(possible_contact_indices_found)
-                                    dn_diff = dn - dnn;
-                                    dn_diff_sum = sum(sum(dn_diff));
-                                    if dn_diff_sum ~= 0
-                                        disp('come here')
-                                    end
-                                end
-                                
-                                if ~isempty(possible_contact_indices_found)
-                                    
-                                    dDD = zeros(48*4,6);
-                                    
-                                    for i=1:4
-                                        dD_tmp = dD{i};
-                                        for j =1:num_q
-                                            dDD(nC*(i-1)+32*(j-1)+1:nC*(i-1)+32*(j-1)+8,:) = dD_tmp(8*(j-1)+1:8*(j-1)+8,:);
-                                        end
-                                    end
-                                end
-                                
+                                dn = getSubMatrixGradient(reshape(dn, [], num_q), possible_contact_indices_found, col_indices, n_size);                                
                                 dJ = setSubMatrixGradient(dJ, dn, nL+nP+(1:nC), 1 : J_size(2), J_size);
                                 
                                 D_size = size(D);
@@ -949,14 +932,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                     row_start = row_start + nC;
                                 end
                                 dD = dD_matrix;
-                                
-                                if ~isempty(possible_contact_indices_found)
-                                    dD_diff = dD - dDD;
-                                    dD_diff_sum = sum(sum(dD_diff));
-                                    if dD_diff_sum ~= 0
-                                        disp('come here')
-                                    end
-                                end
                                 
                                 dJ = setSubMatrixGradient(dJ, dD, nL+nP+nC + (1 : mC * nC), col_indices, J_size);
                                 dJ = reshape(dJ, [], num_q^2);
