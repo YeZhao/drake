@@ -309,8 +309,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
             
             dJx = []; dJy = []; dJz = [];
-            for i=1:num_q
-                for j=1:length(Aidx)
+            for j=1:length(Aidx)
+                for i=1:num_q
                     dJx = [dJx;dJ(3*(i-1)+18*(j-1)+1,:)];
                     dJy = [dJy;dJ(3*(i-1)+18*(j-1)+2,:)];
                     dJz = [dJz;dJ(3*(i-1)+18*(j-1)+3,:)];
@@ -329,16 +329,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             num_q = obj.manip.getNumPositions;
             num_v = obj.manip.getNumVelocities;
-                
+            
             if (obj.num_u>0)
-                    tau = B*u - C;
-                    dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
-                else
-                    %[Ye: hacky way to implement an external force]
-                    obj.num_Fext = 1;
-                    tau = -C + [u;zeros(num_q-1,1)];
-                    dtaudu = [1;zeros(num_q-1,1)];
-                    dtau = [zeros(num_v,1), -dC, dtaudu];
+                tau = B*u - C;
+                dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
+            else
+                %[Ye: hacky way to implement an external force]
+                obj.num_Fext = 1;
+                tau = -C + [u;zeros(num_q-1,1)];
+                dtaudu = [1;zeros(num_q-1,1)];
+                dtau = [zeros(num_v,1), -dC, dtaudu];
             end
             Hinv = inv(H);
                 
@@ -478,6 +478,29 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
                 obj.LCP_cache.data.fastqp_active_set = active_set;
                 
+                %% checker that the analytical solution from KKT condition
+                % gives correct contact force solution
+                Ain_fqp_active = Ain_fqp(active_set,:);                
+                bin_fqp_active = bin_fqp(active_set);
+                
+                C = pinv(2*Q) - pinv(2*Q)*Ain_fqp_active' ...
+                    *pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active')*Ain_fqp_active*pinv(2*Q);
+                E = pinv(2*Q)*Ain_fqp_active'*pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active');
+                F = pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active');
+                
+                % note that, -bin in bin_fqp_active represent RHS of
+                % inequality constraint, thus the sign of bin_fqp_active is negative
+                result_lambda = - C*V'*c - E*(-bin_fqp_active);
+
+                % check contact force solved by analytical solution and
+                % gurobi solver, they should be the same
+                lambda_diff = result_lambda - result_qp;
+                lambda_diff_sum = sum(abs(lambda_diff));
+                if lambda_diff_sum > 1e-3
+                    error('Error: contact force solved by analytical solution and gurobi solver are different')
+                end
+                %% end of checker
+                
                 %         vis=obj.constructVisualizer;
                 %         figure(25)
                 %         clf
@@ -563,6 +586,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
                 dJD = dJD_matrix;
                 dJ = setSubMatrixGradient(dJ, dJD, nL+nP + (1 : mC * nC), col_indices, J_size);
+                dJ_original = dJ;
                 dJ = reshape(dJ, [], num_q^2);
 
                 %M = zeros(nL+nP+(mC+2)*nC)*q(1);
@@ -610,7 +634,32 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 %A = J*vToqdot*Hinv*vToqdot'*J';
                 %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
-                %dAdq = - J*vToqdot*Hinv*matGradMult(dH(:,1:num_q),Hinv*vToqdot'*J');
+                for i=1:num_q % assume num_q == num_v
+                    dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
+                    dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
+                    dCdv(:,:,i) = reshape(dC(:,i+num_q),num_v,1);
+                    dJx_reshape = reshape(dJx(:,i),num_q,[])';
+                    dJy_reshape = reshape(dJy(:,i),num_q,[])';
+                    dJz_reshape = reshape(dJz(:,i),num_q,[])';
+                    dJdq_tmp = [];
+                    for j=1:nC
+                        dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];
+                    end
+                    dJdq(:,:,i) = dJdq_tmp;
+                    dAdq(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
+                                  + J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                    dbdq(:,:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
+                    dAdv(:,:,i) = zeros(nC*3);
+                    %dbdv(:,:,i) = vToqdot'*J' - dCdv(:,:,i)*Hinv*vToqdot'*J'*h;
+                end
+                
+                num_u = 1;
+                for i=1:num_u
+                    dbdu(:,:,i) = (J*vToqdot*Hinv*B)'*h;
+                end
+                
+                % TODO: equality constraint, consider V 
+                
                 dlambda = zeros(length(f), 1+obj.num_x+obj.num_Fext);
             end
             
