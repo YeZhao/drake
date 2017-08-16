@@ -79,7 +79,8 @@ if (kinsol.mex)
         dJ = reshape(dJ, numel(J), []);
         dJ = dJ(:, 1 : nq); % gradient only w.r.t q
       end
-      dJ = reshape(dJ, size(J, 1), []); % convert to strange second derivative output format
+      %dJ = reshape(dJ, size(J, 1), []); % convert to strange second derivative output format
+      %[Ye: the reshape above is commented out]
     else
       if isempty(J)
         % This happens when we transform to the same frame: derivatives

@@ -279,22 +279,40 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             Aidx = idxA(active);
             Bidx = idxB(active);
             
-            JA = [];
+            JA = []; JAx = []; JAy = []; JAz = [];
+            dJA = []; dJAx = []; dJAy = []; dJAz = [];
             world_pts = [];
             for i=1:length(Aidx)
-                [pp,J_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));
+                [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));
                 JA = [JA; J_];
+                JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];                
+                dJA = [dJA;dJ_];
                 world_pts = [world_pts, pp];
             end
             
-            JB = [];
+            JB = []; JBx = []; JBy = []; JBz = [];
+            dJB = []; dJBx = []; dJBy = []; dJBz = [];
             for i=1:length(Bidx)
-                [~,J_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
+                [~,J_,dJ_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
                 JB = [JB; J_];
+                JBx = [JBx;J_(1,:)]; JBy = [JBy;J_(2,:)]; JBz = [JBz;J_(3,:)];                
+                dJB = [dJB;dJ_];
             end
             
             J = JA-JB;
+            dJ = dJA-dJB;
+            Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
             
+            dJx = []; dJy = []; dJz = [];
+            for i=1:num_q
+                for j=1:length(Aidx)
+                    dJx = [dJx;dJ(3*(i-1)+18*(j-1)+1,:)];
+                    dJy = [dJy;dJ(3*(i-1)+18*(j-1)+2,:)];
+                    dJz = [dJz;dJ(3*(i-1)+18*(j-1)+3,:)];
+                end
+            end
+            dJD{1} = dJx; dJD{2} = dJy;
+                                            
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
             possible_limit_indices = (phiL + h*JL*vToqdot*v) < obj.active_threshold;
             nL = sum(possible_limit_indices);
@@ -311,7 +329,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     tau = B*u - C;
                     dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
                 else
-                    %[Ye: hacky way to implement this external force]
+                    %[Ye: hacky way to implement an external force]
                     obj.num_Fext = 1;
                     tau = -C + [u;zeros(num_q-1,1)];
                     dtaudu = [1;zeros(num_q-1,1)];
@@ -495,14 +513,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 nP = 0;
                 nC = sum(possible_contact_indices);
-                mC = length(D);
+                mC = 2;%length(D);
                 
                 % derive jacobian
-                J_size = [nL + nP + (mC+2)*nC,num_q];
-                J = zeros(J_size)*q(1); % *q(1) is for taylorvar
+                J_size = [nL + nP + (mC+1)*nC,num_q];
+                
                 %lb = zeros(nL+nP+(mC+2)*nC,1);
                 %ub = Big*ones(nL+nP+(mC+2)*nC,1);
-                D = vertcat(D{:});
+                JD{1} = Jx; JD{2} = Jy;                
+                JD = vertcat(JD{:});
                 % just keep the likely contacts (and store data to check the unlikely):
 %                 possible_limit_indices = [];% [Ye: to be modified for the checker]
 %                 phi_check = phiL(~possible_limit_indices);
@@ -510,8 +529,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %                 phi_check = [phi_check;phiC(~possible_contact_indices)];
 %                 J_check = [J_check; n(~possible_contact_indices,:)];
                 phiC = phiC(possible_contact_indices);
-                n = n(possible_contact_indices,:);
-                D = D(repmat(possible_contact_indices,mC,1),:);
+                Jz = Jz(possible_contact_indices,:);
+                JD = JD(repmat(possible_contact_indices,mC,1),:);
                 mu = mu(possible_contact_indices,:);
                 
 %                 if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
@@ -521,65 +540,71 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %                 end
                 
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
-                
-                J(nL+nP+(1:nC),:) = n;
-                J(nL+nP+nC+(1:mC*nC),:) = D;
                                 
                 dJ = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
                 possible_contact_indices_found = find(possible_contact_indices);
                 n_size = [numel(possible_contact_indices), num_q];
                 col_indices = 1 : num_q;
-                dn = getSubMatrixGradient(reshape(dn, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                dJ = setSubMatrixGradient(dJ, dn, nL+nP+(1:nC), 1 : J_size(2), J_size);
-                D_size = size(D);
-                dD_matrix = zeros(prod(D_size), num_q);
+                dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
+                dJ = setSubMatrixGradient(dJ, dJz, nL+nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
+                JD_size = size(JD);
+                dJD_matrix = zeros(prod(JD_size), num_q);
                 row_start = 0;
                 for i = 1 : mC
-                    dD_possible_contact = getSubMatrixGradient(dD{i}, possible_contact_indices_found, col_indices, n_size);
-                    dD_matrix = setSubMatrixGradient(dD_matrix, dD_possible_contact, row_start + (1 : nC), col_indices, D_size);
+                    dJD_possible_contact = getSubMatrixGradient(dJD{i}, possible_contact_indices_found, col_indices, n_size);
+                    dJD_matrix = setSubMatrixGradient(dJD_matrix, dJD_possible_contact, row_start + (1 : nC), col_indices, JD_size);
                     row_start = row_start + nC;
                 end
-                dD = dD_matrix;
-                dJ = setSubMatrixGradient(dJ, dD, nL+nP+nC + (1 : mC * nC), col_indices, J_size);
+                dJD = dJD_matrix;
+                dJ = setSubMatrixGradient(dJ, dJD, nL+nP + (1 : mC * nC), col_indices, J_size);
                 dJ = reshape(dJ, [], num_q^2);
 
-                M = zeros(nL+nP+(mC+2)*nC)*q(1);
-                w = zeros(nL+nP+(mC+2)*nC,1)*q(1);
+                %M = zeros(nL+nP+(mC+2)*nC)*q(1);
+                %w = zeros(nL+nP+(mC+2)*nC,1)*q(1);
                 
                 wvn = v + h*Hinv*tau;
                 Mvn = Hinv*vToqdot'*J';
                 
-                dM = zeros(size(M,1),size(M,2),1+num_q+num_v+obj.num_Fext);
-                dw = zeros(size(w,1),1+num_q+num_v+obj.num_Fext);
+                %dM = zeros(size(M,1),size(M,2),1+num_q+num_v+obj.num_Fext);
+                %dw = zeros(size(w,1),1+num_q+num_v+obj.num_Fext);
                 
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_Fext)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_Fext)];
                 dJtranspose = reshape(permute(reshape(dJ,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
                 dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_Fext)];
                 
-                if (nC > 0)
-                    w(nL+nP+(1:nC)) = phiC+h*n*vToqdot*wvn;
-                    M(nL+nP+(1:nC),:) = h*n*vToqdot*Mvn;
-                    
-                    w(nL+nP+nC+(1:mC*nC)) = D*vToqdot*wvn;
-                    M(nL+nP+nC+(1:mC*nC),:) = D*vToqdot*Mvn;
-                    M(nL+nP+nC+(1:mC*nC),nL+nP+(1+mC)*nC+(1:nC)) = repmat(eye(nC),mC,1);
-                    
-                    M(nL+nP+(mC+1)*nC+(1:nC),nL+nP+(1:(mC+1)*nC)) = [diag(mu), repmat(-eye(nC),1,mC)];
-                    
-                    if (nargout>4)
-                        % n, dn, and dD were only w/ respect to q.  filled them out for [t,x,u]
-                        dn = [zeros(size(dn,1),1),dn,zeros(size(dn,1),num_q+obj.num_Fext)];
-                        dD = [zeros(numel(D),1),reshape(dD,numel(D),[]),zeros(numel(D),num_q+obj.num_Fext)];
-                        
-                        dw(nL+nP+(1:nC),:) = [zeros(size(n,1),1),n,zeros(size(n,1),num_q+obj.num_Fext)]+h*matGradMultMat(n,wvn,dn,dwvn);
-                        dM(nL+nP+(1:nC),1:size(Mvn,2),:) = reshape(h*matGradMultMat(n,Mvn,dn,dMvn),nC,size(Mvn,2),[]);
-                        
-                        dw(nL+nP+nC+(1:mC*nC),:) = matGradMultMat(D,wvn,dD,dwvn);
-                        dM(nL+nP+nC+(1:mC*nC),1:size(Mvn,2),:) = reshape(matGradMultMat(D,Mvn,dD,dMvn),mC*nC,size(Mvn,2),[]);
-                    end
-                end
+%                 if (nC > 0)
+%                     w(nL+nP+(1:nC)) = phiC+h*n*vToqdot*wvn;
+%                     M(nL+nP+(1:nC),:) = h*n*vToqdot*Mvn;
+%                     
+%                     w(nL+nP+nC+(1:mC*nC)) = D*vToqdot*wvn;
+%                     M(nL+nP+nC+(1:mC*nC),:) = D*vToqdot*Mvn;
+%                     M(nL+nP+nC+(1:mC*nC),nL+nP+(1+mC)*nC+(1:nC)) = repmat(eye(nC),mC,1);
+%                     
+%                     M(nL+nP+(mC+1)*nC+(1:nC),nL+nP+(1:(mC+1)*nC)) = [diag(mu), repmat(-eye(nC),1,mC)];
+%                     
+%                     if (nargout>4)
+%                         % n, dn, and dD were only w/ respect to q.  filled them out for [t,x,u]
+%                         dn = [zeros(size(dn,1),1),dn,zeros(size(dn,1),num_q+obj.num_Fext)];
+%                         dD = [zeros(numel(D),1),reshape(dD,numel(D),[]),zeros(numel(D),num_q+obj.num_Fext)];
+%                         
+%                         dw(nL+nP+(1:nC),:) = [zeros(size(n,1),1),n,zeros(size(n,1),num_q+obj.num_Fext)]+h*matGradMultMat(n,wvn,dn,dwvn);
+%                         dM(nL+nP+(1:nC),1:size(Mvn,2),:) = reshape(h*matGradMultMat(n,Mvn,dn,dMvn),nC,size(Mvn,2),[]);
+%                         
+%                         dw(nL+nP+nC+(1:mC*nC),:) = matGradMultMat(D,wvn,dD,dwvn);
+%                         dM(nL+nP+nC+(1:mC*nC),1:size(Mvn,2),:) = reshape(matGradMultMat(D,Mvn,dD,dMvn),mC*nC,size(Mvn,2),[]);
+%                     end
+%                 end
                 
+                % compute dlambda/dx, dlambda/du
+                lambda = f;
+                B = [1;zeros(num_q-1,1)];
+                b = c;
+                
+                %A = J*vToqdot*Hinv*vToqdot'*J';
+                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+                
+                dAdq = - J*vToqdot*Hinv*matGradMult(dH(:,1:num_q),Hinv*vToqdot'*J');
             end
             
             % Find quaternion indices
@@ -596,8 +621,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             xdn = [qn;vn];
             
-            % compute gradients
-            
+            % compute gradients            
             if (nargout>1)  
                 if isempty(f)
                     dqdn = dwvn;
@@ -623,10 +647,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [xdn,df] = update(obj,t,x,u)
-            if obj.update_convex && nargout>1
-                [xdn,df] = updateConvex(obj,t,x,u);
-                return;
-            end
+%             if obj.update_convex && nargout>1
+%                 [xdn,df] = updateConvex(obj,t,x,u);
+%                 return;
+%             end
             
             if (nargout>1)
                 [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -889,8 +913,33 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                 possible_contact_indices_found = find(possible_contact_indices);
                                 n_size = [numel(possible_contact_indices), num_q];
                                 col_indices = 1 : num_q;
+                                
+                                dnn = dn;
+                                
                                 dn = getSubMatrixGradient(reshape(dn, [], num_q), possible_contact_indices_found, col_indices, n_size);
+                                
+                                if ~isempty(possible_contact_indices_found)
+                                    dn_diff = dn - dnn;
+                                    dn_diff_sum = sum(sum(dn_diff));
+                                    if dn_diff_sum ~= 0
+                                        disp('come here')
+                                    end
+                                end
+                                
+                                if ~isempty(possible_contact_indices_found)
+                                    
+                                    dDD = zeros(48*4,6);
+                                    
+                                    for i=1:4
+                                        dD_tmp = dD{i};
+                                        for j =1:num_q
+                                            dDD(nC*(i-1)+32*(j-1)+1:nC*(i-1)+32*(j-1)+8,:) = dD_tmp(8*(j-1)+1:8*(j-1)+8,:);
+                                        end
+                                    end
+                                end
+                                
                                 dJ = setSubMatrixGradient(dJ, dn, nL+nP+(1:nC), 1 : J_size(2), J_size);
+                                
                                 D_size = size(D);
                                 dD_matrix = zeros(prod(D_size), num_q);
                                 row_start = 0;
@@ -900,6 +949,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                     row_start = row_start + nC;
                                 end
                                 dD = dD_matrix;
+                                
+                                if ~isempty(possible_contact_indices_found)
+                                    dD_diff = dD - dDD;
+                                    dD_diff_sum = sum(sum(dD_diff));
+                                    if dD_diff_sum ~= 0
+                                        disp('come here')
+                                    end
+                                end
+                                
                                 dJ = setSubMatrixGradient(dJ, dD, nL+nP+nC + (1 : mC * nC), col_indices, J_size);
                                 dJ = reshape(dJ, [], num_q^2);
                             end
