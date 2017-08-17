@@ -336,6 +336,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             else
                 %[Ye: hacky way to implement an external force]
                 obj.num_Fext = 1;
+                num_u = obj.num_Fext;
                 tau = -C + [u;zeros(num_q-1,1)];
                 dtaudu = [1;zeros(num_q-1,1)];
                 dtau = [zeros(num_v,1), -dC, dtaudu];
@@ -483,14 +484,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 Ain_fqp_active = Ain_fqp(active_set,:);                
                 bin_fqp_active = bin_fqp(active_set);
                 
-                C = pinv(2*Q) - pinv(2*Q)*Ain_fqp_active' ...
-                    *pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active')*Ain_fqp_active*pinv(2*Q);
-                E = pinv(2*Q)*Ain_fqp_active'*pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active');
-                F = pinv(Ain_fqp_active*pinv(2*Q)*Ain_fqp_active');
+                Qinv = pinv(2*Q);
+                G = Qinv - Qinv*Ain_fqp_active' ...
+                    *pinv(Ain_fqp_active*Qinv*Ain_fqp_active')*Ain_fqp_active*Qinv;
+                E = Qinv*Ain_fqp_active'*pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+                F = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
                 
-                % note that, -bin in bin_fqp_active represent RHS of
-                % inequality constraint, thus the sign of bin_fqp_active is negative
-                result_lambda = - C*V'*c - E*(-bin_fqp_active);
+                % note that, Ain in Ain_fqp_active is negative, thus the
+                % sign of E is negative since there are three
+                % Ain_fqp_active multiplied in E.
+                result_lambda = - G*V'*c - (-E)*(bin_fqp_active);
 
                 % check contact force solved by analytical solution and
                 % gurobi solver, they should be the same
@@ -629,15 +632,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 % compute dlambda/dx, dlambda/du
                 lambda = f;
                 B = [1;zeros(num_q-1,1)];
-                b = c;
+                b = V'*c;
                 
                 %A = J*vToqdot*Hinv*vToqdot'*J';
                 %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
+                %% partial derivative of A, b w.r.t. q, v and u
                 for i=1:num_q % assume num_q == num_v
                     dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
                     dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
-                    dCdv(:,:,i) = reshape(dC(:,i+num_q),num_v,1);
                     dJx_reshape = reshape(dJx(:,i),num_q,[])';
                     dJy_reshape = reshape(dJy(:,i),num_q,[])';
                     dJz_reshape = reshape(dJz(:,i),num_q,[])';
@@ -646,21 +649,88 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];
                     end
                     dJdq(:,:,i) = dJdq_tmp;
-                    dAdq(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
+                    dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                                   + J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                    dAdq(:,:,i) = V'*dAdq_tmp(:,:,i)*V;
+                    
                     dbdq(:,:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
-                    dAdv(:,:,i) = zeros(nC*3);
-                    %dbdv(:,:,i) = vToqdot'*J' - dCdv(:,:,i)*Hinv*vToqdot'*J'*h;
+                    dAdv(:,:,i) = zeros(nC*num_d);
                 end
+                dCdv = dC(:,1:num_q);
+                dbdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
                 
-                num_u = 1;
                 for i=1:num_u
-                    dbdu(:,:,i) = (J*vToqdot*Hinv*B)'*h;
+                    dAdu(:,:,i) = zeros(nC*num_d);
+                    dbdu(:,:,i) = J*vToqdot*Hinv*B*h;
                 end
                 
-                % TODO: equality constraint, consider V 
+                %% partial derivative of equality constraints (active)
+                dynamicsConstraint_active_set = find(active_set<=8);
+                boundingConstraint_active_set = find(active_set>8);
                 
-                dlambda = zeros(length(f), 1+obj.num_x+obj.num_Fext);
+                for i=1:num_q % assume num_q == num_v
+                    % partial derivative of A_tilde and b_tilde w.r.t q and v
+                    for j=1:length(dynamicsConstraint_active_set)
+                        row = active_set(j);
+                        idx = (row-1)*dim + (1:dim);
+                        dA_tildedq_dyn(j,:,i) = normal(:,row)'*dAdq_tmp(idx,:,i)*V;
+                        db_tildedq_dyn(j,:,i) = normal(:,row)'*dbdq(idx,:,i);% switch the sign to correct one
+                        db_tildedv_dyn(j,:,i) = normal(:,row)'*dbdv(idx,i);
+                    end
+                    
+                    dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, size(V, 2))];
+                    db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    
+                    assert(length(dA_tildedq(:,1,i)) == length(active_set));
+                end
+                % partial derivative of b_tilde w.r.t u
+                for i=1:num_u
+                    for j=1:length(dynamicsConstraint_active_set)
+                        row = active_set(j);
+                        idx = (row-1)*dim + (1:dim);
+                        db_tildedu_dyn(j,:,i) = normal(:,row)'*dbdu(idx,:,i);
+                    end
+                    db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                end
+                
+                %% partial derivative of KKT matrix blocks
+                
+                for i=1:num_q
+                    % partial dervative w.r.t q
+                    M = Qinv*dAdq(:,:,i)*Qinv;
+                    N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+                    dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
+                                  -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                                  -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
+                                  +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                                  +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
+                    dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
+                                  + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                                  - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                    dFdq(:,:,i) = -N*Ain_fqp_active*M*Ain_fqp_active'*N + N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                                  + N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                              
+                    % partial dervative w.r.t v
+                    % dGdv = 0, dEdv = 0, dFdv = 0.
+                    % partial dervative w.r.t u
+                    % dGdu = 0, dEdu = 0, dFdu = 0.
+                end
+                
+                %% partial derivative of lambda w.r.t. q, v, and u
+                for i=1:num_q
+                    dlambdadq(:,i) = - dGdq(:,:,i)*V'*c - G*V'*dbdq(:,:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i);
+                    dlambdadv(:,i) = - G*V'*dbdv(:,i) - E*db_tildedv(:,:,i);
+                end
+                
+                for i=1:num_u
+                    dlambdadu(:,i) = - G*V'*dbdu(:,i) - E*db_tildedu(:,:,i);
+                end
+                
+                % left-multiplying V for coordinate scaling
+                dlambda = [zeros(length(lambda),1), V*dlambdadq, V*dlambdadv, V*dlambdadu];
+                % TODO: give a final check on each partial derivative
+                % w.r.t. q, v, and u.
             end
             
             % Find quaternion indices
