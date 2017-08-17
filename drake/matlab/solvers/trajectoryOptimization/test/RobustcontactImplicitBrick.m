@@ -19,12 +19,12 @@ N=5; tf=2;
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-xtraj_ts = simulate(plant_ts,[0 tf],x0);
-x0 = xtraj_ts.eval(0);
-warning(w);
+% xtraj_ts = simulate(plant_ts,[0 tf],x0);
+% x0 = xtraj_ts.eval(0);
+% warning(w);
 if visualize
-    v = constructVisualizer(plant_ts);
-    v.playback(xtraj_ts);
+     v = constructVisualizer(plant_ts);
+%    v.playback(xtraj_ts);
 end
 
 options = struct();
