@@ -275,14 +275,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 w = zeros(num_c*num_d,1);
             end
             
-            active = find(phiC + h*n*vToqdot*v < obj.active_threshold);
+            active = [1:8]';%find(phiC + h*n*vToqdot*v < obj.active_threshold);
             
             if ~isempty(active) && sum(active) ~= 36
-                disp('come here')
+                disp('active set is not empty and not full')
             end
             
             if ~isempty(active)
-                disp('active set is not empty')
+            %    disp('active set is not empty')
             end
             
             phiC = phiC(active);
@@ -428,14 +428,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 R = blkdiag(R,W);
                 
                 num_params = num_beta+nL;
-%                 lambda_ub = zeros(num_params,1);
-%                 scale_fact = 1e3;
-%                 phiC_pos = phiC;
-%                 phiC_pos(phiC<0)=0;
-%                 lambda_ub(1:num_beta) = repmat(max(0.01, scale_fact*(obj.phi_max./phiC_pos - 1.0)),1,num_d)';
-%                 phiL_pos = phiL;
-%                 phiL_pos(phiL<0)=0;
-%                 lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
+                % lambda_ub = zeros(num_params,1);
+                % scale_fact = 1e3;
+                % phiC_pos = phiC;
+                % phiC_pos(phiC<0)=0;
+                % lambda_ub(1:num_beta) = repmat(max(0.01, scale_fact*(obj.phi_max./phiC_pos - 1.0)),1,num_d)';
+                % phiL_pos = phiL;
+                % phiL_pos(phiL<0)=0;
+                % lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
                 lambda_ub = inf*ones(num_params,1);
                 
                 try
@@ -509,7 +509,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 % gurobi solver, they should be the same
                 lambda_diff = result_lambda - result_qp;
                 lambda_diff_sum = sum(abs(lambda_diff));
-                if lambda_diff_sum > 1e-3
+                if lambda_diff_sum > 5e-3
                     error('Error: contact force solved by analytical solution and gurobi solver are different')
                 end
                 %% end of checker
@@ -545,7 +545,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 %% compute gradient component
                 
-                possible_contact_indices = zeros(length(phiC),1);
+                total_possible_contact_point = 8;
+                possible_contact_indices = zeros(total_possible_contact_point,1);
                 for i = 1:length(active)
                     possible_contact_indices(active(i)) = 1;
                 end
@@ -567,10 +568,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %                 J_check = zeros(0,num_q);
 %                 phi_check = [phi_check;phiC(~possible_contact_indices)];
 %                 J_check = [J_check; n(~possible_contact_indices,:)];
-                phiC = phiC(possible_contact_indices);
-                Jz = Jz(possible_contact_indices,:);
-                JD = JD(repmat(possible_contact_indices,mC,1),:);
-                mu = mu(possible_contact_indices,:);
+
+                %phiC = phiC(possible_contact_indices);
+                %Jz = Jz(possible_contact_indices,:);
+                %JD = JD(repmat(possible_contact_indices,mC,1),:);
+                %mu = mu(possible_contact_indices,:);
                 
 %                 if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
 %                         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
@@ -656,9 +658,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         db_tildedv_dyn(j,:,i) = normal(:,row)'*dbdv(idx,i);
                     end
                     
-                    dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, size(V, 2))];
-                    db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
-                    db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    if ~isempty(dynamicsConstraint_active_set)
+                        dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, size(V, 2))];
+                        db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                        db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    else
+                        dA_tildedq(:,:,i) = [zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, size(V, 2))];
+                        db_tildedq(:,:,i) = [zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                        db_tildedv(:,:,i) = [zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    end    
                     
                     assert(length(dA_tildedq(:,1,i)) == length(active_set));
                 end
@@ -669,7 +677,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         idx = (row-1)*dim + (1:dim);
                         db_tildedu_dyn(j,:,i) = normal(:,row)'*dbdu(idx,:,i);
                     end
-                    db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    if ~isempty(dynamicsConstraint_active_set)
+                        db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                    else
+                        db_tildedu(:,:,i) = [zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];    
+                    end
                 end
                 
                 %% partial derivative of KKT matrix blocks
@@ -751,27 +763,27 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [xdn,df] = update(obj,t,x,u)
-            if obj.update_convex && nargout>1
-                [xdn,df] = updateConvex(obj,t,x,u);
-
-                % add gradient check
-                % X0 = [t;x;u];
-                % X0 = X0 + randn(size(X0))*0.1;
-                % 
-                % fun = @(X0) updateConvex(obj,X0);
-                % DerivCheck(fun, X0)
-                % 
-                % [xdn,df] = updateConvex(obj,X0);
-                % 
-                % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
-                % valuecheck(xdn,xdn_numeric,1e-5);
-                % valuecheck(df,df_numeric,1e-5);
-                
-                %[xdn_QP,df_QP] = updateConvex(obj,X0);
-               
-                return;
-                disp('finish updateConvex QP')
-            end
+%             if obj.update_convex && nargout>1
+%                 [xdn,df] = updateConvex(obj,t,x,u);
+% 
+%                 % add gradient check
+%                 % X0 = [t;x;u];
+%                 % X0 = X0 + randn(size(X0))*0.1;
+%                 % 
+%                 % fun = @(X0) updateConvex(obj,X0);
+%                 % DerivCheck(fun, X0)
+%                 % 
+%                 % [xdn,df] = updateConvex(obj,X0);
+%                 % 
+%                 % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
+%                 % valuecheck(xdn,xdn_numeric,1e-5);
+%                 % valuecheck(df,df_numeric,1e-5);
+%                 
+%                 %[xdn_QP,df_QP] = updateConvex(obj,X0);
+%                
+%                 return;
+%                 disp('finish updateConvex QP')
+%             end
             
             % function DerivCheck(funptr, X0, ~, varargin)
             % 
