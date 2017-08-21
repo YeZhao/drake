@@ -14,9 +14,11 @@ warning(w);
 x0 = [0;0;2.0;0;0;0;.5;zeros(5,1)];
 %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 xf = [1;0;0.5;0;0;0;zeros(6,1)];
- 
+xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
+xf_max = [1;0;inf;0;0;0;zeros(6,1)];
+
 N=30; tf=2;
- 
+
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
 % xtraj_ts = simulate(plant_ts,[0 tf],x0);
@@ -49,16 +51,15 @@ prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
 prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-  
+prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
+prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true); 
- 
+  
 snprint('snopt.out');
 
 % initial conditions constraint
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);
-prog = addStateConstraint(prog,ConstantConstraint(xf),N);
+prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
 prog = prog.addRunningCost(@running_cost_fun);
  
@@ -72,9 +73,9 @@ slack_sum_vec = [];% vector storing the slack variable sum
 %         traj_init.x = xtraj;
 %         traj_init.l = ltraj;
 %         traj_init.F_ext = F_exttraj;
-%     end
+%     end  
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-
+  
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
@@ -105,8 +106,8 @@ end
 % end
  
     function [f,df] = running_cost_fun(h,x,force)
-        cost_coeff = 1;
-         
+        cost_coeff = .02;
+        
         f = cost_coeff*h*force'*force;
         df = [cost_coeff*force'*force zeros(1,12) 2*cost_coeff*h*force'];
         
