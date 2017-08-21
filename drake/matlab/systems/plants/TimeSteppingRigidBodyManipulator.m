@@ -762,8 +762,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
         end
         
-        function [xdn,df] = update(obj,t,x,u)
-%             if obj.update_convex && nargout>1
+        function [xdn,df] = update(obj,t,x,u) 
+%             if obj.update_convex && nargout>1 
 %                 [xdn,df] = updateConvex(obj,t,x,u);
 % 
 %                 % add gradient check
@@ -784,7 +784,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %                 return;
 %                 disp('finish updateConvex QP')
 %             end
-            
+             
             % function DerivCheck(funptr, X0, ~, varargin)
             % 
             %     % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
@@ -1869,7 +1869,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             varargout = cell(1,nargout);
             [varargout{:}] = terrainContactPositions(obj.manip,varargin{:});
         end
-        
+         
         function varargout = terrainContactJacobianDotTimesV(obj,varargin)
             varargout = cell(1,nargout);
             [varargout{:}] = terrainContactJacobianDotTimesV(obj.manip,varargin{:});

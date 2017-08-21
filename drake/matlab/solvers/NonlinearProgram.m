@@ -3,9 +3,9 @@ classdef NonlinearProgram
   % subject to
   %            cin_lb<=nonlinear_inequality_constraints(x) <= cin_ub
   %            nonlinear_equality_constraints(x) = 0
-  %            Ain*x <= bin
+  %            Ain*x <= bin 
   %            Aeq*x = beq
-  %            x_lb <= x <= x_ub
+  %            x_lb <= x <= x_ub 
   properties (SetAccess=protected)
     num_vars % An integer. The number of decision variables
     num_cin % An integer. The number of nonlinear inequality constraints
@@ -164,9 +164,9 @@ classdef NonlinearProgram
       obj.solver_options.snopt.MajorFeasibilityTolerance = 1e-6;
       obj.solver_options.snopt.MinorFeasibilityTolerance = 1e-6;
       obj.solver_options.snopt.SuperbasicsLimit = 300;
-      obj.solver_options.snopt.VerifyLevel = 0;
+      obj.solver_options.snopt.VerifyLevel = 0;  
       obj.solver_options.snopt.DerivativeOption = 1;
-      obj.solver_options.snopt.print = 'LogFile';
+      obj.solver_options.snopt.print = 'LogFile-1'; 
       obj.solver_options.snopt.ScaleOption = 0;
       obj.solver_options.snopt.NewBasisFile = 0;
       obj.solver_options.snopt.OldBasisFile = 0;
@@ -178,10 +178,10 @@ classdef NonlinearProgram
       obj.constraint_err_tol = 1e-4;
       obj.check_grad = false;
     end
-
+ 
     function [obj,cnstr_id] = addCompositeConstraints(obj,cnstr,xind,data_ind)
       % add a CompositeConstraint to the object, change the constraint evalation of the
-      % program.
+      % program. 
       % @param mgr     -- A CompositeConstraint object
       % @param xind      -- Optional argument. The x(xind) is the decision variables used
       % in evaluating the cnstr. Default value is (1:obj.num_vars)
