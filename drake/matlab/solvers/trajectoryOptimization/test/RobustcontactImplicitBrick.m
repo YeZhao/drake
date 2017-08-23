@@ -5,7 +5,7 @@ function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
- 
+  
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
@@ -23,9 +23,9 @@ x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
- 
+
 N=30; tf=2;
- 
+   
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
 xtraj_ts = simulate(plant_ts,[0 tf],x0);
@@ -45,7 +45,7 @@ if visualize
     hold on;
     plot(ts, xtraj_ts_data(1,:),'k--');
     xlabel('t [s]');
-     
+      
     figure(2)
     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
     xlabel('x [m]');ylabel('z [m]');
@@ -55,11 +55,11 @@ options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
  
-options.contact_robust_cost_coeff = 0.001;
+options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 10;
-options.Kx_gain = 100;
-options.Kxd_gain = 10;
+options.Kx_gain = 5;
+options.Kxd_gain = 5;
 options.kappa = 1;
 
 persistent sum_running_cost

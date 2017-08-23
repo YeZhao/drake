@@ -287,19 +287,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % disturbance variance 
             % currently only consider terrain height and friction coefficient
             Pw = diag([0.01, 0.09]); %[to be tuned]
-            
-            w_mu = zeros(1,obj.N);
+             
+            w_mu = ones(1,obj.N);
             w_phi = zeros(1,obj.N);
             flag_generate_new_noise = 0;
-            if ~flag_generate_new_noise 
+            if ~flag_generate_new_noise
                 w_mu = load('friction_coeff_noise2.dat');
                 %w_mu = ones(1,obj.N);
                 %w_phi = load('terrain_height_noise2.dat'); 
-            else   
+            else    
                 w_mu = normrnd(ones(1,obj.N),sqrt(Pw(2,2)),1,obj.N);%friction coefficient noise
                 w_phi = normrnd(zeros(1,obj.N),sqrt(Pw(1,1)),1,obj.N);%height noise
-                save -ascii friction_coeff_noise2.dat w_mu
-                save -ascii terrain_height_noise2.dat w_phi
+                save -ascii friction_coeff_noise4.dat w_mu
+                save -ascii terrain_height_noise4.dat w_phi
             end
              
             w_noise = [w_phi;w_mu];
@@ -313,8 +313,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             kappa = obj.options.kappa;
             x_mean = zeros(obj.nx, obj.N);
             % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-            %c = kappa*trace(w*Px(:,:,1));
-            c = 0; 
+            c = kappa*trace(Px(:,:,1));
+            %c = 0; 
             c_quadratic = 0; 
             c_variance = 0;
             dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -350,7 +350,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
                     end
                     c = c + norm(x(:,k)-x_mean(:,k))^2;
-                    c_quadratic = c_quadratic + norm(x(:,k)-x_mean(:,k))^2;
+                    
+                    % debugging
+                    c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
+                    c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
+                    c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
+                    for j = 1:(2*(obj.nx+nw))
+                        V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
+                        c_variance(j,k) = kappa*trace(w*V_comp);
+                        
+                        V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
+                        c_variance_x(j,k) = kappa*trace(w*V_comp_x);
+                        V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
+                        c_variance_xd(j,k) = kappa*trace(w*V_comp_xd);
+                    end                
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
@@ -395,11 +408,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % accumulate returned cost
                 c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
-                c_quadratic = c_quadratic + norm(x(:,k+1)-x_mean(:,k+1))^2;
+                c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
+                c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
+                c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
                 for j = 1:(2*(obj.nx+nw))
                     V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     c = c + kappa*trace(w*V_comp);
-                    c_variance = c_variance + kappa*trace(w*V_comp);
+                    % debugging
+                    %c_variance = c_variance + kappa*trace(w*V_comp);
+                    c_variance(j,k+1) = kappa*trace(w*V_comp);
+
+                    V_comp_x = (Sig(1,j,k+1)-x_mean(1,k+1))*(Sig(1,j,k+1)-x_mean(1,k+1))';
+                    c_variance_x(j,k+1) = kappa*trace(w*V_comp_x);
+                    V_comp_xd = (Sig(7,j,k+1)-x_mean(7,k+1))*(Sig(7,j,k+1)-x_mean(7,k+1))';
+                    c_variance_xd(j,k+1) = kappa*trace(w*V_comp_xd);
                 end 
                 
                 % derivative of variance matrix
@@ -506,9 +528,66 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             c = obj.options.contact_robust_cost_coeff*c;
             dc = obj.options.contact_robust_cost_coeff*dc; 
             
+            figure(10),hold on;plot(c_quadratic_x,'b-')
+            figure(12),hold on;plot(c_quadratic_xd,'b-')
+            figure(13),hold on;plot(c_variance_x(1,:),'b-')
+            figure(14),hold on;plot(c_variance_xd(1,:),'b-')
+            
+            
+            figure(15)
+            clf
+            Sig_permute = permute(Sig,[1,3,2]);
+            for j = 1:(2*(obj.nx+nw))
+                plot(Sig_permute(1,:,j),'r-')
+                hold on;
+            end
+            hold on;
+            plot(x(1,:),'b-','Linewidth',3)
+            xlim([0,30]);ylim([0,7])
+            
+            figure(16)
+            clf
+            for j = 1:(2*(obj.nx+nw))
+                plot(Sig_permute(7,:,j),'r-')
+                hold on;
+            end
+            hold on;
+            plot(x(7,:),'b-','Linewidth',3)
+            xlim([0,30]);ylim([0,11])
+            
+            figure(17)
+            clf
+            for j = 1:(2*(obj.nx+nw))
+                plot(Sig_permute(3,:,j),'r-')
+                hold on;
+            end
+            hold on;
+            plot(x(3,:),'b-','Linewidth',3)
+            xlim([0,30]);ylim([0,4])
+            
+            figure(18)
+            clf
+            for j = 1:(2*(obj.nx+nw))
+                plot(Sig_permute(9,:,j),'r-')
+                hold on;
+            end
+            hold on;
+            plot(x(9,:),'b-','Linewidth',3)
+            xlim([0,30]);ylim([-7,0])
+            
+            figure(19)
+            clf
+            for j = 1:(2*(obj.nx+nw))
+                plot(Sig_permute(5,:,j),'r-')
+                hold on;
+            end
+            hold on;
+            plot(x(5,:),'b-','Linewidth',3)
+            xlim([0,30]);ylim([-1,1])
+            
             obj.cached_Px = Px;
             fprintf('robust cost function: %4.8f\n',c);
-
+            
 %             % check gradient
 %             disp('check gradient')
 %             c_numeric = c;
@@ -586,7 +665,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 kappa = options.kappa;
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                %c = kappa*trace(w*Px(:,:,1));
+                %c = kappa*trace(Px(:,:,1));
                 c = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                  

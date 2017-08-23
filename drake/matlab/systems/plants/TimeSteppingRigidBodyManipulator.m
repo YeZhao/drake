@@ -224,6 +224,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
             
+            % reconstruct perturbed mu
+            if ~isempty(obj.friction_coeff)
+                mu = obj.friction_coeff*ones(length(mu),1);
+            end
+            % [double make sure that mu is not interweaving contactConstraints]
+            
+            
             % TODO: clean up
             nk = length(d);
             V = cell(1,2*nk);
@@ -768,30 +775,30 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
         end
-        
-        function [xdn,df] = update(obj,t,x,u)
-            %             if obj.update_convex && nargout>1
-            %                 [xdn,df] = updateConvex(obj,t,x,u);
-            %
-            %                 % add gradient check
-            %                 % X0 = [t;x;u];
-            %                 % X0 = X0 + randn(size(X0))*0.1;
-            %                 %
-            %                 % fun = @(X0) updateConvex(obj,X0);
-            %                 % DerivCheck(fun, X0)
-            %                 %
-            %                 % [xdn,df] = updateConvex(obj,X0);
-            %                 %
-            %                 % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
-            %                 % valuecheck(xdn,xdn_numeric,1e-5);
-            %                 % valuecheck(df,df_numeric,1e-5);
-            %
-            %                 %[xdn_QP,df_QP] = updateConvex(obj,X0);
-            %
-            %                 return;
-            %                 disp('finish updateConvex QP')
-            %             end
-            
+         
+        function [xdn,df] = update(obj,t,x,u) 
+%             if obj.update_convex && nargout>1
+%                 [xdn,df] = updateConvex(obj,t,x,u);
+%                  
+%                 % add gradient check
+%                 % X0 = [t;x;u];
+%                 % X0 = X0 + randn(size(X0))*0.1;
+%                 %
+%                 % fun = @(X0) updateConvex(obj,X0);
+%                 % DerivCheck(fun, X0)
+%                 %
+%                 % [xdn,df] = updateConvex(obj,X0);
+%                 %
+%                 % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
+%                 % valuecheck(xdn,xdn_numeric,1e-5);
+%                 % valuecheck(df,df_numeric,1e-5);
+%                 
+%                 %[xdn_QP,df_QP] = updateConvex(obj,X0);
+%                 
+%                 return;
+%                 disp('finish updateConvex QP')
+%             end
+             
             % function DerivCheck(funptr, X0, ~, varargin)
             %
             %     % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
