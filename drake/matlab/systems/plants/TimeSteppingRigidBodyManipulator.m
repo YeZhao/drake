@@ -145,7 +145,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             model.position_control = logical(flag);
             model.dirty = true;
         end
-        
+         
         function model = compile(model)
             w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
             model.gurobi_present = checkDependency('gurobi');
@@ -1056,7 +1056,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         J_check = zeros(0,num_q);
                         JL = zeros(0,num_q^2);
                     end
-                    
+                     
                     has_contacts = (nContactPairs > 0);
                     
                     if has_contacts
@@ -1066,7 +1066,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                         end
                         % reconstruct perturbed mu
-                        mu = obj.friction_coeff*ones(length(mu),1);
+                        if ~isempty(obj.friction_coeff)    
+                            mu = obj.friction_coeff*ones(length(mu),1);
+                        end
                         % [double make sure that mu is not interweaving contactConstraints]
                         
                         if ~isempty(phiC)
@@ -1900,7 +1902,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function terrain_contact_point_struct = getTerrainContactPoints(obj,varargin)
             terrain_contact_point_struct = getTerrainContactPoints(obj.manip,varargin{:});
         end
-        
+         
         function varargout = terrainContactPositions(obj,varargin)
             varargout = cell(1,nargout);
             [varargout{:}] = terrainContactPositions(obj.manip,varargin{:});

@@ -5,46 +5,66 @@ function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
-
+ 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
-warning(w);
-x0 = [0;0;2.0;0;0;0;.5;zeros(5,1)];
-%x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
-xf = [1;0;0.5;0;0;0;zeros(6,1)];
-xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
-xf_max = [1;0;inf;0;0;0;zeros(6,1)];
+warning(w); 
+% %previous setting(August-22-17)
+% x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
+% %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
+% xf = [1;0;0.5;0;0;0;zeros(6,1)];%previous setting(August-22-17)
+% xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
+% xf_max = [1;0;inf;0;0;0;zeros(6,1)];
 
+%new setting(August-22-17)
+x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
+xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
+xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
+xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
+ 
 N=30; tf=2;
-
+ 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-% xtraj_ts = simulate(plant_ts,[0 tf],x0);
-% x0 = xtraj_ts.eval(0);
-% warning(w); 
+xtraj_ts = simulate(plant_ts,[0 tf],x0);
+x0 = xtraj_ts.eval(0);
+warning(w);
 if visualize
     v = constructVisualizer(plant_ts);
-    %    v.playback(xtraj_ts);
+    %v.playback(xtraj_ts,struct('slider',true));
+    %%     v.playback(xtraj_ts);
+    
+    ts = getBreaks(xtraj_ts);
+    xtraj_ts_data = xtraj_ts.eval(ts);
+    
+    %ltraj_data.
+    figure(1)
+    plot(ts, xtraj_ts_data(3,:),'b--');
+    hold on;
+    plot(ts, xtraj_ts_data(1,:),'k--');
+    xlabel('t [s]');
+     
+    figure(2)
+    plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
+    xlabel('x [m]');ylabel('z [m]');
 end
 
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
-
-% scale_sequence = [1;.1;.01;.001;0];
-
-% for i=1:length(scale_sequence)
-%     scale = scale_sequence(i);
-%
-%     options.compl_slack = scale*.01;
-%     options.lincompl_slack = scale*.001;
-%     options.jlcompl_slack = scale*.01;
  
+options.contact_robust_cost_coeff = 0.001;
+options.robustLCPcost_coeff = 1000;
+options.Px_coeff = 10;
+options.Kx_gain = 100;
+options.Kxd_gain = 10;
+options.kappa = 1;
+
 persistent sum_running_cost
 persistent cost_index
-
+ 
 prog = RobustContactImplicitTrajectoryOptimization_Brick(plant_ts,N,tf,options);
 prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
@@ -54,28 +74,28 @@ prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true); 
-  
+   
 snprint('snopt.out');
 
-% initial conditions constraint
+% initial conditions constraint 
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);
 prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
 prog = prog.addRunningCost(@running_cost_fun);
- 
+
 %     if i == 1,
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
- 
+
 %     else
 %         traj_init.x = xtraj;
 %         traj_init.l = ltraj;
-%         traj_init.F_ext = F_exttraj;
+%         traj_init.F_ext = F_exttraj; 
 %     end  
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-  
+    
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
@@ -91,6 +111,7 @@ if visualize
     
     %ltraj_data.
     figure(1)
+    hold on;
     plot(ts, xtraj_data(3,:),'b-');
     hold on;
     plot(ts, xtraj_data(1,:),'k-');
@@ -99,14 +120,20 @@ if visualize
         plot(ts, lambda_n_data(i,:),'r-');
         hold on;
     end
-    
+        
     figure(2)
+    hold on;
+    plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+    xlabel('x [m]');ylabel('z [m]');
+    
+    figure(3)
     plot(ts, F_exttraj_data,'r-');
+
 end
 % end
- 
+  
     function [f,df] = running_cost_fun(h,x,force)
-        cost_coeff = .02;
+        cost_coeff = 1;
         
         f = cost_coeff*h*force'*force;
         df = [cost_coeff*force'*force zeros(1,12) 2*cost_coeff*h*force'];
@@ -171,7 +198,7 @@ end
 ts = getBreaks(xtraj_ts);
 valuecheck(ts,getBreaks(xtraj));
 xtraj_data = xtraj.eval(ts);
-xtraj_ts_data = xtraj_ts.eval(ts);v
+xtraj_ts_data = xtraj_ts.eval(ts);
 nq = plant.getNumPositions();
 nv = plant.getNumVelocities();
 valuecheck(xtraj_data(1:nq,:),xtraj_ts_data(1:nq,:),position_tol); % is there a correct tolerance here?
