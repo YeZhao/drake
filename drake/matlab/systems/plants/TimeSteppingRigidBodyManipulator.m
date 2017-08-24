@@ -1068,7 +1068,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     if has_contacts
                         if (nargout>4)
-                            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
                         else
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                         end

@@ -297,10 +297,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             w_phi = zeros(1,n_sig_point);
             flag_generate_new_noise = 0; 
             if ~flag_generate_new_noise 
-                w_mu = load('friction_coeff_noise2.dat');
+                %w_mu = load('friction_coeff_noise2.dat');
                 %w_mu = ones(1,obj.N);
                 %w_phi = load('terrain_height_noise5.dat'); 
-            else    
+            else
                 w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
                 w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
                 save -ascii friction_coeff_noise2.dat w_mu

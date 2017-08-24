@@ -48,6 +48,7 @@ classdef RigidBodyManipulator < Manipulator
     mex_model_ptr = nullPointer();
     dirty = true;
     collision_filter_groups;  % map of CollisionFilterGroup objects
+    plant_sample;
   end
 
   methods
