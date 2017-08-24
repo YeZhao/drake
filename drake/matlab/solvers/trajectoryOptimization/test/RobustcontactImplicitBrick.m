@@ -5,30 +5,30 @@ function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
-   
+    
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=30; tf=2;
+N=40; tf=2;
 
-% instantiate RigidBodyTerrain with different heights
-w_phi = load('terrain_height_noise5.dat'); 
-%w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
-%save -ascii terrain_height_noise5.dat w_phi
-n_sig_point = 28;
-for i=1:n_sig_point
-    sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
-    sample_options.floating = true;
-    w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-    plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
-    warning(w);
-    plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
-end
+% %% instantiate RigidBodyTerrain with different heights
+% w_phi = load('terrain_height_noise5.dat'); 
+% %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
+% %save -ascii terrain_height_noise5.dat w_phi
+% n_sig_point = 28;
+% for i=1:n_sig_point
+%     sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+%     sample_options.floating = true;
+%     w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+%     plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+%     warning(w);
+%     plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+% end
 
-% %previous setting(August-22-17)
+%% previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
 % %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 % xf = [1;0;0.5;0;0;0;zeros(6,1)];%previous setting(August-22-17)
@@ -49,7 +49,6 @@ warning(w);
 if visualize
     v = constructVisualizer(plant_ts);
     %v.playback(xtraj_ts,struct('slider',true));
-    %%     v.playback(xtraj_ts);
     
     ts = getBreaks(xtraj_ts);
     xtraj_ts_data = xtraj_ts.eval(ts);
@@ -100,19 +99,13 @@ prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
 prog = prog.addRunningCost(@running_cost_fun);
 
-%     if i == 1,
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
 
-%     else
-%         traj_init.x = xtraj;
-%         traj_init.l = ltraj;
-%         traj_init.F_ext = F_exttraj; 
-%     end  
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-  
+ 
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
@@ -157,10 +150,10 @@ end
         
         f_numeric = f;
         df_numeric = df;
-        %        disp('check gradient')
-        %         [f_numeric,df_numeric] = geval(@(h,x,force) running_cost_fun_check(h,x,force),h,x,force,struct('grad_method','numerical'));
-        %         valuecheck(df,df_numeric,1e-3);
-        %         valuecheck(f,f_numeric,1e-3);
+        % disp('check gradient')
+        % [f_numeric,df_numeric] = geval(@(h,x,force) running_cost_fun_check(h,x,force),h,x,force,struct('grad_method','numerical'));
+        % valuecheck(df,df_numeric,1e-3);
+        % valuecheck(f,f_numeric,1e-3);
         
         if isempty(cost_index) 
             cost_index = 1;
@@ -193,25 +186,25 @@ end
         LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
-        %         figure(3)
-        %         plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
-        %         xlabel('t');
-        %         ylabel('slack variable');
-        %         hold off;
-        %
-        %         figure(4)
-        %         plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
-        %         xlabel('t');
-        %         ylabel('external force');
-        %         hold off;
+        % figure(3)
+        % plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+        % xlabel('t');
+        % ylabel('slack variable');
+        % hold off;
+        %  
+        % figure(4)
+        % plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
+        % xlabel('t');
+        % ylabel('external force');
+        % hold off;
         
         fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
         fprintf('sum of external x force along traj: %4.4f\n',sum(abs(force(1,:))));
         fprintf('sum of external z force along traj: %4.4f\n',sum(abs(force(2,:))));
-        
+         
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
-
+ 
 % check if the two simulations did the same thing:
 ts = getBreaks(xtraj_ts);
 valuecheck(ts,getBreaks(xtraj));

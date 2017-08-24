@@ -2,7 +2,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
-    
+     
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
@@ -33,6 +33,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         %terrain_height
         friction_coeff
         terrain_index
+        uncertainty_source
     end
     
     methods
@@ -859,7 +860,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
                 end
             end
-            xdn = [qn;vn];
+            xdn = [qn;vn]; 
             
             if (nargout>1)  % compute gradients
                 if isempty(z)
@@ -976,10 +977,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     [H,C,B] = manipulatorDynamics(obj.manip,q,v);
                     if (obj.num_u>0 && ~obj.position_control)
                         tau = B*u - C;
-                    else
+                    else 
                         tau = -C;
                     end
-                else
+                else 
                     [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
                     if (obj.num_u>0 && ~obj.position_control)
                         tau = B*u - C;
@@ -1065,15 +1066,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                      
                     has_contacts = (nContactPairs > 0);
-                    
                     if has_contacts
-                        if (nargout>4)
-                            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                        if (nargout>4)  
+                            if strcmp(obj.uncertainty_source, 'friction_coeff')
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                            elseif strcmp(obj.uncertainty_source, 'terrain_height')
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                            end 
                         else
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                         end
                         % reconstruct perturbed mu
-                        if ~isempty(obj.friction_coeff)    
+                        if ~isempty(obj.friction_coeff)     
                             mu = obj.friction_coeff*ones(length(mu),1);
                         end
                         % [double make sure that mu is not interweaving contactConstraints]
@@ -1082,7 +1086,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             if isempty(possible_contact_indices)
                                 possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;
                             end
-                            
+                             
                             nC = sum(possible_contact_indices);
                             mC = length(D);
                             

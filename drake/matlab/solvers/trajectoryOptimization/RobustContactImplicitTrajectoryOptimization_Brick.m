@@ -295,6 +295,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 
             w_mu = ones(1,n_sig_point);
             w_phi = zeros(1,n_sig_point);
+            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';
             flag_generate_new_noise = 0; 
             if ~flag_generate_new_noise 
                 %w_mu = load('friction_coeff_noise2.dat');
@@ -328,7 +329,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
              
             % time counter
             tStart = tic;
-            
+             
             for k = 1:obj.N-1%[Ye: double check the index]
                 %Generate sigma points from Px(i+1)
                 %[the sequential way to be modified]
@@ -345,7 +346,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     for j = 1:(2*(obj.nx+nw))
                         Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                         % add terrain height uncertainty sample to each sigma point
-                        Sig(3,j,k) = Sig(3,j,k) - w_phi(j);
                     end
                     x_mean(:,k) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
@@ -363,6 +363,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
                         c_variance(j,k) = kappa*trace(w*V_comp);
                         
+                        % debugging
                         V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
                         c_variance_x(j,k) = kappa*trace(w*V_comp_x);
                         V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
@@ -382,16 +383,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     Hinv(:,:,j,k) = inv(H);
                     Bmatrix(:,:,j,k) = [1,0;zeros(1,2);0,1;zeros(3,2)];%B;hand coding
                     
-                    obj.plant.friction_coeff = w_mu(j);
-                    obj.plant.terrain_index = j;
+                    if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                        obj.plant.friction_coeff = w_mu(j);
+                    elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
+                        obj.plant.terrain_index = j;
+                    end
                     
                     % add feedback control
                     t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
                     u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
-%                     if u_fdb_k*u(:,k) < 0
-%                         disp('control sign is changed')
-%                     end 
-                    
+                    % debugging
+                    % if u_fdb_k*u(:,k) < 0
+                    %     disp('control sign is changed')
+                    % end  
+                     
                     [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                     
                     Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
@@ -416,6 +421,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % accumulate returned cost
                 c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
+                % debugging
                 c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                 c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
                 c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
@@ -425,8 +431,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for j = 1:n_sig_point
                     V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     c = c + kappa*trace(w*V_comp);
+                    
                     % debugging
-                    %c_variance = c_variance + kappa*trace(w*V_comp);
                     c_variance(j,k+1) = kappa*trace(w*V_comp);
 
                     V_comp_x = (Sig(1,j,k+1)-x_mean(1,k+1))*(Sig(1,j,k+1)-x_mean(1,k+1))';
