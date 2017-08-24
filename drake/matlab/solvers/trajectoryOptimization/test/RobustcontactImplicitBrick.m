@@ -10,22 +10,22 @@ options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
-warning(w); 
+warning(w);  
 % %previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
 % %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 % xf = [1;0;0.5;0;0;0;zeros(6,1)];%previous setting(August-22-17)
 % xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
 % xf_max = [1;0;inf;0;0;0;zeros(6,1)];
-
+ 
 %new setting(August-22-17)
 x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
-
+ 
 N=30; tf=2;
-   
+  
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
 xtraj_ts = simulate(plant_ts,[0 tf],x0);
@@ -60,6 +60,8 @@ options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 10;
 options.Kx_gain = 5;
 options.Kxd_gain = 5;
+options.Kz_gain = 5;
+options.Kzd_gain = 5;
 options.kappa = 1;
 
 persistent sum_running_cost
@@ -74,7 +76,7 @@ prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true); 
-   
+    
 snprint('snopt.out');
 
 % initial conditions constraint 
@@ -85,7 +87,7 @@ prog = prog.addRunningCost(@running_cost_fun);
 
 %     if i == 1,
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
-traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
+traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
 
@@ -95,7 +97,7 @@ slack_sum_vec = [];% vector storing the slack variable sum
 %         traj_init.F_ext = F_exttraj; 
 %     end  
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-    
+   
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
@@ -127,10 +129,10 @@ if visualize
     xlabel('x [m]');ylabel('z [m]');
     
     figure(3)
-    plot(ts, F_exttraj_data,'r-');
-
+    plot(ts, F_exttraj_data(1,:),'b-');
+    hold on;
+    plot(ts, F_exttraj_data(2,:),'r-');
 end
-% end
   
     function [f,df] = running_cost_fun(h,x,force)
         cost_coeff = 1;
@@ -189,7 +191,8 @@ end
         %         hold off;
         
         fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
-        fprintf('sum of external force along traj: %4.4f\n',sum(abs(force)));
+        fprintf('sum of external x force along traj: %4.4f\n',sum(abs(force(1,:))));
+        fprintf('sum of external z force along traj: %4.4f\n',sum(abs(force(2,:))));
         
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end

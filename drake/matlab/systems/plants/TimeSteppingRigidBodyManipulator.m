@@ -358,10 +358,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
             else
                 %[Ye: hacky way to implement an external force]
-                obj.num_Fext = 1;
+                obj.num_Fext = 2;
                 num_u = obj.num_Fext;
-                tau = -C + [u;zeros(num_q-1,1)];
-                dtaudu = [1;zeros(num_q-1,1)];
+                tau = -C + [u(1);0;u(2);zeros(3,1)];
+                dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
                 dtau = [zeros(num_v,1), -dC, dtaudu];
             end
             Hinv = inv(H);
@@ -775,30 +775,30 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
         end
-         
-        function [xdn,df] = update(obj,t,x,u) 
-%             if obj.update_convex && nargout>1
-%                 [xdn,df] = updateConvex(obj,t,x,u);
-%                  
-%                 % add gradient check
-%                 % X0 = [t;x;u];
-%                 % X0 = X0 + randn(size(X0))*0.1;
-%                 %
-%                 % fun = @(X0) updateConvex(obj,X0);
-%                 % DerivCheck(fun, X0)
-%                 %
-%                 % [xdn,df] = updateConvex(obj,X0);
-%                 %
-%                 % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
-%                 % valuecheck(xdn,xdn_numeric,1e-5);
-%                 % valuecheck(df,df_numeric,1e-5);
-%                 
-%                 %[xdn_QP,df_QP] = updateConvex(obj,X0);
-%                 
-%                 return;
-%                 disp('finish updateConvex QP')
-%             end
-             
+        
+        function [xdn,df] = update(obj,t,x,u)
+            if obj.update_convex && nargout>1
+                [xdn,df] = updateConvex(obj,t,x,u);
+                 
+                % add gradient check
+                % X0 = [t;x;u];
+                % X0 = X0 + randn(size(X0))*0.1;
+                %
+                % fun = @(X0) updateConvex(obj,X0);
+                % DerivCheck(fun, X0)
+                %
+                % [xdn,df] = updateConvex(obj,X0);
+                %
+                % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
+                % valuecheck(xdn,xdn_numeric,1e-5);
+                % valuecheck(df,df_numeric,1e-5);
+                
+                %[xdn_QP,df_QP] = updateConvex(obj,X0);
+                
+                return;
+                disp('finish updateConvex QP')
+            end
+            
             % function DerivCheck(funptr, X0, ~, varargin)
             %
             %     % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
@@ -985,10 +985,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
                     else
                         %[Ye: hacky way to implement this external force]
-                        obj.num_Fext = 1;
-                        tau = -C + [u;zeros(num_q-1,1)];
-                        dtaudu = [1;zeros(num_q-1,1)];
-                        %dtau = [zeros(num_v,1), -dC, zeros(size(B))];
+                        obj.num_Fext = 2;
+                        tau = -C + [u(1);0;u(2);zeros(3,1)];
+                        dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
                         dtau = [zeros(num_v,1), -dC, dtaudu];
                     end
                 end
