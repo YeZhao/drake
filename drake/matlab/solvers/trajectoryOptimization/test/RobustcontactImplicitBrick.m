@@ -5,19 +5,32 @@ function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
-  
+   
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
+% % instantiate RigidBodyTerrain with different heights
+% w_phi = load('terrain_height_noise5.dat'); 
+% %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
+% %save -ascii terrain_height_noise5.dat w_phi
+% n_sig_point = 28;
+% for i=1:n_sig_point
+%     options.terrain_sample{i} = RigidBodyFlatTerrain(w_phi(i));
+%     options.terrain_samples = RigidBodyFlatTerrain();
+%     
+% end
+% %
+% %obj=compile(obj);
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);  
+
 % %previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
 % %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
 % xf = [1;0;0.5;0;0;0;zeros(6,1)];%previous setting(August-22-17)
 % xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
 % xf_max = [1;0;inf;0;0;0;zeros(6,1)];
- 
+
 %new setting(August-22-17)
 x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
@@ -25,7 +38,7 @@ xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
  
 N=30; tf=2;
-  
+   
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
 xtraj_ts = simulate(plant_ts,[0 tf],x0);
@@ -97,7 +110,7 @@ slack_sum_vec = [];% vector storing the slack variable sum
 %         traj_init.F_ext = F_exttraj; 
 %     end  
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-   
+  
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie

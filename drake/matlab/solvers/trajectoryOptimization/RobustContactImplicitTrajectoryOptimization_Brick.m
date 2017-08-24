@@ -279,34 +279,36 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nq = obj.plant.getNumPositions;
             nv = obj.plant.getNumVelocities;
             nu = obj.nFext;%obj.plant.getNumInputs;
-             
+                        
             % sigma points
             Px = zeros(obj.nx,obj.nx,obj.N);
             Px(:,:,1) = obj.cached_Px(:,:,1);
             
             % disturbance variance 
             % currently only consider terrain height and friction coefficient
-            Pw = diag([0.01, 0.09]); %[to be tuned]
-             
-            w_mu = ones(1,obj.N);
-            w_phi = zeros(1,obj.N);
-            flag_generate_new_noise = 0;
-            if ~flag_generate_new_noise
-                w_mu = load('friction_coeff_noise2.dat');
-                %w_mu = ones(1,obj.N);
-                %w_phi = load('terrain_height_noise2.dat'); 
-            else    
-                w_mu = normrnd(ones(1,obj.N),sqrt(Pw(2,2)),1,obj.N);%friction coefficient noise
-                w_phi = normrnd(zeros(1,obj.N),sqrt(Pw(1,1)),1,obj.N);%height noise
-                save -ascii friction_coeff_noise4.dat w_mu
-                save -ascii terrain_height_noise4.dat w_phi
-            end
-             
-            w_noise = [w_phi;w_mu];
-            
+            Pw = diag([0.16, 0.09]); %[to be tuned]
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
             nw = size(Pw,1);
+            n_sig_point = 2*(obj.nx+nw);
+            w_averg = 1/n_sig_point;
+
+            w_mu = ones(1,n_sig_point);
+            w_phi = zeros(1,n_sig_point);
+            flag_generate_new_noise = 0; 
+            if ~flag_generate_new_noise 
+                w_mu = load('friction_coeff_noise2.dat');
+                %w_mu = ones(1,obj.N);
+                %w_phi = load('terrain_height_noise5.dat'); 
+            else    
+                w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
+                w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
+                save -ascii friction_coeff_noise2.dat w_mu
+                save -ascii terrain_height_noise2.dat w_phi
+            end
+            
+            w_noise = [w_phi;w_mu];
+            
             K = [obj.options.Kx_gain,zeros(1,nq-1),obj.options.Kxd_gain,zeros(1,nv-1);
                  zeros(1,2),obj.options.Kz_gain,zeros(1,3),zeros(1,2),obj.options.Kzd_gain,zeros(1,3)];%[2*ones(nu,nq),ones(nu,]nv)];
             
@@ -345,9 +347,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         % add terrain height uncertainty sample to each sigma point
                         Sig(3,j,k) = Sig(3,j,k) - w_phi(j);
                     end
-                    w_averg = 1/(2*(obj.nx+nw));
                     x_mean(:,k) = zeros(obj.nx,1);
-                    for j = 1:(2*(obj.nx+nw))
+                    for j = 1:n_sig_point
                         x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
                     end
                     c = c + norm(x(:,k)-x_mean(:,k))^2;
@@ -358,7 +359,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
                     c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
                     c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                    for j = 1:(2*(obj.nx+nw))
+                    for j = 1:n_sig_point
                         V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
                         c_variance(j,k) = kappa*trace(w*V_comp);
                         
@@ -375,14 +376,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
-                for j = 1:(2*(obj.nx+nw))
+                for j = 1:n_sig_point
                     % a hacky way to implement the control input
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                     Hinv(:,:,j,k) = inv(H);
                     Bmatrix(:,:,j,k) = [1,0;zeros(1,2);0,1;zeros(3,2)];%B;hand coding
                     
                     obj.plant.friction_coeff = w_mu(j);
-                    %obj.plant.terrain_height = %w_phi(j);
+                    obj.plant.terrain_index = j;
                     
                     % add feedback control
                     t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
@@ -401,16 +402,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
                 %Calculate mean and variance w.r.t. [x_k] from sigma points
-                w_averg = 1/(2*(obj.nx+nw));
                 x_mean(:,k+1) = zeros(obj.nx,1);
-                for j = 1:(2*(obj.nx+nw))
+                for j = 1:n_sig_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                 end
                 Px(:,:,k+1) = zeros(obj.nx);
                 %alpha = 1e-3;
                 %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
                 
-                for j = 1:(2*(obj.nx+nw))
+                for j = 1:n_sig_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                 end
                 
@@ -422,7 +422,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
                 c_quadratic_zd(k+1) = norm(x(7,k+1)-x_mean(9,k+1))^2;
                 
-                for j = 1:(2*(obj.nx+nw))
+                for j = 1:n_sig_point
                     V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     c = c + kappa*trace(w*V_comp);
                     % debugging
@@ -554,11 +554,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             figure(13),hold on;plot(c_variance_z(1,:),'b-')
             figure(14),hold on;plot(c_variance_zd(1,:),'b-')
             
-            
             figure(15)
             clf
             Sig_permute = permute(Sig,[1,3,2]);
-            for j = 1:(2*(obj.nx+nw))
+            for j = 1:n_sig_point
                 plot(Sig_permute(1,:,j),'r-')
                 hold on;
             end
@@ -568,7 +567,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             figure(16)
             clf
-            for j = 1:(2*(obj.nx+nw))
+            for j = 1:n_sig_point
                 plot(Sig_permute(7,:,j),'r-')
                 hold on;
             end
@@ -578,7 +577,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             figure(17)
             clf
-            for j = 1:(2*(obj.nx+nw))
+            for j = 1:n_sig_point
                 plot(Sig_permute(3,:,j),'r-')
                 hold on;
             end
@@ -588,7 +587,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             figure(18)
             clf
-            for j = 1:(2*(obj.nx+nw))
+            for j = 1:n_sig_point
                 plot(Sig_permute(9,:,j),'r-')
                 hold on;
             end
@@ -598,7 +597,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             figure(19)
             clf
-            for j = 1:(2*(obj.nx+nw))
+            for j = 1:n_sig_point
                 plot(Sig_permute(5,:,j),'r-')
                 hold on;
             end
@@ -2312,7 +2311,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 x = y(1:nq+nv+obj.nC);
                 z = y(nq+nv+obj.nC+1:end);
                 gamma = x(nq+nv+1:end);
-                 
+                
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
                  

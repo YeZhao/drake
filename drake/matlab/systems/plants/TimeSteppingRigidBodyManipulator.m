@@ -19,7 +19,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         z_inactive_guess_tol = .01;
         multiple_contacts = false;
         gurobi_present = false;
-        num_Fext = 1;
+        num_Fext = 2;
         % convex stuff below
         update_convex = true;
         phi_max = 0.05; % m, max contact force distance
@@ -32,6 +32,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         % robust set-up for terrain uncertainty
         %terrain_height
         friction_coeff
+        terrain_index
     end
     
     methods
@@ -777,27 +778,27 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [xdn,df] = update(obj,t,x,u)
-            if obj.update_convex && nargout>1
-                [xdn,df] = updateConvex(obj,t,x,u);
-                 
-                % add gradient check
-                % X0 = [t;x;u];
-                % X0 = X0 + randn(size(X0))*0.1;
-                %
-                % fun = @(X0) updateConvex(obj,X0);
-                % DerivCheck(fun, X0)
-                %
-                % [xdn,df] = updateConvex(obj,X0);
-                %
-                % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
-                % valuecheck(xdn,xdn_numeric,1e-5);
-                % valuecheck(df,df_numeric,1e-5);
-                
-                %[xdn_QP,df_QP] = updateConvex(obj,X0);
-                
-                return;
-                disp('finish updateConvex QP')
-            end
+%             if obj.update_convex && nargout>1
+%                 [xdn,df] = updateConvex(obj,t,x,u);
+%                  
+%                 % add gradient check
+%                 % X0 = [t;x;u];
+%                 % X0 = X0 + randn(size(X0))*0.1;
+%                 %
+%                 % fun = @(X0) updateConvex(obj,X0);
+%                 % DerivCheck(fun, X0)
+%                 %
+%                 % [xdn,df] = updateConvex(obj,X0);
+%                 %
+%                 % [xdn_numeric,df_numeric] = geval(@(X0) updateConvex(obj,X0),X0,struct('grad_method','numerical'));
+%                 % valuecheck(xdn,xdn_numeric,1e-5);
+%                 % valuecheck(df,df_numeric,1e-5);
+%                 
+%                 %[xdn_QP,df_QP] = updateConvex(obj,X0);
+%                 
+%                 return;
+%                 disp('finish updateConvex QP')
+%             end 
             
             % function DerivCheck(funptr, X0, ~, varargin)
             %
@@ -942,7 +943,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             %obj.manip.terrain = -.1;
             
-            %       global active_set_fail_count
+            % global active_set_fail_count
             % do LCP time-stepping
             % todo: implement some basic caching here
             if cacheHit(obj,t,x,u,nargout)
