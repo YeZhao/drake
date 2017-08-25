@@ -5,28 +5,28 @@ function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
-    
+
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=40; tf=2;
+N=30; tf=2;
 
-% %% instantiate RigidBodyTerrain with different heights
-% w_phi = load('terrain_height_noise5.dat'); 
-% %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
-% %save -ascii terrain_height_noise5.dat w_phi
-% n_sig_point = 28;
-% for i=1:n_sig_point
-%     sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
-%     sample_options.floating = true;
-%     w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-%     plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
-%     warning(w);
-%     plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
-% end
+%% instantiate RigidBodyTerrain with different heights
+w_phi = load('terrain_height_noise5.dat');
+%w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
+%save -ascii terrain_height_noise5.dat w_phi
+n_sig_point = 28;
+for i=1:n_sig_point
+    sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+    sample_options.floating = true;
+    w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+    plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+    warning(w);
+    plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+end
 
 %% previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
@@ -40,7 +40,7 @@ x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
-    
+
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
 xtraj_ts = simulate(plant_ts,[0 tf],x0);
@@ -58,8 +58,8 @@ if visualize
     plot(ts, xtraj_ts_data(3,:),'b--');
     hold on;
     plot(ts, xtraj_ts_data(1,:),'k--');
-    xlabel('t [s]');
-      
+    xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
+    
     figure(2)
     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
     xlabel('x [m]');ylabel('z [m]');
@@ -68,7 +68,7 @@ end
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
- 
+
 options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 10;
@@ -80,7 +80,7 @@ options.kappa = 1;
 
 persistent sum_running_cost
 persistent cost_index
- 
+
 prog = RobustContactImplicitTrajectoryOptimization_Brick(plant_ts,N,tf,options);
 prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
@@ -89,11 +89,11 @@ prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
 prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
-%prog = prog.setCheckGrad(true); 
-    
+%prog = prog.setCheckGrad(true);
+ 
 snprint('snopt.out');
 
-% initial conditions constraint 
+% initial conditions constraint
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);
 prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
@@ -103,7 +103,7 @@ traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
-
+ 
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
  
 if visualize
@@ -130,18 +130,26 @@ if visualize
         plot(ts, lambda_n_data(i,:),'r-');
         hold on;
     end
-        
+    legend('passive case z position','passive case x position','robust case z position','robust case x position','robust case ground reaction force');
+    title('Time profile of positions and forces','fontsize',22);
+    
     figure(2)
     hold on;
     plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
-    xlabel('x [m]');ylabel('z [m]');
+    xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+    title('2D Cartesian CoM trajectory','fontsize',22)
+    legend('passive case','robust case')
+    ylim([0,2.1])
     
     figure(3)
     plot(ts, F_exttraj_data(1,:),'b-');
     hold on;
     plot(ts, F_exttraj_data(2,:),'r-');
+    xlabel('t [s]','fontsize',20);ylabel('force [N]','fontsize',20);
+    title('Force Profile','fontsize',22)
+    legend('horizontal force','vertical force')
+    ylim([-10.5,10.5])
 end
-  
     function [f,df] = running_cost_fun(h,x,force)
         cost_coeff = 1;
         
@@ -155,7 +163,7 @@ end
         % valuecheck(df,df_numeric,1e-3);
         % valuecheck(f,f_numeric,1e-3);
         
-        if isempty(cost_index) 
+        if isempty(cost_index)
             cost_index = 1;
             sum_running_cost = f;
         elseif cost_index == N-2
@@ -191,7 +199,7 @@ end
         % xlabel('t');
         % ylabel('slack variable');
         % hold off;
-        %  
+        %
         % figure(4)
         % plot(ts, force, color_line_type, 'LineWidth',nominal_linewidth);
         % xlabel('t');
@@ -201,10 +209,10 @@ end
         fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
         fprintf('sum of external x force along traj: %4.4f\n',sum(abs(force(1,:))));
         fprintf('sum of external z force along traj: %4.4f\n',sum(abs(force(2,:))));
-         
+        
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
- 
+
 % check if the two simulations did the same thing:
 ts = getBreaks(xtraj_ts);
 valuecheck(ts,getBreaks(xtraj));

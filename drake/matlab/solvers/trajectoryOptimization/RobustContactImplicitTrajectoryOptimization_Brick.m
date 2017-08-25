@@ -295,7 +295,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 
             w_mu = ones(1,n_sig_point);
             w_phi = zeros(1,n_sig_point);
-            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';
+            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
             flag_generate_new_noise = 0; 
             if ~flag_generate_new_noise 
                 %w_mu = load('friction_coeff_noise2.dat');
@@ -375,7 +375,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
                     end                
                 end
-                
+                 
                 %Propagate sigma points through nonlinear dynamics
                 for j = 1:n_sig_point
                     % a hacky way to implement the control input
@@ -2317,7 +2317,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 x = y(1:nq+nv+obj.nC);
                 z = y(nq+nv+obj.nC+1:end);
                 gamma = x(nq+nv+1:end);
-                
+                 
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
                  
