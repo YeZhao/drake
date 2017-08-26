@@ -1971,7 +1971,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dJ(1+j:2+obj.nD:end,:) = dD{j};
                 end
                 
-                fv = fv - J'*lambda;
+                fv = fv - J'*lambda;% lambda is the impulse, i.e., force*h, h is time step.
                 dfv(:,2+nq+nv:1+2*nq+nv) = dfv(:,2+nq+nv:1+2*nq+nv) - matGradMult(dJ,lambda,true);
                 dfv(:,2+2*nq+2*nv+nu:1+2*nq+2*nv+nu+nl) = -J'*obj.options.lambda_mult;
             end

@@ -42,27 +42,27 @@ xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
-w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-xtraj_ts = simulate(plant_ts,[0 tf],x0);
-x0 = xtraj_ts.eval(0);
-warning(w);
+% w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
+% xtraj_ts = simulate(plant_ts,[0 tf],x0);
+% x0 = xtraj_ts.eval(0);
+% warning(w);
 if visualize
     v = constructVisualizer(plant_ts);
     %v.playback(xtraj_ts,struct('slider',true));
     
-    ts = getBreaks(xtraj_ts);
-    xtraj_ts_data = xtraj_ts.eval(ts);
-    
-    %ltraj_data.
-    figure(1)
-    plot(ts, xtraj_ts_data(3,:),'b--');
-    hold on;
-    plot(ts, xtraj_ts_data(1,:),'k--');
-    xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
-    
-    figure(2)
-    plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
-    xlabel('x [m]');ylabel('z [m]');
+%     ts = getBreaks(xtraj_ts);
+%     xtraj_ts_data = xtraj_ts.eval(ts);
+%     
+%     %ltraj_data.
+%     figure(1)
+%     plot(ts, xtraj_ts_data(3,:),'b--');
+%     hold on;
+%     plot(ts, xtraj_ts_data(1,:),'k--');
+%     xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
+%     
+%     figure(2)
+%     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
+%     xlabel('x [m]');ylabel('z [m]');
 end
 
 options = struct();
@@ -91,7 +91,7 @@ prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true);
  
-snprint('snopt.out');
+%snprint('snopt.out');
 
 % initial conditions constraint
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);
@@ -112,7 +112,7 @@ if visualize
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
     
     ts = getBreaks(xtraj);
-    F_exttraj_data = F_exttraj.eval(ts);
+    F_exttraj_data = F_exttraj.eval(ts)*h;%convert impulse to force.
     xtraj_data = xtraj.eval(ts);
     ltraj_data = ltraj.eval(ts);
     nD = 4;
