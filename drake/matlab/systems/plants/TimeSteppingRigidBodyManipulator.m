@@ -254,11 +254,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             [xdn,df] = geval(@obj.solveQP,h,x,u,struct('grad_method','numerical'));
         end
         
-        function [xdn,df] = solveQP(obj,h,x,u,w)
+%         function [Mvn,dMvn] = solveQP(obj,X0)
+%         function [lambda,dlambda] = solveQP(obj,X0)
+        function [b,db] = solveQP(obj,X0)
+            
+%         function [xdn,df] = solveQP(obj,h,x,u,w)
             %         function [xdn,df] = solveQP(obj,X0)
-            %             h = X0(1);
-            %             x = X0(2:13);
-            %             u = X0(14);
+                        h = X0(1);
+                        x = X0(2:13);
+                        u = X0(14:15);
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -342,9 +346,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             dJx = []; dJy = []; dJz = [];
             for j=1:length(Aidx)
                 for i=1:num_q
-                    dJx = [dJx;dJ(3*(i-1)+18*(j-1)+1,:)];
-                    dJy = [dJy;dJ(3*(i-1)+18*(j-1)+2,:)];
-                    dJz = [dJz;dJ(3*(i-1)+18*(j-1)+3,:)];
+                    dJx = [dJx;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
+                    dJy = [dJy;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];
+                    dJz = [dJz;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
                 end
             end
             dJD{1} = dJx; dJD{2} = dJy;
@@ -426,7 +430,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 % contact smoothing matrix
                 R_min = 1e-1;
-                R_max = 1e6;
+                R_max = 1e4;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
@@ -459,7 +463,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 % phiL_pos = phiL;
                 % phiL_pos(phiL<0)=0;
                 % lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
-                lambda_ub = inf*ones(num_params,1);
+                lambda_ub = inf*ones(num_params,1);% disable this unnecessary bounding constraint
                 
                 try
                     Q = 0.5*V'*(A+R)*V + 1e-8*eye(num_params);
@@ -518,15 +522,17 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 bin_fqp_active = bin_fqp(active_set);
                 
                 Qinv = pinv(2*Q);
+                % this analytical solution is slightly different than the
+                % one in SJ Wright's numerical optimizaiton
                 G = Qinv - Qinv*Ain_fqp_active' ...
                     *pinv(Ain_fqp_active*Qinv*Ain_fqp_active')*Ain_fqp_active*Qinv;
                 E = Qinv*Ain_fqp_active'*pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+                E = -E;
+                % note that, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
+                % Ain_fqp_active multiplied in E.
                 F = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
                 
-                % note that, Ain in Ain_fqp_active is negative, thus the
-                % sign of E is negative since there are three
-                % Ain_fqp_active multiplied in E.
-                result_analytical = - G*V'*c - (-E)*(bin_fqp_active);
+                result_analytical = - G*V'*c - E*bin_fqp_active;
                 
                 % check contact force solved by analytical solution and
                 % gurobi solver, they should be the same
@@ -536,6 +542,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     disp('Error: contact force solved by analytical solution and gurobi solver are different')
                     %error('Error: contact force solved by analytical solution and gurobi solver are different')
                 end
+                %debugging
+                f = V*(result_analytical + w_active);
                 %% end of checker
                 
                 %         vis=obj.constructVisualizer;
@@ -561,7 +569,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 qn = q + qdn*h;
                 
                 wvn = v + h*Hinv*tau;
-                Mvn = Hinv*vToqdot'*J';
+                Mvn = Hinv*vToqdot'*J';% note that the sign of J is negative
                 
                 %         v = A*f + c
                 %         v2 = Ain*result.x - bin + v_min
@@ -664,13 +672,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     dJdq(:,:,i) = dJdq_tmp;
                     dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
-                        + J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                                      +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
                     dAdq(:,:,i) = V'*dAdq_tmp(:,:,i)*V;
                     
                     dbdq(:,:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
                     dAdv(:,:,i) = zeros(nC*num_d);
                 end
-                dCdv = dC(:,1:num_q);
+                dCdv = dC(:,num_q+1:2*num_q);
                 dbdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
                 
                 dAdu = zeros(num_beta,num_beta,num_u);
@@ -681,13 +689,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
                 
                 %% partial derivative of equality constraints (active)
-                dynamicsConstraint_active_set = find(active_set<=8);%[Ye: to be tuned for different systems]
-                boundingConstraint_active_set = find(active_set>8);
+                dynamicsConstraint_active_set = find(active_set<=num_active);%[Ye: to be tuned for different systems]
+                boundingConstraint_active_set = find(active_set>num_active);
                 num_dynamicsConstraint_active_set = length(dynamicsConstraint_active_set);
                 num_boundingConstraint_active_set = length(boundingConstraint_active_set);
                 num_constraint_active_set = num_dynamicsConstraint_active_set + num_boundingConstraint_active_set;
                 
-                dA_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,num_full_dim,num_q);
+                dA_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,num_beta,num_q);
                 db_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
                 db_tildedv_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
                 dA_tildedq = zeros(num_constraint_active_set,num_beta,num_q);
@@ -712,12 +720,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         db_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                         db_tildedv(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                     end
-                    
                     assert(length(dA_tildedq(:,1,i)) == length(active_set));
                 end
+                
                 % partial derivative of b_tilde w.r.t u
                 db_tildedu_dyn = zeros(num_dynamicsConstraint_active_set,1,num_u);
-                db_tildedu = zeros(num_full_dim,1,num_u);
+                db_tildedu = zeros(num_constraint_active_set,1,num_u);
                 for i=1:num_u
                     for j=1:num_dynamicsConstraint_active_set
                         row = active_set(j);
@@ -725,16 +733,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         db_tildedu_dyn(j,:,i) = normal(:,row)'*dbdu(idx,:,i);
                     end
                     if ~isempty(dynamicsConstraint_active_set)
-                        db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                        db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                     else
-                        db_tildedu(:,:,i) = [zeros(boundingConstraint_active_set(end)- boundingConstraint_active_set(1)+1, 1)];
+                        db_tildedu(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                     end
                 end
                  
                 %% partial derivative of KKT matrix blocks
                 dGdq = zeros(num_beta,num_beta,num_q);
-                dEdq = zeros(num_beta,num_full_dim,num_q);
-                dFdq = zeros(num_full_dim,num_full_dim,num_q);
+                dEdq = zeros(num_beta,num_constraint_active_set,num_q);
+                dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
                 for i=1:num_q
                     % partial dervative w.r.t q
                     M = Qinv*dAdq(:,:,i)*Qinv;
@@ -751,8 +759,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
                     % Ain_fqp_active multiplied in E.
                     
-                    dFdq(:,:,i) = -N*Ain_fqp_active*M*Ain_fqp_active'*N + N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                        + N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                    % not used, can be used for slack variable analytical solution
+                    dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                                  - N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
                     
                     % partial dervative w.r.t v
                     % dGdv = 0, dEdv = 0, dFdv = 0.
@@ -777,8 +786,19 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 dlambda = [zeros(length(lambda),1), V*dlambdadq, V*dlambdadv, V*dlambdadu];
                 % TODO: give a final check on each partial derivative
                 % w.r.t. q, v, and u.
+                
+                % gradient check of components
+                b_tilde = bin_fqp_active;
+                try
+                    db_tilde = [zeros(length(b_tilde),1), permute(db_tildedq,[1,3,2]), permute(db_tildedv,[1,3,2]), permute(db_tildedu,[1,3,2])];
+                catch
+                    keyboard
+                end
+                
+                b = c;
+                db = [zeros(length(b),1), permute(dbdq,[1,3,2]), dbdv, permute(dbdu,[1,3,2])];
             end
-            dlambda
+            %dlambda
             
             % Find quaternion indices
             quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
@@ -800,13 +820,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     dqdn = dwvn;
                 else
                     dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
-                    lambda
-                    V*(result_analytical + w_active)
-                    dlambda
-                    Mvn
-                    wvn
-                    dMvn
-                    dwvn
+                    %lambda
+%                     V*(result_analytical + w_active)
+%                     dlambda
+                    %Mvn
+                    %wvn
+%                     dMvn
+%                     dwvn
                 end
                 df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
@@ -829,11 +849,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function [xdn,df] = update(obj,t,x,u)
             if obj.update_convex && nargout>1
                 
-                tStart = tic;
-                [xdn_QP,df_QP] = solveQP(obj,t,x,u);
-                tElapsed = toc(tStart)
+%                 tStart = tic;
+%                 [xdn_QP,df_QP] = solveQP(obj,t,x,u);
+%                 tElapsed = toc(tStart)
                 
-                % add gradient check
+                %% add gradient check
                 % X0 = [t;x;u];
                 % X0 = X0 + randn(size(X0))*0.1;
                 %
@@ -845,40 +865,72 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
                 % valuecheck(xdn,xdn_numeric,1e-5);
                 % valuecheck(df,df_numeric,1e-5);
-                
                 %[xdn_QP,df_QP] = solveQP(obj,X0);
                 
+                
+                %% gradient check lambda and dlambda
+                X0 = [t;x;u];
+                X0 = X0 + randn(size(X0))*0.1;
+                
+                if X0(2) > 5.8
+                    fun = @(X0) solveQP(obj,X0);
+                    DerivCheck(fun, X0)
+                    
+                    [lambda,dlambda] = solveQP(obj,X0);
+                    
+                    try
+                        [lambda_numeric,dlambda_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+                        valuecheck(lambda,lambda_numeric,1e-6);
+                        valuecheck(dlambda,dlambda_numeric,1e-6);
+                    catch
+                        keyboard
+                    end
+                end
+                
+%%                 %gradient check Mvn and dMvn
+%                 X0 = [t;x;u];
+%                 X0 = X0 + randn(size(X0))*0.1;
+%                 
+%                 fun = @(X0) solveQP(obj,X0);
+%                 DerivCheck(fun, X0)
+%                 
+%                 [Mvn,dMvn] = solveQP(obj,X0);
+%                 
+%                 [Mvn_numeric,dMvn_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+%                 valuecheck(Mvn,Mvn_numeric,1e-5);
+%                 valuecheck(dMvn,dMvn_numeric,1e-5);
+                
                 %return;
-                %disp('finish solveQP QP')
+                disp('finish solveQP QP')
             end 
              
-            % function DerivCheck(funptr, X0, ~, varargin)
-            %
-            %     % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
-            %     %`
-            %     %  Checks the analytic gradient of a function 'funptr' at a point X0, and
-            %     %  compares to numerical gradient.  Useful for checking gradients computed
-            %     %  for fminunc and fmincon.
-            %     %
-            %     %  Call with same arguments as you would call for optimization (fminunc).
-            %     %
-            %     % $id$
-            %
-            %     [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
-            %
-            %     % Pick a random small vector in parameter space
-            %     tol = 1e-6;  % Size of numerical step to take
-            %     rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-            %
-            %     % Evaluate at symmetric points around X0
-            %     f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-            %     f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
-            %
-            %     % Print results
-            %     fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(JJ*rr), sum(f2-f1));
-            %     %dd =  dot(rr, JJ)-f2+f1
-            %     dd =  sum(JJ*rr-f2+f1)
-            % end
+            function DerivCheck(funptr, X0, ~, varargin)
+            
+                % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
+                %`
+                %  Checks the analytic gradient of a function 'funptr' at a point X0, and
+                %  compares to numerical gradient.  Useful for checking gradients computed
+                %  for fminunc and fmincon.
+                %
+                %  Call with same arguments as you would call for optimization (fminunc).
+                %
+                % $id$
+            
+                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+            
+                % Pick a random small vector in parameter space
+                tol = 1e-6;  % Size of numerical step to take
+                rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
+            
+                % Evaluate at symmetric points around X0
+                f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+            
+                % Print results
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr)), sum(sum(f2-f1)));
+                %dd =  dot(rr, JJ)-f2+f1
+                dd =  sum(sum(JJ*rr))-sum(sum(f2-f1))
+            end
             
             if (nargout>1)
                 [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -936,13 +988,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
             
-            if sum(abs(xdn_QP-xdn)) > 1e-3
+            xdn(1)
+            if xdn(1) > 6 %sum(abs(xdn_QP-xdn)) > 1e-3
+                %keyboard
                 disp('larger cost numerical deviation')
             end
             
-            if sum(sum(abs(df_QP-df))) > 1e-3
-                disp('larger gradient numerical deviation')
-            end
+%             if sum(sum(abs(df_QP-df))) > 1e-3
+%                 disp('larger gradient numerical deviation')
+%             end
             
         end
         
