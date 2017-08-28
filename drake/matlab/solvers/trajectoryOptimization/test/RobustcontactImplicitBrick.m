@@ -12,13 +12,13 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=30; tf=2;
+N=30; tf=2; 
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
 %save -ascii terrain_height_noise5.dat w_phi
-n_sig_point = 28;
+n_sig_point = 28; 
 for i=1:n_sig_point
     sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
     sample_options.floating = true;
@@ -27,7 +27,7 @@ for i=1:n_sig_point
     warning(w);
     plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
 end
-
+ 
 %% previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
 % %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
@@ -86,7 +86,7 @@ prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
-prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3); 
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true);
@@ -110,14 +110,15 @@ if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
-    
+     
     ts = getBreaks(xtraj);
-    F_exttraj_data = F_exttraj.eval(ts)*h;%convert impulse to force.
+    h = tf/(N-1);
+    F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
     xtraj_data = xtraj.eval(ts);
     ltraj_data = ltraj.eval(ts);
     nD = 4;
     nC = 8;
-    lambda_n_data = ltraj_data(1:nD+2:end,:);
+    lambda_n_data = ltraj_data(1:nD+2:end,:)/h;
     
     %ltraj_data.
     figure(1)

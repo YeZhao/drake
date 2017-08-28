@@ -277,7 +277,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
             nq = obj.plant.getNumPositions;
-            nv = obj.plant.getNumVelocities;
+            nv = obj.plant.getNumVelocities; 
             nu = obj.nFext;%obj.plant.getNumInputs;
                         
             % sigma points
@@ -286,28 +286,28 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             % disturbance variance 
             % currently only consider terrain height and friction coefficient
-            Pw = diag([0.16, 0.09]); %[to be tuned]
+            Pw = diag([0.16, 0.04]); %[to be tuned]
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
-            nw = size(Pw,1);
+            nw = size(Pw,1); 
             n_sig_point = 2*(obj.nx+nw);
             w_averg = 1/n_sig_point;
-
+ 
             w_mu = ones(1,n_sig_point);
-            w_phi = zeros(1,n_sig_point);
-            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
+            w_phi = zeros(1,n_sig_point); 
+            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';% 
             flag_generate_new_noise = 0; 
             if ~flag_generate_new_noise 
-                %w_mu = load('friction_coeff_noise2.dat');
+                w_mu = load('friction_coeff_noise1.dat');
                 %w_mu = ones(1,obj.N);
                 %w_phi = load('terrain_height_noise5.dat'); 
             else
                 w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
                 w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
-                save -ascii friction_coeff_noise2.dat w_mu
+                save -ascii friction_coeff_noise1.dat w_mu
                 save -ascii terrain_height_noise2.dat w_phi
-            end
-            
+            end 
+             
             w_noise = [w_phi;w_mu];
             
             K = [obj.options.Kx_gain,zeros(1,nq-1),obj.options.Kxd_gain,zeros(1,nv-1);
