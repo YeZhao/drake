@@ -83,7 +83,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
             if ~isfield(options,'lambda_jl_mult')
                 options.lambda_jl_mult = 1;
-            end 
+            end
             if ~isfield(options,'active_collision_options')
                 options.active_collision_options.terrain_only = true;
             end
@@ -119,7 +119,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
-            external_force_max = 10;% random chosen value
+            external_force_max = 0;% random chosen value
             external_force_cnstr = BoundingBoxConstraint([-external_force_max,-external_force_max],[external_force_max,external_force_max]);
             
             for i=1:obj.N-1,
@@ -185,11 +185,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     W_jl = zeros(obj.nJL);
                     [r_jl,M_jl] = jointLimitConstraints(obj.plant,q0);
                     jlcompl_constraints{i} = LinearComplementarityConstraint_original(W_jl,r_jl,M_jl,obj.options.lincc_mode);
-                     
+                    
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
                 end
             end
-             
+            
             % robust variance cost with feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
@@ -197,7 +197,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-                
+            
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
             if (obj.nC > 0)
@@ -271,65 +271,65 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
             end
         end
-          
+        
         function [c,dc] = robustVariancecost(obj, x_full, Fext_full)
             
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
             nq = obj.plant.getNumPositions;
-            nv = obj.plant.getNumVelocities; 
+            nv = obj.plant.getNumVelocities;
             nu = obj.nFext;%obj.plant.getNumInputs;
-                        
+            
             % sigma points
             Px = zeros(obj.nx,obj.nx,obj.N);
             Px(:,:,1) = obj.cached_Px(:,:,1);
             
-            % disturbance variance 
+            % disturbance variance
             % currently only consider terrain height and friction coefficient
             Pw = diag([0.16, 0.04]); %[to be tuned]
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
-            nw = size(Pw,1); 
+            nw = size(Pw,1);
             n_sig_point = 2*(obj.nx+nw);
             w_averg = 1/n_sig_point;
- 
+            
             w_mu = ones(1,n_sig_point);
-            w_phi = zeros(1,n_sig_point); 
-            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';% 
-            flag_generate_new_noise = 0; 
-            if ~flag_generate_new_noise 
+            w_phi = zeros(1,n_sig_point);
+            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
+            flag_generate_new_noise = 0;
+            if ~flag_generate_new_noise
                 w_mu = load('friction_coeff_noise1.dat');
                 %w_mu = ones(1,obj.N);
-                %w_phi = load('terrain_height_noise5.dat'); 
+                %w_phi = load('terrain_height_noise5.dat');
             else
                 w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
                 w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
                 save -ascii friction_coeff_noise1.dat w_mu
                 save -ascii terrain_height_noise2.dat w_phi
-            end 
-             
+            end
+            
             w_noise = [w_phi;w_mu];
             
             K = [obj.options.Kx_gain,zeros(1,nq-1),obj.options.Kxd_gain,zeros(1,nv-1);
-                 zeros(1,2),obj.options.Kz_gain,zeros(1,3),zeros(1,2),obj.options.Kzd_gain,zeros(1,3)];%[2*ones(nu,nq),ones(nu,]nv)];
+                zeros(1,2),obj.options.Kz_gain,zeros(1,3),zeros(1,2),obj.options.Kzd_gain,zeros(1,3)];%[2*ones(nu,nq),ones(nu,]nv)];
             
             %initialize c and dc
             kappa = obj.options.kappa;
             x_mean = zeros(obj.nx, obj.N);
             % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
             c = kappa*trace(Px(:,:,1));
-            %c = 0; 
-            c_quadratic = 0; 
+            %c = 0;
+            c_quadratic = 0;
             c_variance = 0;
             dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
             
             % initialize gradient of Tr(V) w.r.t state vector x
             dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
             dTrVdu(:,:,1) = zeros(obj.N-1,nu);
-             
+            
             % time counter
             tStart = tic;
-             
+            
             for k = 1:obj.N-1%[Ye: double check the index]
                 %Generate sigma points from Px(i+1)
                 %[the sequential way to be modified]
@@ -373,9 +373,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         c_variance_z(j,k) = kappa*trace(w*V_comp_z);
                         V_comp_zd = (Sig(9,j,k)-x_mean(9,k))*(Sig(9,j,k)-x_mean(9,k))';
                         c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
-                    end                
+                    end
                 end
-                 
+                
                 %Propagate sigma points through nonlinear dynamics
                 for j = 1:n_sig_point
                     % a hacky way to implement the control input
@@ -395,8 +395,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % debugging
                     % if u_fdb_k*u(:,k) < 0
                     %     disp('control sign is changed')
-                    % end  
-                     
+                    % end
+                    
                     [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                     
                     Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
@@ -434,7 +434,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     % debugging
                     c_variance(j,k+1) = kappa*trace(w*V_comp);
-
+                    
                     V_comp_x = (Sig(1,j,k+1)-x_mean(1,k+1))*(Sig(1,j,k+1)-x_mean(1,k+1))';
                     c_variance_x(j,k+1) = kappa*trace(w*V_comp_x);
                     V_comp_xd = (Sig(7,j,k+1)-x_mean(7,k+1))*(Sig(7,j,k+1)-x_mean(7,k+1))';
@@ -444,7 +444,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     c_variance_z(j,k+1) = kappa*trace(w*V_comp_z);
                     V_comp_zd = (Sig(9,j,k+1)-x_mean(9,k+1))*(Sig(9,j,k+1)-x_mean(9,k+1))';
                     c_variance_zd(j,k+1) = kappa*trace(w*V_comp_zd);
-                end 
+                end
                 
                 % derivative of variance matrix
                 % gradient of Tr(V) w.r.t state vector x
@@ -518,10 +518,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
             tElapsed = toc(tStart);
             
-            dc = []; 
+            dc = [];
             % cost gradient w.r.t x at first time step is zero
             for k=1:obj.N % index for x_k
-                dTrV_sum_dx_k = zeros(1, obj.nx); 
+                dTrV_sum_dx_k = zeros(1, obj.nx);
                 if (k == 1)
                     dmeanR_sum_dx_k = 2*(x(:,k)-x_mean(:,k))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
                 else
@@ -533,7 +533,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];%
             end
-             
+            
             % cost gradient w.r.t u at first time step is zero, since
             % c(k=1) = Px(:,:,1)
             for k=1:obj.N % index for u_k
@@ -542,13 +542,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
                     dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(k,:,kk);
                     dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(k,:,kk);
-                end 
+                end
                 dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];%
             end
             
             % scale this robust cost
             c = obj.options.contact_robust_cost_coeff*c;
-            dc = obj.options.contact_robust_cost_coeff*dc; 
+            dc = obj.options.contact_robust_cost_coeff*dc;
             
             figure(7),hold on;plot(c_quadratic_x,'b-')
             figure(8),hold on;plot(c_quadratic_xd,'b-')
@@ -614,24 +614,24 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.cached_Px = Px;
             fprintf('robust cost function: %4.8f\n',c);
             
-%             % check gradient
-%             disp('check gradient')
-%             c_numeric = c;
-%             dc_numeric = dc;
-% %             
-%             X0 = [x_full; Fext_full];
-% %             %X0 = X0 + randn(size(X0))*0.1;
-%              
-%             fun = @(X0) robustVariancecost_check(obj, X0);
-%             DerivCheck(fun, X0)
-%                  
-%             [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
-% 
-%             [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
-%             
-%             valuecheck(dc,dc_numeric,1e-5);
-%             valuecheck(c,c_numeric,1e-5);
-             
+            %             % check gradient
+            %             disp('check gradient')
+            %             c_numeric = c;
+            %             dc_numeric = dc;
+            % %
+            %             X0 = [x_full; Fext_full];
+            % %             %X0 = X0 + randn(size(X0))*0.1;
+            %
+            %             fun = @(X0) robustVariancecost_check(obj, X0);
+            %             DerivCheck(fun, X0)
+            %
+            %             [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+            %
+            %             [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
+            %
+            %             valuecheck(dc,dc_numeric,1e-5);
+            %             valuecheck(c,c_numeric,1e-5);
+            
             function DerivCheck(funptr, X0, ~, varargin)
                 
                 % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
@@ -683,10 +683,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
-
+                
                 nw = size(Pw,1);
                 K = [obj.options.Kx_gain,zeros(nu,nq-1),obj.options.Kxd_gain,zeros(nu,nv-1)];%[2*ones(nu,nq),ones(nu,nv)];
-                 
+                
                 %initialize c and dc
                 kappa = options.kappa;
                 x_mean = zeros(obj.nx, obj.N);
@@ -694,7 +694,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 %c = kappa*trace(Px(:,:,1));
                 c = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                 
+                
                 % initialize gradient of Tr(V) w.r.t state vector x
                 dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
                 dTrVdu(:,:,1) = zeros(obj.N-1,nu);
@@ -871,13 +871,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dc = obj.options.contact_robust_cost_coeff*dc;
             end
         end
-         
+        
         function [c,dc] = robustLCPcost(obj, slack_var)
             c = obj.options.robustLCPcost_coeff*sum(slack_var);
             dc = obj.options.robustLCPcost_coeff*ones(1,length(slack_var));
             fprintf('sum of slack variable cost: %4.4f\n',c);
         end
-         
+        
         function [f,df] = ERMcost_normaldistance_Gaussian(obj, x, lambda)
             
             nq = obj.plant.getNumPositions;
@@ -1945,7 +1945,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dfqdFext = zeros(nq,2);
                     dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq), zeros(nq,nu+nl+njl), dfqdFext];% expand the dimension with Fext
             end
-                        
+            
             % H*v1 = H*v0 + h*(B*u - C) + n^T lambda_N + d^T * lambda_f
             fv = H*(v1 - v0) - h*BuminusC;
             % [h q0 v0 q1 v1 u l ljl]
@@ -1956,7 +1956,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             dfvdFext = -h*[1,0;zeros(1,2);0,1;zeros(3,2)];
             dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl), dfvdFext] + ...
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,2+nu+nl+njl)];
-                        
+            
             if nl>0
                 [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
                 % construct J and dJ from n,D,dn, and dD so they relate to the
@@ -2107,7 +2107,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
             
         end
-                
+        
         function [xtraj,utraj,ltraj,ljltraj,slacktraj,Fexttraj,z,F,info,infeasible_constraint_name] = solveTraj(obj,t_init,traj_init)
             [xtraj,utraj,z,F,info,infeasible_constraint_name] = solveTraj@DirectTrajectoryOptimization_Brick(obj,t_init,traj_init);
             t = [0; cumsum(z(obj.h_inds))];
@@ -2317,10 +2317,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 x = y(1:nq+nv+obj.nC);
                 z = y(nq+nv+obj.nC+1:end);
                 gamma = x(nq+nv+1:end);
-                 
+                
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
-                 
+                
                 [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = plant_perturb.contactConstraints(q,false,obj.options.active_collision_options);
                 
                 f = zeros(obj.nC*(1+obj.nD),1);

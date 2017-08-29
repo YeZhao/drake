@@ -12,13 +12,13 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=30; tf=2; 
+N=100; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
 %save -ascii terrain_height_noise5.dat w_phi
-n_sig_point = 28; 
+n_sig_point = 28;
 for i=1:n_sig_point
     sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
     sample_options.floating = true;
@@ -27,7 +27,7 @@ for i=1:n_sig_point
     warning(w);
     plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
 end
- 
+
 %% previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
 % %x0 = [0;0;1.0;0;0;0;zeros(6,1)];%free fall
@@ -42,27 +42,81 @@ xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
 
 plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
-% w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-% xtraj_ts = simulate(plant_ts,[0 tf],x0);
-% x0 = xtraj_ts.eval(0);
-% warning(w);
+w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
+xtraj_ts = simulate(plant_ts,[0 5],x0);
+x0 = xtraj_ts.eval(0);
+warning(w);
 if visualize
     v = constructVisualizer(plant_ts);
-    %v.playback(xtraj_ts,struct('slider',true));
+    v.playback(xtraj_ts,struct('slider',true));
     
-%     ts = getBreaks(xtraj_ts);
-%     xtraj_ts_data = xtraj_ts.eval(ts);
-%     
-%     %ltraj_data.
-%     figure(1)
-%     plot(ts, xtraj_ts_data(3,:),'b--');
-%     hold on;
-%     plot(ts, xtraj_ts_data(1,:),'k--');
-%     xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
-%     
-%     figure(2)
-%     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
-%     xlabel('x [m]');ylabel('z [m]');
+    ts = getBreaks(xtraj_ts);
+    xtraj_ts_data = xtraj_ts.eval(ts);
+    
+    %ltraj_data.
+    figure(1)
+    plot(ts, xtraj_ts_data(3,:),'b--');
+    hold on;
+    plot(ts, xtraj_ts_data(1,:),'k--');
+    xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
+    
+    figure(2)
+    plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
+    xlabel('x [m]');ylabel('z [m]');
+    
+    %     figure(3)
+    %     %plot(ts, xtraj_ts_data(5,:),'b--');
+    %     xlabel('t [s]');ylabel('z [m]');
+    %     hold on;
+    %     plot(ts, xtraj_ts_data(3,:),'r--');
+    %     ylim([-0.2,2])
+    %
+    %     figure(4)
+    %     %plot(ts, xtraj_ts_data(5,:),'b--');
+    %     plot(phi_1,'b-');
+    %     %ylim([-0.2,2])
+    %
+    %
+    %     for i=1:8
+    %         figure(i+5)
+    %         plot(f_vec(i*2,:)/h,'b-');
+    %         hold on;
+    %         plot(f_vec(i*3,:)/h,'r-');
+    %         hold on;
+    %     end
+    %
+    %     figure(6)
+    %     for i=1:8
+    %         plot(f_vec(i*3,:)/h,'r-');
+    %         hold on;
+    %     end
+    %
+    %     for i=1:4
+    %         figure(i+5)
+    %         plot(z_vec(i,:)/h,'b-');
+    %         hold on;
+    %     end
+    %
+    %     figure(10)
+    %     plot(xdn_LCP_vec(1,:),'b-');
+    %     hold on;
+    %     plot(xdn_QP_vec(1,:),'r-');
+    %     hold on;
+    %
+    %     figure(11)
+    %     plot(xdn_LCP_vec(3,27:end),'b-');
+    %     hold on;
+    %     plot(xdn_QP_vec(3,:),'r-');
+    %     hold on;
+    %
+    %     figure(12)
+    %     plot(f_vec_sum(3,:)/h,'b-');
+    %
+    %     figure(13)
+    %     plot(z_vec_sum(3,:)/h,'b-');
+    %
+    %     figure(14)
+    %     plot(xdn_LCP_vec(9,27:end),'b-');
 end
 
 options = struct();
@@ -71,7 +125,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 
 options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 10;
+options.Px_coeff = 100;
 options.Kx_gain = 5;
 options.Kxd_gain = 5;
 options.Kz_gain = 5;
@@ -86,11 +140,11 @@ prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
-prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3); 
+prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
 %prog = prog.setCheckGrad(true);
- 
+
 %snprint('snopt.out');
 
 % initial conditions constraint
@@ -103,14 +157,14 @@ traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
- 
+
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
- 
+
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
-     
+    
     ts = getBreaks(xtraj);
     h = tf/(N-1);
     F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.

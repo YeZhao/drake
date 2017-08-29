@@ -2,7 +2,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
-     
+    
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
@@ -147,7 +147,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             model.position_control = logical(flag);
             model.dirty = true;
         end
-         
+        
         function model = compile(model)
             w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
             model.gurobi_present = checkDependency('gurobi');
@@ -217,7 +217,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
         end
         
-        function [phiC,normal,V,n,D,dn,dD,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol)
+        function [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,q,kinsol)
             
             if nargin<3
                 kinematics_options.compute_gradients = 1;
@@ -261,7 +261,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function [xdn,df] = solveQP(obj,X0)
             t = X0(1);
             x = X0(2:13);
-            u = X0(14:15);
+            u = [];%X0(14:15);
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -293,8 +293,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
             
-            [phiC,normal,V,n,D,dn,dD,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol);
-            num_c = length(phiC);            
+            if obj.num_u > 0
+                [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,q,kinsol);
+            else
+                [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol);
+            end
+            
+            num_c = length(phiC);
             
             if nargin<5
                 w = zeros(num_c*num_d,1);
@@ -312,6 +317,27 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             phiC = phiC(active);
             normal = normal(:,active);
+            
+            
+            persistent phi_1
+            persistent phi_2
+            persistent phi_3
+            persistent phi_4
+            persistent f_vec
+            persistent f_vec_sum
+            
+            %             if ~isempty(phiC)
+            phi_1 = [phi_1,phiC(2)];
+            phi_2 = [phi_2,phiC(4)];
+            phi_3 = [phi_3,phiC(6)];
+            phi_4 = [phi_4,phiC(8)];
+            
+            %             end
+            
+            if t > 4.98
+                keyboard
+            end
+            
             
             Apts = xA(:,active);
             Bpts = xB(:,active);
@@ -368,12 +394,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 tau = B*u - C;
                 dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
             else
+                %                 %[Ye: hacky way to implement an external force]
+                %                 obj.num_Fext = 2;
+                %                 num_u = obj.num_Fext;
+                %                 tau = -C + [u(1);0;u(2);zeros(3,1)];
+                %                 dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
+                %                 dtau = [zeros(num_v,1), -dC, dtaudu];
+                
                 %[Ye: hacky way to implement an external force]
-                obj.num_Fext = 2;
+                obj.num_Fext = 0;
                 num_u = obj.num_Fext;
-                tau = -C + [u(1);0;u(2);zeros(3,1)];
-                dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
-                dtau = [zeros(num_v,1), -dC, dtaudu];
+                tau = -C;
+                dtau = [zeros(num_v,1), -dC];
             end
             Hinv = inv(H);
             
@@ -413,7 +445,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     w_active((i-1)*num_d+(1:num_d)) = w((active(i)-1)*num_d+(1:num_d));
                     v_min(i) = -phi(i)/h;
-%                     v_min(i) = 0;
+                    %                     v_min(i) = 0;
                 end
                 V = blkdiag(V_cell{:},eye(nL));
                 
@@ -421,7 +453,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
                 % contact smoothing matrix
-                R_min = 1e-1;
+                R_min = 1e-4;
                 R_max = 1e4;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
@@ -429,6 +461,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 ind = (phiC > obj.contact_threshold) & (phiC < obj.phi_max);
                 y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
                 r(ind) = R_min + R_max./(1+exp(-10*y));
+                % Todorov's function
+                %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
                 r = repmat(r,1,dim)';
                 %         R = diag([r(:)',r(:)']);
                 R = diag(r(:));
@@ -469,6 +503,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     idx = (i-1)*dim + (1:dim);
                     Ain(i,:) = normal(:,i)'*A(idx,:)*V;
                     bin(i) = v_min(i) - normal(:,i)'*c(idx);
+                    %Aeq1(i,:) = (Ain(i,:)-bin(i))'*normal(:,i)';
+                    %Aeq2(i,:) = -(Ain(i,:)-bin(i))'*normal(:,i)';
                 end
                 for i=1:nL
                     idx = num_active*dim + i;
@@ -481,6 +517,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
+                
+                % modification
+                A_aug = [];
+                b_aug = [];
+                for i=1:8
+                    if(phi(i) < 0)
+                        A_aug = [A_aug;-Ain(i,:)];
+                        b_aug = [b_aug;-bin(i)-0.1];
+                    end
+                end
+                A_full = [Ain;A_aug];
+                b_full = [bin;b_aug];
                 
                 %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                 
@@ -507,6 +555,33 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 f = V*(result_qp + w_active);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
                 active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
                 obj.LCP_cache.data.fastqp_active_set = active_set;
+                
+                if any(result_qp < 0)
+                    keyboard
+                end
+                
+                for i=1:8
+                    if sqrt(f(1+(i-1)*3)^2 + f(2+(i-1)*3)^2)/f(i*3) > 1
+                        keyboard
+                    end
+                end
+                
+                f_vec = [f_vec,f];
+                
+                f_x_sum = 0;
+                f_y_sum = 0;
+                f_z_sum = 0;
+                for i=1:8
+                    f_x_sum = f_x_sum + f(i);
+                    f_y_sum = f_y_sum + f(2*i);
+                    f_z_sum = f_z_sum + f(3*i);
+                end
+                f_sum = [f_x_sum;f_y_sum;f_z_sum];
+                f_vec_sum = [f_vec_sum, f_sum];
+                
+                %                 if length(phi_1) == 35
+                %                     keyboard
+                %                 end
                 
                 %% checker that the analytical solution from KKT condition
                 % gives correct contact force solution
@@ -667,7 +742,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     try
                         dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
-                                          +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                            +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
                         dAdq(:,:,i) = V'*dAdq_tmp(:,:,i)*V;
                     catch
                         keyboard
@@ -693,7 +768,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 num_constraint_active_set = num_dynamicsConstraint_active_set + num_boundingConstraint_active_set;
                 
                 % partial derivative of b_tilde w.r.t h
-                db_tildedh_dyn = zeros(num_dynamicsConstraint_active_set,1);                
+                db_tildedh_dyn = zeros(num_dynamicsConstraint_active_set,1);
                 for j=1:num_dynamicsConstraint_active_set
                     row = active_set(j);
                     idx = (row-1)*dim + (1:dim);
@@ -748,7 +823,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         db_tildedu(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                     end
                 end
-                 
+                
                 %% partial derivative of KKT matrix blocks
                 dGdq = zeros(num_beta,num_beta,num_q);
                 dEdq = zeros(num_beta,num_constraint_active_set,num_q);
@@ -771,11 +846,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     % not used, can be used for slack variable analytical solution
                     dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                                  - N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                        - N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
                     
                     % partial dervative w.r.t v
                     % dGdv = 0, dEdv = 0, dFdv = 0.
-                    % partial dervative w.r.t u 
+                    % partial dervative w.r.t u
                     % dGdu = 0, dEdu = 0, dFdu = 0.
                 end
                 
@@ -854,53 +929,59 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [xdn,df] = update(obj,t,x,u)
-            if obj.update_convex && nargout>1
-                
-                X0 = [t;x;u];
-                % X0 = X0 + randn(size(X0))*0.1;
-                
-                %tStart = tic;
-                [xdn,df] = solveQP(obj,X0);
-                %tElapsed = toc(tStart);
-                
-                %% add gradient check
-                %
-                % fun = @(X0) solveQP(obj,X0);
-                % DerivCheck(fun, X0)
-                % 
-                % [xdn,df] = solveQP(obj,X0);
-                %
-                % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-                % valuecheck(xdn,xdn_numeric,1e-5);
-                % valuecheck(df,df_numeric,1e-5);
-                %[xdn_QP,df_QP] = solveQP(obj,X0);
-                
-                
-                %% gradient check lambda and dlambda
-%                 X0 = [t;x;u];
-%                 X0 = X0 + randn(size(X0))*0.1;
-                
-%                 if X0(2) > 3%6.87%t > 1.5%
-%                     fun = @(X0) solveQP(obj,X0);
-%                     DerivCheck(fun, X0)
-%                     
-%                     [lambda,dlambda] = solveQP(obj,X0);
-%                     
-%                     try
-%                         [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-%                         valuecheck(xdn_QP,xdn_numeric,1e-6);
-%                         valuecheck(df_QP,df_numeric,1e-5);
-%                     catch
-%                         keyboard
-%                     end
-%                 end
-                
-                return;
-                disp('finish solveQP QP')
-            end 
-             
-            function DerivCheck(funptr, X0, ~, varargin)
+            %if obj.update_convex && nargout>1
+            t
+            X0 = [t;x;u];
+            % X0 = X0 + randn(size(X0))*0.1;
             
+            persistent xdn_QP_vec;
+            persistent xdn_LCP_vec;
+            
+            %                 tStart = tic;
+            [xdn,df] = solveQP(obj,X0);
+            %                 tElapsed = toc(tStart);
+            
+            xdn_QP_vec = [xdn_QP_vec,xdn];
+            
+            return;
+            disp('finish solveQP QP')
+            
+            %% add gradient check
+            %
+            % fun = @(X0) solveQP(obj,X0);
+            % DerivCheck(fun, X0)
+            %
+            % [xdn,df] = solveQP(obj,X0);
+            %
+            % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            % valuecheck(xdn,xdn_numeric,1e-5);
+            % valuecheck(df,df_numeric,1e-5);
+            %[xdn_QP,df_QP] = solveQP(obj,X0);
+            
+            %% gradient check lambda and dlambda
+            % X0 = [t;x;u];
+            % X0 = X0 + randn(size(X0))*0.1;
+            %
+            % if X0(2) > 3%6.87%t > 1.5%
+            %     fun = @(X0) solveQP(obj,X0);
+            %     DerivCheck(fun, X0)
+            %
+            %     [lambda,dlambda] = solveQP(obj,X0);
+            %
+            %     try
+            %         [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            %         valuecheck(xdn_QP,xdn_numeric,1e-6);
+            %         valuecheck(df_QP,df_numeric,1e-5);
+            %     catch
+            %         keyboard
+            %     end
+            % end
+            
+            
+            %end
+            
+            function DerivCheck(funptr, X0, ~, varargin)
+                
                 % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
                 %`
                 %  Checks the analytic gradient of a function 'funptr' at a point X0, and
@@ -910,17 +991,17 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 %  Call with same arguments as you would call for optimization (fminunc).
                 %
                 % $id$
-            
+                
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
-            
+                
                 % Pick a random small vector in parameter space
                 tol = 1e-6;  % Size of numerical step to take
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-            
+                
                 % Evaluate at symmetric points around X0
                 [f1, JJ1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
                 [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
-            
+                
                 % Print results
                 fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr)), sum(sum(f2-f1)));
                 %dd =  dot(rr, JJ)-f2+f1
@@ -958,7 +1039,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
                 end
             end
-            xdn = [qn;vn]; 
+            xdn = [qn;vn];
+            
+            xdn_LCP_vec = [xdn_LCP_vec,xdn];
+            
+            %if size(xdn_LCP_vec,2) > 100
+            if t > 4.98
+                keyboard
+            end
             
             if (nargout>1)  % compute gradients
                 if isempty(z)
@@ -968,6 +1056,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
                 df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
+            
+            %X_compare = [xdn_QP,xdn];
             
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
@@ -983,15 +1073,15 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
             
-%             xdn(1)
-%             if sum(abs(xdn_QP-xdn)) > 1e-2
-%                 %keyboard
-%                 disp('larger cost numerical deviation')
-%             end
-%             
-%             if sum(sum(abs(df_QP-df))) > 1e-2
-%                 disp('larger gradient numerical deviation')
-%             end
+            %             xdn(1)
+            %             if sum(abs(xdn_QP-xdn)) > 1e-2
+            %                 %keyboard
+            %                 disp('larger cost numerical deviation')
+            %             end
+            %
+            %             if sum(sum(abs(df_QP-df))) > 1e-2
+            %                 disp('larger gradient numerical deviation')
+            %             end
             
         end
         
@@ -1049,7 +1139,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             %disp('second part')
             %tStart = tic;
-            %% 
+            %%
             
             %obj.manip.terrain = -.1;
             
@@ -1086,10 +1176,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     [H,C,B] = manipulatorDynamics(obj.manip,q,v);
                     if (obj.num_u>0 && ~obj.position_control)
                         tau = B*u - C;
-                    else 
+                    else
                         tau = -C;
                     end
-                else 
+                else
                     [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
                     if (obj.num_u>0 && ~obj.position_control)
                         tau = B*u - C;
@@ -1173,10 +1263,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         J_check = zeros(0,num_q);
                         JL = zeros(0,num_q^2);
                     end
-                     
+                    
                     has_contacts = (nContactPairs > 0);
                     if has_contacts
-                        if (nargout>4)  
+                        if (nargout>4)
                             if strcmp(obj.uncertainty_source, 'friction_coeff')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                             elseif strcmp(obj.uncertainty_source, 'terrain_height')
@@ -1186,7 +1276,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                         end
                         % reconstruct perturbed mu
-                        if ~isempty(obj.friction_coeff)     
+                        if ~isempty(obj.friction_coeff)
                             mu = obj.friction_coeff*ones(length(mu),1);
                         end
                         % [double make sure that mu is not interweaving contactConstraints]
@@ -1195,7 +1285,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             if isempty(possible_contact_indices)
                                 possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;
                             end
-                             
+                            
                             nC = sum(possible_contact_indices);
                             mC = length(D);
                             
@@ -1276,9 +1366,34 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     obj.LCP_cache.data.contact_data = contact_data;
                     
+                    persistent z_vec
+                    persistent z_vec_sum
+                    persistent contact_free_index
+                    
+                    %                     persistent phi_1
+                    %                     persistent phi_2
+                    %                     persistent phi_3
+                    %                     persistent phi_4
+                    %
+                    %                     if ~isempty(phiC)
+                    %                         phi_1 = [phi_1,phiC(1)];
+                    %                         phi_2 = [phi_2,phiC(2)];
+                    %                         phi_3 = [phi_3,phiC(3)];
+                    %                         phi_4 = [phi_4,phiC(4)];
+                    %                     end
+                    %
+                    if t > 4.98
+                        keyboard
+                    end
+                    
                     
                     
                     if (nC+nL+nP+nV==0)  % if there are no possible contacts
+                        if isempty(contact_free_index)
+                            contact_free_index = 1;
+                        else
+                            contact_free_index = contact_free_index + 1;
+                        end
                         z = [];
                         Mvn = [];
                         wvn = v + h*(H\tau);
@@ -1498,6 +1613,19 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     %        assert(all(M*z+w>=-path_convergence_tolerance));
                     %        valuecheck(z'*(M*z+w),0,path_convergence_tolerance);
                     % end more debugging
+                    
+                    z_vec = [z_vec,z];
+                    
+                    z_x_sum = 0;
+                    z_y_sum = 0;
+                    z_z_sum = 0;
+                    
+                    z_z_sum = sum(z(1:4));
+                    z_x_sum = sum(z(5:8))+sum(z(13:16));
+                    z_y_sum = sum(z(9:12))+sum(z(17:20));
+                    
+                    z_sum = [z_x_sum;z_y_sum;z_z_sum];
+                    z_vec_sum = [z_vec_sum, z_sum];
                     
                     if obj.lcmgl_contact_forces_scale>0
                         cN = z(nL+nP+(1:nC));
@@ -2022,7 +2150,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function terrain_contact_point_struct = getTerrainContactPoints(obj,varargin)
             terrain_contact_point_struct = getTerrainContactPoints(obj.manip,varargin{:});
         end
-         
+        
         function varargout = terrainContactPositions(obj,varargin)
             varargout = cell(1,nargout);
             [varargout{:}] = terrainContactPositions(obj.manip,varargin{:});
