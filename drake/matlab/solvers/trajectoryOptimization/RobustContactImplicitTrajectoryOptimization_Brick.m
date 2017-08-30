@@ -56,7 +56,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         FORWARD_EULER = 1;
         BACKWARD_EULER = 2;
         MIDPOINT = 3;  % DEFAULT
-        MIXED = 4;   % matched to TimeSteppingRigidBodyManipulator. Forward on qd, backward on q
+        MIXED = 4;   % matched to TimeSteppingRigidBodyManipulator_Brick. Forward on qd, backward on q
     end
     
     methods

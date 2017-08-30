@@ -1,4 +1,4 @@
-classdef TimeSteppingRigidBodyManipulator < DrakeSystem
+classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
@@ -37,7 +37,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     end
     
     methods
-        function obj=TimeSteppingRigidBodyManipulator(manipulator_or_urdf_filename,timestep,options)
+        function obj=TimeSteppingRigidBodyManipulator_Brick(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
             if ~isfield(options,'twoD') options.twoD = false; end
             
@@ -84,7 +84,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 typecheck(options.enable_fastqp,'logical');
                 obj.enable_fastqp = options.enable_fastqp;
                 if obj.enable_fastqp && ~checkDependency('fastqp')
-                    warning('Drake:TimeSteppingRigidBodyManipulator:MissingDependency','You seem to be missing fastQP. Disabling active-set LCP update.')
+                    warning('Drake:TimeSteppingRigidBodyManipulator_Brick:MissingDependency','You seem to be missing fastQP. Disabling active-set LCP update.')
                     obj.enable_fastqp = false;
                 end
             end
@@ -1707,7 +1707,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         limits = sum(~possible_limit_indices);
                         possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
                         possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
-                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
+                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
                     else
                         break;
                     end

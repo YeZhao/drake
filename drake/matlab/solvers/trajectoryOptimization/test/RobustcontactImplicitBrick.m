@@ -12,7 +12,7 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=100; tf=2;
+N=100; tf=1;
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
@@ -36,13 +36,13 @@ end
 % xf_max = [1;0;inf;0;0;0;zeros(6,1)];
 
 %new setting(August-22-17)
-x0 = [0;0;2.0;0;0;0;10;zeros(5,1)];
+x0 = [0;0;2;0;0;0;10;zeros(5,1)];%2.0
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
 
-plant_ts = TimeSteppingRigidBodyManipulator(plant,tf/(N-1));
-w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
+plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingLCP');
 xtraj_ts = simulate(plant_ts,[0 5],x0);
 x0 = xtraj_ts.eval(0);
 warning(w);
@@ -64,17 +64,18 @@ if visualize
     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
     xlabel('x [m]');ylabel('z [m]');
     
-    %     figure(3)
-    %     %plot(ts, xtraj_ts_data(5,:),'b--');
-    %     xlabel('t [s]');ylabel('z [m]');
-    %     hold on;
+        figure(3)
+        hold on;
+        plot(ts, xtraj_ts_data(3,:),'b--');
+        xlabel('t [s]');ylabel('z [m]');
+        hold on;
     %     plot(ts, xtraj_ts_data(3,:),'r--');
     %     ylim([-0.2,2])
     %
-    %     figure(4)
-    %     %plot(ts, xtraj_ts_data(5,:),'b--');
-    %     plot(phi_1,'b-');
-    %     %ylim([-0.2,2])
+        figure(4)
+        %plot(ts, xtraj_ts_data(5,:),'b--');
+        plot(phi_1,'b-');
+        %ylim([-0.2,2])
     %
     %
     %     for i=1:8
@@ -85,11 +86,11 @@ if visualize
     %         hold on;
     %     end
     %
-    %     figure(6)
-    %     for i=1:8
-    %         plot(f_vec(i*3,:)/h,'r-');
-    %         hold on;
-    %     end
+        figure(6)
+        for i=1:8
+            plot(f_vec(i*3,:)/h,'r-');
+            hold on;
+        end
     %
     %     for i=1:4
     %         figure(i+5)
