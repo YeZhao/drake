@@ -190,7 +190,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
             end
             
-            % robust variance cost with feedback control
+            % robust variance cost with state feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
             Fext_inds_stack = reshape(obj.F_ext_inds,obj.N*nFext,[]);
@@ -237,13 +237,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 df_numeric = df;
                 %disp('check gradient')
                 
-                %                 if(f > 1e-3 || max(any(df > 1e-3)) == 1)
-                %                     disp('come here')
-                %                 end
-                
-                %                 [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
-                %                 valuecheck(df,df_numeric,1e-3);
-                %                 valuecheck(f,f_numeric,1e-3);
+                % if(f > 1e-3 || max(any(df > 1e-3)) == 1)
+                %     disp('come here')
+                % end
+                % 
+                % [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
+                % valuecheck(df,df_numeric,1e-3);
+                % valuecheck(f,f_numeric,1e-3);
                 
                 function [f_num,df_num] = nonlincompl_fun_check(y)
                     nq = obj.plant.getNumPositions;

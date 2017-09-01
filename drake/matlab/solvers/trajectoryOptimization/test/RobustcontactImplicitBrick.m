@@ -12,7 +12,7 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=100; tf=1;
+N=500; tf=1;
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
@@ -36,14 +36,14 @@ end
 % xf_max = [1;0;inf;0;0;0;zeros(6,1)];
 
 %new setting(August-22-17)
-x0 = [0;0;2;0;0;0;10;zeros(5,1)];%2.0
+x0 = [0;0;2;0;0;0;10;zeros(5,1)];
 xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
 xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
 
 plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
-w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingLCP');
-xtraj_ts = simulate(plant_ts,[0 5],x0);
+w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingQP');
+xtraj_ts = simulate(plant_ts,[0 4],x0);
 x0 = xtraj_ts.eval(0);
 warning(w);
 if visualize
@@ -55,69 +55,70 @@ if visualize
     
     %ltraj_data.
     figure(1)
+    %subplot(2,1,1)
     plot(ts, xtraj_ts_data(3,:),'b--');
     hold on;
     plot(ts, xtraj_ts_data(1,:),'k--');
-    xlabel('t [s]','fontsize',15);ylabel('position/force','fontsize',15);
-    
+    xlabel('t [s]','fontsize',15);ylabel('position [m]','fontsize',15);
+    title('CoM positions','fontsize',18);
+
     figure(2)
     plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
     xlabel('x [m]');ylabel('z [m]');
     
-        figure(3)
-        hold on;
-        plot(ts, xtraj_ts_data(3,:),'b--');
-        xlabel('t [s]');ylabel('z [m]');
-        hold on;
-    %     plot(ts, xtraj_ts_data(3,:),'r--');
-    %     ylim([-0.2,2])
-    %
-        figure(4)
-        %plot(ts, xtraj_ts_data(5,:),'b--');
-        plot(phi_1,'b-');
-        %ylim([-0.2,2])
-    %
-    %
-    %     for i=1:8
-    %         figure(i+5)
-    %         plot(f_vec(i*2,:)/h,'b-');
-    %         hold on;
-    %         plot(f_vec(i*3,:)/h,'r-');
-    %         hold on;
-    %     end
-    %
-        figure(6)
-        for i=1:8
-            plot(f_vec(i*3,:)/h,'r-');
-            hold on;
-        end
-    %
-    %     for i=1:4
-    %         figure(i+5)
-    %         plot(z_vec(i,:)/h,'b-');
-    %         hold on;
-    %     end
-    %
-    %     figure(10)
-    %     plot(xdn_LCP_vec(1,:),'b-');
+    figure(3)
+    hold on;
+    plot(ts, xtraj_ts_data(3,:),'b--');
+    xlabel('t [s]');ylabel('z [m]');
+    hold on;
+    plot(ts, xtraj_ts_data(3,:),'r--');
+    ylim([-0.2,2])
+
+    % figure(4)
+    % %plot(ts, xtraj_ts_data(5,:),'b--');
+    % plot(phi_1,'b-');
+    % %ylim([-0.2,2])
+    % 
+    % for i=1:8
+    %     figure(i+5)
+    %     plot(f_vec(i*2,:)/h,'b-');
     %     hold on;
-    %     plot(xdn_QP_vec(1,:),'r-');
+    %     plot(f_vec(i*3,:)/h,'r-');
     %     hold on;
-    %
-    %     figure(11)
-    %     plot(xdn_LCP_vec(3,27:end),'b-');
+    % end
+    %     
+    % figure(6)
+    % for i=1:8
+    %     plot(f_vec(i*3,:)/h,'r-');
     %     hold on;
-    %     plot(xdn_QP_vec(3,:),'r-');
+    % end
+    % %
+    % for i=1:4
+    %     figure(i+5)
+    %     plot(z_vec(i,:)/h,'b-');
     %     hold on;
-    %
-    %     figure(12)
-    %     plot(f_vec_sum(3,:)/h,'b-');
-    %
-    %     figure(13)
-    %     plot(z_vec_sum(3,:)/h,'b-');
-    %
-    %     figure(14)
-    %     plot(xdn_LCP_vec(9,27:end),'b-');
+    % end
+    % 
+    % figure(10)
+    % plot(xdn_LCP_vec(1,:),'b-');
+    % hold on;
+    % plot(xdn_QP_vec(1,:),'r-');
+    % hold on;
+    % 
+    % figure(11)
+    % plot(xdn_LCP_vec(3,27:end),'b-');
+    % hold on;
+    % plot(xdn_QP_vec(3,:),'r-');
+    % hold on;
+    % 
+    % figure(12)
+    % plot(f_vec_sum(3,:)/h,'b-');
+    % 
+    % figure(13)
+    % plot(z_vec_sum(3,:)/h,'b-');
+    % 
+    % figure(14)
+    % plot(xdn_LCP_vec(9,27:end),'b-');
 end
 
 options = struct();
@@ -177,17 +178,23 @@ if visualize
     
     %ltraj_data.
     figure(1)
+    colorset={'r','b','g','k'};
+    subplot(2,1,1)
     hold on;
     plot(ts, xtraj_data(3,:),'b-');
     hold on;
     plot(ts, xtraj_data(1,:),'k-');
     hold on;
-    for i=1:nC
-        plot(ts, lambda_n_data(i,:),'r-');
+    legend('passive case z position','passive case x position','robust case z position','robust case x position');
+    subplot(2,1,2)
+    for i=1:nC/2
+        plot(ts, lambda_n_data(2*i,:),colorset{i});
         hold on;
     end
-    legend('passive case z position','passive case x position','robust case z position','robust case x position','robust case ground reaction force');
-    title('Time profile of positions and forces','fontsize',22);
+    legend('contact point 1','contact point 2','contact point 3','contact point 4');
+    title('Normal contact forces in robust case','fontsize',18);
+    xlabel('t [s]','fontsize',15);ylabel('force [N]','fontsize',15);
+    %print -depsc brick_throwing_time_profile
     
     figure(2)
     hold on;

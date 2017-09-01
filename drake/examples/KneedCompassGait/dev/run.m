@@ -1,0 +1,5 @@
+megaclear
+clear
+dbstop in testNewTrajOpt_robustSampleTerrain_new
+testNewTrajOpt_robustSampleTerrain_new
+dbstop if error

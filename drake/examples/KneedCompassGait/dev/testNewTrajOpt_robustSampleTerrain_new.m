@@ -30,9 +30,9 @@ p = p_perturb;
 
 %todo: add joint limits, periodicity constraint
 
-N = 50;
-T = 5;
-T0 = 5;
+N = 100;
+T = 2;
+T0 = 2;
 
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
@@ -69,7 +69,7 @@ if nargin < 2
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
-    traj_init.u = PPTrajectory(foh(t_init,zeros(3,N)));%randn(3,N)
+    traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));%zeros(3,N)
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
     traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
@@ -88,6 +88,9 @@ xf_min = [2;-inf(11,1)];
 %xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
+p_ts = TimeSteppingRigidBodyManipulator(p,T/(N-1));
+w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
+
 scale = 0.01;
 to_options.nlcc_mode = 2;% robust mode %original: 2;
 to_options.lincc_mode = 1;
@@ -97,7 +100,13 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
-traj_opt = RobustContactImplicitTrajectoryOptimization(p,N,T_span,to_options);
+to_options.contact_robust_cost_coeff = 0.0001;
+to_options.robustLCPcost_coeff = 1000;
+to_options.Px_coeff = 0.0001;
+to_options.K = [zeros(3,2),5*ones(3,4),zeros(3,2),5*ones(3,4)];
+to_options.kappa = 1;
+
+traj_opt = RobustContactImplicitTrajectoryOptimization(p_ts,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
@@ -120,7 +129,7 @@ snprint('snopt.out');
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 %traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 %traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
