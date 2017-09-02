@@ -234,7 +234,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-            
+             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
@@ -264,7 +264,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
                 
                 x = reshape(x_full, obj.nx, obj.N);
-                u = reshape(u_full, obj.nu, obj.N);% note that, in this bricking example, we treat external force as control input
+                u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
                 nu = obj.nu;%obj.plant.getNumInputs;
@@ -287,7 +287,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
                 flag_generate_new_noise = 0;
                 if ~flag_generate_new_noise
-                    w_mu = load('friction_coeff_noise1.dat');
+                    %w_mu = load('friction_coeff_noise1.dat');
                     %w_mu = ones(1,obj.N);
                     %w_phi = load('terrain_height_noise5.dat');
                 else
@@ -384,6 +384,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         % if u_fdb_k*u(:,k) < 0
                         %     disp('control sign is changed')
                         % end
+                        
+%                         disp('-----------------')
+%                         disp('x')
+%                         x(:,k)
+%                         u(:,k)
+                        if any(abs(Sig(1:6,j,k)) > 4)
+                            disp('position here')
+                        end
+                        if any(abs(Sig(7:12,j,k)) > 10)
+                            disp('velocity here')
+                        end
+                        if any(abs(u_fdb_k) > 10)
+                            disp('control here')
+                        end
                         
                         [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         
@@ -538,15 +552,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
                 
-                figure(7),hold on;plot(c_quadratic_x,'b-')
-                figure(8),hold on;plot(c_quadratic_xd,'b-')
-                figure(9),hold on;plot(c_variance_x(1,:),'b-')
-                figure(10),hold on;plot(c_variance_xd(1,:),'b-')
+                figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
+                figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');
+                figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_quadratic_x1');
+                figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_quadratic_xd1');
                 
-                figure(11),hold on;plot(c_quadratic_z,'b-')
-                figure(12),hold on;plot(c_quadratic_zd,'b-')
-                figure(13),hold on;plot(c_variance_z(1,:),'b-')
-                figure(14),hold on;plot(c_variance_zd(1,:),'b-')
+                figure(11),hold on;plot(c_quadratic_z,'b-');title('c_quadratic_z');
+                figure(12),hold on;plot(c_quadratic_zd,'b-');title('c_quadratic_zd');
+                figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
+                figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
                 
                 figure(15)
                 clf
@@ -557,7 +571,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 hold on;
                 plot(x(1,:),'b-','Linewidth',3)
-                xlim([0,30]);ylim([0,7])
+                %xlim([0,30]);ylim([0,7])
+                title('Sigma Point x');
                 
                 figure(16)
                 clf
@@ -567,9 +582,32 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 hold on;
                 plot(x(7,:),'b-','Linewidth',3)
-                xlim([0,30]);ylim([0,11])
+                %xlim([0,30]);ylim([0,11])
+                title('Sigma Point vx');
                 
                 figure(17)
+                clf
+                for j = 1:n_sig_point
+                    plot(Sig_permute(2,:,j),'r-')
+                    hold on;
+                end
+                hold on;
+                plot(x(2,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([0,4])
+                title('Sigma Point z');
+                
+                figure(18)
+                clf
+                for j = 1:n_sig_point
+                    plot(Sig_permute(8,:,j),'r-')
+                    hold on;
+                end
+                hold on;
+                plot(x(8,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([-7,0])
+                title('Sigma Point vz');
+                
+                figure(19)
                 clf
                 for j = 1:n_sig_point
                     plot(Sig_permute(3,:,j),'r-')
@@ -577,9 +615,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 hold on;
                 plot(x(3,:),'b-','Linewidth',3)
-                xlim([0,30]);ylim([0,4])
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point hip');
                 
-                figure(18)
+                figure(20)
                 clf
                 for j = 1:n_sig_point
                     plot(Sig_permute(9,:,j),'r-')
@@ -587,17 +626,30 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 hold on;
                 plot(x(9,:),'b-','Linewidth',3)
-                xlim([0,30]);ylim([-7,0])
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point hip velocity');
                 
-                figure(19)
+                figure(21)
                 clf
                 for j = 1:n_sig_point
-                    plot(Sig_permute(5,:,j),'r-')
+                    plot(Sig_permute(4,:,j),'r-')
                     hold on;
                 end
                 hold on;
-                plot(x(5,:),'b-','Linewidth',3)
-                xlim([0,30]);ylim([-1,1])
+                plot(x(4,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point knee');
+                
+                figure(22)
+                clf
+                for j = 1:n_sig_point
+                    plot(Sig_permute(10,:,j),'r-')
+                    hold on;
+                end
+                hold on;
+                plot(x(10,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point knee velocity');
                 
                 obj.cached_Px = Px;
                 fprintf('robust cost function: %4.8f\n',c);
@@ -653,7 +705,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     u_full = X0(obj.nx*obj.N+1:end);
                     
                     x = reshape(x_full, obj.nx, obj.N);
-                    u = reshape(u_full, obj.nu, obj.N);% note that, in this bricking example, we treat external force as control input
+                    u = reshape(u_full, obj.nu, obj.N);
                     nq = obj.plant.getNumPositions;
                     nv = obj.plant.getNumVelocities;
                     nu = obj.nu;%obj.plant.getNumInputs;
@@ -2441,6 +2493,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         function [c,dc] = robustLCPcost(obj, slack_var)
             c = obj.options.robustLCPcost_coeff*sum(slack_var);
             dc = obj.options.robustLCPcost_coeff*ones(1,length(slack_var));
+            fprintf('sum of slack variable cost: %4.4f\n',c);
         end
         
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
@@ -2522,6 +2575,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             if nl>0
                 [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                
                 % construct J and dJ from n,D,dn, and dD so they relate to the
                 % lambda vector
                 J = zeros(nl,nq);

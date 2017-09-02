@@ -100,11 +100,15 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
-to_options.contact_robust_cost_coeff = 0.0001;
-to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.0001;
-to_options.K = [zeros(3,2),5*ones(3,4),zeros(3,2),5*ones(3,4)];
-to_options.kappa = 1;
+to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
+to_options.robustLCPcost_coeff = 1e5;%1000;
+to_options.Px_coeff = 0.001;
+to_options.K = [zeros(3,2),.01*ones(3,4),zeros(3,2),.01*ones(3,4)];
+to_options.kappa = 100;
+running_cost_coeff = 1;
+
+persistent sum_running_cost
+persistent cost_index
 
 traj_opt = RobustContactImplicitTrajectoryOptimization(p_ts,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -131,9 +135,9 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
-%traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-%traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
-%traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
 
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
@@ -143,7 +147,7 @@ snprint('snopt.out');
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
-v.playbackAVI(xtraj, 'trial6_small_terrain_perturb_with_two_ERM_cost_full_nonlcompl_three_walking_constraints.avi');
+%v.playbackAVI(xtraj, 'trial6_small_terrain_perturb_with_two_ERM_cost_full_nonlcompl_three_walking_constraints.avi');
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
@@ -224,11 +228,11 @@ hold on;
 % Q = diag(10*ones(1,12));
 % R = .1*eye(3);
 % Qf = 100*eye(12);
-% 
+%
 % ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
-% 
+%
 % sys=feedback(p,ltvsys);
-% 
+%
 % xtraj_new = simulate(sys,xtraj.tspan, x0);
 % v.playback(xtraj_new,struct('slider',true));
 
@@ -237,6 +241,19 @@ disp('finish traj opt')
     function [f,df] = running_cost_fun(h,x,u)
         f = h*u'*u;
         df = [u'*u zeros(1,12) 2*h*u'];
+        
+        if isempty(cost_index)
+            cost_index = 1;
+            sum_running_cost = running_cost_coeff*f;
+        elseif cost_index == N-2
+            sum_running_cost = sum_running_cost + running_cost_coeff*f;
+            fprintf('sum of running cost: %4.4f\n',sum_running_cost);
+            disp('------------------')
+            cost_index = [];
+        else
+            sum_running_cost = sum_running_cost + running_cost_coeff*f;
+            cost_index = cost_index + 1;
+        end
     end
 
     function displayTraj(h,x,u,LCP_slack)
@@ -244,7 +261,7 @@ disp('finish traj opt')
         for i=1:length(ts)
             v.drawWrapper(ts(i),x(:,i));
             xlim([-1.5, 6])
-                  pause(h(1)/5);
+            pause(h(1)/5);
         end
         
         LCP_slack = LCP_slack';
@@ -256,11 +273,11 @@ disp('finish traj opt')
         xlabel('t');
         ylabel('slack variable');
         hold off;
-%         figure(4)
-%         plot(ts, LCP_slack(2,:), color_line_type, 'LineWidth',nominal_linewidth);
-%         xlabel('t');
-%         ylabel('slack variable');
-%         hold off;
+        %         figure(4)
+        %         plot(ts, LCP_slack(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+        %         xlabel('t');
+        %         ylabel('slack variable');
+        %         hold off;
         fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end

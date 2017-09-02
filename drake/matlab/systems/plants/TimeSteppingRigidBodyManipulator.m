@@ -24,7 +24,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         phi_max = 0.15; % m, max contact force distance
         active_threshold = 0.05; % height below which contact forces are calculated
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
-        
+        active_collision_options; % used in contactConstraint
     end
     
     properties (SetAccess=public)
@@ -75,6 +75,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             if isfield(options, 'update_convex')
                 typecheck(options.update_convex, 'logical');
                 obj.update_convex = options.update_convex;
+            end
+            
+            if ~isfield(options,'active_collision_options')
+                obj.active_collision_options.terrain_only = true;
             end
             
             if ~isfield(options,'enable_fastqp')
@@ -260,7 +264,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function [xdn,df] = solveQP(obj,X0)
             t = X0(1);
             x = X0(2:13);
-            u = [];%X0(14:15);
+            u = X0(14:16);
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -304,7 +308,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 w = zeros(num_c*num_d,1);
             end
             
-            active = [1:8]';%find(phiC + h*n*vToqdot*v < obj.active_threshold);
+            active = [1:2]';%find(phiC + h*n*vToqdot*v < obj.active_threshold);
             
             if ~isempty(active) && sum(active) ~= 36
                 disp('active set is not empty and not full')
@@ -317,26 +321,24 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             phiC = phiC(active);
             normal = normal(:,active);
             
-            
-            persistent phi_1
-            persistent phi_2
-            persistent phi_3
-            persistent phi_4
-            persistent f_vec
-            persistent f_vec_sum
-            
-            %             if ~isempty(phiC)
-            phi_1 = [phi_1,phiC(2)];
-            phi_2 = [phi_2,phiC(4)];
-            phi_3 = [phi_3,phiC(6)];
-            phi_4 = [phi_4,phiC(8)];
+%             persistent phi_1
+%             persistent phi_2
+%             persistent phi_3
+%             persistent phi_4
+%             persistent f_vec
+%             persistent f_vec_sum
+%             
+%             %             if ~isempty(phiC)
+%             phi_1 = [phi_1,phiC(2)];
+%             phi_2 = [phi_2,phiC(4)];
+%             phi_3 = [phi_3,phiC(6)];
+%             phi_4 = [phi_4,phiC(8)];
             
             %             end
             
             if t > 4.98
                 keyboard
             end
-            
             
             Apts = xA(:,active);
             Bpts = xB(:,active);
@@ -432,7 +434,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             keyboard
                         end
                     end
-                    w_active((i-1)*num_d+(1:num_d)) = w((active(i)-1)*num_d+(1:num_d));
+                    %w_active((i-1)*num_d+(1:num_d)) = w((active(i)-1)*num_d+(1:num_d));
 %                     if phi(i) < 0.01%0.035
 %                         v_min(i) = 0;
 %                         %keyboard
@@ -511,18 +513,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
                 
-                % modification
-                A_aug = [];
-                b_aug = [];
-                for i=1:8
-                    if(phi(i) < 0)
-                        %keyboard
-                        A_aug = [A_aug;-Ain(i,:)];
-                        b_aug = [b_aug;-bin(i)-0.1];
-                    end
-                end
-                A_full = [Ain;A_aug];
-                b_full = [bin;b_aug];
+%                 % modification
+%                 A_aug = [];
+%                 b_aug = [];
+%                 for i=1:8
+%                     if(phi(i) < 0)
+%                         %keyboard
+%                         A_aug = [A_aug;-Ain(i,:)];
+%                         b_aug = [b_aug;-bin(i)-0.1];
+%                     end
+%                 end
+%                 A_full = [Ain;A_aug];
+%                 b_full = [bin;b_aug];
                 
                 %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                 
@@ -554,7 +556,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %                     keyboard
 %                 end
                 
-                for i=1:8
+                for i=1:2
                     if sqrt(f(1+(i-1)*3)^2 + f(2+(i-1)*3)^2)/f(i*3) > 1
                         keyboard
                     end
@@ -925,14 +927,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function [xdn,df] = update(obj,t,x,u)
             %if obj.update_convex && nargout>1
             t
-%             X0 = [t;x;u];
+            X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
             
 %             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
             %                 tStart = tic;
-%             [xdn,df] = solveQP(obj,X0);
+            %[xdn,df] = solveQP(obj,X0);
             %                 tElapsed = toc(tStart);
             
 %             xdn_QP_vec = [xdn_QP_vec,xdn];
@@ -1258,11 +1260,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         if (nargout>4)
                             if strcmp(obj.uncertainty_source, 'friction_coeff')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
                             elseif strcmp(obj.uncertainty_source, 'terrain_height')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
                             end
                         else
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
                         end
                         % reconstruct perturbed mu
                         if ~isempty(obj.friction_coeff)
@@ -1685,21 +1690,24 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                     %tElapsed = toc(tStart)
                     
-                    penetration = phi_check + h*J_check*vToqdot*(Mvn*z + wvn) < 0;
-                    if any(penetration)
-                        % then add the constraint and run the entire loop again!
-                        limits = sum(~possible_limit_indices);
-                        possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
-                        try
-                            possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
-                        catch
-                            keyboard
+                    try
+                        penetration = phi_check + h*J_check*vToqdot*(Mvn*z + wvn) < 0;
+                        if any(penetration)
+                            % then add the constraint and run the entire loop again!
+                            limits = sum(~possible_limit_indices);
+                            possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
+                            try
+                                possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
+                            catch
+                                keyboard
+                            end
+                            obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
+                        else
+                            break;
                         end
-                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
-                    else
+                    catch
                         break;
                     end
-                    
                 end
             end
         end

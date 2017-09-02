@@ -490,6 +490,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     % direction regardless whether the brick enters the
                     % safety region. But it could be tuned to different
                     % values such that different weighting can be used
+                    
                     %S_weighting_unit = diag([1,1,1]);
                 end
                 
