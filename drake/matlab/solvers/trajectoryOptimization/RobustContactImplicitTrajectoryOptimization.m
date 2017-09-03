@@ -2520,6 +2520,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             q1 = x1(1:nq);
             v1 = x1(nq+1:nq+nv);
             
+            %debugging
+            if q1(1) < q0(1)
+                disp('position also reversed')
+            end
+            
             switch obj.options.integration_method
                 case RobustContactImplicitTrajectoryOptimization.MIDPOINT
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);

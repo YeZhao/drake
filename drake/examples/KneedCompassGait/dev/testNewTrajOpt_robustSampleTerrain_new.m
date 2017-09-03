@@ -69,7 +69,7 @@ if nargin < 2
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
     traj_init.x = PPTrajectory(foh(t_init,[linspacevec(x0,x1,N2), linspacevec(x1,xf,N-N2)]));
-    traj_init.u = PPTrajectory(foh(t_init,randn(3,N)));%zeros(3,N)
+    traj_init.u = PPTrajectory(foh(t_init,zeros(3,N)));%randn(3,N)
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
     traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
@@ -103,8 +103,8 @@ to_options.lambda_jl_mult = T0/N;
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
 to_options.robustLCPcost_coeff = 100;%1000;
 to_options.Px_coeff = 0.001;
-to_options.K = [zeros(3,2),.01*ones(3,4),zeros(3,2),.01*ones(3,4)];
-to_options.kappa = 100;
+to_options.K = [zeros(3,3),0.01*ones(3,3),zeros(3,3),0.01*ones(3,3)];%[three rows: hip,knee,knee]
+to_options.kappa = 10;
 running_cost_coeff = 1;
 
 persistent sum_running_cost
