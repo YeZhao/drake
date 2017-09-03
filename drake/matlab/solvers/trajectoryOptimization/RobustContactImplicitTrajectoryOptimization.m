@@ -234,7 +234,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-             
+            
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
@@ -262,7 +262,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
-                
+                tStart = tic;
+
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
@@ -332,7 +333,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                            Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) +
                             % add terrain height uncertainty sample to each sigma point
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
@@ -406,6 +407,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+                        
+                        if Sig(1,j,k) > Sig(1,j,k+1)
+                            disp('position reversed');
+                        end
                     end
                     
                     %Calculate mean and variance w.r.t. [x_k] from sigma points
@@ -651,6 +656,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 %xlim([0,30]);ylim([-1,1])
                 title('Sigma Point knee velocity');
                 
+                tElapsed = toc(tStart);
+
                 obj.cached_Px = Px;
                 fprintf('robust cost function: %4.8f\n',c);
                 

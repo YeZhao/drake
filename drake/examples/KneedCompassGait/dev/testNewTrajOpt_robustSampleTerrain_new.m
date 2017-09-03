@@ -101,7 +101,7 @@ to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
-to_options.robustLCPcost_coeff = 1e5;%1000;
+to_options.robustLCPcost_coeff = 100;%1000;
 to_options.Px_coeff = 0.001;
 to_options.K = [zeros(3,2),.01*ones(3,4),zeros(3,2),.01*ones(3,4)];
 to_options.kappa = 100;
@@ -268,6 +268,10 @@ disp('finish traj opt')
         LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
         color_line_type = 'r-';
+        figure(1)
+        plot(ts,x(1,:));
+        xlabel('t');ylabel('x');
+        
         figure(3)
         plot(ts, LCP_slack(1,:), color_line_type, 'LineWidth',nominal_linewidth);
         xlabel('t');

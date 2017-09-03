@@ -13,6 +13,7 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 
 N=500; tf=1;
+N=30; tf=1;
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
@@ -87,11 +88,11 @@ if visualize
     %     hold on;
     % end
     %     
-    % figure(6)
-    % for i=1:8
-    %     plot(f_vec(i*3,:)/h,'r-');
-    %     hold on;
-    % end
+    %figure(6)
+    %for i=1:8
+    %    plot(f_vec(i*3,:)/h,'r-');
+    %    hold on;
+    %end
     % %
     % for i=1:4
     %     figure(i+5)
