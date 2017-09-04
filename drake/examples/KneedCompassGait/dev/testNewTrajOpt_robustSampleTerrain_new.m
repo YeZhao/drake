@@ -101,10 +101,10 @@ to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
 
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
-to_options.robustLCPcost_coeff = 100;%1000;
-to_options.Px_coeff = 0.001;
+to_options.robustLCPcost_coeff = 1000;
+to_options.Px_coeff = 0.01;
 to_options.K = [zeros(3,3),0.01*ones(3,3),zeros(3,3),0.01*ones(3,3)];%[three rows: hip,knee,knee]
-to_options.kappa = 10;
+to_options.kappa = 0.01;
 running_cost_coeff = 1;
 
 persistent sum_running_cost

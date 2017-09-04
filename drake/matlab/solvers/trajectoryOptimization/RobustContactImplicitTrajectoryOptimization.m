@@ -233,7 +233,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -311,7 +311,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 c_quadratic = 0;
                 c_variance = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                
+                 
                 % initialize gradient of Tr(V) w.r.t state vector x
                 dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
                 dTrVdu(:,:,1) = zeros(obj.N-1,nu);
@@ -333,7 +333,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) +
+                            Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                             % add terrain height uncertainty sample to each sigma point
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
@@ -370,7 +370,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
-                        Bmatrix(:,:,j,k) = [zeros(2,3);1,0,0;zeros(1,3);0,1,0;0,0,1];%B;hand coding
+                        %Bmatrix(:,:,j,k) = [zeros(2,3);1,0,0;zeros(1,3);0,1,0;0,0,1];%B;hand coding
                         
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                             obj.plant.friction_coeff = w_mu(j);
@@ -424,6 +424,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                     for j = 1:n_sig_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
+                    end
+                    
+                    %debugging
+                    Pxx(:,:,k+1) = zeros(obj.nx);
+                    for j = 1:n_sig_point
+                        Pxx(:,:,k+1) = Pxx(:,:,k+1) + (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     end
                     
                     % accumulate returned cost
@@ -777,7 +783,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             % a hacky way to implement the control input (only apply to fallingbrick example)
                             [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                             Hinv(:,:,j,k) = inv(H);
-                            Bmatrix(:,:,j,k) = [1;zeros(5,1)];%B;hand coding
+                            %Bmatrix(:,:,j,k) = [1;zeros(5,1)];%B;hand coding
                             
                             % add feedback control
                             t = obj.plant.timestep*(k-1);
@@ -786,7 +792,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             
                             Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
                             Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
-                            dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
+                            dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                             dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                             dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                         end

@@ -792,6 +792,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     db_tildedh = [db_tildedh_dyn;db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
                 elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
                     db_tildedh = [zeros(num_boundingConstraint_active_set, 1)];
+                elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                    db_tildedh = [db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
                 end
                 
                 dA_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,num_params,num_q);
@@ -834,6 +836,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         dA_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, num_params)];
                         db_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                         db_tildedv(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
+                    elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                        dA_tildedq(:,:,i) = [dA_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
+                        db_tildedq(:,:,i) = [db_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                        db_tildedv(:,:,i) = [db_tildedv_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                     end
                     assert(length(dA_tildedq(:,1,i)) == length(active_set));
                 end
@@ -862,12 +868,14 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                         db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                     elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
                         db_tildedu(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
+                    elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                        db_tildedu(:,:,i) = [db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                     end                
                 end
                 
                 %% partial derivative of KKT matrix blocks
                 dGdq = zeros(num_params,num_params,num_q);
-                dEdq = zeros(num_params,num_constraint_active_set,num_q);
+                dEdq = zeros(num_params,num_constraint_active_set,num_q); 
                 dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
                 for i=1:num_q
                     % partial dervative w.r.t q
