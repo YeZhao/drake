@@ -11,7 +11,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     
     properties (SetAccess=protected)
         timestep
-        twoD=false
+        twoD=false 
         position_control=false;
         LCP_cache;
         enable_fastqp; % whether we use the active set LCP
@@ -21,7 +21,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         gurobi_present = false;
         % convex stuff below
         update_convex = true;
-        phi_max = 0.05; % m, max contact force distance % for walking, this threhold should be small
+        phi_max = 0.15; % m, max contact force distance % for walking, this threhold should be small
+        phiL_max = 0.15; % m, max contact force distance % for walking robot joint, this threhold should be different than phi_max
         active_threshold = 0.1; % height below which contact forces are calculated
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
         active_collision_options; % used in contactConstraint
@@ -31,7 +32,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         % robust set-up for terrain uncertainty
         %terrain_height
         friction_coeff
-        terrain_index
+        terrain_index 
         uncertainty_source
     end
     
@@ -228,13 +229,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
             
             if strcmp(obj.uncertainty_source, 'friction_coeff')
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
+                %[phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
             elseif strcmp(obj.uncertainty_source, 'terrain_height')
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                %[phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
             else
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                %[phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
             end
             
@@ -387,7 +388,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %dJD{2} = dJy;%[tuned for 2D]
             
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
-            possible_limit_indices = (phiL + h*JL*vToqdot*v) < obj.active_threshold;
+            if length(phiL) ~= 2
+                keyboard
+            end
+            
+            %compute for full dimension joint limit
+            possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
             nL = sum(possible_limit_indices);
             JL = JL(possible_limit_indices,:);
             
@@ -430,7 +436,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 I = eye(num_c*num_d);
                 V_cell = cell(1,num_active);
                 v_min = zeros(length(phi),1);
-                w_active = zeros(num_active*num_d,1);
                 for i=1:length(phi)
                     if i<=num_active
                         % is a contact point
@@ -441,7 +446,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             keyboard
                         end
                     end
-                    %w_active((i-1)*num_d+(1:num_d)) = w((active(i)-1)*num_d+(1:num_d));
                     v_min(i) = -phi(i)/h;
                 end
                 V = blkdiag(V_cell{:},eye(nL));
@@ -450,8 +454,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
                 % contact smoothing matrix
-                R_min = 1e-4;
-                R_max = 1e4;
+                R_min = 1e-2;
+                R_max = 1e3;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
@@ -463,12 +467,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 r = repmat(r,1,dim)';
                 %         R = diag([r(:)',r(:)']);
                 R = diag(r(:));
-                
+                 
                 if any(ind > 0)
-                    S_weighting_unit = diag([0.3,1]);% %[tuned for 2D]
+                    S_weighting_unit = diag([1,1]);% %[tuned for 2D]
                     %S_weighting_unit = diag([1,1,1]);
                 else
-                    S_weighting_unit = diag([0.3,1]);% %[tuned for 2D]
+                    S_weighting_unit = diag([1,1]);% %[tuned for 2D]
                     % right now, use a unified weighting coeff for x
                     % direction regardless whether the brick enters the
                     % safety region. But it could be tuned to different
@@ -476,13 +480,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
                 
                 % joint limit smoothing matrix
-                W_min = 1e-3;
+                W_min = 1e-2;
                 W_max = 1e3;
                 w = zeros(nL,1);
-                w(phiL>=obj.phi_max) = W_max;
+                w(phiL>=obj.phiL_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
-                ind = (phiL > obj.contact_threshold) & (phiL < obj.phi_max);
-                y = (phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+                ind = (phiL > obj.contact_threshold) & (phiL < obj.phiL_max);
+                y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
                 w(ind) = W_min + W_max./(1+exp(-10*y));
                 W = diag(w(:));
                 
@@ -537,7 +541,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
                 
                 %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
-                
+                 
                 if 1 % info_fqp<0
                     %           disp('calling gurobi');
                     model.LCP_cache.data.fastqp_active_set = [];
@@ -562,8 +566,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
                 obj.LCP_cache.data.fastqp_active_set = active_set;
                 
+                mu_tolerance = 1e-5;
                 for i=1:num_active
-                    if sqrt(f(1+(i-1)*2)^2)/f(i*2) > 1
+                    if abs(f(1+(i-1)*2)/f(i*2)) > mu(1) + mu_tolerance
                         keyboard
                     end
                 end
@@ -608,7 +613,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     %error('Error: contact force solved by analytical solution and gurobi solver are different')
                 end
                 %debugging
-                %f = V*(result_analytical + w_active);
+                %f = V*(result_analytical);
                 %% end of checker
                 
                 %         vis=obj.constructVisualizer;
@@ -648,7 +653,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
                 possible_contact_indices = zeros(total_possible_contact_point,1);
                 for i = 1:length(active)
-                    possible_contact_indices(active(i)) = 1;
+                    possible_contact_indices(active(i)) = true(1);
                 end
                 
                 nP = 0;
@@ -660,7 +665,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 %lb = zeros(nL+nP+(mC+2)*nC,1);
                 %ub = Big*ones(nL+nP+(mC+2)*nC,1);
-                JD{1} = Jx; 
+                JD{1} = Jx;
                 %JD{2} = Jy;%[tuned for 2D]
                 JD = vertcat(JD{:});
                 % just keep the likely contacts (and store data to check the unlikely):
@@ -979,7 +984,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         
         function [xdn,df] = update(obj,t,x,u)
             %if obj.update_convex && nargout>1
-            t
+            %t
             X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
             

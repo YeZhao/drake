@@ -3,7 +3,7 @@ warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 warning('off','Drake:RigidBodyManipulator:WeldedLinkInd');
 options.terrain = RigidBodyStepTerrainVaryingHeight(0);
 options.floating = true;
-options.ignore_self_collisions = true;
+options.ignore_self_collisions = true; 
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
 paramstd = 1/5; % Standard deviation of the parameter value percent error
@@ -99,14 +99,15 @@ to_options.lincompl_slack = scale*.001;
 to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
-
+ 
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.01;
-to_options.K = [zeros(3,3),0.01*ones(3,3),zeros(3,3),0.01*ones(3,3)];%[three rows: hip,knee,knee]
-to_options.kappa = 0.01;
-running_cost_coeff = 1;
-
+to_options.Px_coeff = 1;
+%to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
+to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
+to_options.kappa = 1;
+running_cost_coeff = 1; 
+ 
 persistent sum_running_cost
 persistent cost_index
 
@@ -153,6 +154,7 @@ h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
+f_nominal = ltraj.eval(t_nominal);
 slack_nominal = slacktraj.eval(t_nominal)';
 
 % plot nominal model trajs
@@ -213,7 +215,7 @@ subplot(2,3,5)
 hold on;
 plot(t_nominal', x_nominal(5,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
-ylabel('Knee joint 1')
+ylabel('Hip joint 2')
 hold on;
 
 subplot(2,3,6)
@@ -221,6 +223,64 @@ hold on;
 plot(t_nominal', x_nominal(6,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('Knee joint 2')
+hold on;
+
+figure(3)
+subplot(2,2,1)
+hold on;
+plot(t_nominal', f_nominal(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f normal (left leg)')
+hold on;
+
+subplot(2,2,2)
+hold on;
+plot(t_nominal', f_nominal(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f tangential1 (left leg)')
+hold on;
+
+subplot(2,2,3)
+hold on;
+plot(t_nominal', f_nominal(3,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f tangential 2 (left leg)')
+hold on;
+
+subplot(2,2,4)
+hold on;
+plot(t_nominal', f_nominal(3,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('tangential velocity (left leg)')
+hold on;
+
+figure(4)
+subplot(2,2,1)
+hold on;
+plot(t_nominal', f_nominal(5,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f normal (right leg)')
+hold on;
+
+subplot(2,2,2)
+hold on;
+plot(t_nominal', f_nominal(6,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f tangential1 (right leg)')
+hold on;
+
+subplot(2,2,3)
+hold on;
+plot(t_nominal', f_nominal(7,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('f tangential 2 (right leg)')
+hold on;
+
+subplot(2,2,4)
+hold on;
+plot(t_nominal', f_nominal(8,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('tangential velocity (right leg)')
 hold on;
 
 % % simulate with LQR gains
