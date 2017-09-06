@@ -28,12 +28,25 @@ v = p_perturb.constructVisualizer;
 %v = p_perturb(1).constructVisualizer;
 p = p_perturb;
 
+w_phi = load('terrain_height_noise5.dat');
+%w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
+%save -ascii terrain_height_noise5.dat w_phi 
+n_sig_point = 28;
+for i=1:n_sig_point
+    sample_options.terrain = RigidBodyStepTerrainVaryingHeight(w_phi(i));
+    sample_options.floating = true;
+    w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+    p_sample{i} = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',sample_options);
+    warning(w);
+    p.plant_sample{i} = p_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+end
+
 %todo: add joint limits, periodicity constraint
 
 N = 100;
 T = 2;
 T0 = 2;
-
+ 
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
 %R_periodic(2,2) = 1; %z
@@ -61,7 +74,7 @@ xf = [2;1.;zeros(10,1)];
 %xf = [3.2;1.;zeros(10,1)];
 
 N2 = floor(N/2);
-
+ 
 if nargin < 2
     %Try to come up with a reasonable trajectory
     x1 = [1;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
@@ -102,9 +115,9 @@ to_options.lambda_jl_mult = T0/N;
  
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 1;
+to_options.Px_coeff = 0.1; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
-to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
+to_options.K = [zeros(3,3),1*ones(3,3),zeros(3,3),1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
 running_cost_coeff = 1; 
  
@@ -128,17 +141,17 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + traj_opt.nC,traj_opt.nC*(1+obj.nD),traj_opt.options.nlcc_mode,traj_opt.options.compl_slack);
 % traj_opt.nonlincompl_slack_inds{i} = traj_opt.num_vars+1:traj_opt.num_vars + traj_opt.nonlincompl_constraints{i}.n_slack;
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
-
-%traj_opt = traj_opt.setCheckGrad(true);
-snprint('snopt.out');
+ 
+%traj_opt = traj_opt.setCheckGrad(true); 
+snprint('snopt.out'); 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);

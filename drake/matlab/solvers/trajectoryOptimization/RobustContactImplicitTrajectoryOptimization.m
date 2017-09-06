@@ -287,21 +287,21 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 w_phi = zeros(1,n_sig_point);
                 obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
                 flag_generate_new_noise = 0;
-                if ~flag_generate_new_noise 
-                    %w_mu = load('friction_coeff_noise2.dat'); 
-                    %w_mu = ones(1,obj.N);
+                if ~flag_generate_new_noise
+                    w_mu = load('friction_coeff_noise1.dat'); 
+                    %w_mu = ones(1,obj.N); 
                     %w_phi = load('terrain_height_noise5.dat');
-                else 
+                else
                     w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
                     w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
                     save -ascii friction_coeff_noise2.dat w_mu
                     %save -ascii terrain_height_noise2.dat w_phi
                 end 
-                 
+                
                 w_noise = [w_phi;w_mu];
                 
                 K = obj.options.K;
-                
+                 
                 %initialize c and dc
                 kappa = obj.options.kappa;
                 x_mean = zeros(obj.nx, obj.N);
@@ -343,7 +343,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         c = c + norm(x(:,k)-x_mean(:,k))^2;
                         
 %                         % debugging
-%                         c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
+                        c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
 %                         c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
 %                         c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
 %                         c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
@@ -412,7 +412,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
 %                             disp('position reversed');
 %                         end
                     end
-                    
+                     
                     %Calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
@@ -429,7 +429,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     for j = 1:n_sig_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                     end
-                    
+                     
                     Px(:,:,k+1) = zeros(obj.nx);
                     %alpha = 1e-3;
                     %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
@@ -441,7 +441,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     % accumulate returned cost
                     c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
 %                     % debugging
-%                     c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
+                    c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
 %                     c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
 %                     c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
 %                     c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
@@ -633,7 +633,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 hold on;
                 plot(x(3,:),'b-','Linewidth',3)
                 %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point hip');
+                title('Sigma Point first hip');
                 
                 figure(20)
                 clf
@@ -655,7 +655,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 hold on;
                 plot(x(4,:),'b-','Linewidth',3)
                 %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point knee');
+                title('Sigma Point first knee');
                 
                 figure(22)
                 clf
@@ -666,7 +666,29 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 hold on;
                 plot(x(10,:),'b-','Linewidth',3)
                 %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point knee velocity');
+                title('Sigma Point first knee velocity');
+                
+                figure(23)
+                clf
+                for j = 1:n_sig_point
+                    plot(Sig_permute(5,:,j),'r-')
+                    hold on;
+                end
+                hold on;
+                plot(x(5,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point second hip');
+                
+                figure(24)
+                clf
+                for j = 1:n_sig_point
+                    plot(Sig_permute(6,:,j),'r-')
+                    hold on;
+                end
+                hold on;
+                plot(x(6,:),'b-','Linewidth',3)
+                %xlim([0,30]);ylim([-1,1])
+                title('Sigma Point second knee'); 
                 
                 tElapsed = toc(tStart);
 
@@ -2686,9 +2708,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         end
         
         function [f,df] = CoM_vertical_velocity_fun(obj,CoM_z_vel)
-            CoM_vertical_velocity_max = 0.4;
+            CoM_vertical_velocity_max = 0.001;
             
-            f = [CoM_z_vel];
+            f = [CoM_z_vel-CoM_vertical_velocity_max];
             df = [ones(1)];
         end
         
