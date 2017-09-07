@@ -43,7 +43,7 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 100;
+N = 4;
 T = 2;
 T0 = 2;
  
@@ -85,7 +85,7 @@ if nargin < 2
     traj_init.u = PPTrajectory(foh(t_init,zeros(3,N)));%randn(3,N)
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
-    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.0001*ones(1,N)));
+    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
 else
     t_init = xtraj.pp.breaks;
     traj_init.x = xtraj;
@@ -113,14 +113,14 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
  
-to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
+to_options.contact_robust_cost_coeff = 1e-25;%1e-5;%0.0001; 
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.001; 
+to_options.Px_coeff = 1; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
-to_options.K = [zeros(3,3),1*ones(3,3),zeros(3,3),1*ones(3,3)];%[three rows: hip,knee,knee]
+to_options.K = [zeros(3,3),5*ones(3,3),zeros(3,3),1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
 running_cost_coeff = 1; 
- 
+
 persistent sum_running_cost
 persistent cost_index
 
@@ -152,12 +152,12 @@ traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
- 
+
 tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 snprint('snopt.out');
-
+ 
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie

@@ -943,7 +943,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         
         function [xdn,df] = update(obj,t,x,u)
             %if obj.update_convex && nargout>1
-            t
+            %t
             X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
             
@@ -951,12 +951,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             persistent xdn_LCP_vec;
             
             %tStart = tic;
-            %[xdn,df] = solveQP(obj,X0);
+            [xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            %return;
+            return;
             %disp('finish solveQP QP')
             
             %% add gradient check

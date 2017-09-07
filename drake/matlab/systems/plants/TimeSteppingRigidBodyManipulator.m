@@ -455,7 +455,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                  
                 % contact smoothing matrix
                 R_min = 1e-3;%1e-4;
-                R_max = 1e-1;
+                R_max = 1e2;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
@@ -481,7 +481,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                  
                 % joint limit smoothing matrix
                 W_min = 1e-3;%1e-3;
-                W_max = 1e-1; 
+                W_max = 1e2; 
                 w = zeros(nL,1);
                 w(phiL>=obj.phiL_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
@@ -995,13 +995,13 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 end
             end
         end
-        
+         
         function [xdn,df] = update(obj,t,x,u)
             %if obj.update_convex && nargout>1
             %t
             X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
-            
+             
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             

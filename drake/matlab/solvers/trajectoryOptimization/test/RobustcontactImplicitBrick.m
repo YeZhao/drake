@@ -1,4 +1,4 @@
-function RobustcontactImplicitBrick(visualize,position_tol,velocity_tol)
+function RobustcontactImplicitBrick(visualize,xtraj,utraj,ltraj,ljltraj)%position_tol,velocity_tol)
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
 % rng(0)
@@ -12,8 +12,8 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=500; tf=1;
-N=30; tf=1;
+%N=500; tf=1;
+N=30; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
 w_phi = load('terrain_height_noise5.dat');
