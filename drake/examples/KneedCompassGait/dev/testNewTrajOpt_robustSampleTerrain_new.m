@@ -49,7 +49,7 @@ T0 = 2;
  
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
-%R_periodic(2,2) = 1; %z
+R_periodic(2,2) = 1; %z
 R_periodic(3,3) = 1; %pitch-hip w/symmetry
 R_periodic(3,5) = 1; %pitch-hip w/symmetry
 R_periodic(4,6) = 1; %knee w/symmetry
@@ -64,8 +64,8 @@ R_periodic(10,12) = 1; %knee w/symmetry
 R_periodic(12,10) = 1; %knee w/symmetry
 R_periodic(11,11) = -1; %hip w/symmetry
 
-%R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
-R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
+R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
+% R_periodic(3:end,p.getNumStates+3:end) = -eye(p.getNumStates-2);
 
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
@@ -85,7 +85,7 @@ if nargin < 2
     traj_init.u = PPTrajectory(foh(t_init,zeros(3,N)));%randn(3,N)
     traj_init.l = PPTrajectory(foh(t_init,[repmat([1;zeros(7,1)],1,N2) repmat([zeros(4,1);1;zeros(3,1)],1,N-N2)]));
     traj_init.ljl = PPTrajectory(foh(t_init,zeros(p.getNumJointLimitConstraints,N)));
-    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.01*ones(1,N)));
+    traj_init.LCP_slack = PPTrajectory(foh(t_init, 0.0001*ones(1,N)));
 else
     t_init = xtraj.pp.breaks;
     traj_init.x = xtraj;
@@ -115,7 +115,7 @@ to_options.lambda_jl_mult = T0/N;
  
 to_options.contact_robust_cost_coeff = 1e-5;%0.0001; 
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.1; 
+to_options.Px_coeff = 0.001; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
 to_options.K = [zeros(3,3),1*ones(3,3),zeros(3,3),1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
@@ -141,19 +141,19 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + traj_opt.nC,traj_opt.nC*(1+obj.nD),traj_opt.options.nlcc_mode,traj_opt.options.compl_slack);
 % traj_opt.nonlincompl_slack_inds{i} = traj_opt.num_vars+1:traj_opt.num_vars + traj_opt.nonlincompl_constraints{i}.n_slack;
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
- 
+
 %traj_opt = traj_opt.setCheckGrad(true); 
-snprint('snopt.out'); 
+snprint('snopt.out');  
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',10000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-
-tic
+ 
+tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 snprint('snopt.out');
@@ -355,7 +355,7 @@ disp('finish traj opt')
         %         xlabel('t');
         %         ylabel('slack variable');
         %         hold off;
-        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
+        fprintf('sum of slack variables along traj: %4.4f\n',sum(abs(LCP_slack),2));
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
 end

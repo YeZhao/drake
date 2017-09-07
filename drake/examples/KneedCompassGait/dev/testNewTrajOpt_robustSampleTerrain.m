@@ -252,7 +252,7 @@ disp('finish traj opt')
 %         xlabel('t');
 %         ylabel('slack variable');
 %         hold off;
-        fprintf('sum of slack variables along traj: %4.4f\n',sum(LCP_slack,2));
+        fprintf('sum of slack variables along traj: %4.4f\n',sum(abs(LCP_slack),2));
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
     end
 end

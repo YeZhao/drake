@@ -21,7 +21,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         gurobi_present = false;
         % convex stuff below
         update_convex = true;
-        phi_max = 0.15%0.15; % m, max contact force distance % for walking, this threhold should be small
+        phi_max = 0.15; % m, max contact force distance % for walking, this threhold should be small
         phiL_max = 0.15; % m, max contact force distance % for walking robot joint, this threhold should be different than phi_max
         active_threshold = 0.1; % height below which contact forces are calculated
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
@@ -35,7 +35,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         terrain_index
         uncertainty_source
     end
-    
+     
     methods
         function obj=TimeSteppingRigidBodyManipulator(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
@@ -400,14 +400,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             J = [J;JL];
             phiL = phiL(possible_limit_indices);
             phi = [phiC;phiL];
-            
-            if any(abs(phi) > 1)
-                disp('large phi');
-                phi
-            end
              
             num_q = obj.manip.getNumPositions;
-            num_v = obj.manip.getNumVelocities;
+            num_v = obj.manip.getNumVelocities; 
             
             if (obj.num_u>0)
                 tau = B*u - C;
@@ -459,8 +454,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                  
                 % contact smoothing matrix
-                R_min = 1e-4;
-                R_max = 1e0;
+                R_min = 1e-3;%1e-4;
+                R_max = 1e-1;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
@@ -483,10 +478,10 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     % safety region. But it could be tuned to different
                     % values such that different weighting can be used
                 end
-                
+                 
                 % joint limit smoothing matrix
-                W_min = 1e-3;
-                W_max = 1e0;
+                W_min = 1e-3;%1e-3;
+                W_max = 1e-1; 
                 w = zeros(nL,1);
                 w(phiL>=obj.phiL_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
@@ -547,6 +542,20 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 
                 %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                  
+                %phi(1:2)
+                
+%                 if any(abs(x(1:6)) > 2)
+%                     disp('position is large')
+%                 end
+%                 
+%                 if any(abs(x(7:12)) > 5)
+%                     disp('position is large')
+%                 end
+%                 
+%                 if any(abs(u) > 15)
+%                     disp('u is large')
+%                 end
+
                 if 1 % info_fqp<0 
                     %           disp('calling gurobi');
                     model.LCP_cache.data.fastqp_active_set = [];
@@ -1000,7 +1009,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             [xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             
-            xdn_QP_vec = [xdn_QP_vec,xdn];
+            %xdn_QP_vec = [xdn_QP_vec,xdn];
             
             return;
             disp('finish solveQP QP')
@@ -2227,7 +2236,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         
         function distance = collisionRaycast(obj, kinsol, origin, point_on_ray, use_margins)
             if nargin < 5
-                use_margins = true;
+                use_margins = true; 
             end
             distance = collisionRaycast(obj.manip, kinsol, origin, point_on_ray, use_margins);
         end
