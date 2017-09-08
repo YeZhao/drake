@@ -43,7 +43,7 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 50;
+N = 30;
 T = 3;
 T0 = 3;
  
@@ -103,7 +103,7 @@ xf_max = inf(12,1);
 
 p_ts = TimeSteppingRigidBodyManipulator(p,T/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
-
+ 
 scale = 0.01;
 to_options.nlcc_mode = 2;% robust mode %original: 2;
 to_options.lincc_mode = 1; 
@@ -113,11 +113,11 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
  
-to_options.contact_robust_cost_coeff = 1e-5;%1e-5;%0.0001;  
+to_options.contact_robust_cost_coeff = 1e-30;%1e-5;%0.0001;  
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.001; 
+to_options.Px_coeff = 0.1; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
-to_options.K = [zeros(3,3),1*ones(3,3),zeros(3,3),1*ones(3,3)];%[three rows: hip,knee,knee]
+to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
 running_cost_coeff = 1; 
  
@@ -143,10 +143,10 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
  
 %traj_opt = traj_opt.setCheckGrad(true); 
-snprint('snopt.out'); 
-traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
+snprint('snopt.out');
+traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',500);%20000
+traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%200000
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);

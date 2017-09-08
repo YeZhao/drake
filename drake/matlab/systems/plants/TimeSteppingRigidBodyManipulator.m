@@ -455,7 +455,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                  
                 % contact smoothing matrix
                 R_min = 1e-3;%1e-4;
-                R_max = 1e2;
+                R_max = 1e-1;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
@@ -481,7 +481,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                  
                 % joint limit smoothing matrix
                 W_min = 1e-3;%1e-3;
-                W_max = 1e2; 
+                W_max = 1e-1; 
                 w = zeros(nL,1);
                 w(phiL>=obj.phiL_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
@@ -1330,7 +1330,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     has_contacts = (nContactPairs > 0);
                     if has_contacts
                         if (nargout>4)
-                            if strcmp(obj.uncertainty_source, 'friction_coeff')
+                            if strcmp(obj.uncertainty_source, 'friction_coeff') 
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
                             elseif strcmp(obj.uncertainty_source, 'terrain_height')
