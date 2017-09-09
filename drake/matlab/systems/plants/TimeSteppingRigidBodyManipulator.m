@@ -1329,7 +1329,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     
                     has_contacts = (nContactPairs > 0);
                     if has_contacts
-                        if (nargout>4)
+                        if (nargout>4)  
                             if strcmp(obj.uncertainty_source, 'friction_coeff') 
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
@@ -1346,7 +1346,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                             mu = obj.friction_coeff*ones(length(mu),1);
                         end
                         % [double make sure that mu is not interweaving contactConstraints]
-                        
+                         
                         if ~isempty(phiC)
                             if isempty(possible_contact_indices)
                                 possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;

@@ -133,10 +133,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
                 
-                % % add foot height diff constraint
-                % foot_height_diff_inds{i} = {obj.x_inds(:,i)};
-                % foot_height_diff_constraints{i} = cnstr_foot_height_diff;
-                % obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
+                % add foot height diff constraint
+                foot_height_diff_inds{i} = {obj.x_inds(:,i)};
+                foot_height_diff_constraints{i} = cnstr_foot_height_diff;
+                obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
                 
                 % add max CoM vertical velocity constraint
                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
@@ -232,8 +232,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-            
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+             
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
              
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -267,7 +267,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
-                nv = obj.plant.getNumVelocities;
+                nv = obj.plant.getNumVelocities; 
                 nu = obj.nu;%obj.plant.getNumInputs;
                 
                 fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
@@ -289,8 +289,8 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 w_phi = zeros(1,n_sig_point);
                 obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
                 flag_generate_new_noise = 0;
-                if ~flag_generate_new_noise 
-                    w_mu = load('friction_coeff_noise1.dat');
+                if ~flag_generate_new_noise
+                    w_mu = load('friction_coeff_noise2.dat');
                     %w_mu = ones(1,obj.N);
                     %w_phi = load('terrain_height_noise5.dat');
                 else
@@ -2964,6 +2964,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             %swing foot vertical position
             z_swing = CoM_z_pos - l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip);
             z_stance = CoM_z_pos - l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee);
+             
+            q = x(1:6);
+            
+            [phi,~,~,~,~,~,~,~,n] = obj.plant.contactConstraints(q,false,struct('terrain_only',true));
             
             foot_height_distance_max = 0.5;
             CoM_foot_height_diff_max = 0.6;
