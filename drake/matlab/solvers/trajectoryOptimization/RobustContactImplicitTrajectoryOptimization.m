@@ -88,6 +88,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             if ~isfield(options,'integration_method')
                 options.integration_method = RobustContactImplicitTrajectoryOptimization.MIDPOINT;
             end
+            if ~isfield(options,'add_ccost')
+                options.add_ccost = false;
+            end  
             
             obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
             
@@ -133,10 +136,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
                 
-                % add foot height diff constraint
-                foot_height_diff_inds{i} = {obj.x_inds(:,i)};
-                foot_height_diff_constraints{i} = cnstr_foot_height_diff;
-                obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
+%                 % add foot height diff constraint
+%                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
+%                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
+%                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
                 
                 % add max CoM vertical velocity constraint
                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
@@ -223,6 +226,17 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     jlcompl_constraints{i} = LinearComplementarityConstraint(W_jl,r_jl,M_jl,obj.options.lincc_mode);
                     
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
+                end
+            end
+                     
+            if obj.nC > 0
+                if obj.options.add_ccost
+                    dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
+                    for i=1:obj.N-2
+                        normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
+                        normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
+                        obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
+                    end
                 end
             end
             
@@ -2806,6 +2820,13 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             fprintf('sum of slack variable cost: %4.4f\n',c);
         end
         
+        function [c,dc] = ccost(~,c1,c2)
+          cdiff = c1-c2;
+          c = 0.5*(cdiff'*cdiff);
+          I = eye(length(c1));
+          dc = [cdiff'*I,-cdiff'*I];
+        end
+        
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
             nq = obj.plant.getNumPositions;
             nv = obj.plant.getNumVelocities;
@@ -2932,7 +2953,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             l_calf  = 0.5;
             
             %swing foot sagittal position
-            x_swing = CoM_x_pos - l_thigh*sin(q_swing_hip) - l_calf*sin(q_swing_knee + q_swing_hip);
+            x_swing = CoM_x_pos - l_thigh*sin(q_stance_hip+q_swing_hip) - l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip);
             x_stance = CoM_x_pos - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee);
             
             foot_horizontal_distance_max = 0.3;
@@ -2943,10 +2964,14 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 x_swing - CoM_x_pos - CoM_swing_foot_horizontal_distance_max];
             % x_stance - CoM_x_pos - CoM_stance_foot_horizontal_distance_max
             
-            df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
-                -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv);
-                zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,nv)];
-            % zeros(1,2), -l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee), -l_calf*cos(q_stance_hip + q_stance_knee), zeros(1,2+nv)
+%             df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
+%                 -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv);
+%                 zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv)];
+            
+            df = [zeros(1,2), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip) + l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), ...
+                  l_calf*cos(q_stance_hip + q_stance_knee), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv);
+                  zeros(1,2), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), 0, -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), ...
+                  -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv)];
         end
         
         function [f,df] = foot_height_diff_constraint_fun(obj,x)
@@ -2962,7 +2987,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             l_calf  = 0.5;
             
             %swing foot vertical position
-            z_swing = CoM_z_pos - l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip);
+            z_swing = CoM_z_pos - l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip);
             z_stance = CoM_z_pos - l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee);
              
             q = x(1:6);
@@ -2975,9 +3000,14 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             f = [z_swing - z_stance - foot_height_distance_max;
                 CoM_foot_height_diff_max - CoM_z_pos + z_swing];
             
-            df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
-                l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
-                zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
+%             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
+%                 l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
+%                 zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
+            
+            df = [zeros(1,2), l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip) - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), ...
+                  -l_calf*sin(q_stance_hip + q_stance_knee), ...
+                l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip+ q_swing_hip + q_swing_knee), zeros(1,nv);
+                zeros(1,2), l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), 0, l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip+q_stance_hip + q_stance_knee), zeros(1,nv)];
         end
         
         function [f,df] = CoM_vertical_velocity_fun(obj,CoM_z_vel)

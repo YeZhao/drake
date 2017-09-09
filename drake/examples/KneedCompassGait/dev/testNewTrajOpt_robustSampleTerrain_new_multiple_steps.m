@@ -27,6 +27,10 @@ end
 v = p_perturb.constructVisualizer;
 %v = p_perturb(1).constructVisualizer;
 p = p_perturb;
+nq = p.getNumPositions(); 
+nv = p.getNumVelocities();
+nx = nq+nv;
+nu = p.getNumInputs();
 
 w_phi = load('terrain_height_noise5.dat');
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
@@ -115,17 +119,20 @@ to_options.lambda_jl_mult = T0/N;
  
 to_options.contact_robust_cost_coeff = 1e-30;%1e-5;%0.0001;  
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.1; 
+to_options.Px_coeff = 0.01; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
 to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
-running_cost_coeff = 1; 
+to_options.add_ccost = true;
  
 persistent sum_running_cost
-persistent cost_index
+persistent running_cost_index
+persistent sum_foot_height_cost
+persistent foot_height_cost_index
 
 traj_opt = RobustContactImplicitTrajectoryOptimization(p_ts,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
+%traj_opt = traj_opt.addRunningCost(@foot_height_fun); 
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
@@ -149,9 +156,9 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%2000
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',500000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 
 tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
@@ -176,9 +183,9 @@ f_nominal = f_nominal./h;
 
 fprintf('sum of x value: %4.4f\n',sum(sum(abs(x_nominal))));
 
-[z_swing, z_stance] = foot_height_fwd_kin(x_nominal);
-fprintf('sum of left foot height integration value: %4.4f\n',sum(sum(abs(z_swing))));
-fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(z_stance))));
+foot_height = compute_foot_height(x_nominal);
+fprintf('sum of left foot height integration value: %4.4f\n',sum(sum(abs(foot_height(1,:)))));
+fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_height(2,:)))));
 
 % plot nominal model trajs
 nominal_linewidth = 2.5;
@@ -352,14 +359,14 @@ hold on;
 figure(6)
 subplot(2,1,1)
 hold on;
-plot(t_nominal', z_swing, color_line_type, 'LineWidth',nominal_linewidth);
+plot(t_nominal', foot_height(1,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('left foot height')
 hold on;
 
 subplot(2,1,2)
 hold on;
-plot(t_nominal', z_stance, color_line_type, 'LineWidth',nominal_linewidth);
+plot(t_nominal', foot_height(2,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('right foot height')
 hold on;
@@ -379,36 +386,63 @@ hold on;
 
 disp('finish traj opt')
 
-    function [z_swing, z_stance] = foot_height_fwd_kin(x)
-        % hard coding fwd kinematics
-        CoM_z_pos = x(2,:);
-        q_stance_hip = x(3,:);
-        q_stance_knee = x(4,:); 
-        q_swing_hip = x(5,:);
-        q_swing_knee = x(6,:);
-        l_thigh  = 0.5;
-        l_calf  = 0.5;
+    function foot_height = compute_foot_height(x)
+        q_full = x(1:nq,:);
         
-        %swing foot vertical position
-        z_swing = CoM_z_pos - l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip);
-        z_stance = CoM_z_pos - l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee);
+        for i=1:size(q_full,2)
+            [phi,~,~,~,~,~,~,~,n] = p.contactConstraints(q_full(:,i),false,struct('terrain_only',true));
+            foot_height(:,i) = phi;
+        end
+        
+    end
+     
+    function [f,df] = foot_height_fun(h,x,u)
+        q = x(1:nq);
+         
+        [phi,~,~,~,~,~,~,~,n] = p.contactConstraints(q,false,struct('terrain_only',true));
+        phi0 = [.1;.1];
+        K = 10;
+        I = find(phi < phi0);
+        f = K*(phi(I) - phi0(I))'*(phi(I) - phi0(I));
+        % phi: 2x1
+        % n: 2xnq
+        df = [0 2*K*(phi(I)-phi0(I))'*n(I,:) zeros(1,nv+nu)];
+        
+        if isempty(foot_height_cost_index)
+            foot_height_cost_index = 1;
+            sum_foot_height_cost = f;
+        elseif cost_index == N-2
+            sum_foot_height_cost = sum_foot_height_cost + f;
+            fprintf('sum of running cost: %4.4f\n',sum_foot_height_cost);
+            disp('------------------')
+            foot_height_cost_index = [];
+        else
+            sum_foot_height_cost = sum_foot_height_cost + foot_height_cost_coeff*f;
+            foot_height_cost_index = foot_height_cost_index + 1;
+        end
+        
+        %    K = 100;
+        %    K_log = 100;
+        %    f = sum(-K*log(K_log*phi + .2));
+        %    df = [0 sum(-K*K_log*n./(K_log*repmat(phi,1,length(q)) + .2)) zeros(1,15)];
+        
     end
 
     function [f,df] = running_cost_fun(h,x,u)
         f = h*u'*u;
         df = [u'*u zeros(1,12) 2*h*u'];
         
-        if isempty(cost_index)
-            cost_index = 1;
-            sum_running_cost = running_cost_coeff*f;
-        elseif cost_index == N-2
-            sum_running_cost = sum_running_cost + running_cost_coeff*f;
+        if isempty(running_cost_index)
+            running_cost_index = 1;
+            sum_running_cost = f;
+        elseif running_cost_index == N-2
+            sum_running_cost = sum_running_cost + f;
             fprintf('sum of running cost: %4.4f\n',sum_running_cost);
             disp('------------------')
-            cost_index = [];
+            running_cost_index = [];
         else
-            sum_running_cost = sum_running_cost + running_cost_coeff*f;
-            cost_index = cost_index + 1;
+            sum_running_cost = sum_running_cost + f;
+            running_cost_index = running_cost_index + 1;
         end
     end
 
