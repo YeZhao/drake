@@ -107,9 +107,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.nlambda = nL;
             
             constraints = cell(N-1,1);
-            foot_horizontal_distance_constraints = cell(N-1,1);
+            %foot_horizontal_distance_constraints = cell(N-1,1);
             %foot_height_diff_constraints = cell(N-1,1);
-            CoM_vertical_velocity_constraints = cell(N-1,1);
+            %CoM_vertical_velocity_constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
             obj.nonlincompl_constraints = cell(N-1,1);
             obj.nonlincompl_slack_inds = cell(N-1,1);
@@ -131,20 +131,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 constraints{i} = cnstr;
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
-                % add foot horizontal distance constraint
-                foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
-                foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
-                obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
+%                 % add foot horizontal distance constraint
+%                 foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
+%                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
+%                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
                 
 %                 % add foot height diff constraint
 %                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
 %                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
 %                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
                 
-                % add max CoM vertical velocity constraint
-                CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
-                CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
-                obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
+%                 % add max CoM vertical velocity constraint
+%                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
+%                 CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
+%                 obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -229,24 +229,24 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
             end
                      
-            if obj.nC > 0
-                if obj.options.add_ccost
-                    dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
-                    for i=1:obj.N-2
-                        normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
-                        normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
-                        obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
-                    end
-                end
-            end
-            
+%             if obj.nC > 0
+%                 if obj.options.add_ccost
+%                     dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
+%                     for i=1:obj.N-2
+%                         normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
+%                         normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
+%                         obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
+%                     end
+%                 end
+%             end
+             
             % robust variance cost with state feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-             
+            
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
              
             if (obj.nC > 0)

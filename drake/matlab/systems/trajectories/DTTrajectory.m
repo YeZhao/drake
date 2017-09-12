@@ -20,9 +20,9 @@ classdef (InferiorClasses = {?ConstantTrajectory,?FunctionHandleTrajectory,?PPTr
         xx = xx(:,1:end-1);
         ts = mean(diff(tt));
       end
-      if (max(diff(tt))-ts>1e-6 || ts-min(diff(tt))>1e-6)
-        error('tt doesn''t appear to have a fixed sample time'); 
-      end
+%       if (max(diff(tt))-ts>1e-6 || ts-min(diff(tt))>1e-6)
+%         error('tt doesn''t appear to have a fixed sample time'); 
+%       end
       obj = obj.setSampleTime([ts;0]);
       % touch up times to align perfectly with sample times:
       tt = round(tt/ts)*ts;

@@ -1,4 +1,4 @@
-function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = testNewTrajOpt_robustSampleTerrain_new_one_step(xtraj,utraj,ltraj,ljltraj)
+function [p,xtraj,utraj,ltraj,ljltraj,z,F,info,traj_opt] = testNewTrajOpt_robustSampleTerrain_new_long_distance_walking(xtraj,utraj,ltraj,ljltraj)
 warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 warning('off','Drake:RigidBodyManipulator:WeldedLinkInd');
 options.terrain = RigidBodyStepTerrainVaryingHeight(0);
@@ -27,6 +27,10 @@ end
 v = p_perturb.constructVisualizer;
 %v = p_perturb(1).constructVisualizer;
 p = p_perturb;
+nq = p.getNumPositions(); 
+nv = p.getNumVelocities();
+nx = nq+nv;
+nu = p.getNumInputs();
 
 w_phi = load('terrain_height_noise5.dat');
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
@@ -43,10 +47,10 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 30;
+N = 70;
 T = 3;
 T0 = 3;
- 
+  
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
 R_periodic(2,2) = 1; %z
@@ -70,14 +74,14 @@ R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
 x0 = [0;1;zeros(10,1)];
-xf = [.2;1;zeros(10,1)];
+xf = [1.8;1;zeros(10,1)];
 %xf = [3.2;1.;zeros(10,1)];
 
 N2 = floor(N/2);
  
 if nargin < 2
     %Try to come up with a reasonable trajectory
-    x1 = [0.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
+    x1 = [1;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
     %x1 = [2;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
@@ -97,13 +101,13 @@ T_span = [1 T];
 
 x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
-xf_min = [.4;-inf(11,1)];
+xf_min = [1.4;-inf(11,1)];
 %xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
 p_ts = TimeSteppingRigidBodyManipulator(p,T/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator:ResolvingLCP');
- 
+  
 scale = 0.01;
 to_options.nlcc_mode = 2;% robust mode %original: 2;
 to_options.lincc_mode = 1; 
@@ -115,24 +119,26 @@ to_options.lambda_jl_mult = T0/N;
  
 to_options.contact_robust_cost_coeff = 1e-30;%1e-5;%0.0001;  
 to_options.robustLCPcost_coeff = 1000;
-to_options.Px_coeff = 0.1; 
+to_options.Px_coeff = 0.01; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
 to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
 running_cost_coeff = 1; 
+to_options.add_ccost = true;
  
 persistent sum_running_cost
 persistent cost_index
 
 traj_opt = RobustContactImplicitTrajectoryOptimization(p_ts,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
+traj_opt = traj_opt.addRunningCost(@foot_height_fun); 
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 slack_sum_vec = [];% vector storing the slack variable sum
-
+ 
 % for i = 1:SampleNum
 %     traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify SampleNum parameter]
 % end
@@ -143,21 +149,21 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
  
 %traj_opt = traj_opt.setCheckGrad(true); 
-snprint('snopt.out');
+snprint('snopt.out'); 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',500);%20000
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%200000
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000);%1000000
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',500000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
- 
+
 tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 snprint('snopt.out');
-
+ 
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
@@ -348,72 +354,34 @@ plot(t_nominal', f_nominal(8,:), color_line_type, 'LineWidth',nominal_linewidth)
 xlabel('t');
 ylabel('tangential velocity (right leg)')
 hold on;
+ 
+figure(6)
+subplot(2,1,1)
+hold on;
+plot(t_nominal', foot_height(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('left foot height')
+hold on;
 
-% PD control
-sys = pdcontrol(p_ts,diag([0.1,0.1,0.1]),diag([0.1,0.1,0.1]));
-xtraj = setOutputFrame(xtraj,sys.getInputFrame);
-xtraj_pos = xtraj(1:6);
-
-xtraj_new = simulate(cascade(xtraj,sys),[0 T],x0);
-xtraj_new = simulate(cascade(setOutputFrame(xtraj, sys.getInputFrame), sys),[0 T],x0);
-
-%% more trials
-
-kp = 20;
-kd = sqrt(kp)*1.5;
-
-[~,~,B] = p_ts.manipulatorDynamics(x0,zeros(3,1));
-K = B'*[kp*eye(p_ts.getNumPositions),kd*eye(p_ts.getNumVelocities)];
-
-ltisys = LinearSystem([],[],[],[],[],-K);
-ltisys = setInputFrame(ltisys,CoordinateFrame([p_ts.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),p_ts.getStateFrame.prefix));
-p_ts.getStateFrame.addTransform(AffineTransform(p_ts.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
-ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,p_ts.getStateFrame,eye(length(x0)),+x0));
-ltisys = setOutputFrame(ltisys,p_ts.getInputFrame);
-
-sys = feedback(r,ltisys);
-% Forward simulate dynamics with visulazation, then playback at realtime
-S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
-output_select(1).system=1;
-output_select(1).output=1;
-sys = mimoCascade(sys,v,[],[],output_select);
-warning(S);
-xtraj_new = simulate(sys,[0 2],x0);
-playback(v,xtraj_new,struct('slider',true));
-
-%%%%%%%%%%%%%%%%%%%%
-q0=x0(1:p_ts.getNumPositions);
-
-kinsol = doKinematics(p_ts,q0);
-%com = p_ts.getCOM(kinsol);
-
-%c = DiscreteQP(p_ts,[com;0*com],x0);
-c = CompassGaitWalkerIDControl(p_ts,q0);
-sys = feedback(p_ts,c);
-% Forward simulate dynamics with visulazation, then playback at realtime
-S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
-output_select(1).system=1;
-output_select(1).output=1;
-%sys = mimoCascade(sys,v,[],[],output_select);
-warning(S);
-xtraj_new = simulate(sys,xtraj.tspan,x0);
-playback(v,xtraj_new,struct('slider',true));
-
-xtraj_new = simulate(cascade(xtraj,sys),xtraj.tspan,x0);
-
+subplot(2,1,2)
+hold on;
+plot(t_nominal', foot_height(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+xlabel('t');
+ylabel('right foot height')
+hold on;
 
 % % simulate with LQR gains
 % % LQR Cost Matrices
-Q = diag(10*ones(1,12));
-R = .1*eye(3);
-Qf = 100*eye(12);
-
-ltvsys = tvlqr(p_ts,xtraj,utraj,Q,R,Qf);
-sys=feedback(p_ts,ltvsys);
-
-xtraj_new = simulate(sys,xtraj.tspan, x0);
-
-v.playback(xtraj_new,struct('slider',true));
+% Q = diag(10*ones(1,12));
+% R = .1*eye(3);
+% Qf = 100*eye(12);
+%
+% ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+%
+% sys=feedback(p,ltvsys);
+%
+% xtraj_new = simulate(sys,xtraj.tspan, x0);
+% v.playback(xtraj_new,struct('slider',true));
 
 disp('finish traj opt')
 
@@ -425,6 +393,24 @@ disp('finish traj opt')
             foot_height(:,i) = phi;
         end
         
+    end
+     
+    function [f,df] = foot_height_fun(h,x,u)
+        q = x(1:nq);
+         
+        [phi,~,~,~,~,~,~,~,n] = p.contactConstraints(q,false,struct('terrain_only',true));
+        phi0 = [.1;.1];
+        K = 10;
+        I = find(phi < phi0);
+        f = K*(phi(I) - phi0(I))'*(phi(I) - phi0(I));
+        % phi: 2x1
+        % n: 2xnq
+        df = [0 2*K*(phi(I)-phi0(I))'*n(I,:) zeros(1,nv+nu)];
+        
+        %    K = 100;
+        %    K_log = 100;
+        %    f = sum(-K*log(K_log*phi + .2));
+        %    df = [0 sum(-K*K_log*n./(K_log*repmat(phi,1,length(q)) + .2)) zeros(1,15)];
     end
 
     function [f,df] = running_cost_fun(h,x,u)

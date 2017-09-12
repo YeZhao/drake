@@ -123,6 +123,7 @@ to_options.Px_coeff = 0.01;
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
 to_options.K = [zeros(3,3),0.1*ones(3,3),zeros(3,3),0.1*ones(3,3)];%[three rows: hip,knee,knee]
 to_options.kappa = 1;
+running_cost_coeff = 1; 
 to_options.add_ccost = true;
  
 persistent sum_running_cost
@@ -132,14 +133,14 @@ persistent foot_height_cost_index
 
 traj_opt = RobustContactImplicitTrajectoryOptimization(p_ts,N,T_span,to_options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
-%traj_opt = traj_opt.addRunningCost(@foot_height_fun); 
+traj_opt = traj_opt.addRunningCost(@foot_height_fun); 
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 slack_sum_vec = [];% vector storing the slack variable sum
-
+ 
 % for i = 1:SampleNum
 %     traj_opt = traj_opt.addRobustLCPConstraints(p_perturb(i),i,SampleNum);% [Ye: modify SampleNum parameter]
 % end
@@ -164,7 +165,7 @@ tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 snprint('snopt.out');
- 
+
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
@@ -371,18 +372,18 @@ xlabel('t');
 ylabel('right foot height')
 hold on;
 
-% % simulate with LQR gains
-% % LQR Cost Matrices
-% Q = diag(10*ones(1,12));
-% R = .1*eye(3);
-% Qf = 100*eye(12);
-%
-% ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
-%
-% sys=feedback(p,ltvsys);
-%
-% xtraj_new = simulate(sys,xtraj.tspan, x0);
-% v.playback(xtraj_new,struct('slider',true));
+% simulate with LQR gains
+% LQR Cost Matrices
+Q = diag(10*ones(1,12));
+R = .1*eye(3);
+Qf = 100*eye(12); 
+
+ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+
+sys=feedback(p,ltvsys);
+
+xtraj_new = simulate(sys,xtraj.tspan, x0);
+v.playback(xtraj_new,struct('slider',true));
 
 disp('finish traj opt')
 
@@ -400,8 +401,8 @@ disp('finish traj opt')
         q = x(1:nq);
          
         [phi,~,~,~,~,~,~,~,n] = p.contactConstraints(q,false,struct('terrain_only',true));
-        phi0 = [.1;.1];
-        K = 10;
+        phi0 = [.2;.2];
+        K = 30; 
         I = find(phi < phi0);
         f = K*(phi(I) - phi0(I))'*(phi(I) - phi0(I));
         % phi: 2x1
@@ -411,13 +412,13 @@ disp('finish traj opt')
         if isempty(foot_height_cost_index)
             foot_height_cost_index = 1;
             sum_foot_height_cost = f;
-        elseif cost_index == N-2
+        elseif foot_height_cost_index == N-2
             sum_foot_height_cost = sum_foot_height_cost + f;
-            fprintf('sum of running cost: %4.4f\n',sum_foot_height_cost);
+            fprintf('sum of foot height cost: %4.4f\n',sum_foot_height_cost);
             disp('------------------')
             foot_height_cost_index = [];
         else
-            sum_foot_height_cost = sum_foot_height_cost + foot_height_cost_coeff*f;
+            sum_foot_height_cost = sum_foot_height_cost + f;
             foot_height_cost_index = foot_height_cost_index + 1;
         end
         
@@ -425,7 +426,6 @@ disp('finish traj opt')
         %    K_log = 100;
         %    f = sum(-K*log(K_log*phi + .2));
         %    df = [0 sum(-K*K_log*n./(K_log*repmat(phi,1,length(q)) + .2)) zeros(1,15)];
-        
     end
 
     function [f,df] = running_cost_fun(h,x,u)
@@ -438,7 +438,6 @@ disp('finish traj opt')
         elseif running_cost_index == N-2
             sum_running_cost = sum_running_cost + f;
             fprintf('sum of running cost: %4.4f\n',sum_running_cost);
-            disp('------------------')
             running_cost_index = [];
         else
             sum_running_cost = sum_running_cost + f;

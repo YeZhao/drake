@@ -236,7 +236,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
             else 
                 %[phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
+                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts, obj.active_collision_options);
             end
             
             %[tuned for 2D]
@@ -1012,7 +1012,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
             return;
-            disp('finish solveQP QP')
+            %disp('finish solveQP QP')
             
             %% add gradient check
             %
