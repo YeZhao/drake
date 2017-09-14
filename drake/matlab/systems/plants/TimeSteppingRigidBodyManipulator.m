@@ -35,7 +35,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         terrain_index
         uncertainty_source
     end
-     
+    
     methods
         function obj=TimeSteppingRigidBodyManipulator(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
@@ -107,6 +107,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             end
             
             obj.timestep = timestep;
+            
             obj.LCP_cache = SharedDataHandle(struct('t',[],'x',[],'u',[],'nargout',[], ...
                 'z',[],'Mqdn',[],'wqdn',[], 'possible_contact_indices',[],'possible_limit_indices',[], ...
                 'dz',[],'dMqdn',[],'dwqdn',[],'contact_data',[],'fastqp_active_set',[]));
@@ -1006,12 +1007,12 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             persistent xdn_LCP_vec;
             
             %tStart = tic;
-            [xdn,df] = solveQP(obj,X0);
+            %[xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            return;
+            %return;
             %disp('finish solveQP QP')
             
             %% add gradient check

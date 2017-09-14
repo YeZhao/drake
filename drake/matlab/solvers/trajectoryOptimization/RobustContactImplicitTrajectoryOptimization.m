@@ -46,6 +46,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         dCdqdot
         dJgdq_i
         
+        timeStep
         %debugging var
         verbose_print
     end
@@ -105,7 +106,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.nx = nX;
             obj.nu = nU;
             obj.nlambda = nL;
-            
+                        
             constraints = cell(N-1,1);
             %foot_horizontal_distance_constraints = cell(N-1,1);
             %foot_height_diff_constraints = cell(N-1,1);
@@ -248,7 +249,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-             
+            
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             end
@@ -2833,6 +2834,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             nu = obj.plant.getNumInputs;
             nl = length(lambda);
             njl = length(lambda_jl);
+            
+            % set the timestep for TimeStepRigidBodyManipulator
+            timeStep = h;
             
             lambda = lambda*obj.options.lambda_mult;
             lambda_jl = lambda_jl*obj.options.lambda_jl_mult;

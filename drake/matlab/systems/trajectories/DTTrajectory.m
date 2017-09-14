@@ -7,6 +7,29 @@ classdef (InferiorClasses = {?ConstantTrajectory,?FunctionHandleTrajectory,?PPTr
   
   methods
     function obj = DTTrajectory(tt,xx)
+      
+      tt_ref = tt(2)-tt(1);
+      diff_tt = diff(tt);
+      remove_index = [];
+      ignore_flag = 1;
+      for i=1:length(diff_tt)
+          if ignore_flag == 1
+              if (diff_tt(i)-tt_ref>1e-6 || tt_ref-diff_tt(i)>1e-6)
+                  remove_index = [remove_index,i+1];
+                  ignore_flag = 0;
+              end
+          else
+              ignore_flag = 1;
+          end
+      end
+      
+%       if (max(diff(tt))-ts>1e-6 || ts-min(diff(tt))>1e-6)
+%         error('tt doesn''t appear to have a fixed sample time'); 
+%       end
+      
+      tt(remove_index) = [];
+      xx(:,remove_index) = [];
+            
       obj = obj@Trajectory(size(xx,1));
       typecheck(tt,'double');
       typecheck(xx,'double');
@@ -20,9 +43,9 @@ classdef (InferiorClasses = {?ConstantTrajectory,?FunctionHandleTrajectory,?PPTr
         xx = xx(:,1:end-1);
         ts = mean(diff(tt));
       end
-%       if (max(diff(tt))-ts>1e-6 || ts-min(diff(tt))>1e-6)
-%         error('tt doesn''t appear to have a fixed sample time'); 
-%       end
+      if (max(diff(tt))-ts>1e-6 || ts-min(diff(tt))>1e-6)
+        error('tt doesn''t appear to have a fixed sample time'); 
+      end
       obj = obj.setSampleTime([ts;0]);
       % touch up times to align perfectly with sample times:
       tt = round(tt/ts)*ts;
