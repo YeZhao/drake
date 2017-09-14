@@ -182,7 +182,6 @@ fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_h
 
 %%
 q0=x0(1:p_ts.getNumPositions);
-
 kinsol = doKinematics(p_ts,q0);
 %com = p_ts.getCOM(kinsol);
   
@@ -215,6 +214,7 @@ xtraj_new = simulate(cascade(setOutputFrame(xtraj, sys.getInputFrame), sys),[0 T
 kp = 20;
 kd = sqrt(kp)*1.5;
 
+p_ts = TimeSteppingRigidBodyManipulator(p,0.0005);
 [~,~,B] = p_ts.manipulatorDynamics(x0,zeros(3,1));
 K = B'*[kp*eye(p_ts.getNumPositions),kd*eye(p_ts.getNumVelocities)];
 
@@ -224,14 +224,14 @@ p_ts.getStateFrame.addTransform(AffineTransform(p_ts.getStateFrame,ltisys.getInp
 ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,p_ts.getStateFrame,eye(length(x0)),+x0));
 ltisys = setOutputFrame(ltisys,p_ts.getInputFrame);
 
-sys = feedback(r,ltisys);
+sys = feedback(p_ts,ltisys);
 % Forward simulate dynamics with visulazation, then playback at realtime
 S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
 output_select(1).system=1;
 output_select(1).output=1;
-sys = mimoCascade(sys,v,[],[],output_select);
+%sys = mimoCascade(sys,v,[],[],output_select);
 warning(S);
-xtraj_new = simulate(sys,[0 2],x0);
+xtraj_new = simulate(sys,xtraj.tspan,x0);
 playback(v,xtraj_new,struct('slider',true));
 
 

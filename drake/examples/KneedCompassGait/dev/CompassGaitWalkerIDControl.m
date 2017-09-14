@@ -126,7 +126,6 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %         t = 0.0005*floor(t/0.0005);
             %     end
             
-%             obj.w_qdd = 1e-3;
 %             obj.active_threshold = 0.03;
             
 %             if t > 0.5 && t < 0.51
@@ -149,7 +148,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             q_des = x_des(1:nq);%[Ye: hard coded for 2D compass gait walker]
             qd_des = x_des(nq+1:2*nq);%[Ye: hard coded for 2D compass gait walker]
             
-            persistent initial_flag
+            persistent initial_count
             persistent q_des_vec
             persistent q_vec
             persistent qd_des_vec
@@ -160,6 +159,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             persistent phi_des_vec
             persistent count
             persistent active_status_previous
+            persistent friction_coeff_vec
             
 %             initial_flag = [];
 %             q_des_vec = [];
@@ -172,11 +172,16 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
 %             phi_des_vec = [];
 %             count = [];
             
-            if isempty(initial_flag)
+            if isempty(initial_count) || initial_count == 1
                 %x(6) = x_des(6);
                 %x(12) = x_des(12);
                 %x = x_des;
-                initial_flag = 1;
+                x = x_des;
+                if isempty(initial_count)
+                    initial_count = 1;
+                else
+                    initial_count = initial_count + 1;
+                end
             end
             
             if isempty(q_des_vec) && isempty(q_vec)
@@ -226,8 +231,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 phi_des_vec = [phi_des_vec, phi_des];
             end
             
-            active_sim = find(phi < 0.001);%obj.active_threshold);
-            active_des = find(phi_des < 0.001);%obj.active_threshold);
+            active_sim = find(phi < 0.01);%obj.active_threshold);
+            active_des = find(phi_des < 0.01);%obj.active_threshold);
             
             active = [];
             if ~isempty(active_sim) && ~isempty(active_des)
@@ -272,9 +277,15 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             end
             
 %             if strcmp(active_status_previous, 'left foot') && strcmp(active_status, 'no contact')
-%                 active = [1];  
+%                 active = [1];
 %                 active_status = 'left foot';
-%             end 
+%             elseif strcmp(active_status_previous, 'right foot') && strcmp(active_status, 'no contact')
+%                 active = [2];
+%                 active_status = 'right foot';
+%             elseif strcmp(active_status_previous, 'both foot') && strcmp(active_status, 'no contact')
+%                 active = [1,2];
+%                 active_status = 'both foot';
+%             end
             
             if length(active) == 2
                 disp(active_status);%'both foot'
@@ -354,6 +365,14 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             Iconst = zeros(ncf,nparams); Iconst(:,nq+nu+nf+(1:ncf)) = eye(ncf);
             Ieps = zeros(neps,nparams); Ieps(:,nq+nu+nf+ncf+(1:neps)) = eye(neps);
             
+            % friction cone constraint
+            Ifriccoeff = zeros(nc,nparams); 
+            if nc > 0
+                for i=1:nc
+                    Ifriccoeff(i,nq+nu+nd*(i-1)+(1:2)) = [1, -1];
+                end
+            end
+            
             %----------------------------------------------------------------------
             % Set up problem constraints ------------------------------------------
             
@@ -392,6 +411,19 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             Ain = [];
             bin = [];
             
+%             if nc > 0
+%                 Ain_ = cell(1,nc);
+%                 bin_ = cell(1,nc);
+%                 for i=1:nc
+%                     Ain_{i} = Ifriccoeff(i,:);
+%                     bin_{i} = 0;
+%                 end
+%                 Ain = sparse(vertcat(Ain_{:}));
+%                 bin = vertcat(bin_{:});
+%             end
+            
+                
+            
             %Kp_com = 100;
             %Kd_com = 1.5*sqrt(Kp_com);
             Kp_qdd = 1*diag([100,100,100,100,100,100]);%100*eye(nq);
@@ -409,7 +441,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %com_ddot_des = Kp_com*(obj.com_des - xcom) - Kd_com*Jcom*qd;
             Q = 10*eye(2);%10*eye(3);%[Ye: 2D case]
             
-            qddot_des = Kp_qdd*(q_des - q) - Kd_qdd*qd;
+            qddot_des = Kp_qdd*(q_des - q) + Kd_qdd*( - qd);
             
             %----------------------------------------------------------------------
             % QP cost function ----------------------------------------------------
@@ -480,6 +512,22 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 result.status
             end
             
+            if nparams == 11
+                if isempty(friction_coeff_vec)
+                    friction_coeff_vec = alpha(10)/alpha(11);
+                else
+                    friction_coeff_vec = [friction_coeff_vec, alpha(10)/alpha(11)];
+                end
+            end
+            
+            if nparams == 13
+                if isempty(friction_coeff_vec)
+                    friction_coeff_vec = [alpha(10)/alpha(11),alpha(12)/alpha(13)];
+                else
+                    friction_coeff_vec = [friction_coeff_vec, alpha(10)/alpha(11),alpha(12)/alpha(13)];
+                end
+            end
+            
             cf = Iconst*alpha;
             y = alpha(nq+(1:nu));
             
@@ -489,11 +537,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 u_vec = [u_vec, y];
             end
             
-%             if abs(y(1)) > 100
-%                 disp('here')
-%             end
             fprintf('number of runs: %4.4f\n',count);
-            if count == 2161%2118%4395%4395%4094%
+            if count == 2118%2161%4395%4395%4094%
                 
                 figure(10)
                 clf
@@ -615,7 +660,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 clear phi_vec
                 clear phi_des_vec
                 clear count
-                clear initial_flag
+                clear initial_count
+                clear friction_coeff_vec
             end
             
         end
