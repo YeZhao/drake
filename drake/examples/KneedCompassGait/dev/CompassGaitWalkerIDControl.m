@@ -1,7 +1,7 @@
 classdef CompassGaitWalkerIDControl < DrakeSystem
     properties (SetAccess=protected)
         xtraj
-        active_threshold = 0.001;% height below which contact forces are calculated
+        active_threshold = 0.01;% height below which contact forces are calculated
     end
     
     methods
@@ -138,7 +138,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
 %                 %disp('here');
 %             end
             
-            obj.w_qdd = 0.001*ones(obj.numq,1);
+            %obj.w_qdd = 0.001*ones(obj.numq,1);
             
             r = obj.robot;
             nq = obj.numq;
@@ -175,9 +175,6 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
 %             count = [];
             
             if isempty(initial_count) || initial_count == 1
-                %x(6) = x_des(6);
-                %x(12) = x_des(12);
-                %x = x_des;
                 x = x_des;
                 x_initial = x_des;
                 if isempty(initial_count)
@@ -207,7 +204,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 count = count + 1;
             end
             
-            dim = 2; %2D % 3D
+            dim = 2; %2D
             nd = 2; % for friction cone approx, hard coded for now
             
             [H,C,B] = manipulatorDynamics(r,q,qd);
@@ -234,8 +231,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 phi_des_vec = [phi_des_vec, phi_des];
             end
             
-            active_sim = find(phi < 0.01);%obj.active_threshold);
-            active_des = find(phi_des < 0.01);%obj.active_threshold);
+            active_sim = find(phi < obj.active_threshold);
+            active_des = find(phi_des < obj.active_threshold);
             
             active = [];
             if ~isempty(active_sim) && ~isempty(active_des)
@@ -278,17 +275,6 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             else isempty(active)
                 active_status = 'no contact';
             end
-            
-%             if strcmp(active_status_previous, 'left foot') && strcmp(active_status, 'no contact')
-%                 active = [1];
-%                 active_status = 'left foot';
-%             elseif strcmp(active_status_previous, 'right foot') && strcmp(active_status, 'no contact')
-%                 active = [2];
-%                 active_status = 'right foot';
-%             elseif strcmp(active_status_previous, 'both foot') && strcmp(active_status, 'no contact')
-%                 active = [1,2];
-%                 active_status = 'both foot';
-%             end
             
             if length(active) == 2
                 disp(active_status);%'both foot'
@@ -368,14 +354,6 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             Iconst = zeros(ncf,nparams); Iconst(:,nq+nu+nf+(1:ncf)) = eye(ncf);
             Ieps = zeros(neps,nparams); Ieps(:,nq+nu+nf+ncf+(1:neps)) = eye(neps);
             
-            % friction cone constraint
-            Ifriccoeff = zeros(nc,nparams); 
-            if nc > 0
-                for i=1:nc
-                    Ifriccoeff(i,nq+nu+nd*(i-1)+(1:2)) = [1, -1];
-                end
-            end
-            
             %----------------------------------------------------------------------
             % Set up problem constraints ------------------------------------------
             
@@ -413,25 +391,11 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %     bin = bin(bin~=inf);
             Ain = [];
             bin = [];
-            
-%             if nc > 0
-%                 Ain_ = cell(1,nc);
-%                 bin_ = cell(1,nc);
-%                 for i=1:nc
-%                     Ain_{i} = Ifriccoeff(i,:);
-%                     bin_{i} = 0;
-%                 end
-%                 Ain = sparse(vertcat(Ain_{:}));
-%                 bin = vertcat(bin_{:});
-%             end
-            
-                
-            
+                        
             %Kp_com = 100;
             %Kd_com = 1.5*sqrt(Kp_com);
             Kp_qdd = 1*diag([100,100,100,100,100,100]);%100*eye(nq);
-            Kd_qdd = 8*diag([10,10,10,10,10,10]);
-            %Kd_qdd(6,6) = 10;
+            Kd_qdd = 6*diag([10,10,10,10,10,10]);
             
             %     idx = 4+[r.findJointId('knee_shin_passive_left');
             %           r.findJointId('knee_shin_passive_right');
@@ -540,7 +504,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 u_vec = [u_vec, y];
             end
             
-            fprintf('number of runs: %4.4f\n',count);
+            fprintf('number of runs: %4.4f\n',count); 
             if count == 1292%2161%4395%4395%4094%
                 
                 figure(10)

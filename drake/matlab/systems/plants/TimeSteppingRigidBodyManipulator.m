@@ -1001,22 +1001,21 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         function [xdn,df] = update(obj,t,x,u)
             %if obj.update_convex && nargout>1
             %t
-            X0 = [t;x;u];
-            % X0 = X0 + randn(size(X0))*0.1;
             global timestep_updated
             global x_initial
             timestep_updated = 5e-4;
+            % this is the key part.
             if t == 0
                 x = x_initial;
             end
-            
+            X0 = [t;x;u];
+
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
             %tStart = tic;
             %[xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
-            
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
             %return;
@@ -1313,7 +1312,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                 [phiL,JL] = obj.manip.jointLimitConstraints(q);
                             end
                             if isempty(possible_limit_indices)
-                                possible_limit_indices = (phiL + h*JL*qd) < 0.01;%obj.z_inactive_guess_tol;
+                                possible_limit_indices = (phiL + h*JL*qd) < obj.z_inactive_guess_tol;
                             end
                             nL = sum(possible_limit_indices);
                             
@@ -1360,7 +1359,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                          
                         if ~isempty(phiC)
                             if isempty(possible_contact_indices)
-                                possible_contact_indices = (phiC+h*n*qd) < 0.01;%obj.z_inactive_guess_tol;
+                                possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;
                             end
                             
                             nC = sum(possible_contact_indices);

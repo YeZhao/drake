@@ -6,8 +6,6 @@ options.floating = true;
 options.ignore_self_collisions = true; 
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
-%global timestep_updated
-
 paramstd = 1/5; % Standard deviation of the parameter value percent error
 SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
@@ -45,8 +43,7 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-global timestep_updated
-N = 150;%150;
+N = 30;%150;
 T = 2;
 T0 = 2;
  
@@ -98,7 +95,7 @@ else
 end
 T_span = [0.5 T];
 
-x0_min = [x0(1:5);-inf; 0.4; 0; -inf(4,1)];
+x0_min = [x0(1:5);-inf; -inf; 0; -inf(4,1)];
 x0_max = [x0(1:5);inf;  inf; 0; inf(4,1)];
 % x0_min = [x0(1:6); zeros(6,1)];
 % x0_max = [x0(1:6);  zeros(6,1)];
@@ -186,7 +183,7 @@ foot_height = compute_foot_height(x_nominal);
 fprintf('sum of left foot height integration value: %4.4f\n',sum(sum(abs(foot_height(1,:)))));
 fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_height(2,:)))));
 
-%%
+%% QP-based inverse dynamics control
 q0=x0(1:p_ts.getNumPositions);
 kinsol = doKinematics(p_ts,q0);
 %com = p_ts.getCOM(kinsol);
@@ -204,20 +201,9 @@ warning(S);
 xtraj_new = simulate(sys,xtraj.tspan,x0);
 playback(v,xtraj_new,struct('slider',true));
 
-%xtraj_new = simulate(cascade(xtraj,sys),xtraj.tspan,x0);
-
-
-%% PD control
-sys = pdcontrol(p_ts,diag([0.1,0.1,0.1]),diag([0.1,0.1,0.1]));
-xtraj = setOutputFrame(xtraj,sys.getInputFrame);
-xtraj_pos = xtraj(1:6);
-
-xtraj_new = simulate(cascade(xtraj,sys),[0 T],x0);
-xtraj_new = simulate(cascade(setOutputFrame(xtraj, sys.getInputFrame), sys),[0 T],x0);
-
-%% more pdcontrol trial
-
-kp = 20;
+%% pd-control LTI trial
+% does not work so far
+kp = 100;
 kd = sqrt(kp)*1.5;
 
 p_ts = TimeSteppingRigidBodyManipulator(p,0.0005);
@@ -239,8 +225,6 @@ output_select(1).output=1;
 warning(S);
 xtraj_new = simulate(sys,xtraj.tspan,x0);
 playback(v,xtraj_new,struct('slider',true));
-
-
 
 % % simulate with LQR gains
 % % LQR Cost Matrices
