@@ -91,10 +91,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             end
             if ~isfield(options,'add_ccost')
                 options.add_ccost = false;
-            end  
+            end
             
             obj = obj@DirectTrajectoryOptimization(plant,N,duration,options);
-            
         end
         
         function obj = addDynamicConstraints(obj)
@@ -106,7 +105,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.nx = nX;
             obj.nu = nU;
             obj.nlambda = nL;
-                        
+            
             constraints = cell(N-1,1);
             %foot_horizontal_distance_constraints = cell(N-1,1);
             %foot_height_diff_constraints = cell(N-1,1);
@@ -121,9 +120,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
-            cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
-            cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
-            cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
+            %cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
+            %cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
+            %cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
@@ -137,10 +136,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
 %                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
 %                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
                 
-%                 % add foot height diff constraint
-%                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
-%                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
-%                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
+                %                 % add foot height diff constraint
+                %                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
+                %                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
+                %                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
                 
 %                 % add max CoM vertical velocity constraint
 %                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
@@ -229,25 +228,27 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
                 end
             end
-                     
-%             if obj.nC > 0
-%                 if obj.options.add_ccost
-%                     dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
-%                     for i=1:obj.N-2
-%                         normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
-%                         normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
-%                         obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
-%                     end
-%                 end
-%             end
-             
+            
+            %             if obj.nC > 0
+            %                 if obj.options.add_ccost
+            %                     dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
+            %                     for i=1:obj.N-2
+            %                         normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
+            %                         normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
+            %                         obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
+            %                     end
+            %                 end
+            %             end
+            
+            % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
+            obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
+            
             % robust variance cost with state feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-            
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
@@ -278,11 +279,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
                 tStart = tic;
+                global timestep_updated
                 
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
-                nv = obj.plant.getNumVelocities; 
+                nv = obj.plant.getNumVelocities;
                 nu = obj.nu;%obj.plant.getNumInputs;
                 
                 fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
@@ -305,7 +307,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
                 flag_generate_new_noise = 0;
                 if ~flag_generate_new_noise
-                    w_mu = load('friction_coeff_noise2.dat');
+                    %w_mu = load('friction_coeff_noise2.dat');
                     %w_mu = ones(1,obj.N);
                     %w_phi = load('terrain_height_noise5.dat');
                 else
@@ -324,7 +326,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 c = kappa*trace(Px(:,:,1));
-                %c = 0;
                 c_quadratic = 0;
                 c_variance = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -356,7 +357,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];%
+                            Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) + 
                             % add terrain height uncertainty sample to each sigma point
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
@@ -364,7 +365,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
                         end
                         c = c + norm(x(:,k)-x_mean(:,k))^2;
-                         
+                        
                         %                         % debugging
                         c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
                         %                         c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
@@ -401,7 +402,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         end
                         
                         % add feedback control
-                        t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
+                        t = timestep_updated*(k-1);%%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                         % debugging
                         % if u_fdb_k*u(:,k) < 0
@@ -421,12 +422,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         %                         if any(abs(u_fdb_k) > 10)
                         %                             disp('control here')
                         %                         end
-                         
-                        % control limits 
-                        u_fdb_k = controlLimits(u_fdb_k);
-                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);    
+                        
+                        % control limits
+                        %u_fdb_k = controlLimits(u_fdb_k);
+                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         % state limits
-                        xdn = stateLimits(xdn);
+                        %xdn = stateLimits(xdn);
                         
                         Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
                         Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
@@ -726,27 +727,27 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 obj.cached_Px = Px;
                 fprintf('robust cost function: %4.8f\n',c);
                 
-                            % check gradient
-                            %disp('check gradient')
-%                             c_numeric = c;
-%                             dc_numeric = dc;
+                % check gradient
+                disp('check gradient')
+                %                             c_numeric = c;
+                %                             dc_numeric = dc;
                 %
-                            %X0 = [x_full; u_full];
+                X0 = [x_full; u_full];
                 %             %X0 = X0 + randn(size(X0))*0.1;
                 %
-                            %fun = @(X0) robustVariancecost_check(obj, X0);
-                            %%DerivCheck(fun, X0)
-                            %gradient_scale = Compute_numerical_gradient_scale(fun, X0);
-                            %dc = dc*gradient_scale;
-                            
-                            %disp('finish numerical gradient');
-                            
-                            %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                fun = @(X0) robustVariancecost_check(obj, X0);
+                DerivCheck(fun, X0)
+                %gradient_scale = Compute_numerical_gradient_scale(fun, X0);
+                %dc = dc*gradient_scale;
+                
+                disp('finish numerical gradient');
+                
+                [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
                 %
                 %             [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
                 %
-%                             valuecheck(dc,dc_numeric,1e-5);
-%                             valuecheck(c,c_numeric,1e-5);
+                                            valuecheck(dc,dc_numeric,1e-5);
+                                            valuecheck(c,c_numeric,1e-5);
                 
                 function DerivCheck(funptr, X0, ~, varargin)
                     
@@ -776,40 +777,11 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     fprintf('difference between numerical and analytical: %4.15f\n',dd);
                 end
                 
-                %hacky test
-                function gradient_scale = Compute_numerical_gradient_scale(funptr, X0, ~, varargin)
-                    
-                    % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
-                    %`
-                    %  Checks the analytic gradient of a function 'funptr' at a point X0, and
-                    %  compares to numerical gradient.  Useful for checking gradients computed
-                    %  for fminunc and fmincon.
-                    %
-                    %  Call with same arguments as you would call for optimization (fminunc).
-                    %
-                    % $id$
-                    
-                    [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
-                    
-                    % Pick a random small vector in parameter space
-                    tol = 1e-6;  % Size of numerical step to take
-                    rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                    
-                    % Evaluate at symmetric points around X0
-                    f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-                    f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
-                    
-                    % Print results
-                    fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', dot(rr, JJ), f2-f1);
-                    gradient_scale =  (f2-f1)/dot(rr, JJ);
-                    %fprintf('difference between numerical and analytical: %4.15f\n',dd);
-                end
-                
-                function [c,dc] = robustVariancecost_check(obj, X0)
-                    tStart = tic;
-                    
+                function [c,dc] = robustVariancecost_check(obj, X0)                    
                     x_full = X0(1:obj.nx*obj.N);
                     u_full = X0(obj.nx*obj.N+1:end);
+                    
+                    tStart = tic;
                     
                     x = reshape(x_full, obj.nx, obj.N);
                     u = reshape(u_full, obj.nu, obj.N);
@@ -817,7 +789,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     nv = obj.plant.getNumVelocities;
                     nu = obj.nu;%obj.plant.getNumInputs;
                     
-                    %fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
+                    fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
                     
                     % sigma points
                     Px = zeros(obj.nx,obj.nx,obj.N);
@@ -837,7 +809,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
                     flag_generate_new_noise = 0;
                     if ~flag_generate_new_noise
-                        w_mu = load('friction_coeff_noise2.dat');
+                        %w_mu = load('friction_coeff_noise2.dat');
                         %w_mu = ones(1,obj.N);
                         %w_phi = load('terrain_height_noise5.dat');
                     else
@@ -882,17 +854,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         if k == 1
                             [S,d] = chol(blkdiag(Px(:,:,k), Pw), 'lower');
                             if d
-                                diverge  = k;
+                                diverge = k;
                                 return;
                             end
                             S = scale*S;
                             Sig(:,:,k) = [S -S];
                             for j = 1:(2*(obj.nx+nw))
-                                Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];% 
+                                Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) + 
                                 % add terrain height uncertainty sample to each sigma point
                             end
-                            %Sig_original(:,:,k) = Sig(:,:,k);
-                            
                             x_mean(:,k) = zeros(obj.nx,1);
                             for j = 1:n_sig_point
                                 x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
@@ -935,7 +905,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             end
                             
                             % add feedback control
-                            t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
+                            t = timestep_updated*(k-1);%%[double make sure obj.h is updated correctly]
                             u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                             % debugging
                             % if u_fdb_k*u(:,k) < 0
@@ -957,18 +927,15 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             %                         end
                             
                             % control limits
-                            u_fdb_k = controlLimits(u_fdb_k);
+                            %u_fdb_k = controlLimits(u_fdb_k);
                             [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-                            
                             % state limits
-                            xdn = stateLimits(xdn);
+                            %xdn = stateLimits(xdn);
                             
                             Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
                             Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
                             
-                            dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);
-                            %dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*B;obj.plant.timestep*Hinv(:,:,j,k)*B];
-                            
+                            dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                             dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                             dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                             
@@ -982,11 +949,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         for j = 1:n_sig_point
                             x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                         end
-                        %x_mean_original(:,k+1) = x_mean(:,k+1);
                         
                         % rescale sigma point
                         for j = 1:n_sig_point
-                            %Sig_original(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1);
                             Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                         end
                         
@@ -996,8 +961,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                         end
                         
-                        % a more direct way to set mean
-                        %x_mean(:,k+1) = x(:,k+1);
+                        if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                            disp('error')
+                        end
                         
                         Px(:,:,k+1) = zeros(obj.nx);
                         %alpha = 1e-3;
@@ -1134,12 +1100,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];%
                     end
                     
-%                    % scale this robust cost
+                    % scale this robust cost
                     c = obj.options.contact_robust_cost_coeff*c;
                     dc = obj.options.contact_robust_cost_coeff*dc;
                     %fprintf('robust cost function: %4.8f\n',c);
                 end
-                 
+                
                 function [xdn] = stateLimits(xdn)
                     if xdn(1) < -1
                         xdn(1) = -1;
@@ -1221,7 +1187,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     elseif u(1) > u_max
                         u(1) = u_max;
                     end
-                     
+                    
                     if u(2) < -u_max
                         u(2) = -u_max;
                     elseif u(2) > u_max
@@ -2815,6 +2781,13 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             
         end
         
+        function [c,dc] = getTimeStep(obj, h)
+            global timestep_updated
+            timestep_updated = h;
+            c = 0;
+            dc = 0;
+        end
+        
         function [c,dc] = robustLCPcost(obj, slack_var)
             c = obj.options.robustLCPcost_coeff*sum(slack_var);
             dc = obj.options.robustLCPcost_coeff*ones(1,length(slack_var));
@@ -2822,10 +2795,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
         end
         
         function [c,dc] = ccost(~,c1,c2)
-          cdiff = c1-c2;
-          c = 0.5*(cdiff'*cdiff);
-          I = eye(length(c1));
-          dc = [cdiff'*I,-cdiff'*I];
+            cdiff = c1-c2;
+            c = 0.5*(cdiff'*cdiff);
+            I = eye(length(c1));
+            dc = [cdiff'*I,-cdiff'*I];
         end
         
         function [f,df] = dynamics_constraint_fun(obj,h,x0,x1,u,lambda,lambda_jl)
@@ -2834,9 +2807,6 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             nu = obj.plant.getNumInputs;
             nl = length(lambda);
             njl = length(lambda_jl);
-            
-            % set the timestep for TimeStepRigidBodyManipulator
-            timeStep = h;
             
             lambda = lambda*obj.options.lambda_mult;
             lambda_jl = lambda_jl*obj.options.lambda_jl_mult;
@@ -2960,22 +2930,22 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             x_swing = CoM_x_pos - l_thigh*sin(q_stance_hip+q_swing_hip) - l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip);
             x_stance = CoM_x_pos - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee);
             
-            foot_horizontal_distance_max = 0.3;
-            CoM_swing_foot_horizontal_distance_max = 0.2;
-            CoM_stance_foot_horizontal_distance_max = 0.3;
+            foot_horizontal_distance_max = 0.7;
+            CoM_swing_foot_horizontal_distance_max = 0.5;
+            CoM_stance_foot_horizontal_distance_max = 0.5;
             
             f = [x_swing - x_stance - foot_horizontal_distance_max;
                 x_swing - CoM_x_pos - CoM_swing_foot_horizontal_distance_max];
             % x_stance - CoM_x_pos - CoM_stance_foot_horizontal_distance_max
             
-%             df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
-%                 -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv);
-%                 zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv)];
+            %             df = [zeros(1,2), l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), l_calf*cos(q_stance_hip + q_stance_knee), ...
+            %                 -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv);
+            %                 zeros(1,4), -l_thigh*cos(q_swing_hip) - l_calf*cos(q_swing_knee + q_swing_hip), -l_calf*cos(q_swing_knee + q_swing_hip), zeros(1,nv)];
             
             df = [zeros(1,2), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip) + l_thigh*cos(q_stance_hip) + l_calf*cos(q_stance_hip + q_stance_knee), ...
-                  l_calf*cos(q_stance_hip + q_stance_knee), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv);
-                  zeros(1,2), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), 0, -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), ...
-                  -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv)];
+                l_calf*cos(q_stance_hip + q_stance_knee), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv);
+                zeros(1,2), -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), 0, -l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), ...
+                -l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip), zeros(1,nv)];
         end
         
         function [f,df] = foot_height_diff_constraint_fun(obj,x)
@@ -2993,7 +2963,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             %swing foot vertical position
             z_swing = CoM_z_pos - l_thigh*cos(q_stance_hip+q_swing_hip) - l_calf*cos(q_stance_hip+q_swing_knee + q_swing_hip);
             z_stance = CoM_z_pos - l_thigh*cos(q_stance_hip) - l_calf*cos(q_stance_hip + q_stance_knee);
-             
+            
             q = x(1:6);
             
             [phi,~,~,~,~,~,~,~,n] = obj.plant.contactConstraints(q,false,struct('terrain_only',true));
@@ -3004,12 +2974,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             f = [z_swing - z_stance - foot_height_distance_max;
                 CoM_foot_height_diff_max - CoM_z_pos + z_swing];
             
-%             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
-%                 l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
-%                 zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
+            %             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
+            %                 l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);
+            %                 zeros(1,4), l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv)];
             
             df = [zeros(1,2), l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip) - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), ...
-                  -l_calf*sin(q_stance_hip + q_stance_knee), ...
+                -l_calf*sin(q_stance_hip + q_stance_knee), ...
                 l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip+ q_swing_hip + q_swing_knee), zeros(1,nv);
                 zeros(1,2), l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), 0, l_thigh*sin(q_stance_hip+q_swing_hip) + l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip+q_stance_hip + q_stance_knee), zeros(1,nv)];
         end

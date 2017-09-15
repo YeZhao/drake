@@ -118,6 +118,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
         
         %   function y=mimoOutput(obj,~,~,varargin)
         function y=output(obj,t,~,x)
+            global x_initial
+            
             %     x = varargin{1};
             %     qddot_des = varargin{2};
             
@@ -136,7 +138,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
 %                 %disp('here');
 %             end
             
-            %obj.w_qdd = 0.001*ones(obj.numq,1);
+            obj.w_qdd = 0.001*ones(obj.numq,1);
             
             r = obj.robot;
             nq = obj.numq;
@@ -177,6 +179,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 %x(12) = x_des(12);
                 %x = x_des;
                 x = x_des;
+                x_initial = x_des;
                 if isempty(initial_count)
                     initial_count = 1;
                 else
@@ -427,7 +430,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %Kp_com = 100;
             %Kd_com = 1.5*sqrt(Kp_com);
             Kp_qdd = 1*diag([100,100,100,100,100,100]);%100*eye(nq);
-            Kd_qdd = 1.5*sqrt(Kp_qdd);
+            Kd_qdd = 8*diag([10,10,10,10,10,10]);
             %Kd_qdd(6,6) = 10;
             
             %     idx = 4+[r.findJointId('knee_shin_passive_left');
@@ -441,7 +444,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %com_ddot_des = Kp_com*(obj.com_des - xcom) - Kd_com*Jcom*qd;
             Q = 10*eye(2);%10*eye(3);%[Ye: 2D case]
             
-            qddot_des = Kp_qdd*(q_des - q) + Kd_qdd*( - qd);
+            qddot_des = Kp_qdd*(q_des - q) + Kd_qdd*(qd_des - qd);
             
             %----------------------------------------------------------------------
             % QP cost function ----------------------------------------------------
@@ -538,7 +541,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             end
             
             fprintf('number of runs: %4.4f\n',count);
-            if count == 2118%2161%4395%4395%4094%
+            if count == 1292%2161%4395%4395%4094%
                 
                 figure(10)
                 clf

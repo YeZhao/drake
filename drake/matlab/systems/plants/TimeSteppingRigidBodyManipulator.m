@@ -273,6 +273,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             t = X0(1);
             x = X0(2:13);
             u = X0(14:16);
+            global timestep_updated
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -292,7 +293,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 num_d = 4;
             end
             dim = 2;%[tuned for 2D]
-            h = obj.timestep;
+            h = timestep_updated;
             
             num_q = obj.manip.getNumPositions;
             q=x(1:num_q);
@@ -1002,17 +1003,23 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %t
             X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
-             
+            global timestep_updated
+            global x_initial
+            timestep_updated = 5e-4;
+            if t == 0
+                x = x_initial;
+            end
+            
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
             %tStart = tic;
-            [xdn,df] = solveQP(obj,X0);
+            %[xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            return;
+            %return;
             %disp('finish solveQP QP')
             
             %% add gradient check
@@ -1085,7 +1092,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             
             num_q = obj.manip.num_positions;
             q=x(1:num_q); v=x((num_q+1):end);
-            h = obj.timestep;
+            
+            h = timestep_updated;
             
             if isempty(z)
                 vn = wvn;
@@ -1182,6 +1190,8 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         end
         
         function [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u)
+            global timestep_updated
+            obj = setSampleTime(obj,[timestep_updated;0]);
             
             %             if (nargout<5 && obj.gurobi_present && obj.manip.only_loops && obj.manip.mex_model_ptr~=0 && ~obj.position_control)
             %                 [obj,z,Mvn,wvn] = solveMexLCP(obj,t,x,u);
@@ -1237,7 +1247,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
                 vToqdot = obj.manip.vToqdot(kinsol);
                 qd = vToqdot*v;
-                h = obj.timestep;
+                h = timestep_updated;
                 
                 if (nargout<5)
                     [H,C,B] = manipulatorDynamics(obj.manip,q,v);
@@ -1303,7 +1313,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                                 [phiL,JL] = obj.manip.jointLimitConstraints(q);
                             end
                             if isempty(possible_limit_indices)
-                                possible_limit_indices = (phiL + h*JL*qd) < obj.z_inactive_guess_tol;
+                                possible_limit_indices = (phiL + h*JL*qd) < 0.01;%obj.z_inactive_guess_tol;
                             end
                             nL = sum(possible_limit_indices);
                             
@@ -1350,7 +1360,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                          
                         if ~isempty(phiC)
                             if isempty(possible_contact_indices)
-                                possible_contact_indices = (phiC+h*n*qd) < obj.z_inactive_guess_tol;
+                                possible_contact_indices = (phiC+h*n*qd) < 0.01;%obj.z_inactive_guess_tol;
                             end
                             
                             nC = sum(possible_contact_indices);

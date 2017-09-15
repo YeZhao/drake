@@ -6,6 +6,8 @@ options.floating = true;
 options.ignore_self_collisions = true; 
 p = PlanarRigidBodyManipulator('../KneedCompassGait.urdf',options);
 
+%global timestep_updated
+
 paramstd = 1/5; % Standard deviation of the parameter value percent error
 SampleNum = 1; % number of sampled terrain height
 % perturb model parameters
@@ -43,9 +45,10 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 150;
-T = 3;
-T0 = 3;
+global timestep_updated
+N = 150;%150;
+T = 2;
+T0 = 2;
  
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
@@ -70,14 +73,14 @@ R_periodic(2:end,p.getNumStates+2:end) = -eye(p.getNumStates-1);
 periodic_constraint = LinearConstraint(zeros(p.getNumStates,1),zeros(p.getNumStates,1),R_periodic);
 
 x0 = [0;1;zeros(10,1)];
-%xf = [.2;1;zeros(10,1)];
-xf = [1.2;1.;zeros(10,1)];
+xf = [.2;1;zeros(10,1)];
+%xf = [1.2;1.;zeros(10,1)];
 
 N2 = floor(N/2);
  
 if nargin < 2
     %Try to come up with a reasonable trajectory
-    x1 = [0.6;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
+    x1 = [0.3;1;pi/8-pi/16;pi/8;-pi/8;pi/8;zeros(6,1)];
     %x1 = [2;1;pi/8;pi/5;-pi/5;pi/5;zeros(6,1)];
     t_init = linspace(0,T0,N);
     %   traj_init.x = PPTrajectory(foh(t_init,linspacevec(x0,xf,N)));
@@ -93,11 +96,14 @@ else
     traj_init.l = ltraj;
     traj_init.ljl = ljltraj;
 end
-T_span = [1 T];
+T_span = [0.5 T];
 
-x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
-x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
-xf_min = [1;-inf(11,1)];
+x0_min = [x0(1:5);-inf; 0.4; 0; -inf(4,1)];
+x0_max = [x0(1:5);inf;  inf; 0; inf(4,1)];
+% x0_min = [x0(1:6); zeros(6,1)];
+% x0_max = [x0(1:6);  zeros(6,1)];
+
+xf_min = [0.4;-inf(11,1)];
 %xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
 
@@ -113,7 +119,7 @@ to_options.jlcompl_slack = scale*.01;
 to_options.lambda_mult = p.getMass*9.81*T0/N;
 to_options.lambda_jl_mult = T0/N;
  
-to_options.contact_robust_cost_coeff = 1e-30;%1e-5;%0.0001;  
+to_options.contact_robust_cost_coeff = 1e-5;%0.0001;%1e-30;%
 to_options.robustLCPcost_coeff = 1000;
 to_options.Px_coeff = 0.1; 
 %to_options.K = [zeros(3,3),zeros(3,3),zeros(3,3),zeros(3,3)];%[three rows: hip,knee,knee]
@@ -144,14 +150,14 @@ slack_sum_vec = [];% vector storing the slack variable sum
  
 %traj_opt = traj_opt.setCheckGrad(true); 
 snprint('snopt.out');
-traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',500);%20000
+traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',1000);%20000
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%200000
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
 
 tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
