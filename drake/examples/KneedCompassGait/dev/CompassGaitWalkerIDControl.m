@@ -2,9 +2,12 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
     properties (SetAccess=protected)
         xtraj
         active_threshold = 0.01;% height below which contact forces are calculated
-        left_foot_contact_index
-        right_foot_contact_index
+        left_foot_landing_contact_index
+        right_foot_landing_contact_index
+        left_foot_lifting_contact_index
+        right_foot_lifting_contact_index
         timestep
+        xtraj_reconstruct
     end
     
     methods
@@ -125,8 +128,10 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             i = 1;
             t_final = obj.xtraj.pp.breaks(end);
             active_des_previous = [1;2];
-            left_foot_contact_index = [];
-            right_foot_contact_index = [];
+            left_foot_landing_contact_index = [];
+            right_foot_landing_contact_index = [];
+            left_foot_lifting_contact_index = [];
+            right_foot_lifting_contact_index = [];
             
             while t <= t_final
                 x_des = obj.xtraj.eval(t);
@@ -140,19 +145,38 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 active_des = find(phi_des < obj.active_threshold);
                 
                 if ~isequal(active_des_previous, active_des)
-                    %currently, only consider landing index
+                    if length(active_des_previous) == 0 && length(active_des) == 0
+                        disp('here')
+                    end
+                    
                     if isequal(active_des_previous,[1]) && isequal(active_des,[2])
-                        right_foot_contact_index = [right_foot_contact_index i];
+                        right_foot_landing_contact_index = [right_foot_landing_contact_index i];
+                        left_foot_lifting_contact_index = [left_foot_lifting_contact_index i];
                     elseif isequal(active_des_previous,[2]) && isequal(active_des,[1])
-                        left_foot_contact_index = [left_foot_contact_index i];
+                        left_foot_landing_contact_index = [left_foot_landing_contact_index i];
+                        right_foot_lifting_contact_index = [right_foot_lifting_contact_index i];
                     elseif isequal(active_des_previous,[1]) && isequal(active_des,[1;2])
-                        right_foot_contact_index = [right_foot_contact_index i];
+                        right_foot_landing_contact_index = [right_foot_landing_contact_index i];
                     elseif isequal(active_des_previous,[2]) && isequal(active_des,[1;2])
-                        left_foot_contact_index = [left_foot_contact_index i];
+                        left_foot_landing_contact_index = [left_foot_landing_contact_index i];
                     elseif isequal(active_des_previous,[]) && isequal(active_des,[2])
-                        right_foot_contact_index = [right_foot_contact_index i];
+                        right_foot_landing_contact_index = [right_foot_landing_contact_index i];
                     elseif isequal(active_des_previous,[]) && isequal(active_des,[1])
-                        left_foot_contact_index = [left_foot_contact_index i];
+                        left_foot_landing_contact_index = [left_foot_landing_contact_index i];
+                    elseif isequal(active_des_previous,[]) && isequal(active_des,[1;2])
+                        left_foot_landing_contact_index = [left_foot_landing_contact_index i];
+                        right_foot_landing_contact_index = [right_foot_landing_contact_index i];
+                    elseif isequal(active_des_previous,[1;2]) && isequal(active_des,[1])
+                        right_foot_lifting_contact_index = [right_foot_lifting_contact_index i];
+                    elseif isequal(active_des_previous,[1;2]) && isequal(active_des,[2])
+                        left_foot_lifting_contact_index = [left_foot_lifting_contact_index i];
+                    elseif isequal(active_des_previous,[1;2]) && isequal(active_des,[])
+                        left_foot_lifting_contact_index = [left_foot_lifting_contact_index i];
+                        right_foot_lifting_contact_index = [right_foot_lifting_contact_index i];
+                    elseif isequal(active_des_previous,[1]) && isequal(active_des,[])
+                        left_foot_lifting_contact_index = [left_foot_lifting_contact_index i];
+                    elseif isequal(active_des_previous,[2]) && isequal(active_des,[])
+                        right_foot_lifting_contact_index = [right_foot_lifting_contact_index i];
                     end
                 end
                 
@@ -161,9 +185,10 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 t = timestep*i;
                 i = i+1;
             end
-            obj.left_foot_contact_index = left_foot_contact_index;
-            obj.right_foot_contact_index = right_foot_contact_index;
-            
+            obj.left_foot_landing_contact_index = left_foot_landing_contact_index;
+            obj.right_foot_landing_contact_index = right_foot_landing_contact_index;
+            obj.left_foot_lifting_contact_index = left_foot_lifting_contact_index;
+            obj.right_foot_lifting_contact_index = right_foot_lifting_contact_index;
         end
         
         %   function y=mimoOutput(obj,~,~,varargin)
@@ -185,6 +210,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             persistent active_actual_previous
             persistent left_contact_index
             persistent right_contact_index
+            persistent x_des_shift
             
             % initial_flag = [];
             % q_des_vec = [];
@@ -230,8 +256,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             q = x(1:nq);
             qd = x(nq+(1:nq));
             
-            t_original = t - t_shift;
-            x_des = obj.xtraj.eval(t);
+            t_new = t + t_shift;
+            x_des = obj.xtraj.eval(t_new);
             q_des = x_des(1:nq);
             qd_des = x_des(nq+1:2*nq);
             
@@ -286,7 +312,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             Jpdot_times_v = terrainContactJacobianDotTimesV(r, kinsol, terrain_pts);
             Jpdot_times_v = Jpdot_times_v([1,3,4,6]);
             
-            if contact_mechanism == 1%impose active set constraint
+%             if contact_mechanism == 1%impose active set constraint
                 active = [];
                 if ~isempty(active_actual) && ~isempty(active_des)
                     if active_actual(1) == 1 && active_des(1) == 1
@@ -345,57 +371,74 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                     Jp = [];
                 end
                 active_previous = active_status;
-            elseif  contact_mechanism == 2%impose desired trajectory shifting
+                
+                if t >= 0.66
+                    disp('here')
+                end
+                
+                if count < 1000
+                    initial_count_threshold = 2;
+                else
+                    initial_count_threshold = 1;
+                end
+                
+%             elseif  contact_mechanism == 2%impose desired trajectory shifting
                 t_shift_new = 0;
                 %shifting actual trajectory to compensate offset after each contact
-                if ~isequal(active_actual_previous, active_actual) && initial_count > 2
+                if ~isequal(active_actual_previous, active_actual) && initial_count > initial_count_threshold
                     %currently, only consider landing index
                     if isequal(active_actual_previous,[1]) && isequal(active_actual,[2])
-                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t;
+                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t_new;
                         right_contact_index = right_contact_index + 1;
                     elseif isequal(active_actual_previous,[2]) && isequal(active_actual,[1])
-                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t;
+                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t_new;
                         left_contact_index = left_contact_index + 1;
                     elseif isequal(active_actual_previous,[1]) && isequal(active_actual,[1;2])
-                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t;
+                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t_new;
                         right_contact_index = right_contact_index + 1;
                     elseif isequal(active_actual_previous,[2]) && isequal(active_actual,[1;2])
-                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t;
+                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t_new;
                         left_contact_index = left_contact_index + 1;
-                    elseif isequal(active_actual_previous,[]) && isequal(active_actual,[2])
-                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t;
+                    elseif length(active_actual_previous) == 0 && isequal(active_actual,[2])
+                        t_shift_new = (obj.right_foot_contact_index(right_contact_index)-1)*obj.timestep - t_new;
                         right_contact_index = right_contact_index + 1;
-                    elseif isequal(active_actual_previous,[]) && isequal(active_actual,[1])
-                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t;
+                    elseif length(active_actual_previous) == 0 && isequal(active_actual,[1])
+                        t_shift_new = (obj.left_foot_contact_index(left_contact_index)-1)*obj.timestep - t_new;
                         left_contact_index = left_contact_index + 1;
                     end
                     t_shift = t_shift + t_shift_new;
                 end
                 active_actual_previous = active_actual;
                 
-                t = t+t_shift_new;
-                x_des = obj.xtraj.eval(t);
-                q_des = x_des(1:nq);
-                qd_des = x_des(nq+1:2*nq);
+                t_new = t_new+t_shift_new;
+                if t_shift_new ~= 0
+                    x_des_shift = x_des_shift + obj.xtraj.eval(t_new) - x;
+                elseif count < 3
+                    x_des_shift = zeros(2*nq,1);
+                end
                 
-                kinsol_des = doKinematics(r,q_des,false,true,qd_des);
-                [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des,false,struct('terrain_only',~obj.use_bullet));
+                x_des_new = obj.xtraj.eval(t_new) - x_des_shift;
+                q_des_new = x_des_new(1:nq);
+                qd_des_new = x_des_new(nq+1:2*nq);
+                
+                kinsol_des_new = doKinematics(r,q_des_new,false,true,qd_des_new);
+                [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des_new,false,struct('terrain_only',~obj.use_bullet));
                 
                 active_des = find(phi_des < obj.active_threshold);
-            end
+%             end
             
             if isempty(q_des_vec) && isempty(q_vec)
-                q_des_vec = q_des;
+                q_des_vec = q_des_new;
                 q_vec = q;
-                qd_des_vec = qd_des;
+                qd_des_vec = qd_des_new;
                 qd_vec = qd;
-                t_vec = t_original;
+                t_vec = t;
             else
-                q_des_vec = [q_des_vec, q_des];
+                q_des_vec = [q_des_vec, q_des_new];
                 q_vec = [q_vec, q];
-                qd_des_vec = [qd_des_vec, qd_des];
+                qd_des_vec = [qd_des_vec, qd_des_new];
                 qd_vec = [qd_vec, qd];
-                t_vec = [t_vec, t_original];
+                t_vec = [t_vec, t];
             end
             
             if isempty(phi_des_vec)
@@ -473,11 +516,11 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             end
             beq_{1} = -C;
             
-            %                 if nc > 0
-            %                   % relative acceleration constraint for contacts
-            %                   Aeq_{2} = Jp*Iqdd + Ieps;
-            %                   beq_{2} = -Jpdot_times_v - obj.Kp_accel*Jp*qd;
-            %                 end
+% if nc > 0
+%   % relative acceleration constraint for contacts
+%   Aeq_{2} = Jp*Iqdd + Ieps;
+%   beq_{2} = -Jpdot_times_v - obj.Kp_accel*Jp*qd;
+% end
             %% relative acceleration constraint for 4bar
             %Aeq_{3} = 0.0005*J4bar*Iqdd;
             %beq_{3} = -J4bar * qd;
@@ -510,7 +553,11 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %com_ddot_des = Kp_com*(obj.com_des - xcom) - Kd_com*Jcom*qd;
             Q = 10*eye(2);%10*eye(3);%[Ye: 2D case]
             
-            qddot_des = Kp_qdd*(q_des - q) + Kd_qdd*(qd_des - qd);
+            if t_new > 0.8725
+                disp('here')
+            end
+            
+            qddot_des = Kp_qdd*(q_des_new - q) + Kd_qdd*(qd_des_new - qd);
             
             %----------------------------------------------------------------------
             % QP cost function ----------------------------------------------------
@@ -609,7 +656,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             
             t_final = obj.xtraj.pp.breaks(end);
             fprintf('number of runs: %4.4f\n',count);
-            if (abs(t - t_final)<=5e-4) %5332%6002%1292%2161%4395%4395%4094%
+            if (abs(t_new - t_final)<=5e-4) %5332%6002%1292%2161%4395%4395%4094%
                 figure(10)
                 clf
                 subplot(2,3,1)
@@ -686,19 +733,19 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 plot(t_vec,qd_des_vec(6,:),'r-')
                 title('knee2');
                 
-                figure(12)
-                clf
-                subplot(3,1,1)
-                plot(t_vec,u_vec(1,:))
-                title('u1');
-                
-                subplot(3,1,2)
-                plot(t_vec,u_vec(2,:))
-                title('u2');
-                
-                subplot(3,1,3)
-                plot(t_vec,u_vec(3,:))
-                title('u3');
+%                 figure(12)
+%                 clf
+%                 subplot(3,1,1)
+%                 plot(t_vec,u_vec(1,:))
+%                 title('u1');
+%                 
+%                 subplot(3,1,2)
+%                 plot(t_vec,u_vec(2,:))
+%                 title('u2');
+%                 
+%                 subplot(3,1,3)
+%                 plot(t_vec,u_vec(3,:))
+%                 title('u3');
                 
                 figure(13)
                 clf
@@ -723,6 +770,12 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 fprintf('hip2 diff sum: %4.4f\n',sum(sum(q_vec(5,:) - q_des_vec(5,:))));
                 fprintf('knee2 diff sum: %4.4f\n',sum(sum(q_vec(6,:) - q_des_vec(6,:))));
                 
+                % reconstruct xtraj
+                x = [q_vec;qd_vec];
+                xtraj_reconstruct = PPTrajectory(foh(t_vec,x));
+                xtraj_reconstruct = xtraj_reconstruct.setOutputFrame(r.getStateFrame);
+                obj.xtraj_reconstruct = xtraj_reconstruct;
+                
                 clear t_vec
                 clear q_vec
                 clear q_des_vec
@@ -736,6 +789,9 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 clear friction_coeff_vec
                 clear active_previous
                 clear active_des_previous
+                clear t_shift
+                clear x_des_shift
+                
             end
             
         end

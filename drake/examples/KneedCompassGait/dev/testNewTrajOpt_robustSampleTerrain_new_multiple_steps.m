@@ -180,12 +180,12 @@ slack_nominal = slacktraj.eval(t_nominal)';
 
 %% QP-based inverse dynamics control 
 q0=x0(1:p_ts.getNumPositions);
+simulation_timestep = 0.0005;
 p_ts = TimeSteppingRigidBodyManipulator(p,simulation_timestep);
 kinsol = doKinematics(p_ts,q0);
 %com = p_ts.getCOM(kinsol);
   
 %c = DiscreteQP(p_ts,[com;0*com],x0);
-simulation_timestep = 0.0005;
 c = CompassGaitWalkerIDControl(p_ts,simulation_timestep,q0,xtraj);
 sys = feedback(p_ts,c);
 % Forward simulate dynamics with visulazation, then playback at realtime
