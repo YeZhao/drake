@@ -48,8 +48,8 @@ end
 %todo: add joint limits, periodicity constraint
 
 N = 70;
-T = 3;
-T0 = 3;
+T = 5;
+T0 = 5;
  
 % periodic constraint
 R_periodic = zeros(p.getNumStates,2*p.getNumStates);
@@ -99,8 +99,8 @@ else
 end
 T_span = [1 T];
 
-x0_min = [x0(1:5);-inf; 0; 0; -inf(4,1)];
-x0_max = [x0(1:5);inf;  0; 0; inf(4,1)];
+x0_min = [x0(1:5);0; 0.3; 0; -inf(4,1)];
+x0_max = [x0(1:5);0; 0.5; 0; inf(4,1)];
 xf_min = [1;-inf(11,1)];
 %xf_min = [3.2;-inf(11,1)];
 xf_max = inf(12,1);
@@ -157,26 +157,83 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%2000
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',500000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
 
-tic 
+tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 snprint('snopt.out');
-
+ 
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
 %v.playbackAVI(xtraj, 'trial6_small_terrain_perturb_with_two_ERM_cost_full_nonlcompl_three_walking_constraints.avi');
-
+ 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
 f_nominal = ltraj.eval(t_nominal);
 slack_nominal = slacktraj.eval(t_nominal)';
+
+%% QP-based inverse dynamics control 
+q0=x0(1:p_ts.getNumPositions);
+p_ts = TimeSteppingRigidBodyManipulator(p,simulation_timestep);
+kinsol = doKinematics(p_ts,q0);
+%com = p_ts.getCOM(kinsol);
+  
+%c = DiscreteQP(p_ts,[com;0*com],x0);
+simulation_timestep = 0.0005;
+c = CompassGaitWalkerIDControl(p_ts,simulation_timestep,q0,xtraj);
+sys = feedback(p_ts,c);
+% Forward simulate dynamics with visulazation, then playback at realtime
+S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
+output_select(1).system=1;
+output_select(1).output=1;
+%sys = mimoCascade(sys,v,[],[],output_select);
+warning(S);
+xtraj_new = simulate(sys,xtraj.tspan,x0);
+playback(v,xtraj_new,struct('slider',true));
+
+%% pd-control LTI trial
+% does not work so far
+kp = 100;
+kd = sqrt(kp)*1.5;
+
+p_ts = TimeSteppingRigidBodyManipulator(p,0.0005);
+[~,~,B] = p_ts.manipulatorDynamics(x0,zeros(3,1));
+K = B'*[kp*eye(p_ts.getNumPositions),kd*eye(p_ts.getNumVelocities)];
+
+ltisys = LinearSystem([],[],[],[],[],-K);
+ltisys = setInputFrame(ltisys,CoordinateFrame([p_ts.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),p_ts.getStateFrame.prefix));
+p_ts.getStateFrame.addTransform(AffineTransform(p_ts.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
+ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,p_ts.getStateFrame,eye(length(x0)),+x0));
+ltisys = setOutputFrame(ltisys,p_ts.getInputFrame);
+
+sys = feedback(p_ts,ltisys);
+% Forward simulate dynamics with visulazation, then playback at realtime
+S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
+output_select(1).system=1;
+output_select(1).output=1;
+%sys = mimoCascade(sys,v,[],[],output_select);
+warning(S);
+xtraj_new = simulate(sys,xtraj.tspan,x0);
+playback(v,xtraj_new,struct('slider',true));
+
+% simulate with LQR gains
+% LQR Cost Matrices
+Q = diag(10*ones(1,12));
+R = .1*eye(3);
+Qf = 100*eye(12); 
+
+ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
+
+sys=feedback(p,ltvsys);
+
+xtraj_new = simulate(sys,xtraj.tspan, x0);
+v.playback(xtraj_new,struct('slider',true));
 
 %convert impulse into force
 h = t_nominal(2)-t_nominal(1);
@@ -371,19 +428,6 @@ plot(t_nominal', foot_height(2,:), color_line_type, 'LineWidth',nominal_linewidt
 xlabel('t');
 ylabel('right foot height')
 hold on;
-
-% simulate with LQR gains
-% LQR Cost Matrices
-Q = diag(10*ones(1,12));
-R = .1*eye(3);
-Qf = 100*eye(12); 
-
-ltvsys = tvlqr(p,xtraj,utraj,Q,R,Qf);
-
-sys=feedback(p,ltvsys);
-
-xtraj_new = simulate(sys,xtraj.tspan, x0);
-v.playback(xtraj_new,struct('slider',true));
 
 disp('finish traj opt')
 

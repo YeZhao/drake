@@ -107,9 +107,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             obj.nlambda = nL;
             
             constraints = cell(N-1,1);
-            %foot_horizontal_distance_constraints = cell(N-1,1);
+            foot_horizontal_distance_constraints = cell(N-1,1);
             %foot_height_diff_constraints = cell(N-1,1);
-            %CoM_vertical_velocity_constraints = cell(N-1,1);
+            CoM_vertical_velocity_constraints = cell(N-1,1);
             lincompl_constraints = cell(N-1,1);
             obj.nonlincompl_constraints = cell(N-1,1);
             obj.nonlincompl_slack_inds = cell(N-1,1);
@@ -120,9 +120,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
-            %cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
+            cnstr_foot_horizontal_distance = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_horizontal_distance_constraint_fun);
             %cnstr_foot_height_diff = FunctionHandleConstraint(-inf(2,1),zeros(2,1),nX,@obj.foot_height_diff_constraint_fun);
-            %cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
+            cnstr_CoM_vertical_velocity = FunctionHandleConstraint(-inf(1,1),zeros(1,1),1,@obj.CoM_vertical_velocity_fun);
             
             [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             
@@ -131,20 +131,20 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 constraints{i} = cnstr;
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
-%                 % add foot horizontal distance constraint
-%                 foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
-%                 foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
-%                 obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
+                % add foot horizontal distance constraint
+                foot_horizontal_distance_inds{i} = {obj.x_inds(:,i)};
+                foot_horizontal_distance_constraints{i} = cnstr_foot_horizontal_distance;
+                obj = obj.addConstraint(foot_horizontal_distance_constraints{i}, foot_horizontal_distance_inds{i});
                 
-                %                 % add foot height diff constraint
-                %                 foot_height_diff_inds{i} = {obj.x_inds(:,i)};
-                %                 foot_height_diff_constraints{i} = cnstr_foot_height_diff;
-                %                 obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
+                % % add foot height diff constraint
+                % foot_height_diff_inds{i} = {obj.x_inds(:,i)};
+                % foot_height_diff_constraints{i} = cnstr_foot_height_diff;
+                % obj = obj.addConstraint(foot_height_diff_constraints{i}, foot_height_diff_inds{i});
                 
-%                 % add max CoM vertical velocity constraint
-%                 CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
-%                 CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
-%                 obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
+                % add max CoM vertical velocity constraint
+                CoM_vertical_velocity_inds{i} = {obj.x_inds(8,i)};
+                CoM_vertical_velocity_constraints{i} = cnstr_CoM_vertical_velocity;
+                obj = obj.addConstraint(CoM_vertical_velocity_constraints{i}, CoM_vertical_velocity_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -229,16 +229,16 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
             end
             
-            %             if obj.nC > 0
-            %                 if obj.options.add_ccost
-            %                     dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
-            %                     for i=1:obj.N-2
-            %                         normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
-            %                         normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
-            %                         obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
-            %                     end
-            %                 end
-            %             end
+            if obj.nC > 0
+                if obj.options.add_ccost
+                    dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
+                    for i=1:obj.N-2
+                        normal_force_curr_inds = [obj.l_inds(1,i);obj.l_inds(1+dim_lambda_unit,i)];
+                        normal_force_next_inds = [obj.l_inds(1,i+1);obj.l_inds(1+dim_lambda_unit,i+1)];
+                        obj = obj.addCost(FunctionHandleObjective(obj.nC*2, @(c1,c2)ccost(obj,c1,c2)),{normal_force_curr_inds;normal_force_next_inds});
+                    end
+                end
+            end
             
             % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
@@ -2930,9 +2930,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             x_swing = CoM_x_pos - l_thigh*sin(q_stance_hip+q_swing_hip) - l_calf*sin(q_stance_hip+q_swing_knee + q_swing_hip);
             x_stance = CoM_x_pos - l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee);
             
-            foot_horizontal_distance_max = 0.7;
-            CoM_swing_foot_horizontal_distance_max = 0.5;
-            CoM_stance_foot_horizontal_distance_max = 0.5;
+            foot_horizontal_distance_max = 0.4;
+            CoM_swing_foot_horizontal_distance_max = 0.3;
+            CoM_stance_foot_horizontal_distance_max = 0.4;
             
             f = [x_swing - x_stance - foot_horizontal_distance_max;
                 x_swing - CoM_x_pos - CoM_swing_foot_horizontal_distance_max];
@@ -2969,10 +2969,10 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
             [phi,~,~,~,~,~,~,~,n] = obj.plant.contactConstraints(q,false,struct('terrain_only',true));
             
             foot_height_distance_max = 0.5;
-            CoM_foot_height_diff_max = 0.6;
+            CoM_foot_height_diff_min = 0.6;
             
             f = [z_swing - z_stance - foot_height_distance_max;
-                CoM_foot_height_diff_max - CoM_z_pos + z_swing];
+                CoM_foot_height_diff_min - CoM_z_pos + z_swing];
             
             %             df = [zeros(1,2), -l_thigh*sin(q_stance_hip) - l_calf*sin(q_stance_hip + q_stance_knee), -l_calf*sin(q_stance_hip + q_stance_knee), ...
             %                 l_thigh*sin(q_swing_hip) + l_calf*sin(q_swing_knee + q_swing_hip), l_calf*sin(q_stance_hip + q_stance_knee), zeros(1,nv);

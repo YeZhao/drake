@@ -43,7 +43,7 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 30;%150;
+N = 70;%30;%150;
 T = 2;
 T0 = 2;
  
@@ -152,9 +152,9 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%2000
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 
 tic 
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
@@ -185,12 +185,13 @@ fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_h
 
 %% QP-based inverse dynamics control
 q0=x0(1:p_ts.getNumPositions);
+p_ts = TimeSteppingRigidBodyManipulator(p,simulation_timestep);
 kinsol = doKinematics(p_ts,q0);
 %com = p_ts.getCOM(kinsol);
-  
+
 %c = DiscreteQP(p_ts,[com;0*com],x0);
-c = CompassGaitWalkerIDControl(p_ts,q0,xtraj);
-p_ts = TimeSteppingRigidBodyManipulator(p,0.0005);
+simulation_timestep = 0.0005;
+c = CompassGaitWalkerIDControl(p_ts,simulation_timestep,q0,xtraj);
 sys = feedback(p_ts,c);
 % Forward simulate dynamics with visulazation, then playback at realtime
 S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
