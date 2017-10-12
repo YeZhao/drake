@@ -151,10 +151,10 @@ slack_sum_vec = [];% vector storing the slack variable sum
 % traj_opt = traj_opt.addConstraint(traj_opt.nonlincompl_constraints{i},[traj_opt.x_inds(:,i+1);gamma_inds;lambda_inds]);
  
 %traj_opt = traj_opt.setCheckGrad(true); 
-snprint('snopt.out'); 
+%snprint('snopt.out'); 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',500);%20000
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',20000);%200000
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',500000);%1000000
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);%1000000
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000); 
 traj_opt = traj_opt.setSolverOptions('snopt','VerifyLevel',0);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-5);
@@ -164,7 +164,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
 tic
 [xtraj,utraj,ltraj,ljltraj,slacktraj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
-snprint('snopt.out');
+%snprint('snopt.out');
  
 v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
@@ -177,6 +177,60 @@ x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
 f_nominal = ltraj.eval(t_nominal);
 slack_nominal = slacktraj.eval(t_nominal)';
+
+%convert impulse into force
+h = t_nominal(2)-t_nominal(1);
+f_nominal = f_nominal./h;
+
+fprintf('sum of x value: %4.4f\n',sum(sum(abs(x_nominal))));
+
+foot_height = compute_foot_height(x_nominal);
+fprintf('sum of left foot height integration value: %4.4f\n',sum(sum(abs(foot_height(1,:)))));
+fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_height(2,:)))));
+
+% finite diff position states
+for i=1:nv
+    x_nominal(i+nq,1:end-1) = diff(x_nominal(i,:))/h;
+    x_nominal(i+nq,end) = x_nominal(i+nq,end-1);
+end
+
+global t_ind
+global t_pre_extension
+global t_post_extension
+global x_pre_extension
+global x_post_extension
+
+%% do tajectory expansion
+%t_switch = [0.309,0.7725,0.8497,1.043,1.236,1.39,1.738,1.854,2.202,2.395];
+t_ind = [1,9,21,23,28,33,37,46,49,58,63];
+%t_init_ind = 9;t_end_ind = 21;%second step
+
+N_segment = length(t_ind);
+for i=1:N_segment-1
+    t_init_ind = t_ind(i);
+    t_end_ind = t_ind(i+1);
+    
+    t_pre_extension_period = 0.2;
+    t_post_extension_period = 0.2;
+    num_pre_total = t_pre_extension_period/5e-4;
+    num_post_total = t_post_extension_period/5e-4;
+    
+    %state_index = 2;
+    t_pre_extension(i,:) = linspace(t_nominal(t_init_ind)-t_pre_extension_period,t_nominal(t_init_ind),num_pre_total);
+    t_post_extension(i,:) = linspace(t_nominal(t_end_ind),t_nominal(t_end_ind)+t_post_extension_period,num_post_total);
+        
+    for j=1:nq    
+        x_pre_extension(i,j,:) = interp1(t_nominal(t_init_ind:t_end_ind)',x_nominal(j,t_init_ind:t_end_ind),t_pre_extension(i,:),'spline');
+        x_post_extension(i,j,:) = interp1(t_nominal(t_init_ind:t_end_ind),x_nominal(j,t_init_ind:t_end_ind),t_post_extension(i,:),'spline');
+    end
+    
+    state_index = 3;
+    figure(102);
+    plot(t_nominal(t_init_ind:t_end_ind),x_nominal(state_index,t_init_ind:t_end_ind));
+    hold on;plot(t_pre_extension(i,:),reshape(x_pre_extension(i,state_index,:),1,[]),'r-','linewidth',3);
+    hold on;plot(t_post_extension(i,:),reshape(x_post_extension(i,state_index,:),1,[]),'r-','linewidth',3);
+end
+
 
 %% QP-based inverse dynamics control 
 q0=x0(1:p_ts.getNumPositions);
@@ -235,15 +289,6 @@ sys=feedback(p,ltvsys);
 xtraj_new = simulate(sys,xtraj.tspan, x0);
 v.playback(xtraj_new,struct('slider',true));
 
-%convert impulse into force
-h = t_nominal(2)-t_nominal(1);
-f_nominal = f_nominal./h;
-
-fprintf('sum of x value: %4.4f\n',sum(sum(abs(x_nominal))));
-
-foot_height = compute_foot_height(x_nominal);
-fprintf('sum of left foot height integration value: %4.4f\n',sum(sum(abs(foot_height(1,:)))));
-fprintf('sum of right foot height integration value: %4.4f\n',sum(sum(abs(foot_height(2,:)))));
 
 % plot nominal model trajs
 nominal_linewidth = 2.5;
@@ -258,14 +303,14 @@ hold on;
 
 subplot(3,1,2)
 hold on;
-plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+plot(t_nominal', u_nominal(:,2), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u2');
 hold on;
 
 subplot(3,1,3)
 hold on;
-plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+plot(t_nominal', u_nominal(:,3), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u3');
 hold on;
@@ -313,19 +358,20 @@ xlabel('t');
 ylabel('Knee joint 2')
 hold on;
 
+color_line_type = 'r--';
 figure(3)
 subplot(2,3,1)
 hold on;
 plot(t_nominal', x_nominal(7,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
-ylabel('CoM x')
+ylabel('CoM vx')
 hold on;
 
 subplot(2,3,2)
 hold on;
 plot(t_nominal', x_nominal(8,:), color_line_type, 'LineWidth',nominal_linewidth);
 xlabel('t');
-ylabel('CoM z')
+ylabel('CoM vz')
 hold on;
 
 subplot(2,3,3)
@@ -430,6 +476,9 @@ ylabel('right foot height')
 hold on;
 
 disp('finish traj opt')
+
+
+
 
     function foot_height = compute_foot_height(x)
         q_full = x(1:nq,:);

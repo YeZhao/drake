@@ -195,12 +195,13 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             global t_post_extension
             global x_pre_extension
             global x_post_extension
-            
+
         end
         
         %   function y=mimoOutput(obj,~,~,varargin)
         function y=output2(obj,t,~,x)
             global x_initial
+            persistent t_shift
             persistent initial_count
             persistent q_des_vec
             persistent q_vec
@@ -236,7 +237,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             % count = [];
             
             contact_mechanism = 2;% 1: impose active set constraint, 2: impose desired trajectory shifting
-            if isempty(left_contact_index)
+            if isempty(t_shift)
+                t_shift = 0;
                 left_contact_index = 1;
                 right_contact_index = 1;
             end
@@ -267,7 +269,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             q = x(1:nq);
             qd = x(nq+(1:nq));
             
-            x_des = obj.xtraj.eval(t);
+            t_new = t + t_shift;
+            x_des = obj.xtraj.eval(t_new);
             q_des = x_des(1:nq);
             qd_des = x_des(nq+1:2*nq);
             
@@ -322,83 +325,120 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             Jpdot_times_v = terrainContactJacobianDotTimesV(r, kinsol, terrain_pts);
             Jpdot_times_v = Jpdot_times_v([1,3,4,6]);
             
-            %             if contact_mechanism == 1%impose active set constraint
-            active = [];
-            if ~isempty(active_actual) && ~isempty(active_des)
-                if active_actual(1) == 1 && active_des(1) == 1
-                    active = [active 1];
-                end
-                
-                if ~isempty(active) && length(active_actual) == 2 && length(active_des) == 2
-                    active = [active 2];
-                end
-                
-                if isempty(active) && length(active_actual) == 1 && length(active_des) == 2
-                    active = [active 2];
-                end
-                
-                if isempty(active) && length(active_actual) == 2 && length(active_des) == 1
-                    active = [active 2];
-                end
-            else
+%             if contact_mechanism == 1%impose active set constraint
                 active = [];
-            end
-            
-            %     %debugging
-            %     active = [1,2];
-            
-            if length(active) == 2
-                active_status = 'both foot';
-            elseif length(active) == 1 && active(1) == 1
-                active_status = 'left foot';
-            elseif (length(active) == 1 && active(1) == 2)
-                active_status = 'right foot';
-            else isempty(active)
-                active_status = 'no contact';
-            end
-            
-            if length(active) == 2
-                disp(active_status);%'both foot'
-                nc = 2;
-                Dbar = vertcat(JB{:})';
-            elseif length(active) == 1 && active(1) == 1
-                disp(active_status);%'left foot'
-                nc = 1;
-                Dbar = JB{1}';
-                Jpdot_times_v = Jpdot_times_v(1:2);
-                Jp = Jp([1,2],:);
-            elseif (length(active) == 1 && active(1) == 2)
-                disp(active_status);%'right foot'
-                nc = 1;
-                Dbar = JB{2}';
-                Jpdot_times_v = Jpdot_times_v(3:4);
-                Jp = Jp([3,4],:);
-            else isempty(active)
-                disp(active_status);%'no contact'
-                nc = 0;
-                Dbar = [];
-                Jpdot_times_v = [];
-                Jp = [];
-            end
-            active_previous = active_status;
-            
-            if t >= 0.66
-                disp('here')
-            end
-            
-            if count < 1000
-                initial_count_threshold = 2;
-            else
-                initial_count_threshold = 1;
-            end
-            
-            active_actual_previous = active_actual;
-            
-            kinsol_des_new = doKinematics(r,q_des_new,false,true,qd_des_new);
-            [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des_new,false,struct('terrain_only',~obj.use_bullet));
-            
-            active_des = find(phi_des < obj.active_threshold);
-            
+                if ~isempty(active_actual) && ~isempty(active_des)
+                    if active_actual(1) == 1 && active_des(1) == 1
+                        active = [active 1];
+                    end
+                    
+                    if ~isempty(active) && length(active_actual) == 2 && length(active_des) == 2
+                        active = [active 2];
+                    end
+                    
+                    if isempty(active) && length(active_actual) == 1 && length(active_des) == 2
+                        active = [active 2];
+                    end
+                    
+                    if isempty(active) && length(active_actual) == 2 && length(active_des) == 1
+                        active = [active 2];
+                    end
+                else
+                    active = [];
+                end
+                
+                %     %debugging
+                %     active = [1,2];
+                
+                if length(active) == 2
+                    active_status = 'both foot';
+                elseif length(active) == 1 && active(1) == 1
+                    active_status = 'left foot';
+                elseif (length(active) == 1 && active(1) == 2)
+                    active_status = 'right foot';
+                else isempty(active)
+                    active_status = 'no contact';
+                end
+                
+                if length(active) == 2
+                    disp(active_status);%'both foot'
+                    nc = 2;
+                    Dbar = vertcat(JB{:})';
+                elseif length(active) == 1 && active(1) == 1
+                    disp(active_status);%'left foot'
+                    nc = 1;
+                    Dbar = JB{1}';
+                    Jpdot_times_v = Jpdot_times_v(1:2);
+                    Jp = Jp([1,2],:);
+                elseif (length(active) == 1 && active(1) == 2)
+                    disp(active_status);%'right foot'
+                    nc = 1;
+                    Dbar = JB{2}';
+                    Jpdot_times_v = Jpdot_times_v(3:4);
+                    Jp = Jp([3,4],:);
+                else isempty(active)
+                    disp(active_status);%'no contact'
+                    nc = 0;
+                    Dbar = [];
+                    Jpdot_times_v = [];
+                    Jp = [];
+                end
+                active_previous = active_status;
+                
+                if t >= 0.66
+                    disp('here')
+                end
+                
+                if count < 1000
+                    initial_count_threshold = 2;
+                else
+                    initial_count_threshold = 1;
+                end
+                
+%             elseif  contact_mechanism == 2%impose desired trajectory shifting
+                t_shift_new = 0;
+                %shifting actual trajectory to compensate offset after each contact
+                if ~isequal(active_actual_previous, active_actual) && initial_count > initial_count_threshold
+                    %currently, only consider landing index
+                    if isequal(active_actual_previous,[1]) && isequal(active_actual,[2])
+                        t_shift_new = (obj.right_foot_landing_contact_index(right_contact_index)-1)*obj.timestep - t_new;
+                        right_contact_index = right_contact_index + 1;
+                    elseif isequal(active_actual_previous,[2]) && isequal(active_actual,[1])
+                        t_shift_new = (obj.left_foot_landing_contact_index(left_contact_index)-1)*obj.timestep - t_new;
+                        left_contact_index = left_contact_index + 1;
+                    elseif isequal(active_actual_previous,[1]) && isequal(active_actual,[1;2])
+                        t_shift_new = (obj.right_foot_landing_contact_index(right_contact_index)-1)*obj.timestep - t_new;
+                        right_contact_index = right_contact_index + 1;
+                    elseif isequal(active_actual_previous,[2]) && isequal(active_actual,[1;2])
+                        t_shift_new = (obj.left_foot_landing_contact_index(left_contact_index)-1)*obj.timestep - t_new;
+                        left_contact_index = left_contact_index + 1;
+                    elseif length(active_actual_previous) == 0 && isequal(active_actual,[2])
+                        t_shift_new = (obj.right_foot_landing_contact_index(right_contact_index)-1)*obj.timestep - t_new;
+                        right_contact_index = right_contact_index + 1;
+                    elseif length(active_actual_previous) == 0 && isequal(active_actual,[1])
+                        t_shift_new = (obj.left_foot_landing_contact_index(left_contact_index)-1)*obj.timestep - t_new;
+                        left_contact_index = left_contact_index + 1;
+                    end
+                    t_shift = t_shift + t_shift_new;
+                end
+                active_actual_previous = active_actual;
+                
+                t_new = t_new+t_shift_new;
+                if t_shift_new ~= 0
+                    x_des_shift = x_des_shift + obj.xtraj.eval(t_new) - x;
+                elseif count < 3
+                    x_des_shift = zeros(2*nq,1);
+                end
+                
+                x_des_new = obj.xtraj.eval(t_new) - x_des_shift;
+                q_des_new = x_des_new(1:nq);
+                qd_des_new = x_des_new(nq+1:2*nq);
+                
+                kinsol_des_new = doKinematics(r,q_des_new,false,true,qd_des_new);
+                [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des_new,false,struct('terrain_only',~obj.use_bullet));
+                
+                active_des = find(phi_des < obj.active_threshold);
+%             end
             
             if isempty(q_des_vec) && isempty(q_vec)
                 q_des_vec = q_des_new;
@@ -489,11 +529,11 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             end
             beq_{1} = -C;
             
-            % if nc > 0
-            %   % relative acceleration constraint for contacts
-            %   Aeq_{2} = Jp*Iqdd + Ieps;
-            %   beq_{2} = -Jpdot_times_v - obj.Kp_accel*Jp*qd;
-            % end
+% if nc > 0
+%   % relative acceleration constraint for contacts
+%   Aeq_{2} = Jp*Iqdd + Ieps;
+%   beq_{2} = -Jpdot_times_v - obj.Kp_accel*Jp*qd;
+% end
             %% relative acceleration constraint for 4bar
             %Aeq_{3} = 0.0005*J4bar*Iqdd;
             %beq_{3} = -J4bar * qd;
@@ -706,19 +746,19 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 plot(t_vec,qd_des_vec(6,:),'r-')
                 title('knee2');
                 
-                %                 figure(12)
-                %                 clf
-                %                 subplot(3,1,1)
-                %                 plot(t_vec,u_vec(1,:))
-                %                 title('u1');
-                %
-                %                 subplot(3,1,2)
-                %                 plot(t_vec,u_vec(2,:))
-                %                 title('u2');
-                %
-                %                 subplot(3,1,3)
-                %                 plot(t_vec,u_vec(3,:))
-                %                 title('u3');
+%                 figure(12)
+%                 clf
+%                 subplot(3,1,1)
+%                 plot(t_vec,u_vec(1,:))
+%                 title('u1');
+%                 
+%                 subplot(3,1,2)
+%                 plot(t_vec,u_vec(2,:))
+%                 title('u2');
+%                 
+%                 subplot(3,1,3)
+%                 plot(t_vec,u_vec(3,:))
+%                 title('u3');
                 
                 figure(13)
                 clf
@@ -812,15 +852,8 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             persistent phi_vec
             persistent phi_des_vec
             persistent count
-            persistent active_des_previous
-            persistent active_sim_previous
+            persistent active_status_previous
             persistent friction_coeff_vec
-            
-            global t_ind
-            global t_pre_extension
-            global t_post_extension
-            global x_pre_extension
-            global x_post_extension
             
             %             initial_flag = [];
             %             q_des_vec = [];
@@ -841,6 +874,20 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
                 else
                     initial_count = initial_count + 1;
                 end
+            end
+            
+            if isempty(q_des_vec) && isempty(q_vec)
+                q_des_vec = q_des;
+                q_vec = q;
+                qd_des_vec = qd_des;
+                qd_vec = qd;
+                t_vec = t;
+            else
+                q_des_vec = [q_des_vec, q_des];
+                q_vec = [q_vec, q];
+                qd_des_vec = [qd_des_vec, qd_des];
+                qd_vec = [qd_vec, qd];
+                t_vec = [t_vec, t];
             end
             
             if isempty(count)
@@ -868,77 +915,36 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             
             Dbar = vertcat(JB{:})';
             
-            
-            
-            active_sim = find(phi < obj.active_threshold);
-            active_des = find(phi_des < obj.active_threshold);
-            
-            % reconstruct x_des based on trajectory expansion
-            if ~strcmp(active_sim, active_des)
-                if isempty(active_sim_previous)
-                    active_sim_previous = active_sim;
-                end
-                
-                if isempty(active_des_previous)
-                    active_des_previous = active_des;
-                end
-                
-                if ~strcmp(active_sim, active_sim_previous)%actual state switch in advance
-                    searching_switch_flag = true;
-                    i = 1;
-                    while searching_switch_flag && i < length(t_ind)
-                        if t > t_ind(i) && t < t_ind(i+1)
-                            switching_index = i+1;
-                            searching_switch_flag = false;
-                        end
-                    end
-                    
-                    pre_traj_index = find(t >= t_pre_extension(switching_index,:));
-                    x_des = x_pre_extension(switching_index,:,pre_traj_index(1));
-                    q_des = x_des(1:nq);
-                    qd_des = x_des(nq+1:2*nq);
-                    kinsol_des = doKinematics(r,q_des,false,true,qd_des);
-                    [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des,false,struct('terrain_only',~obj.use_bullet));
-            
-                elseif ~strcmp(active_des, active_des_previous)%actual state switch delayed
-                    searching_switch_flag = true;
-                    i = 1;
-                    while searching_switch_flag && i < length(t_ind)
-                        if t > t_ind(i) && t < t_ind(i+1)
-                            switching_index = i;
-                            searching_switch_flag = false;
-                        end
-                    end
-                    
-                    post_traj_index = find(t >= t_post_extension(switching_index,:));
-                    x_des = x_post_extension(switching_index,:,post_traj_index(1));
-                    q_des = x_des(1:nq);
-                    qd_des = x_des(nq+1:2*nq);
-                    kinsol_des = doKinematics(r,q_des,false,true,qd_des);
-                    [phi_des,~,JB_des] = contactConstraintsBV(r,kinsol_des,false,struct('terrain_only',~obj.use_bullet));
-                end
-            end
-            
-            if isempty(q_des_vec) && isempty(q_vec)
-                q_des_vec = q_des;
-                q_vec = q;
-                qd_des_vec = qd_des;
-                qd_vec = qd;
-                t_vec = t;
-            else
-                q_des_vec = [q_des_vec, q_des];
-                q_vec = [q_vec, q];
-                qd_des_vec = [qd_des_vec, qd_des];
-                qd_vec = [qd_vec, qd];
-                t_vec = [t_vec, t];
-            end
-            
             if isempty(phi_vec)
                 phi_vec = phi;
                 phi_des_vec = phi_des;
             else
                 phi_vec = [phi_vec, phi];
                 phi_des_vec = [phi_des_vec, phi_des];
+            end
+            
+            active_sim = find(phi < obj.active_threshold);
+            active_des = find(phi_des < obj.active_threshold);
+            
+            active = [];
+            if ~isempty(active_sim) && ~isempty(active_des)
+                if active_sim(1) == 1 && active_des(1) == 1
+                    active = [active 1];
+                end
+                
+                if ~isempty(active) && length(active_sim) == 2 && length(active_des) == 2
+                    active = [active 2];
+                end
+                
+                if isempty(active) && length(active_sim) == 1 && length(active_des) == 2
+                    active = [active 2];
+                end
+                
+                if isempty(active) && length(active_sim) == 2 && length(active_des) == 1
+                    active = [active 2];
+                end
+            else
+                active = [];
             end
             
             %     %debugging
@@ -952,33 +958,33 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             %[Ye: manually remove two rows for y direction, design for 2D compass gait walker]
             Jp = Jp([1,3,4,6],:);
             
-            if length(active_sim) == 2
+            if length(active) == 2
                 active_status = 'both foot';
-            elseif length(active_sim) == 1 && active(1) == 1
+            elseif length(active) == 1 && active(1) == 1
                 active_status = 'left foot';
-            elseif (length(active_sim) == 1 && active(1) == 2)
+            elseif (length(active) == 1 && active(1) == 2)
                 active_status = 'right foot';
-            else isempty(active_sim)
+            else isempty(active)
                 active_status = 'no contact';
             end
             
-            if length(active_sim) == 2
+            if length(active) == 2
                 disp(active_status);%'both foot'
                 nc = 2;
                 Dbar = vertcat(JB{:})';
-            elseif length(active_sim) == 1 && active(1) == 1
+            elseif length(active) == 1 && active(1) == 1
                 disp(active_status);%'left foot'
                 nc = 1;
                 Dbar = JB{1}';
                 Jpdot_times_v = Jpdot_times_v(1:2);
                 Jp = Jp([1,2],:);
-            elseif (length(active_sim) == 1 && active(1) == 2)
+            elseif (length(active) == 1 && active(1) == 2)
                 disp(active_status);%'right foot'
                 nc = 1;
                 Dbar = JB{2}';
                 Jpdot_times_v = Jpdot_times_v(3:4);
                 Jp = Jp([3,4],:);
-            else isempty(active_sim)
+            else isempty(active)
                 disp(active_status);%'no contact'
                 nc = 0;
                 Dbar = [];
@@ -987,6 +993,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             end
             
             active_status_previous = active_status;
+            
             Jp = sparse(Jp);
             
             %     if any(phi > 0.4)
