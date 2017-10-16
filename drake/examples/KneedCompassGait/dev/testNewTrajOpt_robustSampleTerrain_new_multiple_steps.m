@@ -170,13 +170,15 @@ v.playback(xtraj,struct('slider',true));
 xlim([-1.5, 6])
 % Create an animation movie
 %v.playbackAVI(xtraj, 'trial6_small_terrain_perturb_with_two_ERM_cost_full_nonlcompl_three_walking_constraints.avi');
- 
+
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
 f_nominal = ltraj.eval(t_nominal);
 slack_nominal = slacktraj.eval(t_nominal)';
+
+uu_nominal = z(traj_opt.u_inds);
 
 %convert impulse into force
 h = t_nominal(2)-t_nominal(1);
@@ -195,13 +197,14 @@ for i=1:nv
 end
 
 global t_ind
+global t_switch
 global t_pre_extension
 global t_post_extension
 global x_pre_extension
 global x_post_extension
 
 %% do tajectory expansion
-%t_switch = [0.309,0.7725,0.8497,1.043,1.236,1.39,1.738,1.854,2.202,2.395];
+t_switch = [0,0.309,0.7725,0.8497,1.043,1.236,1.39,1.738,1.854,2.202,2.395];
 t_ind = [1,9,21,23,28,33,37,46,49,58,63];
 %t_init_ind = 9;t_end_ind = 21;%second step
 
@@ -218,19 +221,50 @@ for i=1:N_segment-1
     %state_index = 2;
     t_pre_extension(i,:) = linspace(t_nominal(t_init_ind)-t_pre_extension_period,t_nominal(t_init_ind),num_pre_total);
     t_post_extension(i,:) = linspace(t_nominal(t_end_ind),t_nominal(t_end_ind)+t_post_extension_period,num_post_total);
+    
+    for j=1:nq
+        % for extraploated traj, using original sparse traj is same as
+        % using interpolated dense traj.
+        %t_nominal_inter(i,:) = linspace(t_nominal(t_init_ind),t_nominal(t_end_ind),1000);
+        %x_nominal_inter(i,j,:) = interp1(t_nominal(t_init_ind:t_end_ind),x_nominal(j,t_init_ind:t_end_ind),t_nominal_inter(i,:),'spline');
+        %x_pre_extension(i,j,:) = interp1(t_nominal_inter(i,:),reshape(x_nominal_inter(i,j,:),1,[]),t_pre_extension(i,:),'spline');
+        %x_post_extension(i,j,:) = interp1(t_nominal_inter(i,:),reshape(x_nominal_inter(i,j,:),1,[]),t_post_extension(i,:),'spline');
         
-    for j=1:nq    
         x_pre_extension(i,j,:) = interp1(t_nominal(t_init_ind:t_end_ind)',x_nominal(j,t_init_ind:t_end_ind),t_pre_extension(i,:),'spline');
         x_post_extension(i,j,:) = interp1(t_nominal(t_init_ind:t_end_ind),x_nominal(j,t_init_ind:t_end_ind),t_post_extension(i,:),'spline');
+         
+        x_pre_extension(i,j+nq,:) = interp1(t_nominal(t_init_ind:t_end_ind)',x_nominal(j+nq,t_init_ind:t_end_ind),t_pre_extension(i,:),'spline');
+        x_post_extension(i,j+nq,:) = interp1(t_nominal(t_init_ind:t_end_ind),x_nominal(j+nq,t_init_ind:t_end_ind),t_post_extension(i,:),'spline');
     end
     
-    state_index = 3;
+%     for j=1:nv
+%         %finite diff for velocity
+%         x_pre_extension(i,j+nq,:) = zeros(1,1,length(x_pre_extension(i,j,:)));
+%         x_post_extension(i,j+nq,:) = zeros(1,1,length(x_post_extension(i,j,:)));
+%         
+%         x_pre_extension(i,j+nq,1:end-1) = diff(x_pre_extension(i,j,:))/h;
+%         x_pre_extension(i,j+nq,end) = x_pre_extension(i,j+nq,end-1);
+%         x_post_extension(i,j+nq,1:end-1) = diff(x_post_extension(i,j,:))/h;
+%         x_post_extension(i,j+nq,end) = x_post_extension(i,j+nq,end-1);
+%     end
+    
+    state_index = 4;
     figure(102);
     plot(t_nominal(t_init_ind:t_end_ind),x_nominal(state_index,t_init_ind:t_end_ind));
-    hold on;plot(t_pre_extension(i,:),reshape(x_pre_extension(i,state_index,:),1,[]),'r-','linewidth',3);
-    hold on;plot(t_post_extension(i,:),reshape(x_post_extension(i,state_index,:),1,[]),'r-','linewidth',3);
+    
+    hold on;plot(t_nominal_inter(i,:),reshape(x_nominal_inter(i,state_index,:),1,[]),'k--');
+    hold on;plot(t_pre_extension(i,:),reshape(x_pre_extension(i,state_index,:),1,[]),'k-','linewidth',3);
+    hold on;plot(t_post_extension(i,:),reshape(x_post_extension(i,state_index,:),1,[]),'k-','linewidth',3);
+    
+%     state_index = velocity_index+nq;
+%     figure(103);
+%     plot(t_nominal(t_init_ind:t_end_ind),x_nominal(state_index,t_init_ind:t_end_ind));
+%     hold on;plot(t_pre_extension(i,:),reshape(x_pre_extension(i,state_index,:),1,[]),'r-','linewidth',3);
+%     hold on;plot(t_post_extension(i,:),reshape(x_post_extension(i,state_index,:),1,[]),'r-','linewidth',3);
+%     hold on;plot(t_pre_extension(i,:),reshape(vx_pre_extension(i,velocity_index,:),1,[]),'g-','linewidth',3);
+%     hold on;plot(t_post_extension(i,:),reshape(vx_post_extension(i,velocity_index,:),1,[]),'g-','linewidth',3);
+    
 end
-
 
 %% QP-based inverse dynamics control 
 q0=x0(1:p_ts.getNumPositions);
@@ -297,6 +331,8 @@ figure(1)
 subplot(3,1,1)
 hold on;
 plot(t_nominal', u_nominal(:,1), color_line_type, 'LineWidth',nominal_linewidth);
+hold on;
+plot(t_nominal, uu_nominal(1,:), 'r-', 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u1');
 hold on;
@@ -304,6 +340,8 @@ hold on;
 subplot(3,1,2)
 hold on;
 plot(t_nominal', u_nominal(:,2), color_line_type, 'LineWidth',nominal_linewidth);
+hold on;
+plot(t_nominal, uu_nominal(2,:), 'r-', 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u2');
 hold on;
@@ -311,6 +349,8 @@ hold on;
 subplot(3,1,3)
 hold on;
 plot(t_nominal', u_nominal(:,3), color_line_type, 'LineWidth',nominal_linewidth);
+hold on;
+plot(t_nominal, uu_nominal(3,:), 'r-', 'LineWidth',nominal_linewidth);
 xlabel('t');
 ylabel('u3');
 hold on;
@@ -358,7 +398,7 @@ xlabel('t');
 ylabel('Knee joint 2')
 hold on;
 
-color_line_type = 'r--';
+color_line_type = 'r-';
 figure(3)
 subplot(2,3,1)
 hold on;

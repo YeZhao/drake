@@ -199,7 +199,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
         end
         
         %   function y=mimoOutput(obj,~,~,varargin)
-        function y=output2(obj,t,~,x)
+        function y=output(obj,t,~,x)
             global x_initial
             persistent t_shift
             persistent initial_count
@@ -809,7 +809,7 @@ classdef CompassGaitWalkerIDControl < DrakeSystem
             
         end
         
-        function y=output(obj,t,~,x)
+        function y=output2(obj,t,~,x)
             global x_initial
             
             %     x = varargin{1};
