@@ -598,7 +598,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(k,:,kk);
                         dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(k,:,kk);
                     end
-                    dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];%
+                    dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
                 end
                 
                 % scale this robust cost
@@ -615,116 +615,116 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 %                 figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
                 %                 figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
                 
-                figure(15)
-                clf
-                Sig_permute = permute(Sig,[1,3,2]);
-                for j = 1:n_sig_point
-                    plot(Sig_permute(1,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(1,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([0,7])
-                title('Sigma Point x');
-                
-                figure(16)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(7,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(7,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([0,11])
-                title('Sigma Point vx');
-                
-                figure(17)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(2,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(2,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([0,4])
-                title('Sigma Point z');
-                
-                figure(18)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(8,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(8,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-7,0])
-                title('Sigma Point vz');
-                
-                figure(19)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(3,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(3,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point first hip');
-                
-                figure(20)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(9,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(9,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point hip velocity');
-                
-                figure(21)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(4,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(4,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point first knee');
-                
-                figure(22)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(10,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(10,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point first knee velocity');
-                
-                figure(23)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(5,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(5,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point second hip');
-                
-                figure(24)
-                clf
-                for j = 1:n_sig_point
-                    plot(Sig_permute(6,:,j),'r-')
-                    hold on;
-                end
-                hold on;
-                plot(x(6,:),'b-','Linewidth',3)
-                %xlim([0,30]);ylim([-1,1])
-                title('Sigma Point second knee');
+%                 figure(15)
+%                 clf
+%                 Sig_permute = permute(Sig,[1,3,2]);
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(1,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(1,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([0,7])
+%                 title('Sigma Point x');
+%                 
+%                 figure(16)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(7,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(7,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([0,11])
+%                 title('Sigma Point vx');
+%                 
+%                 figure(17)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(2,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(2,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([0,4])
+%                 title('Sigma Point z');
+%                 
+%                 figure(18)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(8,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(8,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-7,0])
+%                 title('Sigma Point vz');
+%                 
+%                 figure(19)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(3,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(3,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point first hip');
+%                 
+%                 figure(20)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(9,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(9,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point hip velocity');
+%                 
+%                 figure(21)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(4,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(4,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point first knee');
+%                 
+%                 figure(22)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(10,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(10,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point first knee velocity');
+%                 
+%                 figure(23)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(5,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(5,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point second hip');
+%                 
+%                 figure(24)
+%                 clf
+%                 for j = 1:n_sig_point
+%                     plot(Sig_permute(6,:,j),'r-')
+%                     hold on;
+%                 end
+%                 hold on;
+%                 plot(x(6,:),'b-','Linewidth',3)
+%                 %xlim([0,30]);ylim([-1,1])
+%                 title('Sigma Point second knee');
                 
                 %tElapsed = toc(tStart);
                 
@@ -732,26 +732,26 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 fprintf('robust cost function: %4.8f\n',c);
                 
                 % check gradient
-                disp('check gradient')
+                %disp('check gradient')
                 %                             c_numeric = c;
                 %                             dc_numeric = dc;
                 %
-                X0 = [x_full; u_full];
+                %X0 = [x_full; u_full];
                 %             %X0 = X0 + randn(size(X0))*0.1;
                 %
-                fun = @(X0) robustVariancecost_check(obj, X0);
-                DerivCheck(fun, X0)
+                %fun = @(X0) robustVariancecost_check(obj, X0);
+                %DerivCheck(fun, X0)
                 %gradient_scale = Compute_numerical_gradient_scale(fun, X0);
                 %dc = dc*gradient_scale;
                 
-                disp('finish numerical gradient');
+                %disp('finish numerical gradient');
                 
-                [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
                 %
                 %             [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
                 %
-                                            valuecheck(dc,dc_numeric,1e-5);
-                                            valuecheck(c,c_numeric,1e-5);
+                %valuecheck(dc,dc_numeric,1e-5);
+                %valuecheck(c,c_numeric,1e-5);
                 
                 function DerivCheck(funptr, X0, ~, varargin)
                     

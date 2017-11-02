@@ -44,9 +44,11 @@ xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
 
 plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingQP');
-xtraj_ts = simulate(plant_ts,[0 4],x0);
-x0 = xtraj_ts.eval(0);
+% xtraj_ts = simulate(plant_ts,[0 4],x0);
+% x0 = xtraj_ts.eval(0);
 warning(w);
+visualize = 0;
+v = constructVisualizer(plant_ts);
 if visualize
     v = constructVisualizer(plant_ts);
     v.playback(xtraj_ts,struct('slider',true));
@@ -128,7 +130,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 
 options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 100;
+options.Px_coeff = 100; %10000
 options.Kx_gain = 5;
 options.Kxd_gain = 5;
 options.Kz_gain = 5;
@@ -275,6 +277,10 @@ end
         fprintf('sum of external z force along traj: %4.4f\n',sum(abs(force(2,:))));
         
         slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
+        
+        global phi_penetration_pair
+%         figure(34)
+%         plot(phi_penetration_pair(1,:),phi_penetration_pair(3,:),'o'); 
     end
 
 % check if the two simulations did the same thing:

@@ -190,6 +190,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
             end
             
+            % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
+            obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
+            
             % robust variance cost with state feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
@@ -273,6 +276,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
         end
         
         function [c,dc] = robustVariancecost(obj, x_full, Fext_full)
+            global timestep_updated
+            global sigmapoint_index
+            global phi_penetration_pair
             
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
@@ -378,6 +384,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %Propagate sigma points through nonlinear dynamics
                 for j = 1:n_sig_point
+                    sigmapoint_index = j;
                     % a hacky way to implement the control input
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                     Hinv(:,:,j,k) = inv(H);
@@ -390,7 +397,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     end
                     
                     % add feedback control
-                    t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
+                    t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                     u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                     % debugging
                     % if u_fdb_k*u(:,k) < 0
@@ -780,7 +787,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         end
                         
                         % add feedback control
-                        t = obj.plant.timestep*(k-1);%[double make sure obj.h is updated correctly]
+                        % obj.plant.timestep
+                        t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                         % debugging
                         % if u_fdb_k*u(:,k) < 0
@@ -940,6 +948,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
             end
+        end
+        
+        function [c,dc] = getTimeStep(obj, h)
+            global timestep_updated
+            timestep_updated = h;
+            c = 0;
+            dc = 0;
         end
         
         function [c,dc] = robustLCPcost(obj, slack_var)

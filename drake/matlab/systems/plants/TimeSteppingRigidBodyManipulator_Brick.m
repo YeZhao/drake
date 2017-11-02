@@ -25,7 +25,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         phi_max = 0.1; % m, max contact force distance
         active_threshold = 0.1; % height below which contact forces are calculated
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
-        
     end
     
     properties (SetAccess=public)
@@ -261,6 +260,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             t = X0(1);
             x = X0(2:13);
             u = [];%X0(14:15);
+            global timestep_updated
+            global sigmapoint_index
+            persistent phi_vec
+            persistent phi_full_vec
+            persistent x_vec
+            global phi_penetration_pair
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -280,7 +285,11 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 num_d = 4;
             end
             dim = 3;
-            h = obj.timestep;
+            if isempty(timestep_updated)    
+                h = obj.timestep;
+            else
+                h = timestep_updated;
+            end
             
             num_q = obj.manip.getNumPositions;
             q=x(1:num_q);
@@ -321,8 +330,8 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             %             persistent phi_2
             %             persistent phi_3
             %             persistent phi_4
-            persistent f_vec
-            persistent f_vec_sum
+            %persistent f_vec
+            %persistent f_vec_sum
             %
             %             %             if ~isempty(phiC)
             %             phi_1 = [phi_1,phiC(2)];
@@ -332,7 +341,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             
             %             end
             %
-            if t > 3.99
+            if t > 3.8
                 keyboard
             end
             
@@ -482,11 +491,11 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 R = diag(r(:));
                 
                 if any(ind > 0)
-                    S_weighting_unit = diag([0.3,1e-3,1]);
-                    S_weighting_unit = diag([1,1,1]);
+                    S_weighting_unit = diag([0.1,1e-3,1]);
+                    %S_weighting_unit = diag([1,1,1]);
                 else
-                    %S_weighting_unit = diag([0.3,1e-3,1]);
-                    S_weighting_unit = diag([1,1,1]);
+                    S_weighting_unit = diag([0.1,1e-3,1]);
+                    %S_weighting_unit = diag([1,1,1]);
                     % right now, use a unified weighting coeff for x
                     % direction regardless whether the brick enters the
                     % safety region. But it could be tuned to different
@@ -581,8 +590,31 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         keyboard
                     end
                 end
+            
+                % extract the state at penetration points
+                phiC_bottom = [phiC(2);phiC(4);phiC(6);phiC(8)];
+                if ~isempty(phiC_bottom)
+                    phi_vec = [phi_vec,phiC_bottom];
+                end
                 
-                f_vec = [f_vec,f];
+                if ~isempty(~isempty(phiC_bottom))
+                    x_vec = [x_vec,x];
+                end
+                
+                f_normal_bottom = [f(6);f(12);f(18);f(24)]/h;% force, converted from force
+                
+%                 if any(phiC_bottom < 0)
+%                     disp('penetration')
+%                     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
+%                     phi_penetration_pair = [phi_penetration_pair,pene_pair];
+%                 end
+                
+                if t > 0.5517 && t < 0.5518
+                    pene_pair = [phiC_bottom(1);-f(6)];
+                    phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                end
+                
+                %f_vec = [f_vec,f];
                 
                 %                 f_x_sum = 0;
                 %                 f_y_sum = 0;
@@ -594,7 +626,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 %                 end
                 %                 f_sum = [f_x_sum;f_y_sum;f_z_sum];
                 %                 f_vec_sum = [f_vec_sum, f_sum];
-                
                 
                 %% checker that the analytical solution from KKT condition
                 % gives correct contact force solution
@@ -654,10 +685,9 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 %v = A*f + c
                 %v2 = Ain*result.x - bin + v_min
                 
-                if any(phi<-2e-3)
-                    keyboard;
-                end
-                
+%                 if any(phi<-2e-3)
+%                     keyboard;
+%                 end
                 
                 %% compute gradient component
                 total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
@@ -946,7 +976,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             %t
             X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
-            
+            global timestep_updated
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
@@ -990,7 +1020,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             %     end
             % end
             
-            
             %end
             
             function DerivCheck(funptr, X0, ~, varargin)
@@ -1029,7 +1058,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             
             num_q = obj.manip.num_positions;
             q=x(1:num_q); v=x((num_q+1):end);
-            h = obj.timestep;
+            
+            if isempty(timestep_updated)
+                h = obj.timestep;
+            else
+                h = timestep_updated;
+            end
             
             if isempty(z)
                 vn = wvn;
@@ -1127,6 +1161,11 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         end
         
         function [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u)
+            global timestep_updated
+            global sigmapoint_index
+            global phi_penetration_pair
+            
+            %obj = setSampleTime(obj,[timestep_updated;0]);
             
             %             if (nargout<5 && obj.gurobi_present && obj.manip.only_loops && obj.manip.mex_model_ptr~=0 && ~obj.position_control)
             %                 [obj,z,Mvn,wvn] = solveMexLCP(obj,t,x,u);
@@ -1181,7 +1220,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
                 vToqdot = obj.manip.vToqdot(kinsol);
                 qd = vToqdot*v;
-                h = obj.timestep;
+                
+                if isempty(timestep_updated)
+                    h = obj.timestep;
+                else
+                    h = timestep_updated;
+                end
                 
                 if (nargout<5)
                     [H,C,B] = manipulatorDynamics(obj.manip,q,v);
@@ -1276,6 +1320,13 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     end
                     
                     has_contacts = (nContactPairs > 0);
+                    
+                    if isempty(has_contacts)
+                        disp('no contact')
+                    else
+                        disp('contact occur')
+                    end
+                    
                     if has_contacts
                         if (nargout>4)
                             if strcmp(obj.uncertainty_source, 'friction_coeff')
@@ -1377,32 +1428,32 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     
                     obj.LCP_cache.data.contact_data = contact_data;
                     
-                    persistent z_vec
-                    persistent z_vec_sum
-                    persistent contact_free_index
+                    %persistent z_vec
+                    %persistent phi_vec
+%                     persistent z_vec_sum
+%                     persistent contact_free_index
+%                     
+%                     persistent phi_1
+%                     persistent phi_2
+%                     persistent phi_3
+%                     persistent phi_4
                     
-                    persistent phi_1
-                    persistent phi_2
-                    persistent phi_3
-                    persistent phi_4
-                    
-                    if ~isempty(phiC)
-                        phi_1 = [phi_1,phiC(1)];
-                        phi_2 = [phi_2,phiC(2)];
-                        phi_3 = [phi_3,phiC(3)];
-                        phi_4 = [phi_4,phiC(4)];
-                    end
+%                     if ~isempty(phiC)
+%                         phi_1 = [phi_1,phiC(1)];
+%                         phi_2 = [phi_2,phiC(2)];
+%                         phi_3 = [phi_3,phiC(3)];
+%                         phi_4 = [phi_4,phiC(4)];
+%                         phi_vec = [phi_vec,phiC]; 
+%                     end
                     %
-                    if t > 3.98
-                        keyboard
-                    end
+
                     
                     if (nC+nL+nP+nV==0)  % if there are no possible contacts
-                        if isempty(contact_free_index)
-                            contact_free_index = 1;
-                        else
-                            contact_free_index = contact_free_index + 1;
-                        end
+%                         if isempty(contact_free_index)
+%                             contact_free_index = 1;
+%                         else
+%                             contact_free_index = contact_free_index + 1;
+%                         end
                         z = [];
                         Mvn = [];
                         wvn = v + h*(H\tau);
@@ -1550,6 +1601,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         
                         M(nL+nP+(mC+1)*nC+(1:nC),nL+nP+(1:(mC+1)*nC)) = [diag(mu), repmat(-eye(nC),1,mC)];
                         
+                        if any(w(nL+nP+(1:nC)) < 0)
+                            disp('penetration occurs')
+                        end
+                        %w(nL+nP+(1:nC))
+                        nC
+                        
                         if (nargout>4)
                             % n, dn, and dD were only w/ respect to q.  filled them out for [t,x,u]
                             dn = [zeros(size(dn,1),1),dn,zeros(size(dn,1),num_q+obj.num_Fext)];
@@ -1623,18 +1680,30 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     %        valuecheck(z'*(M*z+w),0,path_convergence_tolerance);
                     % end more debugging
                     
-                    z_vec = [z_vec,z];
+                    %z_vec = [z_vec,z];
+                    if t >= (4-0.07)
+                        keyboard
+                    end
+                    if any(phiC < -0.00002)
+                        disp('penetration')
+                    end
                     
-                    z_x_sum = 0;
-                    z_y_sum = 0;
-                    z_z_sum = 0;
+                    if any(phiC < 0)
+                        disp('penetration')
+                        pene_pair = [sigmapoint_index;min(phiC);max(z(1:nC))/h];% the last element is force, converted from impulse
+                        phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                    end
                     
-                    z_z_sum = sum(z(1:4));
-                    z_x_sum = sum(z(5:8))+sum(z(13:16));
-                    z_y_sum = sum(z(9:12))+sum(z(17:20));
-                    
-                    z_sum = [z_x_sum;z_y_sum;z_z_sum];
-                    z_vec_sum = [z_vec_sum, z_sum];
+%                     z_x_sum = 0;
+%                     z_y_sum = 0;
+%                     z_z_sum = 0;
+%                     
+%                     z_z_sum = sum(z(1:4));
+%                     z_x_sum = sum(z(5:8))+sum(z(13:16));
+%                     z_y_sum = sum(z(9:12))+sum(z(17:20));
+%                     
+%                     z_sum = [z_x_sum;z_y_sum;z_z_sum];
+%                     z_vec_sum = [z_vec_sum, z_sum];
                     
                     if obj.lcmgl_contact_forces_scale>0
                         cN = z(nL+nP+(1:nC));
