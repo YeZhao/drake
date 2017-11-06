@@ -16,11 +16,11 @@ warning(w);
 N=30; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-%w_phi = load('terrain_height_noise5.dat');
-w_phi = load('terrain_height_noise_long.dat');
+w_phi = load('terrain_height_noise5.dat');
+%w_phi = load('terrain_height_noise_long.dat');%more data
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
 %save -ascii terrain_height_noise5.dat w_phi
-n_sig_point = 500;%28;
+n_sig_point = 28;
 for i=1:n_sig_point
     sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
     sample_options.floating = true;

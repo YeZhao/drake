@@ -344,7 +344,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 if k == 1
                     [S,d] = chol(blkdiag(Px(:,:,k), Pw), 'lower');
                     if d
-                        diverge  = k;
+                        diverge = k;
                         return;
                     end
                     S = scale*S;
@@ -387,7 +387,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for j = 1:n_sig_point
                 %w_phi = load('terrain_height_noise_long.dat');%normrnd(zeros(1,100),sqrt(Pw(1,1)),1,100);    
                 %for mm = 1:length(w_phi)
-                %    j = 13;
+                %   j = 13;
                     sigmapoint_index = j;
                     
                     % a hacky way to implement the control input
@@ -397,8 +397,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                         obj.plant.friction_coeff = w_mu(j);
+                        size_terrain_sample = length(w_mu);
                     elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
                         obj.plant.terrain_index = j;
+                        size_terrain_sample = length(w_phi);
                     end
                     
                     % add feedback control
@@ -409,13 +411,29 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     %     disp('control sign is changed')
                     % end
                     
-                    [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-                    
-                    Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
-                    Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
-                    dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
-                    dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
-                    dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+                    % estimate whether current state is close to contact
+                    [phi,~,~,~,~,~,~,~,~,~,~,~] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j,k),false,obj.options.active_collision_options);
+                    phi_bottom = phi(2:2:end);
+                    active_threshold = 0.1;
+                    if any(phi_bottom<active_threshold)
+                        for kk = 1:length(size_terrain_sample)
+                            if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                                obj.plant.friction_coeff = w_mu(kk);
+                            elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
+                                obj.plant.terrain_index = kk;
+                            end
+                            [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                            %to be implemented
+                        end
+                    else
+                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        
+                        Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
+                        Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
+                        dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
+                        dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
+                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+                    end
                 end
                 
                 %Calculate mean and variance w.r.t. [x_k] from sigma points

@@ -20,7 +20,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         multiple_contacts = false;
         gurobi_present = false;
         num_Fext = 2;
-        % convex stuff below
+        % convex setting below
         update_convex = true;
         phi_max = 0.1; % m, max contact force distance
         active_threshold = 0.1; % height below which contact forces are calculated
@@ -384,6 +384,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             end
             dJD{1} = dJx; dJD{2} = dJy;
             
+            % phiL is always empty
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
             possible_limit_indices = (phiL + h*JL*vToqdot*v) < obj.active_threshold;
             nL = sum(possible_limit_indices);
@@ -593,24 +594,24 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 
                 f_normal_bottom = [f(6);f(12);f(18);f(24)]/h;% force, converted from force
                 
-                % if any(phiC_bottom < 0)
-                %     disp('penetration')
-                %     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
-                %     phi_penetration_pair = [phi_penetration_pair,pene_pair];
-                % end
+                if any(phiC_bottom < 0)
+                    disp('penetration')
+                    pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
+                    phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                end
                 %
                 % if t > 0.5517 && t < 0.5518
                 %     pene_pair = [phiC_bottom(1);-f(6)/h];
                 %     phi_penetration_pair = [phi_penetration_pair,pene_pair];
                 % end
 
-                if t > 0.5517 && t < 0.5518
-                    %disp('here');
-                elseif t > 0.5518 && t < 0.625
-                    pene_pair = [phiC_bottom(1);-f(4)/h;-f(5)/h;-f(6)/h;-f(10)/h;-f(11)/h;-f(12)/h];
-                    phi_penetration_pair = [phi_penetration_pair,pene_pair];
-                end
-                
+                % if t > 0.5517 && t < 0.5518
+                %     %disp('here');
+                % elseif t > 0.5518 && t < 0.625
+                %   pene_pair = [phiC_bottom(1);-f(4)/h;-f(5)/h;-f(6)/h;-f(10)/h;-f(11)/h;-f(12)/h];
+                %   phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                % end
+                    
                 %f_vec = [f_vec,f];
                 % f_x_sum = 0;
                 % f_y_sum = 0;
