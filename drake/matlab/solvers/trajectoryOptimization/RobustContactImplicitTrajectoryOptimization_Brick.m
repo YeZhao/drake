@@ -279,6 +279,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             global timestep_updated
             global sigmapoint_index
             global phi_penetration_pair
+            global next_time_step_state
             
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
@@ -301,12 +302,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             w_mu = ones(1,n_sig_point);
             w_phi = zeros(1,n_sig_point);
-            obj.plant.uncertainty_source = 'friction_coeff';%'terrain_height';%
+            obj.plant.uncertainty_source = 'terrain_height';%'friction_coeff';%
             flag_generate_new_noise = 0;
             if ~flag_generate_new_noise
                 w_mu = load('friction_coeff_noise1.dat');
-                %w_mu = ones(1,obj.N);
-                %w_phi = load('terrain_height_noise5.dat');
+                w_phi = load('terrain_height_noise5.dat');
             else
                 w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(2,2)),1,n_sig_point);%friction coefficient noise
                 w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
@@ -383,8 +383,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
+                mm = 0;
                 for j = 1:n_sig_point
+                %w_phi = load('terrain_height_noise_long.dat');%normrnd(zeros(1,100),sqrt(Pw(1,1)),1,100);    
+                %for mm = 1:length(w_phi)
+                %    j = 13;
                     sigmapoint_index = j;
+                    
                     % a hacky way to implement the control input
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                     Hinv(:,:,j,k) = inv(H);
@@ -418,10 +423,30 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for j = 1:n_sig_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                 end
-                Px(:,:,k+1) = zeros(obj.nx);
-                %alpha = 1e-3;
-                %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
                 
+                %Calculate mean and variance w.r.t. [x_k] from sigma points
+                x_mean(:,k+1) = zeros(obj.nx,1);
+                for j = 1:n_sig_point
+                    x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                end
+                
+                % shift sigma point
+                for j = 1:n_sig_point
+                    Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                end
+                
+                % recalculate mean and variance w.r.t. [x_k] from sigma points
+                x_mean(:,k+1) = zeros(obj.nx,1);
+                for j = 1:n_sig_point
+                    x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                end
+                
+                % the mean deviation term is cancelled out
+                if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                    disp('error')
+                end
+                
+                Px(:,:,k+1) = zeros(obj.nx);
                 for j = 1:n_sig_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                 end
@@ -809,10 +834,30 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     for j = 1:n_sig_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                     end
-                    Px(:,:,k+1) = zeros(obj.nx);
-                    %alpha = 1e-3;
-                    %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
                     
+                    %Calculate mean and variance w.r.t. [x_k] from sigma points
+                    x_mean(:,k+1) = zeros(obj.nx,1);
+                    for j = 1:n_sig_point
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                    end
+                    
+                    % shift sigma point
+                    for j = 1:n_sig_point
+                        Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                    end
+                    
+                    % recalculate mean and variance w.r.t. [x_k] from sigma points
+                    x_mean(:,k+1) = zeros(obj.nx,1);
+                    for j = 1:n_sig_point
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                    end
+                    
+                    % the mean deviation term is cancelled out
+                    if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                        disp('error')
+                    end
+                    
+                    Px(:,:,k+1) = zeros(obj.nx);    
                     for j = 1:n_sig_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     end

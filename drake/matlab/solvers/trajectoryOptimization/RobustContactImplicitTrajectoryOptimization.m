@@ -440,9 +440,9 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                         
-                        %                         if Sig(1,j,k) > Sig(1,j,k+1)
-                        %                             disp('position reversed');
-                        %                         end
+                        % if Sig(1,j,k) > Sig(1,j,k+1)
+                        %     disp('position reversed');
+                        % end
                     end
                     
                     %Calculate mean and variance w.r.t. [x_k] from sigma points
@@ -451,7 +451,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                     end
                     
-                    % rescale sigma point
+                    % shift sigma point
                     for j = 1:n_sig_point
                         Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                     end
@@ -462,13 +462,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                     end
                     
+                    % the mean deviation term is cancelled out
                     if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
                         disp('error')
                     end
                     
                     Px(:,:,k+1) = zeros(obj.nx);
-                    %alpha = 1e-3;
-                    %w_coeff = (1/(2*alpha^2*(obj.nx+nw)));
                     
                     for j = 1:n_sig_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
@@ -476,12 +475,12 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                     % accumulate returned cost
                     c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    %                     % debugging
+                    %debugging
                     c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    %                     c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
-                    %                     c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
-                    %                     c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
-                    %                     c_quadratic_zd(k+1) = norm(x(7,k+1)-x_mean(9,k+1))^2;
+                    % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
+                    % c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
+                    % c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
+                    % c_quadratic_zd(k+1) = norm(x(7,k+1)-x_mean(9,k+1))^2;
                     
                     for j = 1:n_sig_point
                         V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';

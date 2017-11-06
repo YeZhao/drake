@@ -266,6 +266,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             persistent phi_full_vec
             persistent x_vec
             global phi_penetration_pair
+            global next_time_step_state
             
             % this function implement an update based on Todorov 2011, where
             % instead of solving the full SOCP, we make use of polyhedral
@@ -326,21 +327,19 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             phiC = phiC(active);
             normal = normal(:,active);
             
-            %             persistent phi_1
-            %             persistent phi_2
-            %             persistent phi_3
-            %             persistent phi_4
+            %persistent phi_1
+            %persistent phi_2
+            %persistent phi_3
+            %persistent phi_4
             %persistent f_vec
             %persistent f_vec_sum
-            %
-            %             %             if ~isempty(phiC)
-            %             phi_1 = [phi_1,phiC(2)];
-            %             phi_2 = [phi_2,phiC(4)];
-            %             phi_3 = [phi_3,phiC(6)];
-            %             phi_4 = [phi_4,phiC(8)];
-            
-            %             end
-            %
+            %if ~isempty(phiC)
+            %    phi_1 = [phi_1,phiC(2)];
+            %    phi_2 = [phi_2,phiC(4)];
+            %    phi_3 = [phi_3,phiC(6)];
+            %    phi_4 = [phi_4,phiC(8)];
+            %end
+        
             if t > 3.8
                 keyboard
             end
@@ -401,12 +400,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 tau = B*u - C;
                 dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
             else
-                %                 %[Ye: hacky way to implement an external force]
-                %                 obj.num_Fext = 2;
-                %                 num_u = obj.num_Fext;
-                %                 tau = -C + [u(1);0;u(2);zeros(3,1)];
-                %                 dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
-                %                 dtau = [zeros(num_v,1), -dC, dtaudu];
+                % %[Ye: hacky way to implement an external force]
+                % obj.num_Fext = 2;
+                % num_u = obj.num_Fext;
+                % tau = -C + [u(1);0;u(2);zeros(3,1)];
+                % dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
+                % dtau = [zeros(num_v,1), -dC, dtaudu];
                 
                 %[Ye: hacky way to implement an external force]
                 obj.num_Fext = 0;
@@ -451,22 +450,13 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         end
                     end
                     w_active((i-1)*num_d+(1:num_d)) = w((active(i)-1)*num_d+(1:num_d));
-                    %                     if phi(i) < 0.01%0.035
-                    %                         v_min(i) = 0;
-                    %                         %keyboard
-                    %                     else
                     v_min(i) = -phi(i)/h;
-                    %                     end
                 end
                 V = blkdiag(V_cell{:},eye(nL));
                                 
                 A = J*vToqdot*Hinv*vToqdot'*J';
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
-                
-                %                 if t > 0.5
-                %                     keyboard
-                %                 end
-                
+                                
                 % contact smoothing matrix
                 R_min = 1e-4;
                 R_max = 1e4;
@@ -481,12 +471,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
                 %scale r of upper four uncontact points same as that of
                 %lower contact point.
-                %                 if phi(2) < obj.phi_max && length(r) > 0
-                %                     r(1) = r(2);
-                %                     r(3) = r(4);
-                %                     r(5) = r(6);
-                %                     r(7) = r(8);
-                %                 end
+                % if phi(2) < obj.phi_max && length(r) > 0
+                %     r(1) = r(2);
+                %     r(3) = r(4);
+                %     r(5) = r(6);
+                %     r(7) = r(8);
+                % end
                 r = repmat(r,1,dim)';
                 R = diag(r(:));
                 
@@ -553,16 +543,16 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     bin(i+num_active) = v_min(i+num_active) - c(idx);
                 end
                 
-                %         Ain = 0*Ain; % TMP DEBUG
-                %         bin = 0*bin; % TMP DEBUG
+                % Ain = 0*Ain; % TMP DEBUG
+                % bin = 0*bin; % TMP DEBUG
                 
                 Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
                 
-                %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
+                %[result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                 
                 if 1 % info_fqp<0
-                    %           disp('calling gurobi');
+                    %disp('calling gurobi');
                     model.LCP_cache.data.fastqp_active_set = [];
                     gurobi_options.outputflag = 0; % verbose flag
                     gurobi_options.method = 1; % -1=automatic, 0=primal simplex, 1=dual simplex, 2=barrier
@@ -603,29 +593,35 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 
                 f_normal_bottom = [f(6);f(12);f(18);f(24)]/h;% force, converted from force
                 
-%                 if any(phiC_bottom < 0)
-%                     disp('penetration')
-%                     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
-%                     phi_penetration_pair = [phi_penetration_pair,pene_pair];
-%                 end
-                
+                % if any(phiC_bottom < 0)
+                %     disp('penetration')
+                %     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
+                %     phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                % end
+                %
+                % if t > 0.5517 && t < 0.5518
+                %     pene_pair = [phiC_bottom(1);-f(6)/h];
+                %     phi_penetration_pair = [phi_penetration_pair,pene_pair];
+                % end
+
                 if t > 0.5517 && t < 0.5518
-                    pene_pair = [phiC_bottom(1);-f(6)];
+                    %disp('here');
+                elseif t > 0.5518 && t < 0.625
+                    pene_pair = [phiC_bottom(1);-f(4)/h;-f(5)/h;-f(6)/h;-f(10)/h;-f(11)/h;-f(12)/h];
                     phi_penetration_pair = [phi_penetration_pair,pene_pair];
                 end
                 
                 %f_vec = [f_vec,f];
-                
-                %                 f_x_sum = 0;
-                %                 f_y_sum = 0;
-                %                 f_z_sum = 0;
-                %                 for i=1:num_active
-                %                     f_x_sum = f_x_sum + f(i);
-                %                     f_y_sum = f_y_sum + f(2*i);
-                %                     f_z_sum = f_z_sum + f(3*i);
-                %                 end
-                %                 f_sum = [f_x_sum;f_y_sum;f_z_sum];
-                %                 f_vec_sum = [f_vec_sum, f_sum];
+                % f_x_sum = 0;
+                % f_y_sum = 0;
+                % f_z_sum = 0;
+                % for i=1:num_active
+                %     f_x_sum = f_x_sum + f(i);
+                %     f_y_sum = f_y_sum + f(2*i);
+                %     f_z_sum = f_z_sum + f(3*i);
+                % end
+                % f_sum = [f_x_sum;f_y_sum;f_z_sum];
+                % f_vec_sum = [f_vec_sum, f_sum];
                 
                 %% checker that the analytical solution from KKT condition
                 % gives correct contact force solution
@@ -657,22 +653,22 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 %f = V*(result_analytical + w_active);
                 %% end of checker
                 
-                %         vis=obj.constructVisualizer;
-                %         figure(25)
-                %         clf
-                %         vis.draw(t,x)
-                %         hold on;
-                %         plot(world_pts(1,:),world_pts(3,:),'mo');
-                %         ff = f/norm(f);
+                % vis=obj.constructVisualizer;
+                % figure(25)
+                % clf
+                % vis.draw(t,x)
+                % hold on;
+                % plot(world_pts(1,:),world_pts(3,:),'mo');
+                % ff = f/norm(f);
                 %
-                %         for jj=1:size(world_pts,2)
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                % %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
-                %         end
-                %         hold off;
+                % for jj=1:size(world_pts,2)
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+                %     %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
+                % end
+                % hold off;
                 
                 % update state at next time step
                 vn = v + Hinv*(tau*h + vToqdot'*J'*f);
@@ -682,12 +678,21 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 wvn = v + h*Hinv*tau;
                 Mvn = Hinv*vToqdot'*J';% note that the sign of J is negative
                 
+                %debugging the post-update state
+                % kinsol_next = doKinematics(obj, qn, [], kinematics_options);
+                % vToqdot_next = obj.manip.vToqdot(kinsol_next);
+                % if obj.num_u > 0
+                %     [phiC_next,normal_next,V_next,n_next,D_next,xA_next,xB_next,idxA_next,idxB_next,mu_next,dn_next,dD_next] = getContactTerms(obj,qn,kinsol_next);
+                % else
+                %     [phiC_next,normal_next,V_next,n_next,D_next,xA_next,xB_next,idxA_next,idxB_next,mu_next] = getContactTerms(obj,qn,kinsol_next);
+                % end
+                
+                if t > 0.5518 && t < 0.625
+                    next_time_step_state = [next_time_step_state,qn];
+                end
+                
                 %v = A*f + c
                 %v2 = Ain*result.x - bin + v_min
-                
-%                 if any(phi<-2e-3)
-%                     keyboard;
-%                 end
                 
                 %% compute gradient component
                 total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
@@ -708,22 +713,22 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 JD{1} = Jx; JD{2} = Jy;
                 JD = vertcat(JD{:});
                 % just keep the likely contacts (and store data to check the unlikely):
-                %                 possible_limit_indices = [];% [Ye: to be modified for the checker]
-                %                 phi_check = phiL(~possible_limit_indices);
-                %                 J_check = zeros(0,num_q);
-                %                 phi_check = [phi_check;phiC(~possible_contact_indices)];
-                %                 J_check = [J_check; n(~possible_contact_indices,:)];
+                % possible_limit_indices = [];% [Ye: to be modified for the checker]
+                % phi_check = phiL(~possible_limit_indices);
+                % J_check = zeros(0,num_q);
+                % phi_check = [phi_check;phiC(~possible_contact_indices)];
+                % J_check = [J_check; n(~possible_contact_indices,:)];
                 
                 %phiC = phiC(possible_contact_indices);
                 %Jz = Jz(possible_contact_indices,:);
                 %JD = JD(repmat(possible_contact_indices,mC,1),:);
                 %mu = mu(possible_contact_indices,:);
                 
-                %                 if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
-                %                         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
-                %                         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
-                %                     possible_indices_changed = true;
-                %                 end
+                % if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
+                %         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
+                %         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
+                %     possible_indices_changed = true;
+                % end
                 
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
                 
