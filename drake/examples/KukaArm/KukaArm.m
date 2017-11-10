@@ -175,7 +175,18 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
       df = [df,df(:,1+obj.getNumStates+(1:obj.getNumInputs))];
     end 
     
-      
+    function u0 = findTrim(obj,q0)
+        Nq = obj.getNumPositions();
+        Nq_arm = 8;
+        Nu = obj.getNumInputs();
+        Nv = obj.getNumVelocities();
+        Nx = Nq+Nv;
+        
+        [H,C,B] = manipulatorDynamics(obj,q0,zeros(Nv,1));
+        
+        u0 = B(1:Nq_arm,:)\C(1:Nq_arm);
+    end
+
     function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints(obj,kinsol,allow_multiple_contacts,active_collision_options)
 
       % @retval phi (m x 1) Vector of gap function values (typically contact distance), for m possible contacts
@@ -199,9 +210,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
         kin_options = struct('compute_gradients', compute_kinematics_gradients);
         kinsol = doKinematics(obj, kinsol, [], kin_options);
       end
+      
+      % Scott's implementation
       brick_size = 0.06;
       finger_contact_left = [0;0;.04];
-      finger_contact_right = [-0.0001;  0.0400;  0.1225];
+      finger_contact_right = [0;  0.0400;  0.1225];%-0.0001
 
       box_pose = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
       left_finger_tip = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left,0);
@@ -231,9 +244,50 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
       
       phi = [phi_right;phi_left];
       
-      if phi<0
-        keyboard
-      end
+%       % Zac's implementation
+%       ball_radius = 0.03;
+%       finger_contact_left = [0;0;.04];
+%       finger_contact_right1 = [-.01;  0.0400;  0.1225];
+%       finger_contact_right2 = [.01;  0.0400;  0.1225];
+%       
+%       b = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
+%       R_ball = rpy2rotmat(b(4:6));
+%       fl = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left,1);
+%       fr1 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right1,1);
+%       fr2 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right2,1);
+%       
+%       phi = [b(3)-ball_radius; norm(fr1(1:3)-b(1:3))-ball_radius; norm(fr2(1:3)-b(1:3))-ball_radius; norm(fl(1:3)-b(1:3))-ball_radius];
+%       ball_normal = [0;0;-1];
+%       right_normal1 = fr1(1:3) - b(1:3);
+%       right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
+%       right_normal2 = fr2(1:3) - b(1:3);
+%       right_normal2 = right_normal2./sqrt(right_normal2'*right_normal2);
+%       left_normal = fl(1:3) - b(1:3);
+%       left_normal = left_normal./sqrt(left_normal'*left_normal);
+%       normal = [ball_normal, right_normal1, right_normal2, left_normal];
+%       
+%       d = cell(1,2);
+%       Tr1 = cross(right_normal1,[0;0;1]);
+%       Tr1 = Tr1/norm(Tr1);
+%       Tr2 = cross(right_normal1,Tr1);
+%       Tr3 = cross(right_normal2,[0;0;1]);
+%       Tr3 = Tr3/norm(Tr3);
+%       Tr4 = cross(right_normal2,Tr3);
+%       Tl1 = cross(left_normal,[0;0;1]);
+%       Tl1 = Tl1/norm(Tl1);
+%       Tl2 = cross(left_normal,Tl1);
+%       d{1} = [[0;1;0],Tr1,Tr3,Tl1];
+%       d{2} = [[1;0;0],Tr2,Tr4,Tl2];
+%       
+%       xA = [[b(1:2); 0], finger_contact_right1, finger_contact_right2, finger_contact_left];
+%       xB = ball_radius*R_ball'*normal;
+%       idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.left_finger_id];
+%       idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
+%       mu = 1.0;
+
+%       if phi<0
+%         keyboard
+%       end
       if compute_kinematics_gradients
         [n, D, dn, dD] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
       elseif compute_first_derivative

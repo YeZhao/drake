@@ -397,7 +397,7 @@
   </joint>
 
   <joint
-    name="base_joint"
+    name="gripper_base_joint"
     type="fixed">
     <origin
       xyz="0 0.04 0.0375"

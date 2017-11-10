@@ -24,15 +24,20 @@ x0 = [q0;zeros(nq,1)];
 v.draw(0,x0);
 
 q1 = q0;
-q1(9) = q0(9)-0.1;
+%q1(9) = q0(9)-0.1;
+q1(11) = q0(11)+0.05;
 x1 = [q1;zeros(nq,1)];
 
+u0 = r.findTrim(q0);
+u0(8) = -10;
+
 T0 = 3;
-N = 12;
+N = 30;
 
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
-traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
+%traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
+traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
 
 options.s_weight = 10;
