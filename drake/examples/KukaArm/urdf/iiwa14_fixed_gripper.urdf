@@ -283,7 +283,7 @@
         iyz="1.682E-12"
         izz="0.00019914" />
     </inertial>
-    <visual>
+    <visual>c
       <origin
         xyz="0 0 0"
         rpy="1.57 0 0" />
@@ -338,6 +338,18 @@
         <sphere radius="0.005"/>
       </geometry>
     </visual>
+    <collision group="fingers2">
+      <origin xyz="0 0 0.025"/>
+      <geometry>
+        <sphere radius="0.0"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0.025"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </visual>
   </link>
 
   <link
@@ -377,6 +389,18 @@
     </collision>
         <visual>
       <origin xyz="0 0 0.04"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </visual>
+    <collision group="fingers2">
+      <origin xyz="0 0 0.025"/>
+      <geometry>
+        <sphere radius="0.0"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin xyz="0 0 0.025"/>
       <geometry>
         <sphere radius="0.005"/>
       </geometry>

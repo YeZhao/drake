@@ -292,6 +292,16 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         return;
       end
       
+      %gravity compensation for Kuka arm
+      Nq = obj.getNumPositions();
+      Nq_arm = 8;
+      Nu = obj.getNumInputs();
+      Nv = obj.getNumVelocities();
+      Nx = Nq+Nv;
+      [H,C,B] = manipulatorDynamics(obj,x(1:Nq),zeros(Nv,1));
+      u = B(1:Nq_arm,:)\C(1:Nq_arm);
+      u(8) = 100;
+      
 %       global active_set_fail_count
       % do LCP time-stepping
       % todo: implement some basic caching here
@@ -415,9 +425,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         
         if has_contacts
           if (nargout>4)
-            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints(kinsol, obj.multiple_contacts);
           else
-            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints(kinsol, obj.multiple_contacts);
           end
           if ~isempty(phiC)
               if isempty(possible_contact_indices)

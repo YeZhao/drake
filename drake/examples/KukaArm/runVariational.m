@@ -23,6 +23,14 @@ q0 = [-1.57;-1.1;0;1.57;0.0;0.1;0;0.08; ...
 x0 = [q0;zeros(nq,1)];
 v.draw(0,x0);
 
+%% forward simulation
+q0 = [-1.57;-1.1;0;1.57;0.0;0.1;0;0.08; ...
+      0;0.66;0.03;0;0;0];
+%x0 = [q0;0.01;zeros(nq-1,1)];
+x0 = [q0;0.01;zeros(6,1);0.1;zeros(6,1)];
+xtraj_ts = simulate(r,[0 2],x0);
+v.playback(xtraj_ts,struct('slider',true));
+
 q1 = q0;
 %q1(9) = q0(9)-0.1;
 q1(11) = q0(11)+0.05;
