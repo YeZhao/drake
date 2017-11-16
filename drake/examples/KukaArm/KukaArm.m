@@ -261,57 +261,112 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
-            % modified object based on Zac's approach and two contact points on each finger stick
+            % modification based on Zac's approach
+            % modified object and two contact points on each finger stick
             cylinder_radius = 0.03;
-            cylinder_height = 0.06;
+            cylinder_height = 0.18;
             finger_contact_left1 = [0;0;.04];
             finger_contact_left2 = [0;0;.025];
-            finger_contact_right1 = [0;  0.0400;  0.1225];
-            finger_contact_right2 = [0;  0.0400;  0.1075];
+            finger_contact_left3 = [0.03;0;.04];
+            finger_contact_left4 = [0.03;0;.025];
+            finger_contact_right1 = [0;0.04;0.1225];
+            finger_contact_right2 = [0;0.04;0.1075];
+            finger_contact_right3 = [0.03;0.04;0.1225];
+            finger_contact_right4 = [0.03;0.04;0.1075];
             
             b = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
             iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
             R_ball = rpy2rotmat(b(4:6));
             fl1 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left1,1);
             fl2 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left2,1);
+            fl3 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left3,1);
+            fl4 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left4,1);
             fr1 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right1,1);
             fr2 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right2,1);
+            fr3 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right3,1);
+            fr4 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right4,1);
             
-            phi = [b(3)-cylinder_height/2; norm(fr1(1:2)-b(1:2))-cylinder_radius; norm(fr2(1:2)-b(1:2))-cylinder_radius; norm(fl1(1:2)-b(1:2))-cylinder_radius; norm(fl2(1:2)-b(1:2))-cylinder_radius];
+            phi = [b(3)-cylinder_height/2; norm(fr1(1:2)-b(1:2))-cylinder_radius; norm(fr2(1:2)-b(1:2))-cylinder_radius; ...
+                   norm(fr3(1:2)-b(1:2))-cylinder_radius; norm(fr4(1:2)-b(1:2))-cylinder_radius; norm(fl1(1:2)-b(1:2))-cylinder_radius; ...
+                   norm(fl2(1:2)-b(1:2))-cylinder_radius; norm(fl3(1:2)-b(1:2))-cylinder_radius; norm(fl4(1:2)-b(1:2))-cylinder_radius];
             cylinder_normal = [0;0;-1];
             right_normal1 = [fr1(1:2) - b(1:2);0];
             right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
             right_normal2 = [fr2(1:2) - b(1:2);0];
             right_normal2 = right_normal2./sqrt(right_normal2'*right_normal2);
+            right_normal3 = [fr3(1:2) - b(1:2);0];
+            right_normal3 = right_normal3./sqrt(right_normal3'*right_normal3);
+            right_normal4 = [fr4(1:2) - b(1:2);0];
+            right_normal4 = right_normal4./sqrt(right_normal4'*right_normal4);
             left_normal1 = [fl1(1:2) - b(1:2);0];
             left_normal1 = left_normal1./sqrt(left_normal1'*left_normal1);
             left_normal2 = [fl2(1:2) - b(1:2);0];
             left_normal2 = left_normal2./sqrt(left_normal2'*left_normal2);
-            normal = [cylinder_normal, right_normal1, right_normal2, left_normal1, left_normal2];
+            left_normal3 = [fl3(1:2) - b(1:2);0];
+            left_normal3 = left_normal3./sqrt(left_normal3'*left_normal3);
+            left_normal4 = [fl4(1:2) - b(1:2);0];
+            left_normal4 = left_normal4./sqrt(left_normal4'*left_normal4);
+            normal = [cylinder_normal, right_normal1, right_normal2, right_normal3, right_normal4, ...
+                      left_normal1, left_normal2, left_normal3, left_normal4];
             
             d = cell(1,2);
-            Tr1 = cross(right_normal1,[0;0;1]);
-            Tr1 = Tr1/norm(Tr1);
-            Tr2 = cross(right_normal1,Tr1);
-            Tr3 = cross(right_normal2,[0;0;1]);
-            Tr3 = Tr3/norm(Tr3);
-            Tr4 = cross(right_normal2,Tr3);
-            Tl1 = cross(left_normal1,[0;0;1]);
-            Tl1 = Tl1/norm(Tl1);
-            Tl2 = cross(left_normal1,Tl1);
-            Tl3 = cross(left_normal2,[0;0;1]);
-            Tl3 = Tl3/norm(Tl3);
-            Tl4 = cross(left_normal2,Tl3);
-            d{1} = [[0;1;0],Tr1,Tr3,Tl1,Tl3];
-            d{2} = [[1;0;0],Tr2,Tr4,Tl2,Tl4];
+            Tr11 = cross(right_normal1,[0;0;1]);
+            Tr11 = Tr11/norm(Tr11);
+            Tr12 = cross(right_normal1,Tr11);
+            Tr21 = cross(right_normal2,[0;0;1]);
+            Tr21 = Tr21/norm(Tr21);
+            Tr22 = cross(right_normal2,Tr21);
+            Tr31 = cross(right_normal3,[0;0;1]);
+            Tr31 = Tr31/norm(Tr31);
+            Tr32 = cross(right_normal3,Tr31);
+            Tr41 = cross(right_normal4,[0;0;1]);
+            Tr41 = Tr41/norm(Tr41);
+            Tr42 = cross(right_normal4,Tr41);
             
-            ground_contact = [b(1:2); 0] - iiwa_link_7(1:3);
+            Tl11 = cross(left_normal1,[0;0;1]);
+            Tl11 = Tl11/norm(Tl11);
+            Tl12 = cross(left_normal1,Tl11);
+            Tl21 = cross(left_normal2,[0;0;1]);
+            Tl21 = Tl21/norm(Tl21);
+            Tl22 = cross(left_normal2,Tl21);
+            Tl31 = cross(left_normal3,[0;0;1]);
+            Tl31 = Tl31/norm(Tl31);
+            Tl32 = cross(left_normal3,Tl31);
+            Tl41 = cross(left_normal4,[0;0;1]);
+            Tl41 = Tl41/norm(Tl41);
+            Tl42 = cross(left_normal4,Tl41);
+            d{1} = [[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
+            d{2} = [[0;1;0],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
-            xA = [ground_contact, finger_contact_right1, finger_contact_right2, finger_contact_left1, finger_contact_left2];
+            R_world_to_A_x = [1,0,0;0,cos(iiwa_link_7(4)),-sin(iiwa_link_7(4));0,sin(iiwa_link_7(4)),cos(iiwa_link_7(4))];
+            R_world_to_A_y = [cos(iiwa_link_7(5)),0,sin(iiwa_link_7(5));0,1,0;-sin(iiwa_link_7(5)),0,cos(iiwa_link_7(5))];
+            R_world_to_A_z = [cos(iiwa_link_7(6)),-sin(iiwa_link_7(6)),0;sin(iiwa_link_7(6)),cos(iiwa_link_7(6)),0;0,0,1];
+            
+            R_world_to_A = R_world_to_A_x'*R_world_to_A_y'*R_world_to_A_z';
+            ground_contact_A = R_world_to_A*([b(1:2); 0] - iiwa_link_7(1:3));
+            
+            xA = [ground_contact_A, finger_contact_right1, finger_contact_right2, finger_contact_right3, finger_contact_right4, ...
+                  finger_contact_left1, finger_contact_left2, finger_contact_left3, finger_contact_left4];
+            %define horizontal 2D position on the cylinder surface
             xB = cylinder_radius*R_ball'*normal;
-            idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.left_finger_id; obj.left_finger_id];
-            idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
-            mu = 1.0;
+            %define vertical heights of closest point on the cylinder w.r.t cylinder coordinate
+            xB(3,1) = - b(3);
+            xB(3,2) = fr1(3) - b(3);
+            xB(3,3) = fr2(3) - b(3);
+            xB(3,4) = fr3(3) - b(3);
+            xB(3,5) = fr4(3) - b(3);
+            xB(3,6) = fl1(3) - b(3);
+            xB(3,7) = fl2(3) - b(3);
+            xB(3,8) = fl3(3) - b(3);
+            xB(3,9) = fl4(3) - b(3);
+            % todo: when the object is not betwen two finger tips.
+            
+            idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; ...
+                    obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; obj.left_finger_id];
+            idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id;...
+                    obj.brick_id; obj.brick_id];
+            nC = 9;
+            mu = 1.0*ones(nC,1);
         end
         
         function [n,D] = jointContactJacobians(obj,kinsol)
@@ -368,7 +423,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
                 for k = 1:14
                     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
                     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
-                    dn(:,k) = vec(np-nm)/1e-6;
+                    dn(:,k) = vec(np-nm)/1e-6;% [Ye: why 1e-6]
                     dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
                     dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
                     dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));

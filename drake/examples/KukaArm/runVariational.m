@@ -24,10 +24,13 @@ x0 = [q0;zeros(nq,1)];
 v.draw(0,x0);
 
 %% forward simulation
-q0 = [-1.57;-1.1;0;1.57;0.0;0.1;0;0.08; ...
-      0;0.66;0.03;0;0;0];
+q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
+      0;0.79;0.09;0;0;0];
+x0 = [q0;zeros(nq,1)];  
+v.draw(0,x0);
 %x0 = [q0;0.01;zeros(nq-1,1)];
-x0 = [q0;0.01;zeros(6,1);0.01;zeros(6,1)];
+%x0 = [q0;0.1;zeros(6,1);-0.1;zeros(6,1)];%the initial condition working best so far
+x0 = [q0;0;0;zeros(5,1);0.1;zeros(6,1)];
 xtraj_ts = simulate(r,[0 2],x0);
 v.playback(xtraj_ts,struct('slider',true));
 

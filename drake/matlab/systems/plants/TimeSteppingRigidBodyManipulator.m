@@ -300,7 +300,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       Nx = Nq+Nv;
       [H,C,B] = manipulatorDynamics(obj,x(1:Nq),zeros(Nv,1));
       u = B(1:Nq_arm,:)\C(1:Nq_arm);
-      u(8) = 10;
+      u(8) = 0;%-0.001;
       
 %       global active_set_fail_count
       % do LCP time-stepping
