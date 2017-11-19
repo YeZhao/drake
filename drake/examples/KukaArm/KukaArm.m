@@ -265,18 +265,19 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
             % modified object and two contact points on each finger stick
             cylinder_radius = 0.03;
             cylinder_height = 0.18;
+            finger_contact_delta = 0.01;
             finger_contact_left1 = [0;0;.04];
-            finger_contact_left2 = [0;0;.025];
-            finger_contact_left3 = [0.03;0;.04];
-            finger_contact_left4 = [0.03;0;.025];
-            finger_contact_left5 = [-0.03;0;.04];
-            finger_contact_left6 = [-0.03;0;.025];
+            finger_contact_left2 = [0;0;.02];
+            finger_contact_left3 = [finger_contact_delta;0;.04];
+            finger_contact_left4 = [finger_contact_delta;0;.02];
+            finger_contact_left5 = [-finger_contact_delta;0;.04];
+            finger_contact_left6 = [-finger_contact_delta;0;.02];
             finger_contact_right1 = [0;0.04;0.1225];
-            finger_contact_right2 = [0;0.04;0.1075];
-            finger_contact_right3 = [0.03;0.04;0.1225];
-            finger_contact_right4 = [0.03;0.04;0.1075];
-            finger_contact_right5 = [-0.03;0.04;0.1225];
-            finger_contact_right6 = [-0.03;0.04;0.1075];
+            finger_contact_right2 = [0;0.04;0.1025];
+            finger_contact_right3 = [finger_contact_delta;0.04;0.1225];
+            finger_contact_right4 = [finger_contact_delta;0.04;0.1025];
+            finger_contact_right5 = [-finger_contact_delta;0.04;0.1225];
+            finger_contact_right6 = [-finger_contact_delta;0.04;0.1025];
             
             b = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
             iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
@@ -414,7 +415,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator
             normal = R_world_to_B*normal;
             
             % todo: when the object is not betwen two finger tips.
-            
             idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; ...
                     obj.right_finger_id; obj.right_finger_id; ...
                     obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; ...

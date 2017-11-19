@@ -291,9 +291,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
         [obj,z,Mvn,wvn] = solveMexLCP(obj,t,x,u);
         return;
       end
-      
-      global f_normal_vec
-      
+            
       %gravity compensation for Kuka arm
       Nq = obj.getNumPositions();
       Nq_arm = 8;
@@ -303,11 +301,11 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       [H,C,B] = manipulatorDynamics(obj,x(1:Nq),zeros(Nv,1));
       u = B(1:Nq_arm,:)\C(1:Nq_arm);
       % hard coding open-loop torque modifications
-      u(2) = u(2) + 10;
+      u(2) = u(2) + 7;
       u(4) = u(4) - 7;
-      u(8) = -10;
+      u(8) = -20;
       
-%       global active_set_fail_count
+      % global active_set_fail_count
       % do LCP time-stepping
       % todo: implement some basic caching here
       if cacheHit(obj,t,x,u,nargout)
@@ -736,25 +734,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %        assert(all(M*z+w>=-path_convergence_tolerance));
 %        valuecheck(z'*(M*z+w),0,path_convergence_tolerance);
         % end more debugging
-
-%         if isempty(f_normal_vec)
-%             f_normal_vec = z(1:8);
-%         else
-%             f_normal_vec = [f_normal_vec;z(1:8)];
-%         end
-
-        % debugging
-        % if length(z) ~= 19
-        %     disp('here')
-        %     if any(abs(z(3:6)) > 0.01)
-        %         disp('not zero')
-        %     end
-        % else length(z) ~= 31
-        %     disp('here')
-        % end        
-        %if t > 0.323
-        %    disp('here')
-        %end
         
         if obj.lcmgl_contact_forces_scale>0
           cN = z(nL+nP+(1:nC));
@@ -851,8 +830,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     function [obj,frame_id] = addFrame(obj,frame)
       [obj.manip,frame_id] = obj.manip.addFrame(frame);
     end
-
-
 
     function varargout = pdcontrol(sys,Kp,Kd,index)
       if nargin<4, index=[]; end
