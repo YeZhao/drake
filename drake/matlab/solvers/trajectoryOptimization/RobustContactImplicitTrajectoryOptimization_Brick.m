@@ -412,19 +412,22 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     % estimate whether current state is close to contact
-                    [phi,~,~,~,~,~,~,~,~,~,~,~] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j,k),false,obj.options.active_collision_options);
-                    phi_bottom = phi(2:2:end);
+                    [phi_current,~,~,~,~,~,~,~,~,~,~,~] = obj.plant.contactConstraints(Sig(1:obj.nx/2,j,k),false,obj.options.active_collision_options);
+                    phi_bottom = phi_current(2:2:end);
                     active_threshold = 0.1;
                     if any(phi_bottom<active_threshold)
-                        for kk = 1:length(size_terrain_sample)
+                        for kk = 1:size_terrain_sample
                             if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                                 obj.plant.friction_coeff = w_mu(kk);
                             elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
                                 obj.plant.terrain_index = kk;
                             end
-                            [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-                            %to be implemented
+                            [xdn_sample(:,kk),df_sample(:,:,kk)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         end
+                        xdn_mean = sum(xdn_sample,2)/size_terrain_sample;
+                        Sig(1:obj.nx/2,j,k+1) = xdn_mean(1:obj.nx/2);
+                        Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn_mean(obj.nx/2+1:obj.nx);
+                        
                     else
                         [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         
@@ -433,6 +436,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dfdu(:,:,j,k+1) = [obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+
                     end
                 end
                 
