@@ -33,7 +33,7 @@ v.draw(0,x0);
 %x0 = [q0;0.01;zeros(nq-1,1)];
 %x0 = [q0;0.1;zeros(6,1);-0.1;zeros(6,1)];%the initial condition working best so far
 %x0 = [q0;0;0.1;zeros(5,1);-0.1;zeros(6,1)];
-x0 = [q0;0.0;0.0;zeros(5,1);0.0;zeros(6,1)];
+x0 = [q0;0;0.0;zeros(5,1);-0.1;zeros(6,1)];
 xtraj_ts = simulate(r,[0 2],x0);
 v.playback(xtraj_ts,struct('slider',true));
 

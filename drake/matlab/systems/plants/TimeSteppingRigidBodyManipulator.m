@@ -302,6 +302,9 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       Nx = Nq+Nv;
       [H,C,B] = manipulatorDynamics(obj,x(1:Nq),zeros(Nv,1));
       u = B(1:Nq_arm,:)\C(1:Nq_arm);
+      % hard coding open-loop torque modifications
+      u(2) = u(2) + 10;
+      u(4) = u(4) - 7;
       u(8) = -10;
       
 %       global active_set_fail_count
@@ -740,18 +743,18 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
 %             f_normal_vec = [f_normal_vec;z(1:8)];
 %         end
 
-%         if length(z) ~= 19
-%             disp('here')
-%             if any(abs(z(3:6)) > 0.01)
-%                 disp('not zero')
-%             end
-%         else length(z) ~= 31
-%             disp('here')
-%         end
-        
-        if t > 0.323
-            disp('here')
-        end
+        % debugging
+        % if length(z) ~= 19
+        %     disp('here')
+        %     if any(abs(z(3:6)) > 0.01)
+        %         disp('not zero')
+        %     end
+        % else length(z) ~= 31
+        %     disp('here')
+        % end        
+        %if t > 0.323
+        %    disp('here')
+        %end
         
         if obj.lcmgl_contact_forces_scale>0
           cN = z(nL+nP+(1:nC));
