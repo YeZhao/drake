@@ -26,56 +26,66 @@ v.draw(0,x0);
 %% forward simulation
 q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
       0;0.79;0.09;0;0;0];
-x0 = [q0;zeros(nq,1)];  
+x0 = [q0;zeros(nv,1)];  
 v.draw(0,x0);
-x0 = [q0;zeros(nv,1)];
-xtraj_ts = simulate(r,[0 2],x0);
-v.playback(xtraj_ts,struct('slider',true));
+%xtraj_ts = simulate(r,[0 2],x0);
+%v.playback(xtraj_ts,struct('slider',true));
 
 q1 = q0;
 %q1(9) = q0(9)-0.1;
-q1(11) = q0(11)+0.05;
-x1 = [q1;zeros(nq,1)];
+q1(11) = q0(11)+0.1;
+x1 = [q1;zeros(nv,1)];
 
 u0 = r.findTrim(q0);
 u0(8) = -10;
 
-T0 = 3;
-N = 30;
-
+T0 = 2;
+N = 8;
+ 
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh(t_init,0.1*randn(nu,N)));
 traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
+%traj_init.c = PPTrajectory(zoh([0 T0],[[10*9.81; 0; 0; 0], [10*9.81; 0; 0; 0]]));
 T_span = [1 T0];
 
-options.s_weight = 10;
+%options.s_weight = 10;
+options.lambda_weight = 0.01;
+options.s_weight = 1000;
+options.s0 = .01;
+options.s_max = .01;
+options.s_min = 1e-6;
+
 
 traj_opt = VariationalTrajectoryOptimization(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:11)),N,9:11);
 
 [q_lb, q_ub] = getJointLimits(r);
+q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
+q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
+traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 
-ub_N = q1;
-ub_N(1:8) = q_ub(1:8);
-lb_N = q1;
-lb_N(1:8) = q_lb(1:8);
-traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(lb_N,ub_N),N);
-traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(nv,1)),1);
+% ub_N = q1;
+% ub_N(1:8) = q_ub(1:8);
+% lb_N = q1;
+% lb_N(1:8) = q_lb(1:8);
+% traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(lb_N,ub_N),N);
+% traj_opt = traj_opt.addVelocityConstraint(ConstantConstraint(zeros(nv,1)),1);
+% traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
 
-traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),2:N-1);
-
-state_cost = Point(getStateFrame(r),ones(nx,1));
-state_cost.base_x = 10;
-state_cost.base_y = 10;
-state_cost.base_z = 10;
-state_cost.base_pitch = 1;
-state_cost.base_roll = 1;
-state_cost.base_yaw = 1;
-state_cost = double(state_cost);
-Q = diag(state_cost); 
-
+% state_cost = Point(getStateFrame(r),ones(nx,1));
+% state_cost.base_x = 10;
+% state_cost.base_y = 10;
+% state_cost.base_z = 10;
+% state_cost.base_pitch = 1;
+% state_cost.base_roll = 1;
+% state_cost.base_yaw = 1;
+% state_cost = double(state_cost);
+% Q = diag(state_cost); 
+Q = blkdiag(1*eye(8),0*eye(6),10*eye(14));
+R = 1*eye(nu);
 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
 %traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
@@ -85,8 +95,12 @@ Q = diag(state_cost);
 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000);
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',10000000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
@@ -97,10 +111,12 @@ toc
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
-  R = 1e-6*eye(nu);
-  g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
+  %R = 1e-6*eye(nu);
+  %g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
+  g = (1/2)*(x-x0)'*Q*(x-x0) + (1/2)*(u-u0)'*R*(u-u0);
   f = h*g;
-  df = [g, h*(x-x1)'*Q, h*u'*R];
+  %df = [g, h*(x-x1)'*Q, h*u'*R];
+  df = [g, h*(x-x0)'*Q, h*(u-u0)'*R];
 end
 
 function displayTraj(h,x,u)

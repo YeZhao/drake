@@ -303,7 +303,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
       % hard coding open-loop torque modifications
       u(2) = u(2) + 7;
       u(4) = u(4) - 7;
-      u(8) = -20;
+      u(8) = -40;
       
       % global active_set_fail_count
       % do LCP time-stepping
