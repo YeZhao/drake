@@ -27,13 +27,21 @@ v.draw(0,x0);
 q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
       0;0.79;0.09;0;0;0];
 x0 = [q0;zeros(nv,1)];  
+
 v.draw(0,x0);
 %xtraj_ts = simulate(r,[0 2],x0);
 %v.playback(xtraj_ts,struct('slider',true));
 
-q1 = q0;
+%q1 = q0;
 %q1(9) = q0(9)-0.1;
-q1(11) = q0(11)+0.1;
+%q1(11) = q0(11)+0.1;
+%q1(1:7) = q1(1:7) - [-1.57;-0.4;0;0.6;0;0.4;0];%[-1.57;-0.4;0;0.6;0;0.4;0];
+%trial 1
+q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
+      -0.57;-0.57;0.59;0;0;0];
+%trial 2
+q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.08; ...
+      -0.13;0.77;0.09;0;0;0];
 x1 = [q1;zeros(nv,1)];
 
 u0 = r.findTrim(q0);
@@ -60,13 +68,17 @@ options.s_min = 1e-6;
 traj_opt = VariationalTrajectoryOptimization(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:11)),N,9:11);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 
 [q_lb, q_ub] = getJointLimits(r);
 q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-
+u_ub = [inf;inf;inf;inf;inf;inf;inf;u0(8)];
+u_lb = [-inf;-inf;-inf;-inf;-inf;-inf;-inf;u0(8)];
+traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
+ 
 % ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
 % lb_N = q1;
@@ -84,8 +96,6 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % state_cost.base_yaw = 1;
 % state_cost = double(state_cost);
 % Q = diag(state_cost); 
-Q = blkdiag(1*eye(8),0*eye(6),10*eye(14));
-R = 1*eye(nu);
 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
 %traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
@@ -111,12 +121,11 @@ toc
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
-  %R = 1e-6*eye(nu);
-  %g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
-  g = (1/2)*(x-x0)'*Q*(x-x0) + (1/2)*(u-u0)'*R*(u-u0);
+  R = 1*eye(nu);
+  Q = blkdiag(1*eye(8),0*eye(6),10*eye(14));
+  g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
   f = h*g;
-  %df = [g, h*(x-x1)'*Q, h*u'*R];
-  df = [g, h*(x-x0)'*Q, h*(u-u0)'*R];
+  df = [g, h*(x-x1)'*Q, h*u'*R];
 end
 
 function displayTraj(h,x,u)
