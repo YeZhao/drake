@@ -229,7 +229,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 end
                 
                 % penalize on the flight phase (at least one foot on the ground)
-                obj = obj.addCost(FunctionHandleObjective(nX,@(x)flightPhasecost(obj,x),1),{obj.x_inds(:,i)});
+                % obj = obj.addCost(FunctionHandleObjective(nX,@(x)flightPhasecost(obj,x),1),{obj.x_inds(:,i)});
                 
             end
             
