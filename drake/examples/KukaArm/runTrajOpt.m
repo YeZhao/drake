@@ -19,12 +19,16 @@ nu = r.getNumInputs();
 v=r.constructVisualizer;
 
 %% forward simulation
-q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
-      0;0.79;0.09;0;0;0];
+%trial 1, initial gripper pose is open
+% q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
+%       0;0.79;0.09;0;0;0];
+%trial 2, initial gripper pose is close
+q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+      0.01;0.79;0.09;0;0;0];
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
-%xtraj_ts = simulate(r,[0 2],x0);
-%v.playback(xtraj_ts,struct('slider',true));
+xtraj_ts = simulate(r,[0 2],x0);
+v.playback(xtraj_ts,struct('slider',true));
 
 q1 = q0;
 %q1(9) = q0(9)-0.1;
@@ -34,15 +38,18 @@ q1 = q0;
 % q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
 %       -0.57;-0.57;0.59;0;0;0];
 %trial 2
-q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.08; ...
-      -0.13;0.77;0.09;0;0;0];
+q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+      -0.124;0.78;0.09;0;0;0];
 x1 = [q1;zeros(nv,1)];
+%v.draw(0,x1);
 
 u0 = r.findTrim(q0);
 u0(8) = -10;
 
 T0 = 2;
 N = 8;
+
+options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
@@ -51,17 +58,18 @@ T_span = [1 T0];
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
+traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:11)),N,9:11);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 
 [q_lb, q_ub] = getJointLimits(r);
-q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
-q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
+% q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
+% q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-u_ub = [inf;inf;inf;inf;inf;inf;inf;u0(8)];
-u_lb = [-inf;-inf;-inf;-inf;-inf;-inf;-inf;u0(8)];
-traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
+% u_ub = [inf;inf;inf;inf;inf;inf;inf;u0(8)];
+% u_lb = [-inf;-inf;-inf;-inf;-inf;-inf;-inf;u0(8)];
+% traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
 % ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
@@ -91,10 +99,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',10000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
@@ -105,21 +113,26 @@ toc
 v.playback(xtraj,struct('slider',true));
 
 function [f,df] = running_cost_fun(h,x,u)
-  R = 1*eye(nu);
-  Q = blkdiag(1*eye(8),0*eye(6),10*eye(14));
+  R = 1e-6*eye(nu);
+  Q = blkdiag(1*eye(7),100,0*eye(6),10*eye(14));
   g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];
 end
 
+function [f,df] = final_cost_fun(h,x)
+  Qf = 1000*blkdiag(1*eye(8),0*eye(6),10*eye(14));
+  g = (1/2)*(x-x1)'*Qf*(x-x1);
+  f = h*g;
+  df = [g, h*(x-x1)'*Qf];
+end
+
 function displayTraj(h,x,u,LCP_slack_var)
-  
   ts = [0;cumsum(h)];
   for i=1:length(ts)
     v.drawWrapper(0,x(:,i));
     pause(h(1)/3);
   end
-   
 end
 
 end

@@ -303,7 +303,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
       % hard coding open-loop torque modifications
       u(2) = u(2) + 7;
       u(4) = u(4) - 7;
-      u(8) = -10;
+      u(8) = -40;
       
       % global active_set_fail_count
       % do LCP time-stepping
