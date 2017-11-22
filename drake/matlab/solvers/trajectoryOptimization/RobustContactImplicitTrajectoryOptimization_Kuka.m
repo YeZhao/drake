@@ -123,7 +123,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
                 constraints{i} = cnstr;
                 obj = obj.addConstraint(constraints{i}, dyn_inds{i});
-                                
+                
                 if obj.nC > 0
                     % indices for (i) gamma
                     gamma_inds = obj.l_inds(obj.nD+2:obj.nD+2:end,i);
@@ -186,9 +186,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     obj = obj.addConstraint(jlcompl_constraints{i},[obj.x_inds(1:nq,i+1);obj.ljl_inds(:,i);obj.LCP_slack_inds(:,i)]);
                 end
-                
-                % penalize on the flight phase (at least one foot on the ground)
-                %obj = obj.addCost(FunctionHandleObjective(nX,@(x)flightPhasecost(obj,x),1),{obj.x_inds(:,i)});
                 
             end
             
@@ -2983,6 +2980,34 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             for j=1:length(time_index)
                 
                 cstr_inds = mat2cell(obj.x_inds(x_indices,time_index{j}),numel(x_indices),ones(1,length(time_index{j})));
+                
+                % record constraint for posterity
+                obj.constraints{end+1}.constraint = constraint;
+                obj.constraints{end}.var_inds = cstr_inds;
+                obj.constraints{end}.time_index = time_index;
+                
+                obj = obj.addConstraint(constraint,cstr_inds);
+            end
+        end
+        
+        function obj = addVelocityConstraint(obj,constraint,time_index,x_indices)
+            if ~iscell(time_index)
+                % then use { time_index(1), time_index(2), ... } ,
+                % aka independent constraints for each time
+                time_index = num2cell(reshape(time_index,1,[]));
+            end
+            if nargin < 4
+                x_indices = 1:size(obj.x_inds,1);
+            end
+            
+            for j=1:length(time_index)
+                
+                if time_index{j} == 1
+                    cstr_inds = mat2cell(obj.v0_inds(x_indices),numel(x_indices),ones(1,length(time_index{j})));
+                else
+                    error('Not implemented yet');
+                    %cstr_inds = mat2cell(obj.x_inds(x_indices,time_index{j}),numel(x_indices),ones(1,length(time_index{j})));
+                end
                 
                 % record constraint for posterity
                 obj.constraints{end+1}.constraint = constraint;

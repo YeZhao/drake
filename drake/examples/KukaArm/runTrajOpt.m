@@ -23,14 +23,18 @@ v=r.constructVisualizer;
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
 %       0;0.79;0.09;0;0;0];
 %trial 2, initial gripper pose is close
-q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-      0.01;0.79;0.09;0;0;0];
+q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.056; ...
+      0.011;0.79;0.09;0;0;0];
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
-xtraj_ts = simulate(r,[0 2],x0);
-v.playback(xtraj_ts,struct('slider',true));
+kinematics_options.compute_gradients = 0;
+kinsol = doKinematics(r, q0, [], kinematics_options);
+iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
+%xtraj_ts = simulate(r,[0 2],x0);
+%v.playback(xtraj_ts,struct('slider',true));
 
-q1 = q0;
+%q1 = q0;
 %q1(9) = q0(9)-0.1;
 %q1(11) = q0(11)+0.1;
 %q1(1:7) = q1(1:7) - [-1.57;-0.4;0;0.6;0;0.4;0];%[-1.57;-0.4;0;0.6;0;0.4;0];
@@ -38,8 +42,14 @@ q1 = q0;
 % q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
 %       -0.57;-0.57;0.59;0;0;0];
 %trial 2
-q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-      -0.124;0.78;0.09;0;0;0];
+%q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+%      -0.124;0.78;0.09;0;0;0];
+%trial 4 
+q1 = q0;
+q1(2) = q0(2) + 0.02;
+kinsol = doKinematics(r, q1, [], kinematics_options);
+iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
 x1 = [q1;zeros(nv,1)];
 %v.draw(0,x1);
 
@@ -49,7 +59,7 @@ u0(8) = -10;
 T0 = 2;
 N = 8;
 
-options.robustLCPcost_coeff = 1000;
+options.robustLCPcost_coeff = 100;
 
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
@@ -59,7 +69,8 @@ T_span = [1 T0];
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 
@@ -112,6 +123,11 @@ toc
 
 v.playback(xtraj,struct('slider',true));
 
+h_nominal = z(traj_opt.h_inds);
+t_nominal = [0; cumsum(h_nominal)];
+x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
+u_nominal = utraj.eval(t_nominal)';
+
 function [f,df] = running_cost_fun(h,x,u)
   R = 1e-6*eye(nu);
   Q = blkdiag(1*eye(7),100,0*eye(6),10*eye(14));
@@ -119,9 +135,9 @@ function [f,df] = running_cost_fun(h,x,u)
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];
 end
-
+ 
 function [f,df] = final_cost_fun(h,x)
-  Qf = 1000*blkdiag(1*eye(8),0*eye(6),10*eye(14));
+  Qf = 100*blkdiag(1*eye(8),0*eye(6),10*eye(14));
   g = (1/2)*(x-x1)'*Qf*(x-x1);
   f = h*g;
   df = [g, h*(x-x1)'*Qf];
