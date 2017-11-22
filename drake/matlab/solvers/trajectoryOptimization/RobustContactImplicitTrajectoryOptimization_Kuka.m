@@ -2990,34 +2990,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             end
         end
         
-        function obj = addVelocityConstraint(obj,constraint,time_index,x_indices)
-            if ~iscell(time_index)
-                % then use { time_index(1), time_index(2), ... } ,
-                % aka independent constraints for each time
-                time_index = num2cell(reshape(time_index,1,[]));
-            end
-            if nargin < 4
-                x_indices = 1:size(obj.x_inds,1);
-            end
-            
-            for j=1:length(time_index)
-                
-                if time_index{j} == 1
-                    cstr_inds = mat2cell(obj.v0_inds(x_indices),numel(x_indices),ones(1,length(time_index{j})));
-                else
-                    error('Not implemented yet');
-                    %cstr_inds = mat2cell(obj.x_inds(x_indices,time_index{j}),numel(x_indices),ones(1,length(time_index{j})));
-                end
-                
-                % record constraint for posterity
-                obj.constraints{end+1}.constraint = constraint;
-                obj.constraints{end}.var_inds = cstr_inds;
-                obj.constraints{end}.time_index = time_index;
-                
-                obj = obj.addConstraint(constraint,cstr_inds);
-            end
-        end
-        
         function obj = setupVariables(obj,N)
             obj = setupVariables@DirectTrajectoryOptimization(obj,N);
             [~,normal,d] = obj.plant.contactConstraints(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);

@@ -23,9 +23,12 @@ v=r.constructVisualizer;
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
 %       0;0.79;0.09;0;0;0];
 %trial 2, initial gripper pose is close
-q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.056; ...
-      0.011;0.79;0.09;0;0;0];
-x0 = [q0;zeros(nv,1)];
+%q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+%      0.01;0.79;0.09;0;0;0];
+%trial 5, inital gripper pose is open
+q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
+      0.003;0.79;0.09;0;0;0];
+x0 = [q0;zeros(nv,1)]; 
 v.draw(0,x0);
 kinematics_options.compute_gradients = 0;
 kinsol = doKinematics(r, q0, [], kinematics_options);
@@ -45,16 +48,19 @@ rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4 
+%q1 = q0;
+%q1(2) = q0(2) + 0.02;
+%kinsol = doKinematics(r, q1, [], kinematics_options);
+%iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+%q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
+%trial 5
 q1 = q0;
-q1(2) = q0(2) + 0.02;
-kinsol = doKinematics(r, q1, [], kinematics_options);
-iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
+q1(8) = q1(8) - 0.015;
 x1 = [q1;zeros(nv,1)];
-%v.draw(0,x1);
-
+v.draw(0,x1);
+ 
 u0 = r.findTrim(q0);
-u0(8) = -10;
+%u0(8) = -10;
 
 T0 = 2;
 N = 8;
@@ -65,12 +71,17 @@ t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
+ 
+q0_ub = [q0;inf*ones(14,1)];
+q0_lb = [q0;-inf*ones(14,1)];
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);  
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);  
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);  
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 
@@ -122,7 +133,7 @@ tic
 toc
 
 v.playback(xtraj,struct('slider',true));
-
+ 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
