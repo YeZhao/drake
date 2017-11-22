@@ -2808,6 +2808,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     dB1 = zeros(nq*nu,2*nq);
             end
             
+            %if any(abs(C(9:10)) > 0.02) || any(abs(C(12:14)) > 0.02)
+            %    disp('here')
+            %end
+            
             BuminusC = B*u-C;
             if nu>0
                 dBuminusC0 = matGradMult(dB0,u) - dC0;
@@ -2871,6 +2875,171 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             
             f = [fq;fv];
             df = [dfq;dfv];
+            
+            
+            % check gradient
+            % c_numeric = c;
+            % dc_numeric = dc;
+            %
+            X0 = [h;x0;x1;u;lambda;lambda_jl];
+            X0 = X0 + randn(size(X0))*0.1;
+            
+            fun = @(X0) dynamics_constraint_fun_check(obj, X0);
+            DerivCheck(fun, X0)
+            
+            %disp('finish numerical gradient');
+            
+            %[f_numeric,df_numeric] = geval(@(X0) dynamics_constraint_fun_check(obj,X0),X0,struct('grad_method','numerical'));
+            %valuecheck(df,df_numeric,1e-5);
+            %valuecheck(f,f_numeric,1e-5);
+            
+            function DerivCheck(funptr, X0, ~, varargin)
+                
+                % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
+                %`
+                %  Checks the analytic gradient of a function 'funptr' at a point X0, and
+                %  compares to numerical gradient.  Useful for checking gradients computed
+                %  for fminunc and fmincon.
+                %
+                %  Call with same arguments as you would call for optimization (fminunc).
+                %
+                % $id$
+                
+                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+                
+                % Pick a random small vector in parameter space
+                tol = 1e-6;  % Size of numerical step to take
+                rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
+                rr = repmat(rr,1,28);
+                
+                % Evaluate at symmetric points around X0
+                f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                
+                % Print results
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', dot(rr, JJ',1), f2-f1);
+                dd =  dot(rr, JJ',1)'-f2+f1;
+                fprintf('difference between numerical and analytical: %4.15f\n',dd);
+            end
+            
+            
+            function [f,df] = dynamics_constraint_fun_check(obj,X0)
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                nu = obj.plant.getNumInputs;
+                nl = length(lambda);
+                njl = length(lambda_jl);
+                
+                lambda = lambda*obj.options.lambda_mult;
+                lambda_jl = lambda_jl*obj.options.lambda_jl_mult;
+                
+                assert(nq == nv) % not quite ready for the alternative
+                
+                q0 = x0(1:nq);
+                v0 = x0(nq+1:nq+nv);
+                q1 = x1(1:nq);
+                v1 = x1(nq+1:nq+nv);
+                
+                %             %debugging
+                %             if q1(1) < q0(1)
+                %                 disp('position also reversed')
+                %             end
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
+                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                        dH0 = dH/2;
+                        dC0 = dC/2;
+                        dB0 = dB/2;
+                        dH1 = dH/2;
+                        dC1 = dC/2;
+                        dB1 = dB/2;
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.FORWARD_EULER
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.BACKWARD_EULER
+                        [H,C,B,dH1,dC1,dB1] = obj.plant.manipulatorDynamics(q1,v1);
+                        dH0 = zeros(nq^2,2*nq);
+                        dC0 = zeros(nq,2*nq);
+                        dB0 = zeros(nq*nu,2*nq);
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.MIXED
+                        [H,C,B,dH0,dC0,dB0] = obj.plant.manipulatorDynamics(q0,v0);
+                        dH1 = zeros(nq^2,2*nq);
+                        dC1 = zeros(nq,2*nq);
+                        dB1 = zeros(nq*nu,2*nq);
+                end
+                
+                if any(abs(C(9:10)) > 0.02) || any(abs(C(12:14)) > 0.02)
+                    disp('here')
+                end
+                
+                BuminusC = B*u-C;
+                if nu>0
+                    dBuminusC0 = matGradMult(dB0,u) - dC0;
+                    dBuminusC1 = matGradMult(dB1,u) - dC1;
+                else
+                    dBuminusC0 = -dC0;
+                    dBuminusC1 = -dC1;
+                end
+                
+                switch obj.options.integration_method
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*(v0 + v1)/2;
+                        dfq = [-(v1+v0)/2, -eye(nq), -h/2*eye(nq), eye(nq), -h/2*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.FORWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v0;
+                        dfq = [-v0, -eye(nq), -h*eye(nq), eye(nq), zeros(nq,nv) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.BACKWARD_EULER
+                        % q1 = q0 + h*v1
+                        fq = q1 - q0 - h*v1;
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
+                    case RobustContactImplicitTrajectoryOptimization_Kuka.MIXED
+                        fq = q1 - q0 - h*v1;
+                        dfq = [-v1, -eye(nq), zeros(nq,nv), eye(nq), -h*eye(nq) zeros(nq,nu+nl+njl)];
+                end
+                
+                % H*v1 = H*v0 + h*(B*u - C) + n^T lambda_N + d^T * lambda_f
+                fv = H*(v1 - v0) - h*BuminusC;
+                % [h q0 v0 q1 v1 u l ljl]
+                
+                dfv = [-BuminusC, zeros(nv,nq), -H, zeros(nv,nq), H,-h*B, zeros(nv,nl+njl)] + ...
+                    [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
+                
+                if nl>0
+                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                    
+                    % construct J and dJ from n,D,dn, and dD so they relate to the
+                    % lambda vector
+                    J = zeros(nl,nq);
+                    J(1:2+obj.nD:end,:) = n;
+                    dJ = zeros(nl*nq,nq);
+                    dJ(1:2+obj.nD:end,:) = dn;
+                    
+                    for j=1:length(D),
+                        J(1+j:2+obj.nD:end,:) = D{j};
+                        dJ(1+j:2+obj.nD:end,:) = dD{j};
+                    end
+                    
+                    fv = fv - J'*lambda;
+                    dfv(:,2+nq+nv:1+2*nq+nv) = dfv(:,2+nq+nv:1+2*nq+nv) - matGradMult(dJ,lambda,true);
+                    dfv(:,2+2*nq+2*nv+nu:1+2*nq+2*nv+nu+nl) = -J'*obj.options.lambda_mult;
+                end
+                
+                if njl>0
+                    [~,J_jl] = jointLimitConstraints(obj.plant,q1);
+                    
+                    fv = fv - J_jl'*lambda_jl;
+                    dfv(:,2+2*nq+2*nv+nu+nl:1+2*nq+2*nv+nu+nl+njl) = -J_jl'*obj.options.lambda_jl_mult;
+                end
+                
+                f = [fq;fv];
+                df = [dfq;dfv];
+            end
+            
         end
         
         function [f,df] = foot_horizontal_distance_constraint_fun(obj,x)

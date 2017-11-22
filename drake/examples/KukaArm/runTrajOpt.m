@@ -23,16 +23,17 @@ v=r.constructVisualizer;
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
 %       0;0.79;0.09;0;0;0];
 %trial 2, initial gripper pose is close
-%q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-%      0.01;0.79;0.09;0;0;0];
+q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+     0.01;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
-q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
-      0.003;0.79;0.09;0;0;0];
+% q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+%       0.01;0.79;0.09;0;0;0];
 x0 = [q0;zeros(nv,1)]; 
 v.draw(0,x0);
 kinematics_options.compute_gradients = 0;
 kinsol = doKinematics(r, q0, [], kinematics_options);
 iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+fr1 = r.forwardKin(kinsol,r.findLinkId('right_finger'),[0;0.04;0.1225],0);
 rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
 %xtraj_ts = simulate(r,[0 2],x0);
 %v.playback(xtraj_ts,struct('slider',true));
@@ -48,14 +49,14 @@ rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4 
-%q1 = q0;
-%q1(2) = q0(2) + 0.02;
-%kinsol = doKinematics(r, q1, [], kinematics_options);
-%iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-%q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
-%trial 5
 q1 = q0;
-q1(8) = q1(8) - 0.015;
+q1(2) = q0(2) + 0.02;
+kinsol = doKinematics(r, q1, [], kinematics_options);
+iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
+%trial 5
+%q1 = q0;
+%q1(8) = q1(8) - 0.015;
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
  
@@ -65,15 +66,17 @@ u0 = r.findTrim(q0);
 T0 = 2;
 N = 8;
 
-options.robustLCPcost_coeff = 100;
+options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
  
-q0_ub = [q0;inf*ones(14,1)];
-q0_lb = [q0;-inf*ones(14,1)];
+x0_ub = [q0;inf*ones(14,1)];
+x0_lb = [q0;-inf*ones(14,1)];
+x1_ub = [q1;inf*ones(14,1)];
+x1_lb = [q1;-inf*ones(14,1)];
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -81,9 +84,10 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);  
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);  
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);  
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);  
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);  
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';

@@ -390,9 +390,9 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             d{2} = R_world_to_B*d{2};
             
             xA = [[b(1:2); 0], finger_contact_right1, finger_contact_right2, finger_contact_right3, finger_contact_right4, ...
-                  finger_contact_right5, finger_contact_right6, ...
-                  finger_contact_left1, finger_contact_left2, finger_contact_left3, finger_contact_left4, ...
-                  finger_contact_left5, finger_contact_left6];
+                finger_contact_right5, finger_contact_right6, ...
+                finger_contact_left1, finger_contact_left2, finger_contact_left3, finger_contact_left4, ...
+                finger_contact_left5, finger_contact_left6];
             
             %define horizontal 2D position on the cylinder surface
             xB = cylinder_radius*normal;
@@ -415,12 +415,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             normal = R_world_to_B*normal;
             
             % todo: when the object is not betwen two finger tips.
+            % todo: add caps at the end of cylinders
             idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; ...
-                    obj.right_finger_id; obj.right_finger_id; ...
-                    obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; ...
-                    obj.left_finger_id; obj.left_finger_id];
+                obj.right_finger_id; obj.right_finger_id; ...
+                obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; ...
+                obj.left_finger_id; obj.left_finger_id];
             idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id;...
-                    obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
+                obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
             nC = 13;
             mu = 1.0*ones(nC,1);
         end
@@ -479,7 +480,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 for k = 1:14
                     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
                     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
-                    dn(:,k) = vec(np-nm)/1e-6;% [Ye: why 1e-6]
+                    dn(:,k) = vec(np-nm)/(2*dq(k,k));%1e-6;% [Ye: why 1e-6]
                     dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
                     dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
                     dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));
@@ -513,10 +514,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             %       dn = comm(3,14)*[dn_ball; dn_right1; dn_right2; dn_left];
             %       D = {[D_ball{1}; D_right1{1}; D_right2{1}; D_left{1}], [D_ball{2}; D_right1{2}; D_right2{2}; D_left{2}], [D_ball{3}; D_right1{3}; D_right2{3}; D_left{3}], [D_ball{3}; D_right1{3}; D_right2{3}; D_left{3}]};
             %       dD = {comm(3,14)*[dD_ball{1}; dD_right1{1}; dD_right2{1}; dD_left{1}], comm(3,14)*[dD_ball{2}; dD_right1{2}; dD_right2{2}; dD_left{2}], comm(3,14)*[dD_ball{3}; dD_right1{3}; dD_right2{3}; dD_left{3}], comm(3,14)*[dD_ball{3}; dD_right1{3}; dD_right2{3}; dD_left{3}]};
-            
         end
-        
-        
     end
     
 end
