@@ -2876,23 +2876,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             f = [fq;fv];
             df = [dfq;dfv];
             
-            
             % check gradient
-            % c_numeric = c;
-            % dc_numeric = dc;
-            %
             X0 = [h;x0;x1;u;lambda;lambda_jl];
-            X0 = X0 + randn(size(X0))*0.1;
+            %X0 = X0 + randn(size(X0))*0.1;
+            %fun = @(X0) dynamics_constraint_fun_check(obj, X0);
+            %DerivCheck(fun, X0)
             
-            fun = @(X0) dynamics_constraint_fun_check(obj, X0);
-            DerivCheck(fun, X0)
-            
-            %disp('finish numerical gradient');
-            
-            %[f_numeric,df_numeric] = geval(@(X0) dynamics_constraint_fun_check(obj,X0),X0,struct('grad_method','numerical'));
-            %valuecheck(df,df_numeric,1e-5);
-            %valuecheck(f,f_numeric,1e-5);
-            
+            [f_numeric,df_numeric] = geval(@(X0) dynamics_constraint_fun_check(obj,X0),X0,struct('grad_method','numerical'));
+            valuecheck(df,df_numeric,1e-5);
+            valuecheck(f,f_numeric,1e-5);
+            disp('finish numerical gradient');
+
             function DerivCheck(funptr, X0, ~, varargin)
                 
                 % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
@@ -2908,13 +2902,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a random small vector in parameter space
-                tol = 1e-6;  % Size of numerical step to take
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                rr = repmat(rr,1,28);
                 
                 % Evaluate at symmetric points around X0
                 f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
                 f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                rr = repmat(rr,1,28);
                 
                 % Print results
                 fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', dot(rr, JJ',1), f2-f1);
@@ -2922,8 +2915,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 fprintf('difference between numerical and analytical: %4.15f\n',dd);
             end
             
-            
             function [f,df] = dynamics_constraint_fun_check(obj,X0)
+                % hard coding for kuka arm
+                h = X0(1);
+                x0 = X0(2:29);
+                x1 = X0(30:57);
+                u = X0(58:65);
+                lambda = X0(66:143);
+                lambda_jl = X0(144:159);
+                
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
                 nu = obj.plant.getNumInputs;
@@ -2939,11 +2939,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 v0 = x0(nq+1:nq+nv);
                 q1 = x1(1:nq);
                 v1 = x1(nq+1:nq+nv);
-                
-                %             %debugging
-                %             if q1(1) < q0(1)
-                %                 disp('position also reversed')
-                %             end
                 
                 switch obj.options.integration_method
                     case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT

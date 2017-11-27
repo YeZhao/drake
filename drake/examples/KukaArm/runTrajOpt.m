@@ -142,10 +142,11 @@ h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal)';
+c_nominal = ctraj.eval(t_nominal);
 
 function [f,df] = running_cost_fun(h,x,u)
   R = 1e-6*eye(nu);
-  Q = blkdiag(1*eye(7),100,0*eye(6),10*eye(14));
+  Q = blkdiag(1*eye(8),0*eye(6),10*eye(14));
   g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
   f = h*g;
   df = [g, h*(x-x1)'*Q, h*u'*R];

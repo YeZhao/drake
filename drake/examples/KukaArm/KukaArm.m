@@ -476,7 +476,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 dD{2} = dn;
                 dD{3} = dn;
                 dD{4} = dn;
-                dq = diag(sqrt(eps(kinsol.q)));
+                dq = diag(sqrt(eps(kinsol.q)))*1e-2;
                 for k = 1:14
                     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
                     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
