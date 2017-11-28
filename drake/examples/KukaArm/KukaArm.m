@@ -261,23 +261,18 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
-            % modification based on Zac's approach
-            % modified object and two contact points on each finger stick
+            % modified object and four contact points on each finger stick
             cylinder_radius = 0.03;
             cylinder_height = 0.18;
             finger_contact_delta = 0.01;
-            finger_contact_left1 = [0;0;.04];
-            finger_contact_left2 = [0;0;.02];
-            finger_contact_left3 = [finger_contact_delta;0;.04];
-            finger_contact_left4 = [finger_contact_delta;0;.02];
-            finger_contact_left5 = [-finger_contact_delta;0;.04];
-            finger_contact_left6 = [-finger_contact_delta;0;.02];
-            finger_contact_right1 = [0;0.04;0.1225];
-            finger_contact_right2 = [0;0.04;0.1025];
-            finger_contact_right3 = [finger_contact_delta;0.04;0.1225];
-            finger_contact_right4 = [finger_contact_delta;0.04;0.1025];
-            finger_contact_right5 = [-finger_contact_delta;0.04;0.1225];
-            finger_contact_right6 = [-finger_contact_delta;0.04;0.1025];
+            finger_contact_left1 = [finger_contact_delta;0;.04];
+            finger_contact_left2 = [finger_contact_delta;0;.02];
+            finger_contact_left3 = [-finger_contact_delta;0;.04];
+            finger_contact_left4 = [-finger_contact_delta;0;.02];
+            finger_contact_right1 = [finger_contact_delta;0.04;0.1225];
+            finger_contact_right2 = [finger_contact_delta;0.04;0.1025];
+            finger_contact_right3 = [-finger_contact_delta;0.04;0.1225];
+            finger_contact_right4 = [-finger_contact_delta;0.04;0.1025];
             
             b = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
             iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
@@ -286,35 +281,27 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fl2 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left2,0);
             fl3 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left3,0);
             fl4 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left4,0);
-            fl5 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left5,0);
-            fl6 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left6,0);
             fr1 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right1,0);
             fr2 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right2,0);
             fr3 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right3,0);
             fr4 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right4,0);
-            fr5 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right5,0);
-            fr6 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right6,0);
             
             fl1 = R_world_to_B'*fl1;
             fl2 = R_world_to_B'*fl2;
             fl3 = R_world_to_B'*fl3;
             fl4 = R_world_to_B'*fl4;
-            fl5 = R_world_to_B'*fl5;
-            fl6 = R_world_to_B'*fl6;
             
             fr1 = R_world_to_B'*fr1;
             fr2 = R_world_to_B'*fr2;
             fr3 = R_world_to_B'*fr3;
             fr4 = R_world_to_B'*fr4;
-            fr5 = R_world_to_B'*fr5;
-            fr6 = R_world_to_B'*fr6;
             
             b_local = R_world_to_B'*b(1:3);
-            phi = [b_local(3)-cylinder_height/2; norm(fr1(1:2)-b_local(1:2))-cylinder_radius; norm(fr2(1:2)-b_local(1:2))-cylinder_radius; ...
-                   norm(fr3(1:2)-b_local(1:2))-cylinder_radius; norm(fr4(1:2)-b_local(1:2))-cylinder_radius; norm(fr5(1:2)-b_local(1:2))-cylinder_radius; ...
-                   norm(fr6(1:2)-b_local(1:2))-cylinder_radius; norm(fl1(1:2)-b_local(1:2))-cylinder_radius; norm(fl2(1:2)-b_local(1:2))-cylinder_radius; ...
-                   norm(fl3(1:2)-b_local(1:2))-cylinder_radius; norm(fl4(1:2)-b_local(1:2))-cylinder_radius; norm(fl5(1:2)-b_local(1:2))-cylinder_radius; ...
-                   norm(fl6(1:2)-b_local(1:2))-cylinder_radius];
+            phi = [b_local(3)-cylinder_height/2; ...
+                   norm(fr1(1:2)-b_local(1:2))-cylinder_radius; norm(fr2(1:2)-b_local(1:2))-cylinder_radius; norm(fr3(1:2)-b_local(1:2))-cylinder_radius; ...
+                   norm(fr4(1:2)-b_local(1:2))-cylinder_radius; ...
+                   norm(fl1(1:2)-b_local(1:2))-cylinder_radius; norm(fl2(1:2)-b_local(1:2))-cylinder_radius; norm(fl3(1:2)-b_local(1:2))-cylinder_radius; ...
+                   norm(fl4(1:2)-b_local(1:2))-cylinder_radius];
             cylinder_normal = [0;0;-1];
             right_normal1 = [fr1(1:2) - b_local(1:2);0];
             right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
@@ -324,10 +311,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             right_normal3 = right_normal3./sqrt(right_normal3'*right_normal3);
             right_normal4 = [fr4(1:2) - b_local(1:2);0];
             right_normal4 = right_normal4./sqrt(right_normal4'*right_normal4);
-            right_normal5 = [fr5(1:2) - b_local(1:2);0];
-            right_normal5 = right_normal5./sqrt(right_normal5'*right_normal5);
-            right_normal6 = [fr6(1:2) - b_local(1:2);0];
-            right_normal6 = right_normal6./sqrt(right_normal6'*right_normal6);
             left_normal1 = [fl1(1:2) - b_local(1:2);0];
             left_normal1 = left_normal1./sqrt(left_normal1'*left_normal1);
             left_normal2 = [fl2(1:2) - b_local(1:2);0];
@@ -336,13 +319,9 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             left_normal3 = left_normal3./sqrt(left_normal3'*left_normal3);
             left_normal4 = [fl4(1:2) - b_local(1:2);0];
             left_normal4 = left_normal4./sqrt(left_normal4'*left_normal4);
-            left_normal5 = [fl5(1:2) - b_local(1:2);0];
-            left_normal5 = left_normal5./sqrt(left_normal5'*left_normal5);
-            left_normal6 = [fl6(1:2) - b_local(1:2);0];
-            left_normal6 = left_normal6./sqrt(left_normal6'*left_normal6);
-            normal = [cylinder_normal, right_normal1, right_normal2, right_normal3, right_normal4, ...
-                      right_normal5, right_normal6, left_normal1, left_normal2, left_normal3, left_normal4, ...
-                      left_normal5, left_normal6];
+            normal = [cylinder_normal, right_normal1, right_normal2, ...
+                      right_normal3, right_normal4, left_normal1, left_normal2, ...
+                      left_normal3, left_normal4];
             
             d = cell(1,2);
             Tr11 = cross(right_normal1,[0;0;1]);
@@ -357,12 +336,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tr41 = cross(right_normal4,[0;0;1]);
             Tr41 = Tr41/norm(Tr41);
             Tr42 = cross(right_normal4,Tr41);
-            Tr51 = cross(right_normal5,[0;0;1]);
-            Tr51 = Tr51/norm(Tr51);
-            Tr52 = cross(right_normal5,Tr51);
-            Tr61 = cross(right_normal6,[0;0;1]);
-            Tr61 = Tr61/norm(Tr61);
-            Tr62 = cross(right_normal6,Tr61);
             
             Tl11 = cross(left_normal1,[0;0;1]);
             Tl11 = Tl11/norm(Tl11);
@@ -376,23 +349,17 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tl41 = cross(left_normal4,[0;0;1]);
             Tl41 = Tl41/norm(Tl41);
             Tl42 = cross(left_normal4,Tl41);
-            Tl51 = cross(left_normal5,[0;0;1]);
-            Tl51 = Tl51/norm(Tl51);
-            Tl52 = cross(left_normal5,Tl51);
-            Tl61 = cross(left_normal6,[0;0;1]);
-            Tl61 = Tl61/norm(Tl61);
-            Tl62 = cross(left_normal6,Tl61);
             
-            d{1} = [[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tr51,Tr61,Tl11,Tl21,Tl31,Tl41,Tl51,Tl61];
-            d{2} = [[0;1;0],Tr12,Tr22,Tr32,Tr42,Tr52,Tr62,Tl12,Tl22,Tl32,Tl42,Tl52,Tl62];
+            d{1} = [[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
+            d{2} = [[0;1;0],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
             d{1} = R_world_to_B*d{1};
             d{2} = R_world_to_B*d{2};
             
-            xA = [[b(1:2); 0], finger_contact_right1, finger_contact_right2, finger_contact_right3, finger_contact_right4, ...
-                finger_contact_right5, finger_contact_right6, ...
-                finger_contact_left1, finger_contact_left2, finger_contact_left3, finger_contact_left4, ...
-                finger_contact_left5, finger_contact_left6];
+            xA = [[b(1:2); 0], finger_contact_right1, finger_contact_right2, ...
+                finger_contact_right3, finger_contact_right4, ...
+                finger_contact_left1, finger_contact_left2, ...
+                finger_contact_left3, finger_contact_left4];
             
             %define horizontal 2D position on the cylinder surface
             xB = cylinder_radius*normal;
@@ -402,27 +369,23 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             xB(3,3) = fr2(3) - b_local(3);
             xB(3,4) = fr3(3) - b_local(3);
             xB(3,5) = fr4(3) - b_local(3);
-            xB(3,6) = fr5(3) - b_local(3);
-            xB(3,7) = fr6(3) - b_local(3);
             
-            xB(3,8) = fl1(3) - b_local(3);
-            xB(3,9) = fl2(3) - b_local(3);
-            xB(3,10) = fl3(3) - b_local(3);
-            xB(3,11) = fl4(3) - b_local(3);
-            xB(3,12) = fl5(3) - b_local(3);
-            xB(3,13) = fl6(3) - b_local(3);
+            xB(3,6) = fl1(3) - b_local(3);
+            xB(3,7) = fl2(3) - b_local(3);
+            xB(3,8) = fl3(3) - b_local(3);
+            xB(3,9) = fl4(3) - b_local(3);
             
             normal = R_world_to_B*normal;
             
             % todo: when the object is not betwen two finger tips.
             % todo: add caps at the end of cylinders
-            idxA = [0; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; obj.right_finger_id; ...
+            idxA = [0; obj.right_finger_id; obj.right_finger_id; ...
                 obj.right_finger_id; obj.right_finger_id; ...
-                obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; obj.left_finger_id; ...
+                obj.left_finger_id; obj.left_finger_id; ...
                 obj.left_finger_id; obj.left_finger_id];
-            idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id;...
-                obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
-            nC = 13;
+            idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id;...
+                    obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
+            nC = 9;
             mu = 1.0*ones(nC,1);
         end
         

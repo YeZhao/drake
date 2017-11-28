@@ -2877,15 +2877,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             df = [dfq;dfv];
             
             % check gradient
-            X0 = [h;x0;x1;u;lambda;lambda_jl];
+            %X0 = [h;x0;x1;u;lambda;lambda_jl];
             %X0 = X0 + randn(size(X0))*0.1;
             %fun = @(X0) dynamics_constraint_fun_check(obj, X0);
             %DerivCheck(fun, X0)
             
-            [f_numeric,df_numeric] = geval(@(X0) dynamics_constraint_fun_check(obj,X0),X0,struct('grad_method','numerical'));
-            valuecheck(df,df_numeric,1e-5);
-            valuecheck(f,f_numeric,1e-5);
-            disp('finish numerical gradient');
+            %[f_numeric,df_numeric] = geval(@(X0) dynamics_constraint_fun_check(obj,X0),X0,struct('grad_method','numerical'));
+            %valuecheck(df,df_numeric,1e-5);
+            %valuecheck(f,f_numeric,1e-5);
+            %disp('finish numerical gradient');
 
             function DerivCheck(funptr, X0, ~, varargin)
                 
