@@ -67,7 +67,7 @@ u0(8) = -20;
 
 T0 = 2;
 N = 15;
-
+ 
 options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
@@ -95,9 +95,9 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-u_ub = [inf*ones(7,1);u0(8)];
-u_lb = [-inf*ones(7,1);u0(8)];
-traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
+% u_ub = [inf*ones(7,1);u0(8)];
+% u_lb = [-inf*ones(7,1);u0(8)];
+% traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
 % ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
