@@ -2750,7 +2750,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         function [c,dc] = robustLCPcost(obj, slack_var)
             c = obj.options.robustLCPcost_coeff*sum(slack_var);
             dc = obj.options.robustLCPcost_coeff*ones(1,length(slack_var));
-            fprintf('sum of slack variable cost: %4.4f\n',c);
+            fprintf('sum of slack variable cost(multiplied by the large coeff): %4.4f\n',c);
+            fprintf('-------------------\n');
         end
         
         function [c,dc] = ccost(~,c1,c2)
@@ -2864,6 +2865,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 fv = fv - J'*lambda;
                 dfv(:,2+nq+nv:1+2*nq+nv) = dfv(:,2+nq+nv:1+2*nq+nv) - matGradMult(dJ,lambda,true);
                 dfv(:,2+2*nq+2*nv+nu:1+2*nq+2*nv+nu+nl) = -J'*obj.options.lambda_mult;
+                
+                %debugging
+                global phi_cache
+                global phi_cache_full
+                if isempty(phi_cache)
+                    phi_cache = phi;
+                elseif size(phi_cache,2) == obj.N-1
+                    phi_cache_full = phi_cache;
+                    phi_cache = phi;
+                else
+                    phi_cache = [phi_cache,phi];
+                end
             end
             
             if njl>0
