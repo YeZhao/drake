@@ -24,7 +24,7 @@ v=r.constructVisualizer;
 %       0;0.79;0.09;0;0;0];
 %trial 2, initial gripper pose is close
 q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-    0.0145;0.79;0.092;0;0;0];
+    0.0145;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %       0.01;0.79;0.09;0;0;0];
@@ -34,7 +34,9 @@ kinematics_options.compute_gradients = 0;
 kinsol = doKinematics(r, q0, [], kinematics_options);
 iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
 fr1 = r.forwardKin(kinsol,r.findLinkId('right_finger'),[0;0.04;0.1225],0);
-rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
+R_ee = rpy2rotmat(iiwa_link_7_init(4:6));
+rel_pos_object_gripper(1:3) = R_ee'*(q0(9:11) - iiwa_link_7_init(1:3));
+rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6));
 %xtraj_ts = simulate(r,[0 2],x0);
 %v.playback(xtraj_ts,struct('slider',true));
 
@@ -50,12 +52,14 @@ rel_pos_object_gripper = q0(9:14) - iiwa_link_7_init;
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = q0;
-q1(2) = q0(2) + 0.05;
-%q1(1) = q0(1) + 0.08;
+q1(2) = q0(2) + 0.4;
+%q1(1) = q0(1) + 0.4;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-q1(9:14) = iiwa_link_7_final + rel_pos_object_gripper;
+R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+q1(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
 %trial 5
 %q1 = q0;
 %q1(8) = q1(8) - 0.015;
@@ -67,7 +71,7 @@ u0(8) = -20;
 
 T0 = 2;
 N = 15;
- 
+
 options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
@@ -88,7 +92,7 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
@@ -133,7 +137,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -172,7 +176,7 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
+        fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));        
     end
 
 end
