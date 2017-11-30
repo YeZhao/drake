@@ -52,8 +52,8 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = q0;
-q1(2) = q0(2) + 0.4;
-%q1(1) = q0(1) + 0.4;
+q1(2) = q0(2) + 0.1;
+q1(1) = q0(1) + 0.05;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -71,7 +71,7 @@ u0(8) = -20;
 
 T0 = 2;
 N = 15;
-
+ 
 options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
@@ -92,16 +92,16 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-% u_ub = [inf*ones(7,1);u0(8)];
-% u_lb = [-inf*ones(7,1);u0(8)];
-% traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
+u_ub = [inf*ones(7,1);u0(8)];
+u_lb = [-inf*ones(8,1)];
+traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
 % ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
@@ -137,11 +137,11 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
-
+ 
 v.playback(xtraj,struct('slider',true));
 
 h_nominal = z(traj_opt.h_inds);
