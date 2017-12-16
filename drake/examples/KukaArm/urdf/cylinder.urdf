@@ -9,6 +9,31 @@
       </geometry>
       <origin xyz="0 0 0"/>
     </visual>
+    <!-- add four collision point at the bottom of cylinder -->
+    <collision>
+      <origin xyz="0.03 0 -.09"/>
+      <geometry>
+        <sphere radius="0" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.03 0 -.09"/>
+      <geometry>
+        <sphere radius="0" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0.03 -.09"/>
+      <geometry>
+        <sphere radius="0" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 -0.03 -.09"/>
+      <geometry>
+        <sphere radius="0" />
+      </geometry>
+    </collision>
     <collision>
       <geometry>
         <cylinder length="0.18" radius="0.03"/>

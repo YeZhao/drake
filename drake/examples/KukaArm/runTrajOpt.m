@@ -5,7 +5,7 @@ options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
 options.ignore_self_collisions = true;
 options.multiple_contacts = false;
-options.active_collision_options.terrain_only = false;
+options.active_collision_options.terrain_only = true;
 
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
@@ -17,6 +17,9 @@ nx = nq+nv;
 nu = r.getNumInputs();
 
 v=r.constructVisualizer;
+
+global iteration_num
+%global robustLCPcost_coeff
 
 %% forward simulation
 %trial 1, initial gripper pose is open
@@ -52,8 +55,8 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = q0;
-q1(2) = q0(2) + 0.1;
-q1(1) = q0(1) + 0.05;
+q1(2) = q0(2) + 0.2;
+q1(1) = q0(1) + 0.2;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -71,7 +74,7 @@ u0(8) = -20;
 
 T0 = 2;
 N = 15;
- 
+
 options.robustLCPcost_coeff = 1000;
 
 t_init = linspace(0,T0,N);
@@ -99,9 +102,9 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-u_ub = [inf*ones(7,1);u0(8)];
-u_lb = [-inf*ones(8,1)];
-traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
+% u_ub = [inf*ones(7,1);u0(8)];
+% u_lb = [-inf*ones(8,1)];
+% traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
 % ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
@@ -137,11 +140,11 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
- 
+
 v.playback(xtraj,struct('slider',true));
 
 h_nominal = z(traj_opt.h_inds);
@@ -176,7 +179,20 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));        
+        fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
+%         global robustLCPcost_coeff
+%         if isempty(iteration_num)
+%             robustLCPcost_coeff = 1;
+%             iteration_num = 1;
+%         elseif iteration_num > 15
+%             robustLCPcost_coeff = 10;
+%         elseif iteration_num > 30
+%             robustLCPcost_coeff = 100;
+%         elseif iteration_num > 45
+%             robustLCPcost_coeff = 1000;    
+%         end        
+%         iteration_num = iteration_num + 1;
+            
     end
 
 end

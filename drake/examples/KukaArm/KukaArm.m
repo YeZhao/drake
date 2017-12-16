@@ -253,13 +253,21 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             end
         end
         
-        
         function [phi,normal,d,xA,xB,idxA,idxB,mu] = worldContactConstraints(obj,kinsol)
             
             if ~isstruct(kinsol)
                 % treat input as contactPositions(obj,q)
                 kinsol = doKinematics(obj, kinsol, []);
             end
+            
+            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground,~,~,~,~,~,~,~] = obj.contactConstraints(kinsol.q,false,true);
+            n_ground_contact_point = 4;
+            phi_ground = phi_ground(1:n_ground_contact_point);
+            normal_ground = normal_ground(:,1:n_ground_contact_point);
+            d_ground{1} = d_ground{1}(:,1:n_ground_contact_point);
+            d_ground{2} = d_ground{2}(:,1:n_ground_contact_point);
+            xA_ground = xA_ground(:,1:n_ground_contact_point);
+            xB_ground = xB_ground(:,1:n_ground_contact_point);
             
             % modified object and four contact points on each finger stick
             cylinder_radius = 0.03;
@@ -297,12 +305,14 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fr4 = R_world_to_B'*fr4;
             
             b_local = R_world_to_B'*b(1:3);
-            phi = [b_local(3)-cylinder_height/2; ...
+            phi_world_rel = b(1:3)-R_world_to_B*[0;0;cylinder_height/2];
+            
+            phi = [phi_world_rel(3); ... b_local(3)-cylinder_height/2; ...%phi_ground; ... %
                    norm(fr1(1:2)-b_local(1:2))-cylinder_radius; norm(fr2(1:2)-b_local(1:2))-cylinder_radius; norm(fr3(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fr4(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fl1(1:2)-b_local(1:2))-cylinder_radius; norm(fl2(1:2)-b_local(1:2))-cylinder_radius; norm(fl3(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fl4(1:2)-b_local(1:2))-cylinder_radius];
-            cylinder_normal = [0;0;-1];
+            cylinder_normal = R_world_to_B'*[0;0;-1];%cylinder normal expressed in cylinder coordinate
             right_normal1 = [fr1(1:2) - b_local(1:2);0];
             right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
             right_normal2 = [fr2(1:2) - b_local(1:2);0];
@@ -350,8 +360,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tl41 = Tl41/norm(Tl41);
             Tl42 = cross(left_normal4,Tl41);
             
-            d{1} = [[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
-            d{2} = [[0;1;0],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
+            d{1} = [R_world_to_B'*[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
+            d{2} = [R_world_to_B'*[0;1;0],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
             d{1} = R_world_to_B*d{1};
             d{2} = R_world_to_B*d{2};
@@ -364,7 +374,9 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             %define horizontal 2D position on the cylinder surface
             xB = cylinder_radius*normal;
             %define vertical heights of closest point on the cylinder w.r.t cylinder coordinate
-            xB(3,1) = - b_local(3);
+            cylinder_local = R_world_to_B'*[0;0;cylinder_height/2];
+            xB(3,1) = - cylinder_local(3);
+            % x and y direction is not accurate, currently assume the central point. It should be a point on the edge 
             xB(3,2) = fr1(3) - b_local(3);
             xB(3,3) = fr2(3) - b_local(3);
             xB(3,4) = fr3(3) - b_local(3);
@@ -401,7 +413,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             [n, D] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
         end
         
-        function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints(obj,kinsol,allow_multiple_contacts,active_collision_options)
+        function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints_manual(obj,kinsol,allow_multiple_contacts,active_collision_options)
             
             % @retval phi (m x 1) Vector of gap function values (typically contact distance), for m possible contacts
             % @retval normal (3 x m) Contact normal vector in world coordinates, points from B to A

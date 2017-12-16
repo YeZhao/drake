@@ -117,7 +117,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
-            [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
+            [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints_manual(q0,false,obj.options.active_collision_options);
             
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -2647,7 +2647,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
                 
-                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints_manual(q,false,obj.options.active_collision_options);
                 
                 %% debugging
                 % a test of using q0 to derive v1, instead of using v1
@@ -2848,7 +2848,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
             
             if nl>0
-                [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints_manual(q1,false,obj.options.active_collision_options);
                 
                 % construct J and dJ from n,D,dn, and dD so they relate to the
                 % lambda vector
@@ -3169,7 +3169,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         
         function obj = setupVariables(obj,N)
             obj = setupVariables@DirectTrajectoryOptimization(obj,N);
-            [~,normal,d] = obj.plant.contactConstraints(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);
+            [~,normal,d] = obj.plant.contactConstraints_manual(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);
             obj.nC = size(normal, 2);
             obj.nD = 2*length(d);
             
