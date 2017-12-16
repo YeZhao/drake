@@ -132,7 +132,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
-traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',10000000);
+traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);

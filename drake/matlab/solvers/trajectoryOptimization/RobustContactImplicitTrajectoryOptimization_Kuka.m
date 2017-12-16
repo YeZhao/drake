@@ -2934,8 +2934,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 x0 = X0(2:29);
                 x1 = X0(30:57);
                 u = X0(58:65);
-                lambda = X0(66:143);
-                lambda_jl = X0(144:159);
+                lambda = X0(66:137);
+                lambda_jl = X0(138:153);
                 
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
@@ -3018,7 +3018,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,nu+nl+njl)];
                 
                 if nl>0
-                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints_manual(q1,false,obj.options.active_collision_options);
                     
                     % construct J and dJ from n,D,dn, and dD so they relate to the
                     % lambda vector
@@ -3047,7 +3047,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 f = [fq;fv];
                 df = [dfq;dfv];
             end
-            
         end
         
         function [f,df] = foot_horizontal_distance_constraint_fun(obj,x)

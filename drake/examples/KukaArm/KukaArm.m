@@ -260,14 +260,20 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
-            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground,~,~,~,~,~,~,~] = obj.contactConstraints(kinsol.q,false,true);
+            terrain_options=struct();
+            terrain_options.active_collision_options.terrain_only = true;
+            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground,~,~,~,~,~,~,~] = obj.contactConstraints(kinsol.q,false,terrain_options.active_collision_options);
             n_ground_contact_point = 4;
+            % note that, here A and B are inverted 
             phi_ground = phi_ground(1:n_ground_contact_point);
-            normal_ground = normal_ground(:,1:n_ground_contact_point);
-            d_ground{1} = d_ground{1}(:,1:n_ground_contact_point);
-            d_ground{2} = d_ground{2}(:,1:n_ground_contact_point);
+            normal_ground = -normal_ground(:,1:n_ground_contact_point);
+            d_ground{1} = -d_ground{1}(:,1:n_ground_contact_point);
+            d_ground{2} = -d_ground{2}(:,1:n_ground_contact_point);
             xA_ground = xA_ground(:,1:n_ground_contact_point);
             xB_ground = xB_ground(:,1:n_ground_contact_point);
+            xB_ground_tmp = xB_ground;
+            xB_ground = xA_ground;
+            xA_ground = xB_ground_tmp;
             
             % modified object and four contact points on each finger stick
             cylinder_radius = 0.03;
@@ -304,15 +310,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fr3 = R_world_to_B'*fr3;
             fr4 = R_world_to_B'*fr4;
             
-            b_local = R_world_to_B'*b(1:3);
-            phi_world_rel = b(1:3)-R_world_to_B*[0;0;cylinder_height/2];
-            
-            phi = [phi_world_rel(3); ... b_local(3)-cylinder_height/2; ...%phi_ground; ... %
+            b_local = R_world_to_B'*b(1:3);            
+            phi = [phi_ground; ...
                    norm(fr1(1:2)-b_local(1:2))-cylinder_radius; norm(fr2(1:2)-b_local(1:2))-cylinder_radius; norm(fr3(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fr4(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fl1(1:2)-b_local(1:2))-cylinder_radius; norm(fl2(1:2)-b_local(1:2))-cylinder_radius; norm(fl3(1:2)-b_local(1:2))-cylinder_radius; ...
                    norm(fl4(1:2)-b_local(1:2))-cylinder_radius];
-            cylinder_normal = R_world_to_B'*[0;0;-1];%cylinder normal expressed in cylinder coordinate
+            cylinder_normal = R_world_to_B'*[zeros(2,n_ground_contact_point);-ones(1,n_ground_contact_point)];%cylinder normal expressed in cylinder coordinate
             right_normal1 = [fr1(1:2) - b_local(1:2);0];
             right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
             right_normal2 = [fr2(1:2) - b_local(1:2);0];
@@ -360,13 +364,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tl41 = Tl41/norm(Tl41);
             Tl42 = cross(left_normal4,Tl41);
             
-            d{1} = [R_world_to_B'*[-1;0;0],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
-            d{2} = [R_world_to_B'*[0;1;0],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
+            d{1} = [R_world_to_B'*[-ones(1,n_ground_contact_point);zeros(2,n_ground_contact_point)],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
+            d{2} = [R_world_to_B'*[zeros(1,n_ground_contact_point);ones(1,n_ground_contact_point);zeros(1,n_ground_contact_point)],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
             d{1} = R_world_to_B*d{1};
             d{2} = R_world_to_B*d{2};
             
-            xA = [[b(1:2); 0], finger_contact_right1, finger_contact_right2, ...
+            xA = [xA_ground, finger_contact_right1, finger_contact_right2, ...
                 finger_contact_right3, finger_contact_right4, ...
                 finger_contact_left1, finger_contact_left2, ...
                 finger_contact_left3, finger_contact_left4];
@@ -374,30 +378,31 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             %define horizontal 2D position on the cylinder surface
             xB = cylinder_radius*normal;
             %define vertical heights of closest point on the cylinder w.r.t cylinder coordinate
-            cylinder_local = R_world_to_B'*[0;0;cylinder_height/2];
-            xB(3,1) = - cylinder_local(3);
+            %cylinder_local = R_world_to_B'*[0;0;cylinder_height/2];
+            %xB(3,1) = - cylinder_local(3);
+            xB(:,1:n_ground_contact_point) = xB_ground;
             % x and y direction is not accurate, currently assume the central point. It should be a point on the edge 
-            xB(3,2) = fr1(3) - b_local(3);
-            xB(3,3) = fr2(3) - b_local(3);
-            xB(3,4) = fr3(3) - b_local(3);
-            xB(3,5) = fr4(3) - b_local(3);
+            xB(3,n_ground_contact_point+1) = fr1(3) - b_local(3);
+            xB(3,n_ground_contact_point+2) = fr2(3) - b_local(3);
+            xB(3,n_ground_contact_point+3) = fr3(3) - b_local(3);
+            xB(3,n_ground_contact_point+4) = fr4(3) - b_local(3);
             
-            xB(3,6) = fl1(3) - b_local(3);
-            xB(3,7) = fl2(3) - b_local(3);
-            xB(3,8) = fl3(3) - b_local(3);
-            xB(3,9) = fl4(3) - b_local(3);
+            xB(3,n_ground_contact_point+5) = fl1(3) - b_local(3);
+            xB(3,n_ground_contact_point+6) = fl2(3) - b_local(3);
+            xB(3,n_ground_contact_point+7) = fl3(3) - b_local(3);
+            xB(3,n_ground_contact_point+8) = fl4(3) - b_local(3);
             
             normal = R_world_to_B*normal;
             
             % todo: when the object is not betwen two finger tips.
             % todo: add caps at the end of cylinders
-            idxA = [0; obj.right_finger_id; obj.right_finger_id; ...
+            nC = 8+n_ground_contact_point;
+            idxA = [zeros(n_ground_contact_point,1); obj.right_finger_id; obj.right_finger_id; ...
                 obj.right_finger_id; obj.right_finger_id; ...
                 obj.left_finger_id; obj.left_finger_id; ...
                 obj.left_finger_id; obj.left_finger_id];
-            idxB = [obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id;...
-                    obj.brick_id; obj.brick_id; obj.brick_id; obj.brick_id];
-            nC = 9;
+            idxB = obj.brick_id*ones(nC,1);
+            
             mu = 1.0*ones(nC,1);
         end
         
