@@ -167,7 +167,7 @@ classdef NonlinearProgram
       obj.solver_options.snopt.VerifyLevel = 0;  
       obj.solver_options.snopt.DerivativeOption = 1;
       obj.solver_options.snopt.print = ''; 
-      obj.solver_options.snopt.ScaleOption = 0;
+      obj.solver_options.snopt.ScaleOption = 2;
       obj.solver_options.snopt.NewBasisFile = 0;
       obj.solver_options.snopt.OldBasisFile = 0;
       obj.solver_options.snopt.BackupBasisFile = 0;

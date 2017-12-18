@@ -55,8 +55,8 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = q0;
-q1(2) = q0(2) + 0.2;
-q1(1) = q0(1) + 0.2;
+q1(2) = q0(2) + 0.05;
+q1(1) = q0(1) + 0.0;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -73,7 +73,7 @@ u0 = r.findTrim(q0);
 u0(8) = -20;
 
 T0 = 2;
-N = 15;
+N = 10;
 
 options.robustLCPcost_coeff = 1000;
 
@@ -106,7 +106,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % u_lb = [-inf*ones(8,1)];
 % traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
-% ub_N = q1;
+% ub_N = q1;c
 % ub_N(1:8) = q_ub(1:8);
 % lb_N = q1;
 % lb_N(1:8) = q_lb(1:8);
@@ -133,7 +133,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
-traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',10000);
+traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
