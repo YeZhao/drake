@@ -56,7 +56,8 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 4
 q1 = q0;
 q1(2) = q0(2) + 0.3;
-q1(1) = q0(1) + 0.3; 
+q1(1) = q0(1) + 0.4; 
+q1(6) = q1(6) - 0.25;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -75,9 +76,17 @@ u0(8) = -20;
 T0 = 2;
 N = 15;
 
-options.robustLCPcost_coeff = 1000;
+options.robustLCPcost_coeff = 100;
 
+ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
+x_init = zeros(length(x0),N);
+for i=1:length(x0)
+    x_init(i,:) = linspace(x0(i,:),x1(i,:),N);
+end
+traj_init.x = PPTrajectory(foh(t_init,x_init));
+traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
+
 traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
@@ -86,6 +95,10 @@ x0_ub = [q0;inf*ones(14,1)];
 x0_lb = [q0;-inf*ones(14,1)];
 x1_ub = [q1;inf*ones(14,1)];
 x1_lb = [q1;-inf*ones(14,1)];
+
+Allcons = cell(0,1);
+[xtraj_init,snopt_info_ik,infeasible_constraint] = inverseKinTraj(r,t_init,traj_init.x,traj_init.x,ikoptions);
+v.playback(traj_init.x,struct('slider',true));
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -102,11 +115,11 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
-% u_ub = [200*ones(7,1);u0(8)];
+% u_ub = [200*ones(7,1);-10];
 % u_lb = [-200*ones(8,1)];
 % traj_opt = traj_opt.addInputConstraint(BoundingBoxConstraint(u_lb,u_ub),1:N-1);
 
-% ub_N = q1;c
+% ub_N = q1;
 % ub_N(1:8) = q_ub(1:8);
 % lb_N = q1;
 % lb_N(1:8) = q_lb(1:8);
@@ -140,11 +153,11 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
-
+ 
 v.playback(xtraj,struct('slider',true));
 
 h_nominal = z(traj_opt.h_inds);
