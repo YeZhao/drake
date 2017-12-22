@@ -76,7 +76,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 15;
+N = 20;
 
 options.robustLCPcost_coeff = 1000;
  
@@ -86,6 +86,15 @@ x_init = zeros(length(x0),N);
 for i=1:length(x0)
     x_init(i,:) = linspace(x0(i,:),x1(i,:),N);
 end
+%run fwd IK for grasped object position
+for i=2:N
+    kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
+    iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+    R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+    x_init(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+    x_init(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+end
+
 traj_init.x = PPTrajectory(foh(t_init,x_init));
 traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
 
@@ -115,9 +124,9 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
@@ -156,13 +165,13 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -186,7 +195,7 @@ global phi_cache_full
     end
 
     function [f,df] = final_cost_fun(h,x)
-        Qf = 1000*blkdiag(100*eye(8),0*eye(6),10*eye(14));
+        Qf = 1000*blkdiag(10*eye(8),0*eye(6),10*eye(14));
         g = (1/2)*(x-x1)'*Qf*(x-x1);
         f = h*g;
         df = [g, h*(x-x1)'*Qf];
