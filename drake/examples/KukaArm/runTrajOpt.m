@@ -56,10 +56,10 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
-q1 = q0; 
-q1(2) = q0(2) + 0.5;
-q1(1) = q0(1) + 1.0; 
-q1(6) = q1(6) - 0.5;
+q1 = q0;
+% q1(2) = q0(2) + 0.5;
+q1(1) = q0(1) + 0.6; 
+% q1(6) = q1(6) - 0.5;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -78,7 +78,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 25;
+N = 20;
 
 options.robustLCPcost_coeff = 1000;
  
@@ -122,11 +122,11 @@ x1_lb = [q1;-inf*ones(14,1)];
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
-%traj_opt = traj_opt.addFinalCost(@final_cost_fun);
+traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
@@ -173,7 +173,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -183,7 +183,7 @@ v.playback(xtraj,struct('slider',true));
 % % LQR Cost Matrices
 Q = diag(10*ones(1,nx));
 R = .1*eye(nu);
-Qf = 100*eye(nx);
+Qf = 100*eye(nx); 
 
 ltvsys = tvlqr(r,xtraj,utraj,Q,R,Qf);
 sys=feedback(r,ltvsys);
@@ -191,7 +191,7 @@ xtraj_new = simulate(sys,xtraj.tspan, x0);
 v.playback(xtraj_new,struct('slider',true));
 
 %% pd-control LTI trial
-kp = 1000;
+kp = 100;
 kd = sqrt(kp)*1.5;
 
 K = [kp*eye(nq_arm),kp*eye(nq_arm,nq_object),kd*eye(nq_arm),kd*eye(nq_arm,nq_object)];
