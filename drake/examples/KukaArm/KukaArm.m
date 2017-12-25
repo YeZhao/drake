@@ -7,10 +7,12 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         left_finger_id
         right_finger_id
         iiwa_link_7_id
+        uncertainty_source
+        object_initial_position
+        friction_coeff
     end
     
     methods
-        
         function obj = KukaArm(options)
             if nargin < 1
                 options = struct();

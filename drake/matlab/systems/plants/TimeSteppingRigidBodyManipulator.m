@@ -30,7 +30,6 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
     
     properties (SetAccess=public)
         % robust set-up for terrain uncertainty
-        %terrain_height
         friction_coeff
         terrain_index
         uncertainty_source
