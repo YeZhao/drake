@@ -34,7 +34,7 @@ q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %       0.01;0.79;0.09;0;0;0];
 x0 = [q0;zeros(nv,1)];
-v.draw(0,x0);
+v.draw(0,x0); 
 kinematics_options.compute_gradients = 0;
 kinsol = doKinematics(r, q0, [], kinematics_options);
 iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -57,9 +57,9 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = q0;
-% q1(2) = q0(2) + 0.5;
-q1(1) = q0(1) + 0.6; 
-% q1(6) = q1(6) - 0.5;
+q1(1) = q0(1) + 1.2; 
+q1(2) = q0(2) + 0.3;
+q1(6) = q1(6) - 0.25;
 %q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -120,6 +120,9 @@ x1_lb = [q1;-inf*ones(14,1)];
 % [xtraj_init,snopt_info_ik,infeasible_constraint] = inverseKinTraj(r,t_init,traj_init.x,traj_init.x,ikoptions);
 % v.playback(traj_init.x,struct('slider',true));
 
+xfinal_lb = x1 - 0.05*ones(length(x1),1);
+xfinal_ub = x1 + 0.05*ones(length(x1),1);
+
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
@@ -127,6 +130,7 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
+traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
@@ -169,8 +173,8 @@ traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
