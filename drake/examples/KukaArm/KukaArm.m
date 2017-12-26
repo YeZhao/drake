@@ -3,7 +3,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
     properties
         hand_name = 'iiwa_link_ee';
         disturbance_type = 1; % 1 ee-force, 2-state error, 3-torque
-        brick_id
+        cylinder_id
         left_finger_id
         right_finger_id
         iiwa_link_7_id
@@ -70,7 +70,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             options.floating = true;
             obj = obj.addRobotFromURDF('urdf/cylinder.urdf',[],[],options);
             
-            obj.brick_id = obj.findLinkId('cylinder');
+            obj.cylinder_id = obj.findLinkId('cylinder');
             obj.left_finger_id = obj.findLinkId('left_finger');
             obj.right_finger_id = obj.findLinkId('iiwa_link_7+iiwa_link_ee+base_link+right_finger+iiwa_link_ee_kuka');
             obj.iiwa_link_7_id = obj.findLinkId('iiwa_link_7');
@@ -220,13 +220,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             finger_contact_left = [0;0;.04];
             finger_contact_right = [0;  0.0400;  0.1225];%-0.0001
             
-            box_pose = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
+            box_pose = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
             left_finger_tip = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left,0);
             right_finger_tip = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right,0);
             
             xA = [finger_contact_right, finger_contact_left];
             idxA = [obj.right_finger_id; obj.left_finger_id];
-            idxB = [obj.brick_id; obj.brick_id];
+            idxB = [obj.cylinder_id; obj.cylinder_id];
             mu = 1.0;
             
             R_box = rpy2rotmat(box_pose(4:6));
@@ -290,7 +290,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             finger_contact_right3 = [-finger_contact_delta;0.04;0.1225];
             finger_contact_right4 = [-finger_contact_delta;0.04;0.1025];
             
-            b = obj.forwardKin(kinsol,obj.brick_id,[0;0;0],1);
+            b = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
             iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
             R_world_to_B = rpy2rotmat(b(4:6));
             fl1 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left1,0);
@@ -399,11 +399,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             % todo: when the object is not betwen two finger tips.
             % todo: add caps at the end of cylinders
             nC = 8+n_ground_contact_point;
-            idxA = [zeros(n_ground_contact_point,1); obj.right_finger_id; obj.right_finger_id; ...
+            idxA = [ones(n_ground_contact_point,1); obj.right_finger_id; obj.right_finger_id; ...
                 obj.right_finger_id; obj.right_finger_id; ...
                 obj.left_finger_id; obj.left_finger_id; ...
                 obj.left_finger_id; obj.left_finger_id];
-            idxB = obj.brick_id*ones(nC,1);
+            idxB = obj.cylinder_id*ones(nC,1);
             
             mu = 1.0*ones(nC,1);
         end

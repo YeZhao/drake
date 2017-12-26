@@ -305,7 +305,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             Bidx = idxB(active);
             
             %[tuned for 3D]
-            index = [1:3];% defined for 2D compass gait walker
+            index = [1:3];% defined for 3D kuka arm
             index2 = [];
             for i=1:num_q
                 index2 = [index2;index'+(i-1)*3];
@@ -347,9 +347,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             dJD{2} = dJy;%[tuned for 3D]
             
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
-            if length(phiL) ~= 2
-                keyboard
-            end
+            %if length(phiL) ~= 2
+            %    keyboard
+            %end
             
             %compute for full dimension joint limit
             possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
@@ -428,10 +428,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 R = diag(r(:));
                 
                 if any(ind > 0)
-                    S_weighting_unit = diag([1,1]);% %[tuned for 2D]
+                    S_weighting_unit = diag(ones(3,1));% %[tuned for 3D]
                     %S_weighting_unit = diag([1,1,1]);
                 else
-                    S_weighting_unit = diag([1,1]);% %[tuned for 2D]
+                    S_weighting_unit = diag(ones(3,1));% %[tuned for 3D]
                     % right now, use a unified weighting coeff for x
                     % direction regardless whether the brick enters the
                     % safety region. But it could be tuned to different
@@ -501,20 +501,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                 
-                %phi(1:2)
-                
-                %                 if any(abs(x(1:6)) > 2)
-                %                     disp('position is large')
-                %                 end
-                %
-                %                 if any(abs(x(7:12)) > 5)
-                %                     disp('position is large')
-                %                 end
-                %
-                %                 if any(abs(u) > 15)
-                %                     disp('u is large')
-                %                 end
-                
                 if 1 % info_fqp<0
                     %           disp('calling gurobi');
                     model.LCP_cache.data.fastqp_active_set = [];
@@ -540,11 +526,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 obj.LCP_cache.data.fastqp_active_set = active_set;
                 
                 mu_tolerance = 1e-5;
-                for i=1:num_active
-                    if abs(f(1+(i-1)*2)/f(i*2)) > mu(1) + mu_tolerance
-                        keyboard
-                    end
-                end
+%                 for i=1:num_active
+%                     if abs(f(1+(i-1)*2)/f(i*2)) > mu(1) + mu_tolerance
+%                         keyboard
+%                     end
+%                 end
                 
                 %f_vec = [f_vec,f];
                 
@@ -589,22 +575,22 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %f = V*(result_analytical);
                 %% end of checker
                 
-                %         vis=obj.constructVisualizer;
-                %         figure(25)
-                %         clf
-                %         vis.draw(t,x)
-                %         hold on;
-                %         plot(world_pts(1,:),world_pts(3,:),'mo');
-                %         ff = f/norm(f);
-                %
-                %         for jj=1:size(world_pts,2)
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                % %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                %           line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
-                %         end
-                %         hold off;
+%                 vis=obj.constructVisualizer;
+%                 figure(25)
+%                 clf
+%                 vis.draw(t,x)
+%                 hold on;
+%                 plot(world_pts(1,:),world_pts(3,:),'mo');
+%                 ff = f/norm(f);
+%                 
+%                 for jj=1:size(world_pts,2)
+%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
+%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
+%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+%                     %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+%                     line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
+%                 end
+%                 hold off;
                 
                 % update state at next time step
                 vn = v + Hinv*(tau*h + vToqdot'*J'*f);
@@ -631,7 +617,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 nP = 0;
                 nC = num_active;
-                mC = 1;%length(D);% 2D, normally mC = 2 for 3D;[tuned for 2D]
+                mC = 2;%length(D);% 2D, normally mC = 2 for 3D;[tuned for 3D]
                 
                 % derive jacobian
                 J_size = [nL + nP + (mC+1)*nC,num_q];
@@ -639,7 +625,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %lb = zeros(nL+nP+(mC+2)*nC,1);
                 %ub = Big*ones(nL+nP+(mC+2)*nC,1);
                 JD{1} = Jx;
-                %JD{2} = Jy;%[tuned for 2D]
+                JD{2} = Jy;%[tuned for 3D]
                 JD = vertcat(JD{:});
                 % just keep the likely contacts (and store data to check the unlikely):
                 %                 possible_limit_indices = [];% [Ye: to be modified for the checker]
@@ -708,12 +694,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
                     dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
                     dJx_reshape = reshape(dJx(:,i),num_q,[])';
-                    %dJy_reshape = reshape(dJy(:,i),num_q,[])';%[tuned for 2D]
+                    dJy_reshape = reshape(dJy(:,i),num_q,[])';%[tuned for 3D]
                     dJz_reshape = reshape(dJz(:,i),num_q,[])';
                     dJdq_tmp = [];
                     for j=1:nC
-                        %dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];%3D
-                        dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJz_reshape(j,:)];%[tuned for 2D]
+                        dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];%3D
+                        %dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJz_reshape(j,:)];%[tuned for 2D]
                     end
                     %dJdq(:,:,i) = dJdq_tmp;
                     dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 2D]

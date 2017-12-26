@@ -1,0 +1,2071 @@
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1111 of the Jacobian is empty.
+ ===>  WARNING - Column   1112 of the Jacobian is empty.
+ ===>  WARNING - Column   1113 of the Jacobian is empty.
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1167       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         0
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2283     Linear variables        13
+ Jacobian  variables      2283     Objective variables   1167
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1111 of the Jacobian is empty.
+ ===>  WARNING - Column   1112 of the Jacobian is empty.
+ ===>  WARNING - Column   1113 of the Jacobian is empty.
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1167       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2283     Linear variables        13
+ Jacobian  variables      2283     Objective variables   1167
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+ The user has defined   60755   out of   60755   first  derivatives
+
+ Cheap test of user-supplied problem derivatives...
+
+ The constraint gradients seem to be OK.
+
+ -->  The largest discrepancy was    1.12E-04  in constraint  2811
+ 
+
+ The objective  gradients seem to be OK.
+
+ Gradient projected in one direction   4.33089720976E-01
+ Difference approximation              4.33089717917E-01
+1
+ 
+
+    Itn       LPmult  LPstep   nInf   SumInf             LPobjective   +SBS   -SBS    -BS    Pivot     L+U ncp
+    115     -6.4E+04 3.8E-08    344  1.7E+03                            255    255   1957  1.3E+00    9642
+    215     -5.2E+03 1.4E-03    294  7.8E+02                            194    194   4309  1.1E+02   11866
+    315     -9.0E+01 5.9E-08    219  4.2E+02                            313    313   2002  8.3E-01   13838
+    415     -5.3E+00 7.4E-02     68  1.0E+02                           2183   2183   4236 -6.3E+00   16364
+    515     -1.0E+00 2.5E-01     32  3.4E+01                           1177   1177   1930 -1.0E+00   17151
+    615     -7.5E+00 1.5E-07     14  1.0E+01                           1861   1861   2992 -3.4E-01   17609
+    715      3.4E+00 5.7E-04      1  7.3E-01                           2647   2647   2797  2.7E+00   17382
+    815     -1.0E+05 1.4E-02                           2.6800111E+06   1915   1915   1914  1.0E+00   19560
+    915     -2.8E+04 4.5E-01                  2.5E+03  9.9470637E+05   1422   1422   4662 -9.4E-02   22241         2 3.8E+00
+   1015     -1.2E+04 6.0E-09                  1.3E-06  5.6464234E+05   2139   2139   2140  1.0E+00   21274         8 1.9E+04
+   1115     -7.5E+03 1.0E+00                  1.2E-08  3.7949701E+05   2069                          20838        18 7.7E+03
+   1215      6.6E+04 9.3E-01                  4.6E+03  3.1389806E+05   2782   2857        -3.9E-02   24681   1    27 4.7E+05
+   1315              1.0E+00                  9.5E-09  2.5575997E+05                                 21812        30 5.6E+05
+   1415     -2.1E+03 3.9E-02                  1.7E+01  2.1199148E+05   1891   1891   1890  1.0E+00   22168        44 2.6E+05
+   1515              1.0E+00                  1.4E-07  1.7848531E+05                                 21855        46 4.8E+05
+   1615              1.0E+00                  2.5E-08  1.5257729E+05                                 26480   1    47 1.9E+04
+   1715      4.3E+03 1.0E+00                  8.0E-09  1.3515411E+05   3007                          24555        55 1.1E+06
+   1815      8.3E+03 1.3E-02                  4.4E+02  1.1610139E+05   3007   3007   2180 -3.7E+00   24452        59 1.9E+04
+   1915              1.0E+00                  6.9E-08  1.0011720E+05                                 22218        75 1.0E+05
+   2015              1.0E+00                  1.7E-08  9.0146352E+04                                 25505        83 8.5E+04
+   2115     -1.2E+02 5.1E-02                  3.6E+01  8.6130713E+04   1381   1381   2804 -1.4E+00   26076        99 1.6E+05
+   2215      7.8E+01 2.4E-01                  4.9E+02  7.5092495E+04    122    122   4584  5.5E-02   32417   1   113 1.8E+04
+   2315              1.0E+00                  2.2E-07  7.1146833E+04                                 25977       135 6.0E+03
+   2415              1.0E+00                  3.1E-08  6.7589440E+04                                 27651       161 1.6E+04
+   2515     -3.7E+01 1.0E+00                  1.6E-05  6.4404222E+04   1916                          29168   1   192 1.1E+04
+ 
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   2590     0   2575              1  3.4E-01  1.3E-03  6.9000000E+02   30127          217 2.3E+05         _  r  T
+
+    Itn       LPmult  LPstep   nInf   SumInf             LPobjective   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+   2690              4.5E+03      1  1.1E+00  6.5E-05                          576   2118  3.9E-01   34660   1   117
+   2790              1.1E+04      1  1.1E+00  8.5E-05                         1080   1831 -3.5E-01   36173        17
+   2890     -1.6E+07 8.1E-01                  3.1E+06  1.8742812E+07   2105   2222   2655 -1.5E+01   30980         5 4.9E+02
+   2990      7.0E+06 1.0E+00                  5.5E-03  1.2149211E+07   2782                          33357        15 6.7E+03
+   3090              1.0E+00                  1.1E-06  8.3432192E+06                                 30564        25 9.1E+06
+   3190              1.0E+00                  3.1E-08  6.0491944E+06                                 34485        30 5.0E+05
+   3290              1.0E+00                  1.1E-04  4.8443949E+06                                 30520        38 4.5E+06
+   3390              1.0E+00                  3.4E-05  4.0193026E+06                                 33261        49 4.7E+06
+   3490      2.7E+04 1.0E+00                  4.7E-04  3.7236518E+06   3112                          35065        55 6.8E+06
+   3590      1.7E+04 1.0E+00                  3.2E-05  2.9354960E+06   2752                          28869        64 6.7E+06
+   3690              5.0E-01                  2.1E+03  2.1869418E+06           687   1612  1.0E+00   30606        70 7.9E+06
+   3790      4.4E+03 1.0E+00                  4.3E-04  1.6229664E+06   1864                          32675        81 8.2E+06
+   3890              1.0E+00                  4.2E-08  1.4194152E+06                                 29730        87 9.4E+05
+   3990      1.3E+04 3.1E-05                  1.3E+04  1.2610232E+06   2872   2126         1.6E-03   30802       100 1.1E+06
+   4090      1.9E+03 1.0E+00                  2.6E-05  1.1791909E+06   2876                          31333       118 5.3E+05
+   4190              5.9E-01                  2.4E+02  1.0882560E+06          1252         6.0E+00   31898       137 7.1E+05
+   4290              1.0E+00                  7.6E-07  1.0042973E+06                                 33625       157 9.9E+08
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   4359     1   1769 1.7E-02      2  3.4E-01  8.8E-02  4.1498509E+06   24335          174 4.1E+03 1.7E+00 _n rl
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+   4459              4.7E-01                  1.0E+00  2.1355228E+03          1400         7.1E-01   33415        78 4.0E+03
+   4559              1.0E+00                  1.7E-07  1.0234223E+03                                 34249        62 2.6E+04
+   4659      1.6E+01 1.0E+00                  1.6E-06  9.4862329E+02   3089                          30246        65 8.1E+06
+   4759      7.2E+01 4.5E-05                  7.2E+01  9.0414460E+02   3292   1907   4584 -4.6E+00   33283        73 1.5E+06
+   4859     -2.1E+00 1.4E-02                  1.0E-09  8.3098461E+02   1935   1935   2430 -1.2E-01   30616        81 5.4E+05
+   4959              1.0E+00                  8.1E-07  8.0470457E+02                                 33541        87 3.8E+05
+   5059      2.6E+00 1.0E+00                  3.7E-07  7.7791250E+02   3217                          30353        93 2.7E+05
+   5159              1.0E+00                  1.8E-09  7.6123665E+02                                 32662        97 4.2E+05
+   5259              1.0E+00                  1.6E-08  7.3202903E+02                                 36422        99 8.5E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   5320     2    961 1.7E-02      4  3.3E-01  1.5E+00  2.0270615E+06   33153          100 8.8E+05 1.7E+00 _sM l
+
+    Itn       LPmult  LPstep   nInf   SumInf           Elastic LPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+   5420              5.3E+02    171  2.5E+02  1.8E-03                          935   2088 -3.7E-02   31187         1
+   5520      1.8E+02 2.8E-10    120  6.3E+01                           3084   3084   3085 -1.0E+00   29437
+   5620     -1.4E+01 2.0E-08     88  1.1E+01                           4352   4352   4065 -1.7E-01   31267
+   5720      8.5E+06 6.6E-03     71  3.9E+00           2.4996548E+06   3345   3345   4389 -5.3E+00   31489
+   5820      5.9E+06 5.9E-03     56  2.1E+00           1.4330852E+06   4804   4804   2827  1.1E+01   29779
+   5920              1.0E+00     43  1.5E+00  9.8E-08  1.0905981E+06                                 30726         1 2.1E+08
+   6020     -1.1E+07 2.0E-02     27  9.0E-01           7.2726926E+05   2392   2392   3127 -9.0E+00   34112
+   6120     -1.1E+05 5.3E-03     20  6.8E-01  3.0E+05  5.7892020E+05   2063   2063   3277 -1.9E-01   38498         2 1.9E+02
+   6220              1.0E+00     19  6.0E-01  1.5E-06  5.3573209E+05                                 35679         2 2.0E+00
+   6320              1.0E+00     14  4.1E-01  7.3E-03  4.2493740E+05                                 32898         2 6.0E+08
+   6420     -1.1E+05 2.9E-02     13  3.7E-01  9.1E+05  3.9545585E+05   2231   2231   3157 -8.9E-01   31889         2 1.3E+10
+   6520     -2.0E+06 2.6E-02     13  3.4E-01  2.8E-01  3.6677139E+05   2497   2497   2482 -1.4E+00   31654         2 6.1E+00
+   6620      8.5E+04 3.7E-01      8  2.9E-01  5.3E+04  3.4041376E+05   2797   2797   2936  3.9E+00   36494         2 1.1E+01
+   6720     -1.9E+05 1.0E+00      7  2.2E-01  4.2E-04  2.7343641E+05   2797                          32265         4 1.4E+09
+   6820              1.0E+00      6  1.8E-01  3.4E-07  2.4520071E+05                                 32210         3 1.7E+12
+   6920              1.0E+00      7  9.6E-02  7.7E-08  1.9686700E+05                                 30335         3 3.9E+11
+   7020      1.2E+04 1.3E-02      1  5.5E-02  1.2E+04  1.6906789E+05   3086   2962   3176 -1.6E+00   32507         3 2.2E+08
+   7120              1.0E+00      4  6.1E-02  8.6E-09  1.1282841E+05                                 37383         4 1.8E+10
+   7220              1.7E-01      1  5.2E-02  2.3E+04  9.9265732E+04          2696   1228 -9.7E+00   31680         5 5.2E+08
+   7320              1.0E+00      2  3.4E-03  1.7E-07  5.9975565E+04                                 35326         4 2.1E+12
+   7420      3.1E+04 1.0E+00                  5.6E-08  4.6195616E+04   3322                          37494         3 9.1E+07
+   7520      5.2E+03 1.0E+00                  1.3E-08  3.2220152E+04   3067                          35440         8 5.8E+07
+   7620              1.0E+00                  4.8E-09  2.7115777E+04                                 38400        10 6.8E+07
+   7720      3.7E+03 5.8E-01                  1.5E+03  2.3039909E+04   2992   4600   3322  3.8E-01   38568        13 2.6E+08
+   7820              3.2E-01                  3.5E+02  2.1197789E+04          1324   3277 -2.0E-02   35953        13 2.5E+06
+   7920              1.0E+00                  1.8E-05  1.9770704E+04                                 38268        13 1.3E+05
+   8020              1.0E+00                  9.4E-09  1.8004590E+04                                 36104        10 2.2E+08
+   8120              1.0E+00                  3.7E-13  1.7490677E+04                                 32811        14 4.6E+02
+   8220              1.0E+00                  1.4E-10  1.6992774E+04                                 37037        17 1.8E+07
+   8320      5.8E+01 6.4E-01                  2.4E-01  1.6237890E+04   2662   2662   2467  3.6E-01   35426        21 1.7E+03
+   8420     -3.0E+03 1.0E+00                  1.7E-06  1.2692799E+04   2117                          32600        17 6.8E+06
+   8520              1.0E+00                  5.3E-07  1.1610923E+04                                 35227        20 2.3E+07
+   8620     -2.1E+01 9.1E-03                  6.1E+01  1.1388651E+04   1543   1543   3097 -6.1E-02   32540        21 1.6E+07
+   8720              1.0E+00                  6.2E-11  1.1011136E+04                                 33412        25 1.3E+07
+   8820              4.9E-01                  8.5E+00  6.5123161E+03          2288   3311 -5.9E-01   38078        21 2.9E+06
+   8920     -1.2E+03 2.7E-01                  8.8E+02  2.6049897E+03   1904   2872   2392  1.6E+00   35638        19 1.2E+08
+   9020      9.4E+01 4.5E-04                  9.4E+01  2.0115981E+03   2741   3187   2872  5.4E-01   32631        25 2.2E+06
+   9120              1.0E+00                  1.2E-08  1.8138656E+03                                 34728        30 1.3E+05
+   9220      1.5E+01 2.1E-01                  1.2E+01  1.6512881E+03   1011   2872        -4.8E-03   31848        33 9.5E+04
+   9320      2.7E+01 5.8E-07                  1.3E-10  1.4922638E+03   2400   2400   4602  4.6E+00   34521        37 1.1E+06
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+   9420     -6.4E+00 2.3E-02                  6.3E+00  1.3577770E+03   2001   2595        -1.4E+01   32585        39 3.5E+06
+   9520      2.2E+02 1.0E+00                  8.1E-10  1.2216305E+03   3277                          31733        38 2.5E+07
+   9620              1.0E+00                  6.5E-11  1.0942044E+03                                 34727        36 4.1E+07
+   9720     -3.7E+00 2.6E-01                  2.7E+00  1.0351894E+03   2166   1904   2348  9.5E-02   37451        42 1.7E+07
+   9820              1.0E+00                  3.4E-10  9.7405310E+02                                 33974        46 1.5E+07
+   9920              1.0E+00                  2.8E-05  9.1783866E+02                                 36433        47 1.0E+07
+  10020     -6.5E+00 3.9E-01                  4.0E+00  7.9883264E+02   1937   1919         1.7E-02   36217        49 2.3E+06
+  10120              1.0E+00                  1.2E-11  7.6351875E+02                                 41313   1    50 1.1E+06
+  10220      4.0E+00 1.0E+00                  5.6E-08  7.4100206E+02   4596                          35815        54 5.0E+05
+  10320              1.0E+00                  8.4E-05  7.1358130E+02                                 39281   1    53 1.4E+06
+  10420      1.7E+00 5.7E-05                  1.7E+00  6.2376943E+02    900   1624   4851  2.6E-04   35009        60 1.9E+05
+  10520              1.0E+00                  1.2E-07  5.9092568E+02                                 31195        60 3.8E+04
+  10620              1.0E+00                  2.1E-09  5.5784341E+02                                 35161        64 3.5E+07
+  10720      1.2E+03 1.0E+00                  3.8E-08  5.1677569E+02   4600                          32153        69 5.6E+08
+  10820              1.0E+00                  1.8E-07  4.7062054E+02                                 36229        77 1.1E+05
+  10920              1.0E+00                  1.3E-10  4.5218026E+02                                 39657   1    82 8.8E+05
+  11020              1.0E+00                  5.9E-11  4.3036918E+02                                 35325        85 2.5E+05
+  11120              1.0E+00                  3.2E-10  4.0167727E+02                                 40125   1    95 1.7E+05
+  11220              1.0E+00                  1.0E-07  3.7972165E+02                                 37158        96 2.3E+06
+  11320     -3.9E-01 1.2E-01                  3.4E-01  3.6316546E+02   2070   1327   2774 -9.3E-02   41713   1   107 1.5E+06
+  11420              1.0E+00                  5.0E-11  3.5140647E+02                                 32453       115 1.4E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+  11481     3   6161 1.0E+00      5  4.9E-01  2.2E-01  2.8946410E+03   34400    61    122 2.7E+04 1.7E+00 _
+
+    Itn       LPmult  LPstep   nInf   SumInf           Elastic LPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+  11581              7.2E+02     52  1.8E+01  4.6E-02                         1015   1388            35426        22
+  11681     -7.2E+06 1.8E-06     26  7.5E-01  7.6E-07  4.8178640E+05   2650   2650   2653 -1.0E+00   40184         1 3.1E+09
+  11781              1.0E+00     17  1.4E-01  9.6E-07  1.2682899E+05                                 41288         1 2.5E+09
+  11881              1.0E+00     15  8.2E-02  3.3E-05  8.0585902E+04                                 44449         3 1.3E+02
+  11981              1.0E+00      1  3.0E-03  9.1E-09  2.8276475E+04                                 43730         3 7.9E+07
+  12081              8.4E-01                  3.1E+03  1.2356344E+04          1937   2142  9.7E+01   41135         9 8.2E+09
+  12181      1.4E+04 8.2E-02                  1.3E+04  7.5139329E+03   3142   4706   2282  8.3E+00   46004   1    13 1.3E+11
+  12281     -2.5E+03 2.8E-02                  2.4E+03  4.0654638E+03   2252   2219         4.5E-02   42591        20 6.2E+07
+  12381              1.0E+00                  1.0E-07  2.6461174E+03                                 38554        19 4.5E+07
+  12481              1.0E+00                  5.2E-09  1.8456143E+03                                 45410        26 2.6E+08
+  12581              1.0E+00                  3.1E-06  1.4791869E+03                                 38601        26 6.4E+07
+  12681      1.3E+02 3.1E-01                  9.2E+01  1.2187024E+03   3098   3116   4794  3.7E+00   41506        30 4.0E+07
+  12781      2.3E+02 1.0E+00                  3.8E-06  9.6537415E+02   3277                          37889        30 7.7E+08
+  12881              1.0E+00                  5.9E-07  7.8512802E+02                                 42510        36 1.1E+10
+  12981      2.1E+01 1.1E-01                  9.7E-01  3.5662656E+02   4742   4742   2527  2.5E-02   34330        42 4.1E+03
+  13081              1.0E+00                  4.3E-11  2.3043989E+02                                 38466        40 3.4E+06
+  13181              1.5E-05                  1.3E+01  5.7425828E+01          2422   1868 -2.6E-01   43767   1    40 1.4E+05
+  13281              4.3E-05                  1.9E+01  8.7210861E+00          2936   3112 -8.0E-01   48396   2    39 2.8E+07
+  13381              1.0E+00                  2.8E-09 -1.3830540E+02                                 43046        46 6.3E+07
+  13481              1.0E+00                  7.5E-10 -3.5084404E+02                                 47242   1    46 8.9E+06
+  13581              1.0E+00                  7.1E-10 -4.6986979E+02                                 37932        48 1.1E+07
+  13681              1.0E+00                  1.6E-09 -5.3565673E+02                                 36460        48 5.8E+06
+  13781              1.0E+00                  8.8E-11 -6.1011371E+02                                 41666        54 1.7E+07
+  13881      7.2E+00 1.0E+00                  3.5E-08 -6.5353656E+02   4580                          37880        54 3.4E+06
+  13981              1.0E+00                  4.1E-04 -8.4106891E+02                                 42732   1    52 7.7E+06
+  14081              1.0E+00                  1.2E-09 -9.3594862E+02                                 40451        51 1.5E+06
+  14181              1.0E+00                  2.3E-11 -1.0443559E+03                                 46659   1    44 6.7E+03
+  14281              2.8E-01                  3.4E+01 -1.1709278E+03          2228   2126 -9.5E-02   42219        43 4.9E+07
+  14381              1.0E+00                  2.3E-12 -1.2287774E+03                                 39858        48 5.8E+04
+  14481              1.0E+00                  3.2E-11 -1.4258248E+03                                 45487   1    49 1.2E+06
+  14581              1.0E+00                  1.2E-12 -1.4367741E+03                                 39113        53 1.0E+06
+  14681      1.2E+01 4.1E-01                  7.2E+00 -1.5008501E+03   3112   1844   3097 -5.5E-01   46820   1    48 2.8E+06
+  14781      1.4E+01 1.0E+00                  8.8E-05 -1.5268348E+03   2632                          50106   1    54 3.5E+06
+  14881              1.0E+00                  2.2E-10 -1.5627446E+03                                 44365        53 2.1E+07
+  14981              1.0E+00                  9.1E-05 -1.6335511E+03                                 49562        58 4.2E+06
+  15081      4.7E+00 1.0E+00                  4.0E-08 -1.6716594E+03   3011                          43334        59 3.7E+06
+  15181              1.0E+00                  1.3E-11 -1.7242104E+03                                 47840   1    58 4.0E+05
+  15281              1.0E+00                  4.7E-11 -1.7582160E+03                                 39998        54 2.4E+05
+  15381      8.3E+02 1.0E+00                  5.1E-08 -1.7980311E+03   4851                          43849   1    60 4.6E+08
+  15481      1.1E+02 1.0E+00                  7.8E-05 -1.8533696E+03   2992                          41239        62 2.8E+06
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+  15581              1.0E+00                  1.0E-08 -1.8987082E+03                                 35366        67 5.4E+06
+  15681      2.0E+01 6.4E-02                  1.8E+01 -1.9298863E+03   3011   2677   3041  2.8E-01   41481        64 1.7E+06
+  15781              1.0E+00                  3.4E-10 -1.9647978E+03                                 43395   1    74 2.0E+06
+  15881              7.7E-01                  3.9E-02 -1.9979370E+03          1066   2003 -5.5E-01   50383   1    74 1.6E+04
+  15981      1.7E+01 5.5E-01                  7.7E-02 -2.0376497E+03   2519   2519   1968 -2.1E+00   42880        84 1.2E+06
+  16081     -6.5E-01 1.3E-08                  1.6E-10 -2.0694491E+03   1279   1279   2607 -9.8E-01   50206   1    90 1.7E+05
+  16181              1.0E+00                  1.5E-07 -2.0948532E+03                                 41177        99 5.0E+05
+  16281     -3.5E-01 1.0E+00                  2.6E-07 -2.1105790E+03   2119                          45677   2   111 7.5E+04
+  16381              1.0E+00                  2.5E-11 -2.1187839E+03                                 38615       122 3.0E+05
+  16481              1.0E+00                  2.0E-10 -2.1274959E+03                                 42715   1   143 3.6E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+  16500     4   5019 1.0E+00      6  7.9E-02  9.9E-02  2.1517507E+03   39668    55    143 2.6E+05 1.7E+00 _     T
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+  16600              4.8E-05      8  1.6E+00  3.2E+04  1.0201628E+06           913   2372  1.8E-03   41179   1    46 3.3E+05
+  16700              1.0E+00      8  1.2E-01  2.1E-06  1.3779159E+05                                 39312        12 2.8E+11
+  16800              1.0E+00      4  1.3E-02  2.8E-06  5.5723858E+04                                 35875        12 3.7E+10
+  16900      3.4E+04 6.8E-03                  3.4E+04  3.6155733E+04   3101   1435   3105 -4.4E-01   38999        19 7.1E+09
+  17000              1.0E+00                  1.0E-08  3.0967422E+04                                 37560        23 8.7E+08
+  17100      9.4E+03 1.6E-01                  7.9E+03  2.8158791E+04   2423   2512   4628 -2.5E+01   45222        24 1.6E+08
+  17200              1.0E+00                  3.1E-06  2.5238791E+04                                 36395        27 3.7E+10
+  17300     -1.0E+03 6.3E-02                  9.8E+02  2.3594844E+04   1931   2969   2175  9.8E-01   39182        33 3.6E+09
+  17400              1.0E+00                  2.0E-08  2.0410272E+04                                 40720        31 3.4E+08
+  17500              1.0E+00                  3.3E-12  1.6994447E+04                                 39382        28 8.1E+01
+  17600              1.0E+00                  1.6E-08  1.4562028E+04                                 34669        31 3.3E+08
+  17700      4.6E+03 1.0E+00                  1.1E-05  1.2061152E+04   3157                          38127        35 1.3E+09
+  17800      1.6E+03 1.0E+00                  7.6E-09  1.0116719E+04   2992                          34426        36 4.1E+07
+  17900              1.0E+00                  4.1E-09  7.4916686E+03                                 37186        40 8.9E+09
+  18000      7.9E+03 1.0E+00                  6.5E-03  6.8291383E+03   3204                          39925        44 9.4E+07
+  18100      6.5E+02 2.4E-01                  5.0E+02  5.7771610E+03   4695   3307   2111  8.7E-02   35255        42 1.1E+05
+  18200              1.0E+00                  3.2E-09  4.0362780E+03                                 33900        43 2.8E+08
+  18300      7.1E+03 1.4E-01                  3.2E+01  2.9889439E+03   2798   2798   1846 -2.0E+00   36961        41 3.3E+07
+  18400      9.9E+01 1.0E+00                  2.9E-03  2.7171453E+03   3041                          34770        48 1.1E+08
+  18500      1.6E+03 6.5E-01                  5.6E+02  2.2716549E+03   2677   1955   2753 -1.6E-01   38309        49 2.2E+07
+  18600              1.0E+00                  2.3E-09  1.8652706E+03                                 35880        52 6.4E+06
+  18700              4.2E-01                  4.8E+01  1.5367451E+03          1195   2966 -1.6E-02   39373        49 2.6E+05
+  18800              1.0E+00                  1.8E-06  1.3577648E+03                                 32228        58 1.3E+08
+  18900      8.7E+02 1.0E+00                  2.8E-06  8.8702538E+02   2309                          37995        54 3.9E+08
+  19000              1.0E+00                  1.3E-07  6.2150320E+02                                 37841        53 3.1E+08
+  19100              1.0E+00                  2.2E-10  3.7380989E+02                                 32911        59 5.5E+05
+  19200              1.0E+00                  2.1E-09  1.3249147E+02                                 36827        61 3.0E+06
+  19300              1.0E+00                  9.5E-09 -2.2583033E+02                                 35863        58 3.9E+08
+  19400              1.0E+00                  3.7E-05 -2.8583675E+02                                 38052        62 3.5E+08
+  19500              1.0E+00                  7.6E-08 -4.4044678E+02                                 36072        60 3.4E+07
+  19600              1.0E+00                  5.9E-06 -5.8643065E+02                                 32957        62 4.5E+08
+  19700      3.1E+01 1.0E+00                  3.9E-07 -7.8588196E+02   2695                          36754        67 5.7E+06
+  19800              1.0E+00                  1.6E-05 -9.8629669E+02                                 40112        71 2.7E+07
+  19900      4.2E+00 1.1E-02                  4.2E+00 -1.0539918E+03   4721   4592   2849 -4.2E+00   34085        72 3.9E+06
+  20000              1.0E+00                  7.0E+03 -1.1731225E+03                                 36713        70 6.1E+06
+  20100              1.0E+00                  8.0E-11 -1.2949288E+03                                 32508        71 6.7E+06
+  20200              1.0E+00                  1.1E-09 -1.4737357E+03                                 36260        74 6.9E+06
+  20300              1.0E+00                  1.6E-12 -1.6151486E+03                                 35114        75 3.2E+05
+  20400              1.0E+00                  1.0E-10 -1.6828003E+03                                 40588   1    78 3.3E+05
+  20500              1.0E+00                  1.2E-10 -1.7806669E+03                                 35865        86 8.7E+05
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+  20600              1.0E+00                  7.9E-08 -1.8762220E+03                                 39418        90 3.3E+05
+  20700      1.9E+00 1.0E+00                  2.5E-08 -1.9256752E+03   2497                          34343        94 4.4E+05
+  20800              1.0E+00                  2.3E-11 -1.9698608E+03                                 38371       104 9.9E+07
+  20900     -2.7E+00 1.4E-01                  2.3E+00 -2.0225313E+03   1125   2317        -2.0E-02   35366       108 1.1E+06
+  21000              1.0E+00                  8.5E-10 -2.0587998E+03                                 38891   1   112 1.1E+06
+  21100      7.0E-01 6.4E-05                  7.0E-01 -2.0842593E+03   2528   4635        -7.6E-04   33357       124 3.3E+05
+  21200              1.0E+00                  9.8E-11 -2.1122748E+03                                 35354       135 7.5E+05
+  21300              1.0E+00                  1.5E-11 -2.1321822E+03                                 31925       144 7.9E+05
+  21400     -3.0E-01 9.6E-07                  6.4E-11 -2.1513981E+03   2074   2074   4702 -7.9E-03   34967       159 1.6E+06
+  21500              1.0E+00                  1.9E-05 -2.1755310E+03                                 37586       177 2.3E+06
+  21600     -1.2E-01 1.3E-03                  1.6E-03 -2.1823411E+03   1733   1733   2747 -3.7E+00   32067       199 2.1E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+  21662     5   5162 1.5E-01      8  6.9E-02  1.1E-01  1.6246577E+03   32034          209 6.7E+05 1.7E+00 _     T
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1111 of the Jacobian is empty.
+ ===>  WARNING - Column   1112 of the Jacobian is empty.
+ ===>  WARNING - Column   1113 of the Jacobian is empty.
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1167       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2283     Linear variables        13
+ Jacobian  variables      2283     Objective variables   1167
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+ The user has defined   60755   out of   60755   first  derivatives
+
+ Cheap test of user-supplied problem derivatives...
+
+ The constraint gradients seem to be OK.
+
+ -->  The largest discrepancy was    1.12E-04  in constraint  2811
+ 
+
+ The objective  gradients seem to be OK.
+
+ Gradient projected in one direction   4.33089720976E-01
+ Difference approximation              4.33089717917E-01
+1
+ 
+
+    Itn       LPmult  LPstep   nInf   SumInf             LPobjective   +SBS   -SBS    -BS    Pivot     L+U ncp
+    115     -6.4E+04 3.8E-08    344  1.7E+03                            255    255   1957  1.3E+00    9642
+    215     -5.2E+03 1.4E-03    294  7.8E+02                            194    194   4309  1.1E+02   11866
+    315     -9.0E+01 5.9E-08    219  4.2E+02                            313    313   2002  8.3E-01   13838
+    415     -5.3E+00 7.4E-02     68  1.0E+02                           2183   2183   4236 -6.3E+00   16364
+    515     -1.0E+00 2.5E-01     32  3.4E+01                           1177   1177   1930 -1.0E+00   17151
+    615     -7.5E+00 1.5E-07     14  1.0E+01                           1861   1861   2992 -3.4E-01   17609
+    715      3.4E+00 5.7E-04      1  7.3E-01                           2647   2647   2797  2.7E+00   17382
+    815     -1.0E+05 1.4E-02                           2.6800111E+06   1915   1915   1914  1.0E+00   19560
+    915     -2.8E+04 4.5E-01                  2.5E+03  9.9470637E+05   1422   1422   4662 -9.4E-02   22241         2 3.8E+00
+   1015     -1.2E+04 6.0E-09                  1.3E-06  5.6464234E+05   2139   2139   2140  1.0E+00   21274         8 1.9E+04
+   1115     -7.5E+03 1.0E+00                  1.2E-08  3.7949701E+05   2069                          20838        18 7.7E+03
+   1215      6.6E+04 9.3E-01                  4.6E+03  3.1389806E+05   2782   2857        -3.9E-02   24681   1    27 4.7E+05
+   1315              1.0E+00                  9.5E-09  2.5575997E+05                                 21812        30 5.6E+05
+   1415     -2.1E+03 3.9E-02                  1.7E+01  2.1199148E+05   1891   1891   1890  1.0E+00   22168        44 2.6E+05
+   1515              1.0E+00                  1.4E-07  1.7848531E+05                                 21855        46 4.8E+05
+   1615              1.0E+00                  2.5E-08  1.5257729E+05                                 26480   1    47 1.9E+04
+   1715      4.3E+03 1.0E+00                  8.0E-09  1.3515411E+05   3007                          24555        55 1.1E+06
+   1815      8.3E+03 1.3E-02                  4.4E+02  1.1610139E+05   3007   3007   2180 -3.7E+00   24452        59 1.9E+04
+   1915              1.0E+00                  6.9E-08  1.0011720E+05                                 22218        75 1.0E+05
+   2015              1.0E+00                  1.7E-08  9.0146352E+04                                 25505        83 8.5E+04
+   2115     -1.2E+02 5.1E-02                  3.6E+01  8.6130713E+04   1381   1381   2804 -1.4E+00   26076        99 1.6E+05
+   2215      7.8E+01 2.4E-01                  4.9E+02  7.5092495E+04    122    122   4584  5.5E-02   32417   1   113 1.8E+04
+   2315              1.0E+00                  2.2E-07  7.1146833E+04                                 25977       135 6.0E+03
+   2415              1.0E+00                  3.1E-08  6.7589440E+04                                 27651       161 1.6E+04
+   2515     -3.7E+01 1.0E+00                  1.6E-05  6.4404222E+04   1916                          29168   1   192 1.1E+04
+ 
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   2590     0   2575              1  3.4E-01  1.3E-03  6.9000000E+02   30127          217 2.3E+05         _  r  T
+
+    Itn       LPmult  LPstep   nInf   SumInf             LPobjective   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+   2690              4.5E+03      1  1.1E+00  6.5E-05                          576   2118  3.9E-01   34660   1   117
+   2790              1.1E+04      1  1.1E+00  8.5E-05                         1080   1831 -3.5E-01   36173        17
+   2890     -1.6E+07 8.1E-01                  3.1E+06  1.8742812E+07   2105   2222   2655 -1.5E+01   30980         5 4.9E+02
+   2990      7.0E+06 1.0E+00                  5.5E-03  1.2149211E+07   2782                          33357        15 6.7E+03
+   3090              1.0E+00                  1.1E-06  8.3432192E+06                                 30564        25 9.1E+06
+   3190              1.0E+00                  3.1E-08  6.0491944E+06                                 34485        30 5.0E+05
+   3290              1.0E+00                  1.1E-04  4.8443949E+06                                 30520        38 4.5E+06
+   3390              1.0E+00                  3.4E-05  4.0193026E+06                                 33261        49 4.7E+06
+   3490      2.7E+04 1.0E+00                  4.7E-04  3.7236518E+06   3112                          35065        55 6.8E+06
+   3590      1.7E+04 1.0E+00                  3.2E-05  2.9354960E+06   2752                          28869        64 6.7E+06
+   3690              5.0E-01                  2.1E+03  2.1869418E+06           687   1612  1.0E+00   30606        70 7.9E+06
+   3790      4.4E+03 1.0E+00                  4.3E-04  1.6229664E+06   1864                          32675        81 8.2E+06
+   3890              1.0E+00                  4.2E-08  1.4194152E+06                                 29730        87 9.4E+05
+   3990      1.3E+04 3.1E-05                  1.3E+04  1.2610232E+06   2872   2126         1.6E-03   30802       100 1.1E+06
+   4090      1.9E+03 1.0E+00                  2.6E-05  1.1791909E+06   2876                          31333       118 5.3E+05
+   4190              5.9E-01                  2.4E+02  1.0882560E+06          1252         6.0E+00   31898       137 7.1E+05
+   4290              1.0E+00                  7.6E-07  1.0042973E+06                                 33625       157 9.9E+08
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   4359     1   1769 1.7E-02      2  3.4E-01  8.8E-02  4.1498509E+06   24335          174 4.1E+03 1.7E+00 _n rl
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+   4459              4.7E-01                  1.0E+00  2.1355228E+03          1400         7.1E-01   33415        78 4.0E+03
+   4559              1.0E+00                  1.7E-07  1.0234223E+03                                 34249        62 2.6E+04
+   4659      1.6E+01 1.0E+00                  1.6E-06  9.4862329E+02   3089                          30246        65 8.1E+06
+   4759      7.2E+01 4.5E-05                  7.2E+01  9.0414460E+02   3292   1907   4584 -4.6E+00   33283        73 1.5E+06
+   4859     -2.1E+00 1.4E-02                  1.0E-09  8.3098461E+02   1935   1935   2430 -1.2E-01   30616        81 5.4E+05
+   4959              1.0E+00                  8.1E-07  8.0470457E+02                                 33541        87 3.8E+05
+   5059      2.6E+00 1.0E+00                  3.7E-07  7.7791250E+02   3217                          30353        93 2.7E+05
+   5159              1.0E+00                  1.8E-09  7.6123665E+02                                 32662        97 4.2E+05
+   5259              1.0E+00                  1.6E-08  7.3202903E+02                                 36422        99 8.5E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+   5320     2    961 1.7E-02      4  3.3E-01  1.5E+00  2.0270615E+06   33153          100 8.8E+05 1.7E+00 _sM l
+
+    Itn       LPmult  LPstep   nInf   SumInf           Elastic LPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+   5420              5.3E+02    171  2.5E+02  1.8E-03                          935   2088 -3.7E-02   31187         1
+   5520      1.8E+02 2.8E-10    120  6.3E+01                           3084   3084   3085 -1.0E+00   29437
+   5620     -1.4E+01 2.0E-08     88  1.1E+01                           4352   4352   4065 -1.7E-01   31267
+   5720      8.5E+06 6.6E-03     71  3.9E+00           2.4996548E+06   3345   3345   4389 -5.3E+00   31489
+   5820      5.9E+06 5.9E-03     56  2.1E+00           1.4330852E+06   4804   4804   2827  1.1E+01   29779
+   5920              1.0E+00     43  1.5E+00  9.8E-08  1.0905981E+06                                 30726         1 2.1E+08
+   6020     -1.1E+07 2.0E-02     27  9.0E-01           7.2726926E+05   2392   2392   3127 -9.0E+00   34112
+   6120     -1.1E+05 5.3E-03     20  6.8E-01  3.0E+05  5.7892020E+05   2063   2063   3277 -1.9E-01   38498         2 1.9E+02
+   6220              1.0E+00     19  6.0E-01  1.5E-06  5.3573209E+05                                 35679         2 2.0E+00
+   6320              1.0E+00     14  4.1E-01  7.3E-03  4.2493740E+05                                 32898         2 6.0E+08
+   6420     -1.1E+05 2.9E-02     13  3.7E-01  9.1E+05  3.9545585E+05   2231   2231   3157 -8.9E-01   31889         2 1.3E+10
+   6520     -2.0E+06 2.6E-02     13  3.4E-01  2.8E-01  3.6677139E+05   2497   2497   2482 -1.4E+00   31654         2 6.1E+00
+   6620      8.5E+04 3.7E-01      8  2.9E-01  5.3E+04  3.4041376E+05   2797   2797   2936  3.9E+00   36494         2 1.1E+01
+   6720     -1.9E+05 1.0E+00      7  2.2E-01  4.2E-04  2.7343641E+05   2797                          32265         4 1.4E+09
+   6820              1.0E+00      6  1.8E-01  3.4E-07  2.4520071E+05                                 32210         3 1.7E+12
+   6920              1.0E+00      7  9.6E-02  7.7E-08  1.9686700E+05                                 30335         3 3.9E+11
+   7020      1.2E+04 1.3E-02      1  5.5E-02  1.2E+04  1.6906789E+05   3086   2962   3176 -1.6E+00   32507         3 2.2E+08
+   7120              1.0E+00      4  6.1E-02  8.6E-09  1.1282841E+05                                 37383         4 1.8E+10
+   7220              1.7E-01      1  5.2E-02  2.3E+04  9.9265732E+04          2696   1228 -9.7E+00   31680         5 5.2E+08
+   7320              1.0E+00      2  3.4E-03  1.7E-07  5.9975565E+04                                 35326         4 2.1E+12
+   7420      3.1E+04 1.0E+00                  5.6E-08  4.6195616E+04   3322                          37494         3 9.1E+07
+   7520      5.2E+03 1.0E+00                  1.3E-08  3.2220152E+04   3067                          35440         8 5.8E+07
+   7620              1.0E+00                  4.8E-09  2.7115777E+04                                 38400        10 6.8E+07
+   7720      3.7E+03 5.8E-01                  1.5E+03  2.3039909E+04   2992   4600   3322  3.8E-01   38568        13 2.6E+08
+   7820              3.2E-01                  3.5E+02  2.1197789E+04          1324   3277 -2.0E-02   35953        13 2.5E+06
+   7920              1.0E+00                  1.8E-05  1.9770704E+04                                 38268        13 1.3E+05
+   8020              1.0E+00                  9.4E-09  1.8004590E+04                                 36104        10 2.2E+08
+   8120              1.0E+00                  3.7E-13  1.7490677E+04                                 32811        14 4.6E+02
+   8220              1.0E+00                  1.4E-10  1.6992774E+04                                 37037        17 1.8E+07
+   8320      5.8E+01 6.4E-01                  2.4E-01  1.6237890E+04   2662   2662   2467  3.6E-01   35426        21 1.7E+03
+   8420     -3.0E+03 1.0E+00                  1.7E-06  1.2692799E+04   2117                          32600        17 6.8E+06
+   8520              1.0E+00                  5.3E-07  1.1610923E+04                                 35227        20 2.3E+07
+   8620     -2.1E+01 9.1E-03                  6.1E+01  1.1388651E+04   1543   1543   3097 -6.1E-02   32540        21 1.6E+07
+   8720              1.0E+00                  6.2E-11  1.1011136E+04                                 33412        25 1.3E+07
+   8820              4.9E-01                  8.5E+00  6.5123161E+03          2288   3311 -5.9E-01   38078        21 2.9E+06
+   8920     -1.2E+03 2.7E-01                  8.8E+02  2.6049897E+03   1904   2872   2392  1.6E+00   35638        19 1.2E+08
+   9020      9.4E+01 4.5E-04                  9.4E+01  2.0115981E+03   2741   3187   2872  5.4E-01   32631        25 2.2E+06
+   9120              1.0E+00                  1.2E-08  1.8138656E+03                                 34728        30 1.3E+05
+   9220      1.5E+01 2.1E-01                  1.2E+01  1.6512881E+03   1011   2872        -4.8E-03   31848        33 9.5E+04
+   9320      2.7E+01 5.8E-07                  1.3E-10  1.4922638E+03   2400   2400   4602  4.6E+00   34521        37 1.1E+06
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+   9420     -6.4E+00 2.3E-02                  6.3E+00  1.3577770E+03   2001   2595        -1.4E+01   32585        39 3.5E+06
+   9520      2.2E+02 1.0E+00                  8.1E-10  1.2216305E+03   3277                          31733        38 2.5E+07
+   9620              1.0E+00                  6.5E-11  1.0942044E+03                                 34727        36 4.1E+07
+   9720     -3.7E+00 2.6E-01                  2.7E+00  1.0351894E+03   2166   1904   2348  9.5E-02   37451        42 1.7E+07
+   9820              1.0E+00                  3.4E-10  9.7405310E+02                                 33974        46 1.5E+07
+   9920              1.0E+00                  2.8E-05  9.1783866E+02                                 36433        47 1.0E+07
+  10020     -6.5E+00 3.9E-01                  4.0E+00  7.9883264E+02   1937   1919         1.7E-02   36217        49 2.3E+06
+  10120              1.0E+00                  1.2E-11  7.6351875E+02                                 41313   1    50 1.1E+06
+  10220      4.0E+00 1.0E+00                  5.6E-08  7.4100206E+02   4596                          35815        54 5.0E+05
+  10320              1.0E+00                  8.4E-05  7.1358130E+02                                 39281   1    53 1.4E+06
+  10420      1.7E+00 5.7E-05                  1.7E+00  6.2376943E+02    900   1624   4851  2.6E-04   35009        60 1.9E+05
+  10520              1.0E+00                  1.2E-07  5.9092568E+02                                 31195        60 3.8E+04
+  10620              1.0E+00                  2.1E-09  5.5784341E+02                                 35161        64 3.5E+07
+  10720      1.2E+03 1.0E+00                  3.8E-08  5.1677569E+02   4600                          32153        69 5.6E+08
+  10820              1.0E+00                  1.8E-07  4.7062054E+02                                 36229        77 1.1E+05
+  10920              1.0E+00                  1.3E-10  4.5218026E+02                                 39657   1    82 8.8E+05
+  11020              1.0E+00                  5.9E-11  4.3036918E+02                                 35325        85 2.5E+05
+  11120              1.0E+00                  3.2E-10  4.0167727E+02                                 40125   1    95 1.7E+05
+  11220              1.0E+00                  1.0E-07  3.7972165E+02                                 37158        96 2.3E+06
+  11320     -3.9E-01 1.2E-01                  3.4E-01  3.6316546E+02   2070   1327   2774 -9.3E-02   41713   1   107 1.5E+06
+  11420              1.0E+00                  5.0E-11  3.5140647E+02                                 32453       115 1.4E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+  11481     3   6161 1.0E+00      5  4.9E-01  2.2E-01  2.8946410E+03   34400    61    122 2.7E+04 1.7E+00 _
+
+    Itn       LPmult  LPstep   nInf   SumInf           Elastic LPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS
+  11581              7.2E+02     52  1.8E+01  4.6E-02                         1015   1388            35426        22
+  11681     -7.2E+06 1.8E-06     26  7.5E-01  7.6E-07  4.8178640E+05   2650   2650   2653 -1.0E+00   40184         1 3.1E+09
+  11781              1.0E+00     17  1.4E-01  9.6E-07  1.2682899E+05                                 41288         1 2.5E+09
+  11881              1.0E+00     15  8.2E-02  3.3E-05  8.0585902E+04                                 44449         3 1.3E+02
+  11981              1.0E+00      1  3.0E-03  9.1E-09  2.8276475E+04                                 43730         3 7.9E+07
+  12081              8.4E-01                  3.1E+03  1.2356344E+04          1937   2142  9.7E+01   41135         9 8.2E+09
+  12181      1.4E+04 8.2E-02                  1.3E+04  7.5139329E+03   3142   4706   2282  8.3E+00   46004   1    13 1.3E+11
+  12281     -2.5E+03 2.8E-02                  2.4E+03  4.0654638E+03   2252   2219         4.5E-02   42591        20 6.2E+07
+  12381              1.0E+00                  1.0E-07  2.6461174E+03                                 38554        19 4.5E+07
+  12481              1.0E+00                  5.2E-09  1.8456143E+03                                 45410        26 2.6E+08
+  12581              1.0E+00                  3.1E-06  1.4791869E+03                                 38601        26 6.4E+07
+  12681      1.3E+02 3.1E-01                  9.2E+01  1.2187024E+03   3098   3116   4794  3.7E+00   41506        30 4.0E+07
+  12781      2.3E+02 1.0E+00                  3.8E-06  9.6537415E+02   3277                          37889        30 7.7E+08
+  12881              1.0E+00                  5.9E-07  7.8512802E+02                                 42510        36 1.1E+10
+  12981      2.1E+01 1.1E-01                  9.7E-01  3.5662656E+02   4742   4742   2527  2.5E-02   34330        42 4.1E+03
+  13081              1.0E+00                  4.3E-11  2.3043989E+02                                 38466        40 3.4E+06
+  13181              1.5E-05                  1.3E+01  5.7425828E+01          2422   1868 -2.6E-01   43767   1    40 1.4E+05
+  13281              4.3E-05                  1.9E+01  8.7210861E+00          2936   3112 -8.0E-01   48396   2    39 2.8E+07
+  13381              1.0E+00                  2.8E-09 -1.3830540E+02                                 43046        46 6.3E+07
+  13481              1.0E+00                  7.5E-10 -3.5084404E+02                                 47242   1    46 8.9E+06
+  13581              1.0E+00                  7.1E-10 -4.6986979E+02                                 37932        48 1.1E+07
+  13681              1.0E+00                  1.6E-09 -5.3565673E+02                                 36460        48 5.8E+06
+  13781              1.0E+00                  8.8E-11 -6.1011371E+02                                 41666        54 1.7E+07
+  13881      7.2E+00 1.0E+00                  3.5E-08 -6.5353656E+02   4580                          37880        54 3.4E+06
+  13981              1.0E+00                  4.1E-04 -8.4106891E+02                                 42732   1    52 7.7E+06
+  14081              1.0E+00                  1.2E-09 -9.3594862E+02                                 40451        51 1.5E+06
+  14181              1.0E+00                  2.3E-11 -1.0443559E+03                                 46659   1    44 6.7E+03
+  14281              2.8E-01                  3.4E+01 -1.1709278E+03          2228   2126 -9.5E-02   42219        43 4.9E+07
+  14381              1.0E+00                  2.3E-12 -1.2287774E+03                                 39858        48 5.8E+04
+  14481              1.0E+00                  3.2E-11 -1.4258248E+03                                 45487   1    49 1.2E+06
+  14581              1.0E+00                  1.2E-12 -1.4367741E+03                                 39113        53 1.0E+06
+  14681      1.2E+01 4.1E-01                  7.2E+00 -1.5008501E+03   3112   1844   3097 -5.5E-01   46820   1    48 2.8E+06
+  14781      1.4E+01 1.0E+00                  8.8E-05 -1.5268348E+03   2632                          50106   1    54 3.5E+06
+  14881              1.0E+00                  2.2E-10 -1.5627446E+03                                 44365        53 2.1E+07
+  14981              1.0E+00                  9.1E-05 -1.6335511E+03                                 49562        58 4.2E+06
+  15081      4.7E+00 1.0E+00                  4.0E-08 -1.6716594E+03   3011                          43334        59 3.7E+06
+  15181              1.0E+00                  1.3E-11 -1.7242104E+03                                 47840   1    58 4.0E+05
+  15281              1.0E+00                  4.7E-11 -1.7582160E+03                                 39998        54 2.4E+05
+  15381      8.3E+02 1.0E+00                  5.1E-08 -1.7980311E+03   4851                          43849   1    60 4.6E+08
+  15481      1.1E+02 1.0E+00                  7.8E-05 -1.8533696E+03   2992                          41239        62 2.8E+06
+
+    Itn       QPmult  QPstep   nInf   SumInf   rgNorm  Elastic QPobj   +SBS   -SBS    -BS    Pivot     L+U ncp    nS  condHz
+  15581              1.0E+00                  1.0E-08 -1.8987082E+03                                 35366        67 5.4E+06
+  15681      2.0E+01 6.4E-02                  1.8E+01 -1.9298863E+03   3011   2677   3041  2.8E-01   41481        64 1.7E+06
+  15781              1.0E+00                  3.4E-10 -1.9647978E+03                                 43395   1    74 2.0E+06
+  15881              7.7E-01                  3.9E-02 -1.9979370E+03          1066   2003 -5.5E-01   50383   1    74 1.6E+04
+  15981      1.7E+01 5.5E-01                  7.7E-02 -2.0376497E+03   2519   2519   1968 -2.1E+00   42880        84 1.2E+06
+  16081     -6.5E-01 1.3E-08                  1.6E-10 -2.0694491E+03   1279   1279   2607 -9.8E-01   50206   1    90 1.7E+05
+  16181              1.0E+00                  1.5E-07 -2.0948532E+03                                 41177        99 5.0E+05
+  16281     -3.5E-01 1.0E+00                  2.6E-07 -2.1105790E+03   2119                          45677   2   111 7.5E+04
+  16381              1.0E+00                  2.5E-11 -2.1187839E+03                                 38615       122 3.0E+05
+  16481              1.0E+00                  2.0E-10 -2.1274959E+03                                 42715   1   143 3.6E+05
+
+   Itns Major Minors    Step   nCon Feasible  Optimal  MeritFunction     L+U BSwap     nS  condHz Penalty
+  16500     4   5019 1.0E+00      6  7.9E-02  9.9E-02  2.1517507E+03   39668    55    143 2.6E+05 1.7E+00 _     T
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         0
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         0
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         3
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2286     Linear variables        10
+ Jacobian  variables      2283     Objective variables   2286
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      2286       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         0
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+1
+ 
+ SNMEMA EXIT 100 -- finished successfully
+ SNMEMA INFO 104 -- memory requirements estimated
+
+         ==============================
+         S N O P T  7.2-12   (Feb 2013)
+         ==============================
+      Derivative option               1
+      Major iterations limit            1000
+      Minor iterations limit           20000
+      Major optimality tolerance  1.00000000E-03
+      Major feasibility tolerance  1.00000000E-03
+      Minor feasibility tolerance  1.00000000E-03
+      Superbasics limit           10000
+      Verify level               0
+      Iterations Limit         1000000
+      Scale option               2
+      New basis file               0
+      Old basis file               0
+      Backup basis file               0
+      Linesearch tolerance  9.00000000E-01
+
+ 
+ ===>  WARNING - Column   1111 of the Jacobian is empty.
+ ===>  WARNING - Column   1112 of the Jacobian is empty.
+ ===>  WARNING - Column   1113 of the Jacobian is empty.
+ ===>  WARNING - Column   1666 of the Jacobian is empty.
+ ===>  WARNING - Column   1667 of the Jacobian is empty.
+ ===>  WARNING - Column   1668 of the Jacobian is empty.
+ ===>  WARNING - Column   1669 of the Jacobian is empty.
+ ===>  WARNING - Column   1670 of the Jacobian is empty.
+ ===>  WARNING - Column   1671 of the Jacobian is empty.
+ ===>  WARNING - Column   1672 of the Jacobian is empty.
+ ===>  WARNING - Column   1673 of the Jacobian is empty.
+ ===>  WARNING - Column   1812 of the Jacobian is empty.
+ ===>  WARNING - Column   1813 of the Jacobian is empty.
+ ===>  WARNING - Row         6 of the Jacobian is empty.
+ ===>  WARNING - Row      2625 of the Jacobian is empty.
+1
+ 
+ Parameters
+ ==========
+
+ Files
+ -----
+ Solution file..........         0       Old basis file ........         0       Standard input.........         5
+ Insert file............         0       New basis file ........         0       (Printer)..............         9
+ Punch file.............         0       Backup basis file......         0       (Specs file)...........         0
+ Load file..............         0       Dump file..............         0       Standard output........         6
+
+ Frequencies
+ -----------
+ Print frequency........       100       Check frequency........        60       Save new basis map.....       100
+ Summary frequency......       100       Factorization frequency        50       Expand frequency.......     10000
+
+ QP subproblems
+ --------------
+ QPsolver Cholesky......
+ Scale tolerance........      .900       Minor feasibility tol..  1.00E-03       Iteration limit........   1000000
+ Scale option...........         2       Minor optimality  tol..  1.00E-06       Minor print level......         1
+ Crash tolerance........      .100       Pivot tolerance........  3.25E-11       Partial price..........         1
+ Crash option...........         3       Elastic weight.........  1.00E+04       Prtl price section ( A)      2296
+                                         New superbasics........        99       Prtl price section (-I)      2636
+
+ Conjugate-gradient QP solver
+ ----------------------------
+ Subspace tolerance.....    .10000       CG tolerance...........  1.00E-02       CG Iterations..........       100
+                                                                                 CG preconditioning.....         0
+
+ The SQP Method
+ --------------
+ Minimize...............                 Cold start.............                 Proximal Point method..         1
+ Nonlinear objectiv vars      1167       Objective Row..........         1       Function precision.....  3.00E-13
+ Unbounded step size....  1.00E+20       Superbasics limit......      2296       Difference interval....  5.48E-07
+ Unbounded objective....  1.00E+15       Reduced Hessian dim....      2000       Central difference int.  6.70E-05
+ Major step limit.......  2.00E+00       Derivative linesearch..                 Derivative option......         1
+ Major iterations limit.      1000       Linesearch tolerance...    .90000       Verify level...........         0
+ Minor iterations limit.     20000       Penalty parameter......  0.00E+00       Major Print Level......         1
+                                         Major optimality tol...  1.00E-03
+
+ Hessian Approximation
+ ---------------------
+ Limited-Memory Hessian.                 Hessian updates........        10       Hessian frequency......  99999999
+                                                                                 Hessian flush..........  99999999
+
+ Nonlinear constraints
+ ---------------------
+ Nonlinear constraints..      2276       Major feasibility tol..  1.00E-03       Violation limit........  1.00E+06
+ Nonlinear Jacobian vars      2283
+
+ Miscellaneous
+ -------------
+ LU factor tolerance....      3.99       LU singularity tol.....  3.25E-11       Timing level...........         0
+ LU update tolerance....      3.99       LU swap tolerance......  1.22E-04       Debug level............         0
+ LU partial  pivoting...                 eps (machine precision)  2.22E-16       System information.....        No
+                                                                                 Sticky parameters......        No
+1
+ 
+
+ 
+
+ Matrix statistics
+ -----------------
+               Total      Normal        Free       Fixed     Bounded
+ Rows           2636        1313           1        1322           0
+ Columns        2296        1173         913           0         210
+
+ No. of matrix elements                60432     Density        .999
+ Biggest  constant element        1.0000E+00  (excluding fixed columns,
+ Smallest constant element        1.0000E+00   free rows, and RHS)
+
+ No. of objective coefficients             0
+
+ Nonlinear constraints    2276     Linear constraints     360
+ Nonlinear variables      2283     Linear variables        13
+ Jacobian  variables      2283     Objective variables   1167
+ Total constraints        2636     Total variables       2296
+1
+ 
+
+ 

@@ -31,7 +31,7 @@ global iteration_num
 % q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.057; ...
 %     0.015;0.79;0.09;0;0;0];
 %trial 3
-q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+q0 = [-1.575;-1.6;0;1.27;0.0;1.1;0;0.06; ...
 0.0145;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
@@ -88,12 +88,12 @@ options.Px_coeff = 0.01;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.kappa = 1;
 
-% %reposition initial state
-% q0(2) = q0(2) + 0.2;
-% q0(4) = q0(4) + 0.4;
-% q0(8) = 0.08;
-% x0 = [q0;zeros(nv,1)];
-% v.draw(0,x0);
+%reposition initial state
+q0(2) = q0(2) + 0.2;
+q0(4) = q0(4) + 0.4;
+q0(8) = 0.08;
+x0 = [q0;zeros(nv,1)];
+v.draw(0,x0);
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -102,14 +102,14 @@ for i=1:length(x0)
     x_init(i,:) = linspace(x0(i,:),x1(i,:),N);
 end
 
-%run fwd IK for grasped object position
-for i=2:N
-    kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
-    iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-    R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
-    x_init(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
-    x_init(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
-end
+% %run fwd IK for grasped object position
+% for i=2:N
+%     kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
+%     iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+%     R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+%     x_init(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+%     x_init(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+% end
 
 traj_init.x = PPTrajectory(foh(t_init,x_init));
 traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
@@ -141,7 +141,7 @@ T_span = [1 T0];
 % x0_lb = [q0;-inf*ones(14,1)];
 % x1_ub = [q1;inf*ones(14,1)];
 % x1_lb = [q1;-inf*ones(14,1)];
-% v.playback(traj_init.x,struct('slider',true));
+ % v.playback(traj_init.x,struct('slider',true));
 
 % xfinal_lb = x1 - 0.05*ones(length(x1),1);
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
@@ -198,13 +198,13 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',3e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',3e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',3e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',3e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc

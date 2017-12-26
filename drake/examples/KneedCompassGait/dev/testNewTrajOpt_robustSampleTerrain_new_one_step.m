@@ -133,7 +133,7 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0_min,x0_max),1);
 traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xf_min,xf_max),N);
 traj_opt = traj_opt.addStateConstraint(periodic_constraint,{[1 N]});
 
-traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
+%traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 slack_sum_vec = [];% vector storing the slack variable sum
 
 % for i = 1:SampleNum

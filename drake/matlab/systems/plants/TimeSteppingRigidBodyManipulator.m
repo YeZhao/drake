@@ -1004,20 +1004,20 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             global x_initial
             timestep_updated = 5e-4;
             % this is the key part.
-            if t == 0
-                x = x_initial;
-            end
+            %if t == 0
+            %    x = x_initial;
+            %end
             X0 = [t;x;u];
 
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
             %tStart = tic;
-            %[xdn,df] = solveQP(obj,X0);
+            [xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            %return;
+            return;
             %disp('finish solveQP QP')
             
             %% add gradient check
