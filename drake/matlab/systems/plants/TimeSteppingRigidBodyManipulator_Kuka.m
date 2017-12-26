@@ -206,7 +206,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         end
         
         function [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,q,kinsol)
-            
             if nargin<3
                 kinematics_options.compute_gradients = 1;
                 kinsol = doKinematics(obj, q, [], kinematics_options);
@@ -347,9 +346,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             dJD{2} = dJy;%[tuned for 3D]
             
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
-            %if length(phiL) ~= 2
-            %    keyboard
-            %end
+            if length(phiL) ~= 16 % kuka arm
+               keyboard
+            end
             
             %compute for full dimension joint limit
             possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
@@ -428,10 +427,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 R = diag(r(:));
                 
                 if any(ind > 0)
-                    S_weighting_unit = diag(ones(3,1));% %[tuned for 3D]
-                    %S_weighting_unit = diag([1,1,1]);
+                    S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
                 else
-                    S_weighting_unit = diag(ones(3,1));% %[tuned for 3D]
+                    S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
                     % right now, use a unified weighting coeff for x
                     % direction regardless whether the brick enters the
                     % safety region. But it could be tuned to different
@@ -439,7 +437,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
                 
                 % joint limit smoothing matrix
-                W_min = 1e-3;%1e-3;
+                W_min = 1e-3;
                 W_max = 1e-1;
                 w = zeros(nL,1);
                 w(phiL>=obj.phiL_max) = W_max;
@@ -469,7 +467,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 for i=1:nL
                     S_weighting_array{num_active+i} = 1;
                 end
-                
                 S_weighting = blkdiag(S_weighting_array{:});
                 
                 try
@@ -499,10 +496,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
                 
-                %         [result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
+                %[result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
                 
                 if 1 % info_fqp<0
-                    %           disp('calling gurobi');
+                    %disp('calling gurobi');
                     model.LCP_cache.data.fastqp_active_set = [];
                     gurobi_options.outputflag = 0; % verbose flag
                     gurobi_options.method = 1; % -1=automatic, 0=primal simplex, 1=dual simplex, 2=barrier
@@ -519,19 +516,18 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         result_qp = result.x;
                     catch
                         keyboard
-                    end;
+                    end
                 end
                 f = S_weighting*V*(result_qp);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
                 active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
                 obj.LCP_cache.data.fastqp_active_set = active_set;
                 
-                mu_tolerance = 1e-5;
-%                 for i=1:num_active
-%                     if abs(f(1+(i-1)*2)/f(i*2)) > mu(1) + mu_tolerance
-%                         keyboard
-%                     end
-%                 end
-                
+                % mu_tolerance = 1e-5;
+                % for i=1:num_active
+                %     if abs(sqrt(f(1+(i-1)*3)^2+f(2+(i-1)*3)^2)/f(i*3)) > mu(1) + mu_tolerance% need to be modified for non-terrain based surface
+                %         keyboard
+                %     end
+                % end
                 %f_vec = [f_vec,f];
                 
                 % f_x_sum = 0;
@@ -575,22 +571,22 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %f = V*(result_analytical);
                 %% end of checker
                 
-%                 vis=obj.constructVisualizer;
-%                 figure(25)
-%                 clf
-%                 vis.draw(t,x)
-%                 hold on;
-%                 plot(world_pts(1,:),world_pts(3,:),'mo');
-%                 ff = f/norm(f);
-%                 
-%                 for jj=1:size(world_pts,2)
-%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
-%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
-%                     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-%                     %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-%                     line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
-%                 end
-%                 hold off;
+                % vis=obj.constructVisualizer;
+                % figure(25)
+                % clf
+                % vis.draw(t,x)
+                % hold on;
+                % plot(world_pts(1,:),world_pts(3,:),'mo');
+                % ff = f/norm(f);
+                %
+                % for jj=1:size(world_pts,2)
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+                %     %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
+                %     line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
+                % end
+                % hold off;
                 
                 % update state at next time step
                 vn = v + Hinv*(tau*h + vToqdot'*J'*f);
@@ -606,7 +602,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % if any(phi<-2e-3)
                 %   keyboard;
                 % end
-                %
                 
                 %% compute gradient component
                 total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
@@ -859,7 +854,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     % not used, can be used for slack variable analytical solution
                     dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                        - N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                                  -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
                     
                     % partial dervative w.r.t v
                     % dGdv = 0, dEdv = 0, dFdv = 0.
@@ -947,7 +942,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             %tStart = tic;
             [xdn,df] = solveQP(obj,X0);
-            
             return;
             
             if (nargout>1)

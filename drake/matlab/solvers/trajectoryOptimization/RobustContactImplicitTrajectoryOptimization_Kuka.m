@@ -216,7 +216,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             end
             
             function [f,df] = ERMcost_friction(obj, lambda, gamma)
-                
                 zdim = size(obj.W,2);
                 xdim = size(obj.M,2);
                 
@@ -255,7 +254,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 % disturbance variance
                 % currently only consider object horizontal 2D position and friction coefficient
-                Pw = diag([1e-10, 1e-10, 0.01]); %[to be tuned]
+                Pw = diag([1e-100, 1e-100, 0.01]); %[to be tuned]
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
@@ -304,6 +303,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %[the sequential way to be modified]
                         % currently, only use the initial variance matrix for the
                         % propogation
+                        k
+                        j
                         if k == 1
                             % reassign initial object position
                             if strcmp(obj.plant.uncertainty_source, 'object_initial_position')
@@ -311,10 +312,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                             
                             [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
-                            if d
-                                diverge = k;
-                                return;
-                            end
+%                             if d
+%                                 diverge = k;
+%                                 return;
+%                             end
+                            
                             S = scale*S;
                             Sig(:,:,k) = [S -S];
                             for j = 1:(2*(obj.nx+nw))

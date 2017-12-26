@@ -1,5 +1,4 @@
 function runTrajOpt
-
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -81,7 +80,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 20;
+N = 100;
 
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.01; 
@@ -198,10 +197,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',3e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',2e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',2e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',2e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',2e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
