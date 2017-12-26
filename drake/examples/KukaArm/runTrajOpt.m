@@ -31,7 +31,7 @@ global iteration_num
 % q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.057; ...
 %     0.015;0.79;0.09;0;0;0];
 %trial 3
-q0 = [-1.575;-1.6;0;1.27;0.0;1.1;0;0.06; ...
+q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 0.0145;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
@@ -102,7 +102,7 @@ for i=1:length(x0)
     x_init(i,:) = linspace(x0(i,:),x1(i,:),N);
 end
 
-% %run fwd IK for grasped object position
+% %run fwd kinematics for grasped object position
 % for i=2:N
 %     kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
 %     iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
@@ -136,12 +136,12 @@ v.draw(0,xm);
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
+% v.playback(traj_init.x,struct('slider',true));
 
 % x0_ub = [q0;inf*ones(14,1)];
 % x0_lb = [q0;-inf*ones(14,1)];
 % x1_ub = [q1;inf*ones(14,1)];
 % x1_lb = [q1;-inf*ones(14,1)];
- % v.playback(traj_init.x,struct('slider',true));
 
 % xfinal_lb = x1 - 0.05*ones(length(x1),1);
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
@@ -204,7 +204,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',3e-4);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',3e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
