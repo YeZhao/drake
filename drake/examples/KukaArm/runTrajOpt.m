@@ -181,7 +181,8 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N/2);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
+% traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
@@ -224,13 +225,13 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',3e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',3e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -301,6 +302,10 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
+        if any(LCP_slack_var < 0)
+            disp('here')
+        end
+        
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
 %         global robustLCPcost_coeff
 %         if isempty(iteration_num)
@@ -314,7 +319,6 @@ global phi_cache_full
 %             robustLCPcost_coeff = 1000;    
 %         end        
 %         iteration_num = iteration_num + 1;
-            
     end
 
 end
