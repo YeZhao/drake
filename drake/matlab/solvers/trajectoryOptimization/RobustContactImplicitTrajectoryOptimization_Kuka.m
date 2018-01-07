@@ -203,13 +203,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
             
-%             % robust variance cost with state feedback control
-%             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
-%             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
-%             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
-%             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
-%             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-%             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            % robust variance cost with state feedback control
+            x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
+            u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+            lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
+            obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
+            obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -255,7 +255,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % disturbance variance
                 % currently only consider object horizontal 2D position and friction coefficient
                 Pw = diag([1e-100, 1e-100, 0.01]); %[to be tuned]
-                scale = .01;% [to be tuned]
+                scale = 1e-10;%.01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
                 n_sig_point = 2*(obj.nx+nw);
@@ -295,7 +295,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 % time counter
                 tStart = tic;
-                 
+                
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
                     for j = 1:n_sig_point % temporary change: move the k == 1 if statement inside the for loop

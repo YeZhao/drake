@@ -95,8 +95,9 @@ N1 = 7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 0.01; 
-options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
+options.Px_coeff = 0.00001;
+%options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
+options.K = [1*ones(nq_arm,nq_arm),1*ones(nq_arm,nq_object),0.2*ones(nq_arm,nq_arm),0.2*ones(nq_arm,nq_object)];
 options.kappa = 1;
 
 % ikoptions = IKoptions(r);
@@ -225,10 +226,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 

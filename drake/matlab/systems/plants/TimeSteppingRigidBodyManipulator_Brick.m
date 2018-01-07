@@ -987,12 +987,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             persistent xdn_LCP_vec;
             
             %tStart = tic;
-            [xdn,df] = solveQP(obj,X0);
+            %[xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
             
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            return;
+            %return;
             %disp('finish solveQP QP')
             
             %% add gradient check
@@ -1095,12 +1095,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             xdn = [qn;vn];
             
             xdn_LCP_vec = [xdn_LCP_vec,xdn];
-            
-            %if size(xdn_LCP_vec,2) > 100
-            if t > 4.98
-                keyboard
-            end
-            
+                       
             if (nargout>1)  % compute gradients
                 if isempty(z)
                     dqdn = dwvn;
