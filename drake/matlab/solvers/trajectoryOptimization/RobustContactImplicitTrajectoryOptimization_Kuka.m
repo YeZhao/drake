@@ -208,7 +208,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
-            obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
+            obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
@@ -254,8 +254,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 % disturbance variance
                 % currently only consider object horizontal 2D position and friction coefficient
-                Pw = diag([1e-100, 1e-100, 0.01]); %[to be tuned]
-                scale = 1e-10;%.01;% [to be tuned]
+                Pw = diag([1e-2, 1e-2, 0.01]); %[to be tuned]
+                scale = .01;% 1e-10;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
                 n_sig_point = 2*(obj.nx+nw);
@@ -279,6 +279,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 w_noise = [w_phi;w_mu];
                 K = obj.options.K;
+                beta = 0.1;
                 
                 %initialize c and dc
                 kappa = obj.options.kappa;
@@ -298,59 +299,67 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
-                    for j = 1:n_sig_point % temporary change: move the k == 1 if statement inside the for loop
+                    if k == 1
+                        % reassign initial object position
+                        % currently, not treat object x-y position as
+                        % disturbance
+                        %if strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                        %    x(9:10,k) = x(9:10,k) + w_phi(:,j);
+                        %end
+                        
+                        [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
+                        % if d
+                        %    diverge = k;
+                        %    return;
+                        % end
+                        
+                        S = scale*S;
+                        try
+                            Sig(:,:,k) = [S -S];
+                        catch
+                            keyboard
+                        end
+                        
+                        for j = 1:(2*(obj.nx+nw))
+                            Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                            % add terrain height uncertainty sample to each sigma point
+                        end
+                        x_mean(:,k) = zeros(obj.nx,1);
+                        for j = 1:n_sig_point
+                            x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
+                        end
+                        c = c + norm(x(:,k)-x_mean(:,k))^2;
+                        
+                        % debugging
+                        c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
+                        % c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
+                        % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
+                        % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
+                        % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
+                        % for j = 1:n_sig_point
+                        %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
+                        %     c_variance(j,k) = kappa*trace(w*V_comp);
+                        %
+                        %     % debugging
+                        %     V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
+                        %     c_variance_x(j,k) = kappa*trace(w*V_comp_x);
+                        %     V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
+                        %     c_variance_xd(j,k) = kappa*trace(w*V_comp_xd);
+                        %
+                        %     V_comp_z = (Sig(3,j,k)-x_mean(3,k))*(Sig(3,j,k)-x_mean(3,k))';
+                        %     c_variance_z(j,k) = kappa*trace(w*V_comp_z);
+                        %     V_comp_zd = (Sig(9,j,k)-x_mean(9,k))*(Sig(9,j,k)-x_mean(9,k))';
+                        %     c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
+                        % end
+                    end
+                    
+                    for j = 1:n_sig_point
                         %Generate sigma points from Px(i+1)
                         %[the sequential way to be modified]
                         % currently, only use the initial variance matrix for the
                         % propogation
                         k
                         j
-                        if k == 1
-                            % reassign initial object position
-                            if strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                                x(9:10,k) = x(9:10,k) + w_phi(:,j);
-                            end
-                            
-                            [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
-%                             if d
-%                                 diverge = k;
-%                                 return;
-%                             end
-                            
-                            S = scale*S;
-                            Sig(:,:,k) = [S -S];
-                            for j = 1:(2*(obj.nx+nw))
-                                Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];
-                                % add terrain height uncertainty sample to each sigma point
-                            end
-                            x_mean(:,k) = zeros(obj.nx,1);
-                            for j = 1:n_sig_point
-                                x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
-                            end
-                            c = c + norm(x(:,k)-x_mean(:,k))^2;
-                            
-                            % debugging
-                            c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
-                            % c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
-                            % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
-                            % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
-                            % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                            % for j = 1:n_sig_point
-                            %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
-                            %     c_variance(j,k) = kappa*trace(w*V_comp);
-                            %
-                            %     % debugging
-                            %     V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
-                            %     c_variance_x(j,k) = kappa*trace(w*V_comp_x);
-                            %     V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
-                            %     c_variance_xd(j,k) = kappa*trace(w*V_comp_xd);
-                            %
-                            %     V_comp_z = (Sig(3,j,k)-x_mean(3,k))*(Sig(3,j,k)-x_mean(3,k))';
-                            %     c_variance_z(j,k) = kappa*trace(w*V_comp_z);
-                            %     V_comp_zd = (Sig(9,j,k)-x_mean(9,k))*(Sig(9,j,k)-x_mean(9,k))';
-                            %     c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
-                            % end
-                        end
                         
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
@@ -381,6 +390,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
+                        Sig(1:obj.nx,j,k+1) = beta*Sig(1:obj.nx,j,k+1);
                         x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
                     end
                     
@@ -404,6 +414,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     for j = 1:n_sig_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
                     end
+                    
+                    % scale the variance matrix
+                    % Px(:,:,k+1) = beta*Px(:,:,k+1);
                     
                     % accumulate returned cost
                     c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
@@ -851,7 +864,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             %u_fdb_k = controlLimits(u_fdb_k);
                             [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                             % state limits
-                            %xdn = stateLimits(xdn);
+                            % xdn = stateLimits(xdn);
                             
                             Sig(1:obj.nx/2,j,k+1) = xdn(1:obj.nx/2);
                             Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn(obj.nx/2+1:obj.nx);
@@ -1028,76 +1041,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 function [xdn] = stateLimits(xdn)
-                    if xdn(1) < -1
-                        xdn(1) = -1;
-                    elseif xdn(1) > 5
-                        xdn(1) = 5;
-                    end
-                    
-                    if xdn(2) < -0.95
-                        xdn(2) = -0.95;
-                    elseif xdn(2) > 1.05
-                        xdn(2) = 1.05;
-                    end
-                    
-                    if xdn(3) < - 1.57
-                        xdn(3) = -1.57;
-                    elseif xdn(3) > 1.57
-                        xdn(3) = 1.57;
-                    end
-                    
-                    if xdn(4) < - 3.14
-                        xdn(4) = -3.14;
-                    elseif xdn(4) > 3.14
-                        xdn(4) = 3.14;
-                    end
-                    
-                    if xdn(5) < - 1.57
-                        xdn(5) = -1.57;
-                    elseif xdn(5) > 1.57
-                        xdn(5) = 1.57;
-                    end
-                    
-                    if xdn(6) < - 3.14
-                        xdn(6) = -3.14;
-                    elseif xdn(6) > 3.14
-                        xdn(6) = 3.14;
-                    end
-                    
-                    if xdn(7) < -1
-                        xdn(7) = -1;
-                    elseif xdn(7) > 1
-                        xdn(7) = 1;
-                    end
-                    
-                    if xdn(8) < - 0.5
-                        xdn(8) = -0.5;
-                    elseif xdn(8) > 0.5
-                        xdn(8) = 0.5;
-                    end
-                    
-                    if xdn(9) < - 10
-                        xdn(9) = -10;
-                    elseif xdn(9) > 10
-                        xdn(9) = 10;
-                    end
-                    
-                    if xdn(10) < - 10
-                        xdn(10) = -10;
-                    elseif xdn(10) > 10
-                        xdn(10) = 10;
-                    end
-                    
-                    if xdn(11) < - 10
-                        xdn(11) = -10;
-                    elseif xdn(11) > 10
-                        xdn(11) = 10;
-                    end
-                    
-                    if xdn(12) < - 10
-                        xdn(12) = -10;
-                    elseif xdn(12) > 10
-                        xdn(12) = 10;
+                    [q_lb, q_ub] = getJointLimits(obj.plant);
+                    for i = 1:length(q_lb)
+                        if xdn(i) < q_lb(i)
+                            xdn(i) = q_lb(i);
+                        elseif xdn(i) > q_ub(i)
+                            xdn(i) = q_ub(i);
+                        end
                     end
                 end
                 

@@ -43,7 +43,6 @@ classdef DirectTrajectoryOptimization < NonlinearProgram
     % @param options (optional)
     %        options.time_option {1: all time steps are constant, 2: all
     %        time steps are independent}
-
     %#ok<*PROP>
 
       if isscalar(durations), durations=[durations,durations]; end
