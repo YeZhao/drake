@@ -204,12 +204,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
             
             % robust variance cost with state feedback control
-            x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
-            u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
-            lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
-            obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
-            obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+%             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
+%             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+%             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
+%             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
+%             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
+%             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -353,14 +353,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %     c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
                         % end
                     end
-                    
+                    k
                     for j = 1:n_sig_point
                         %Generate sigma points from Px(i+1)
                         %[the sequential way to be modified]
-                        % currently, only use the initial variance matrix for the
-                        % propogation
-                        k
-                        j
+                        % currently, only use the initial variance matrix for the propogation
+                        %j
                         
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
@@ -384,7 +382,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
-                        
                     end
                     
                     % calculate mean and variance w.r.t. [x_k] from sigma points
@@ -396,10 +393,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % shift sigma point
                     for j = 1:n_sig_point
                         Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
-                        eta_optimal = etaEstimation(Sig(1:obj.nx,j,k+1));
+                        eta_optimal = etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                         if eta_optimal < eta_final
                             eta_final = eta_optimal;
                         end
+                        %eta_final = 0.1;
                     end
                     
                     % scale Sigma point deviation by eta
@@ -1075,8 +1073,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     end
                 end
                 
-                function eta_optimal = etaEstimation(xdn)
+                function eta_optimal = etaEstimation(xdn,x_nominal)
                     [q_lb, q_ub] = getJointLimits(obj.plant);
+                    % hard coding limit for grasped object position and pose
+                    q_lb(9:11) = x_nominal(9:11) - 0.1*ones(3,1);
+                    q_lb(12:14) = x_nominal(12:14) - 0.5*ones(3,1);
+                    q_ub(9:11) = x_nominal(9:11) + 0.1*ones(3,1);
+                    q_ub(12:14) = x_nominal(12:14) + 0.5*ones(3,1);
+                    
                     eta_optimal = 1;% non-scaling
                     for i = 1:length(q_lb)
                         eta = 0;
@@ -1089,6 +1093,22 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             eta_optimal = eta;
                         end
                     end
+                    
+                    % limit on velocity
+                    v_lb = [-2.5*ones(7,1);-0.2;-2*ones(3,1);-2.5*ones(3,1)];
+                    v_ub = [2.5*ones(7,1);0.2;2*ones(3,1);2.5*ones(3,1)];
+                    for i = 1:length(v_lb)
+                        eta = 0;
+                        if xdn(nq+i) < v_lb(i)
+                            eta = abs(v_lb(i)/xdn(nq+i));
+                        elseif xdn(nq+i) > v_ub(i)
+                            eta = abs(v_ub(i)/xdn(nq+i));
+                        end
+                        if eta ~= 0 && eta < eta_optimal
+                            eta_optimal = eta;
+                        end
+                    end
+                    eta_optimal = eta_optimal/5;% scale down
                 end
                 
                 function [u] = controlLimits(u)
