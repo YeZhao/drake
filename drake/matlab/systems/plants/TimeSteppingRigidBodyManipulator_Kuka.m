@@ -212,7 +212,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             if strcmp(obj.uncertainty_source, 'friction_coeff')
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
+                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
             elseif nargout > 10
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
             else
@@ -1228,7 +1228,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     if has_contacts
                         if (nargout>4)
                             if strcmp(obj.uncertainty_source, 'friction_coeff')
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
                             else
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
                             end
