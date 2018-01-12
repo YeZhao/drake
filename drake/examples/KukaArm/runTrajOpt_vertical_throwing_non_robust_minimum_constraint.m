@@ -1,4 +1,4 @@
-function runTrajOpt_vertical_throwing_non_robust
+function runTrajOpt_vertical_throwing_non_robust_minimum_constraint
 
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
@@ -70,7 +70,7 @@ q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6)
 %trial 5
 %q1 = q0;
 %q1(8) = q1(8) - 0.015;
-%q1(11) = q1(11) + 0.03;% lift the height
+q1(11) = q1(11) - 0.03;% lift the height
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
@@ -132,8 +132,8 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(0.07),Nm,8);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(0.07),Nm,8);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.65,0.08),Nm,8);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.07,0.08),Nm+1,8);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
@@ -175,10 +175,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',2e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',2e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',2e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',2e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
