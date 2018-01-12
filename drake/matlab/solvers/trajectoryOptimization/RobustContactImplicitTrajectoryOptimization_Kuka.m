@@ -202,7 +202,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             
             % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
-            
+             
             % robust variance cost with state feedback control
 %             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
 %             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
@@ -246,7 +246,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 nv = obj.plant.getNumVelocities;
                 nu = obj.nu;%obj.plant.getNumInputs;
                 
-                fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
+                %fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
                 
                 % sigma points
                 Px = zeros(obj.nx,obj.nx,obj.N);
@@ -3339,6 +3339,5 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 df = df./SampleNum;
             end
         end
-        
     end
 end

@@ -1,4 +1,5 @@
-function runTrajOpt
+function runTrajOpt_vertical_throwing_non_robust
+
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -27,23 +28,20 @@ global iteration_num
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
 %       0;0.79;0.09;0;0;0];
 %trial 2, initial gripper pose is close
-% q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.057; ...
-%     0.015;0.79;0.09;0;0;0];
-%trial 3
-qm = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-0.0145;0.79;0.09;0;0;0];
+q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
+    0.0145;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %       0.01;0.79;0.09;0;0;0];
-xm = [qm;zeros(nv,1)];
-v.draw(0,xm);
+x0 = [q0;zeros(nv,1)];
+v.draw(0,x0);
 kinematics_options.compute_gradients = 0;
-kinsol = doKinematics(r, qm, [], kinematics_options);
+kinsol = doKinematics(r, q0, [], kinematics_options);
 iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
 fr1 = r.forwardKin(kinsol,r.findLinkId('right_finger'),[0;0.04;0.1225],0);
 R_ee = rpy2rotmat(iiwa_link_7_init(4:6));
-rel_pos_object_gripper(1:3) = R_ee'*(qm(9:11) - iiwa_link_7_init(1:3));
-rel_rot_object_gripper = rpy2rotmat(qm(12:14))*rpy2rotmat(iiwa_link_7_init(4:6));
+rel_pos_object_gripper(1:3) = R_ee'*(q0(9:11) - iiwa_link_7_init(1:3));
+rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6));
 %xtraj_ts = simulate(r,[0 2],x0);
 %v.playback(xtraj_ts,struct('slider',true));
 
@@ -54,15 +52,16 @@ rel_rot_object_gripper = rpy2rotmat(qm(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 1
 % q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
 %       -0.57;-0.57;0.59;0;0;0];
-%trial 2 
+%trial 2
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
-q1 = qm;
+q1 = q0;
 q1(2) = q1(2) + 0.3;
-q1(1) = q1(1) + 0.8; 
-q1(6) = q1(6) - 0.25;
-%q1(8) = q1(8) - 0.02;
+%q1(1) = q0(1) + 0.8; 
+q1(4) = q1(4) + 0.2; 
+q1(6) = q1(6) - 0.1;
+%q1(8) = q0(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
 R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
@@ -71,109 +70,60 @@ q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6)
 %trial 5
 %q1 = q0;
 %q1(8) = q1(8) - 0.015;
+q1(11) = q1(11) + 0.05;% lift the height
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
-%reposition initial state
-q0 = qm;
-q0(2) = q0(2) + 0.2;
-q0(4) = q0(4) + 0.4;
-q0(8) = 0.08;
-x0 = [q0;zeros(nv,1)];
-v.draw(0,x0);
+qm_object = q1(9:14);
+qm_object(3) = qm_object(3) + 0.05;
 
 u0 = r.findTrim(q0);
-u0(8) = -5;
-um = r.findTrim(qm);
-um(8) = -5;
+u0(8) = 0;%-5;
 u1 = r.findTrim(q1);
-u1(8) = -5;
-
+u1(8) = 0;%-5;
+ 
 T0 = 2;
-N = 25;
-N1 = 7;%phase 1: pick
-N2 = N - N1;%phase 2: place
+N = 15;
+Nm = 7;
 
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.kappa = 1;
 options.contact_robust_cost_coeff = 1e-8;
-
+ 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
-
-%% phase 1
 for i=1:length(x0)
-    x_init1(i,:) = linspace(x0(i,:),xm(i,:),N1);
+    x_init(i,:) = linspace(x0(i,:),x1(i,:),N);
 end
-
-%run fwd kinematics for grasped object position
-% for i=2:N1
-%     kinsol = doKinematics(r, x_init1(:,i), [], kinematics_options);
-%     iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-%     R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
-%     x_init1(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
-%     x_init1(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
-% end
-
-u_init1 = zeros(length(u0),N1);
-for i=1:length(u0)
-    u_init1(i,:) = linspace(u0(i,:),um(i,:),N1);
-end
-
-%% phase 2
-for i=1:length(xm)
-    x_init2(i,:) = linspace(xm(i,:),x1(i,:),N2);
-end
-%run fwd kinematics for grasped object position
-for i=2:N2
-    kinsol = doKinematics(r, x_init2(:,i), [], kinematics_options);
+%run fwd IK for grasped object position
+for i=2:N
+    kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
     iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
     R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
-    x_init2(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
-    x_init2(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+    x_init(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+    x_init(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
 end
 
-u_init2 = zeros(length(um),N2);
-for i=1:length(um)
-    u_init2(i,:) = linspace(um(i,:),u1(i,:),N2);
-end
-
-x_init = [x_init1,x_init2];
-u_init = [u_init1,u_init2];
 traj_init.x = PPTrajectory(foh(t_init,x_init));
 traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
+
+u_init = zeros(length(u0),N);
+for i=1:length(u0)
+    u_init(i,:) = linspace(u0(i,:),u1(i,:),N);
+end
 traj_init.u = PPTrajectory(foh(t_init,u_init));
 traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
-
-% qm = q0;
-% qm(2) = q0(2) + 0.4;
-% qm(6) = q1(6) - 0.2;
-% kinsol_m = doKinematics(r, qm, [], kinematics_options);
-% iiwa_link_7_final_m = r.forwardKin(kinsol_m,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-% R_ee_m = rpy2rotmat(iiwa_link_7_final_m(4:6));
-% qm(9:11) = iiwa_link_7_final_m(1:3) + R_ee_m*rel_pos_object_gripper(1:3)';
-% qm(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final_m(4:6))')');
-% qm(11) = qm(11) + 0.1;% adjust the height 
-% xm = [qm;zeros(nv,1)];
-% v.draw(0,xm);
 
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
+
+% Allcons = cell(0,1);
+% [xtraj_init,snopt_info_ik,infeasible_constraint] = inverseKinTraj(r,t_init,traj_init.x,traj_init.x,ikoptions);
 % v.playback(traj_init.x,struct('slider',true));
-
-% x0_ub = [q0;inf*ones(14,1)];
-% x0_lb = [q0;-inf*ones(14,1)];
-% x1_ub = [q1;inf*ones(14,1)];
-% x1_lb = [q1;-inf*ones(14,1)];
-
-% xfinal_lb = x1 - 0.05*ones(length(x1),1);
-% xfinal_ub = x1 + 0.05*ones(length(x1),1);
-% xm_lb = xm - 0.05*ones(length(xm),1);
-% xm_ub = xm + 0.05*ones(length(xm),1);
 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -182,11 +132,10 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
-% traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
-%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
-%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
-%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.65,0.08),Nm-1,8);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.65,0.08),Nm,8);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.07,0.08),Nm+1,8);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
@@ -226,10 +175,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
@@ -237,39 +186,6 @@ tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
-
-% % simulate with LQR gains
-% % LQR Cost Matrices
-Q = diag(10*ones(1,nx));
-R = .1*eye(nu);
-Qf = 100*eye(nx); 
-
-ltvsys = tvlqr(r,xtraj,utraj,Q,R,Qf);
-sys=feedback(r,ltvsys);
-xtraj_new = simulate(sys,xtraj.tspan, x0);
-v.playback(xtraj_new,struct('slider',true));
-
-%% pd-control LTI trial
-kp = 100;
-kd = sqrt(kp)*1.5;
-
-K = [kp*eye(nq_arm),kp*eye(nq_arm,nq_object),kd*eye(nq_arm),kd*eye(nq_arm,nq_object)];
-
-ltisys = LinearSystem([],[],[],[],[],-K);
-ltisys = setInputFrame(ltisys,CoordinateFrame([r.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),r.getStateFrame.prefix));
-r.getStateFrame.addTransform(AffineTransform(r.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
-ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,r.getStateFrame,eye(length(x0)),+x0));
-ltisys = setOutputFrame(ltisys,r.getInputFrame);
-
-sys = feedback(r,ltisys);
-% Forward simulate dynamics with visulazation, then playback at realtime
-S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
-output_select(1).system=1;
-output_select(1).output=1;
-%sys = mimoCascade(sys,v,[],[],output_select);
-warning(S);
-xtraj_new = simulate(sys,xtraj.tspan,x0);
-playback(v,xtraj_new,struct('slider',true));
 
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
@@ -303,10 +219,6 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        if any(LCP_slack_var < 0)
-            disp('here')
-        end
-        
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
 %         global robustLCPcost_coeff
 %         if isempty(iteration_num)
@@ -320,6 +232,7 @@ global phi_cache_full
 %             robustLCPcost_coeff = 1000;    
 %         end        
 %         iteration_num = iteration_num + 1;
+            
     end
 
 end

@@ -15,6 +15,8 @@ nq = r.getNumPositions();
 nv = r.getNumVelocities();
 nx = nq+nv;
 nu = r.getNumInputs();
+nq_arm = 8;
+nq_object = nq - nq_arm;
 
 v=r.constructVisualizer;
 
@@ -68,22 +70,27 @@ q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6)
 %trial 5
 %q1 = q0;
 %q1(8) = q1(8) - 0.015;
+q1(11) = q1(11) + 0.05; 
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
 qm_object = q1(9:14);
-qm_object(3) = qm_object(3) + 0.3; 
+qm_object(3) = qm_object(3) + 0.05;
 
 u0 = r.findTrim(q0);
-u0(8) = -5;
+u0(8) = 0;%-5;
 u1 = r.findTrim(q1);
-u1(8) = -5;
-
+u1(8) = 0;%-5;
+ 
 T0 = 2;
-N = 20;
-Nm = 10;
+N = 15;
+Nm = 7;
 
 options.robustLCPcost_coeff = 1000;
+options.Px_coeff = 0.1;
+options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
+options.kappa = 1;
+options.contact_robust_cost_coeff = 1e-8;
  
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -114,11 +121,6 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = [1 T0];
 
-x0_ub = [q0;inf*ones(14,1)];
-x0_lb = [q0;-inf*ones(14,1)];
-x1_ub = [q1;inf*ones(14,1)];
-x1_lb = [q1;-inf*ones(14,1)];
-
 % Allcons = cell(0,1);
 % [xtraj_init,snopt_info_ik,infeasible_constraint] = inverseKinTraj(r,t_init,traj_init.x,traj_init.x,ikoptions);
 % v.playback(traj_init.x,struct('slider',true));
@@ -130,7 +132,10 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.65,0.08),Nm-1,8);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.65,0.08),Nm,8);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(0.07,0.08),Nm+1,8);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
@@ -170,10 +175,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
