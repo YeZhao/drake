@@ -1,4 +1,4 @@
-function runTrajOpt_vertical_throwing_non_robust_minimum_constraint_in_air
+function runTrajOpt_vertical_throwing_minimum_constraint_in_air
 
 options=struct();
 options.terrain = RigidBodyFlatTerrain();

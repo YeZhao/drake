@@ -204,12 +204,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
              
             % robust variance cost with state feedback control
-%             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
-%             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
-%             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
-%             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
-%             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-%             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
+            u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
+            lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
+            obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
+            obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));

@@ -83,7 +83,7 @@ u1 = r.findTrim(q1);
 u1(8) = 0;%-5;
  
 T0 = 2;
-N = 20;
+N = 15;
 Nm = 7;
 
 options.robustLCPcost_coeff = 1000;
