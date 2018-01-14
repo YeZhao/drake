@@ -6,7 +6,7 @@ options.use_bullet = true;
 options.ignore_self_collisions = true;
 options.multiple_contacts = false;
 options.active_collision_options.terrain_only = true;
- 
+
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
 r = KukaArm(options);
@@ -83,14 +83,14 @@ u1 = r.findTrim(q1);
 u1(8) = 0;%-5;
  
 T0 = 1;
-N = 15;
+N = 3;
 Nm = 7;
 
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.kappa = 1;
-options.contact_robust_cost_coeff = 1e-8;
+options.contact_robust_cost_coeff = 0;%1e-6;
  
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);

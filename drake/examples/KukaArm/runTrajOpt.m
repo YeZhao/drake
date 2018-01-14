@@ -98,7 +98,7 @@ options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.kappa = 1;
-options.contact_robust_cost_coeff = 1e-8;
+options.contact_robust_cost_coeff = 1e-4;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
