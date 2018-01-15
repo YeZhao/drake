@@ -282,10 +282,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 eta_final = ones(obj.N,1);
                 
                 %initialize c and dc
-                kappa = obj.options.kappa;
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                c = kappa*trace(Px(:,:,1));
+                c = trace(Px(:,:,1));
                 % c_quadratic = 0;
                 c_variance = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -359,6 +358,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % currently, only use the initial variance matrix for the propogation
                         %j
                         
+                        %Sig(1:obj.nx,j,k) = Sig(1:obj.nx,j,k) + 1e-4*ones(length(Sig(1:obj.nx,j,k)),1);
+                        
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
@@ -370,7 +371,33 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
-                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        [xdn,df_analytical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        
+                        dt = diag(sqrt(eps(t)))*1e-2;
+                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))))*1e-2;
+                        du = diag(sqrt(eps(u_fdb_k)))*1e-2;
+                        
+                        [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
+                        [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
+                        df(:,1) = (xdnp-xdnm)/(2*dt);
+                        
+                        N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+                        tic
+                        for m = 1:N_finite_diff_x
+                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                            df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        end
+                        toc
+                        
+                        N_finite_diff_u = length(u_fdb_k);
+                        tic
+                        for m = 1:N_finite_diff_u
+                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                            df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        end
+                        
                         Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
                         
                         dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*B(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*B(:,:,j,k)];
@@ -426,7 +453,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     for j = 1:n_sig_point
                         V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
-                        c = c + kappa*trace(w*V_comp);
+                        c = c + trace(w*V_comp);
                         
                         % % debugging
                         % c_variance(j,k+1) = kappa*trace(w*V_comp);
@@ -670,24 +697,24 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % %xlim([0,30]);ylim([-1,1])
                 % title('Sigma Point second knee');
                 
-                obj.cached_Px = Px;
-                fprintf('robust cost function: %4.8f\n',c);
+                %obj.cached_Px = Px;
+                %fprintf('robust cost function: %4.8f\n',c);
                 
                 % check gradient
                 %disp('check gradient')
                 %c_numeric = c;
                 %dc_numeric = dc;
                 %
-                X0 = [x_full; u_full];
+                %X0 = [x_full; u_full];
                 %X0 = X0 + randn(size(X0))*0.1;
                 %
-                fun = @(X0) robustVariancecost_check(obj, X0);
-                DerivCheck(fun, X0)
+                %fun = @(X0) robustVariancecost_check(obj, X0);
+                %DerivCheck(fun, X0)
                 %disp('finish numerical gradient');
                 
-                tic
-                [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
-                toc
+                %tic
+                %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                %toc
                 
                 %[c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
                 %
@@ -764,10 +791,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     eta_final = ones(obj.N,1);
                     
                     %initialize c and dc
-                    kappa = obj.options.kappa;
                     x_mean = zeros(obj.nx, obj.N);
                     % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                    c = kappa*trace(Px(:,:,1));
+                    c = trace(Px(:,:,1));
                     % c_quadratic = 0;
                     c_variance = 0;
                     dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -852,7 +878,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             % add feedback control
                             t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                             u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
-                            [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                            [xdn,df_analytical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                            
                             Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
                             
                             dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*B(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*B(:,:,j,k)];
@@ -908,7 +935,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                         for j = 1:n_sig_point
                             V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
-                            c = c + kappa*trace(w*V_comp);
+                            c = c + trace(w*V_comp);
                             
                             % % debugging
                             % c_variance(j,k+1) = kappa*trace(w*V_comp);

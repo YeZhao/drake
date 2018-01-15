@@ -83,13 +83,12 @@ u1 = r.findTrim(q1);
 u1(8) = 0;%-5;
  
 T0 = 1;
-N = 3;
+N = 10;
 Nm = 7;
 
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
-options.kappa = 1;
 options.contact_robust_cost_coeff = 1e-6;
  
 % ikoptions = IKoptions(r);
@@ -140,7 +139,7 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
-q_lb(11) = q0(11);
+q_lb(11) = q0(11);% an extra cost to bound the cylinder height 
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
 traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);

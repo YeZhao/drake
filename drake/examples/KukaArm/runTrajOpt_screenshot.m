@@ -1,4 +1,4 @@
-function runTrajOpt
+function runTrajOpt_screenshot
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -35,6 +35,7 @@ qm = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %       0.01;0.79;0.09;0;0;0];
+qm(8) = qm(8) - 0.001;
 xm = [qm;zeros(nv,1)];
 v.draw(0,xm);
 kinematics_options.compute_gradients = 0;
@@ -82,6 +83,62 @@ q0(8) = 0.08;
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
 
+%screenshot 2
+q2 = q0;
+q2(2) = q2(2) -0.05;
+q2(4) = q2(4) - 0.15;
+q2(8) = 0.075;
+x2 = [q2;zeros(nv,1)];
+v.draw(0,x2);
+
+%screenshot 3
+q3 = q0;
+q3(1) = q3(1) - 0.01;
+q3(2) = q3(2) -0.15;
+q3(4) = q3(4) - 0.3;
+q3(8) = 0.07;
+x3 = [q3;zeros(nv,1)];
+v.draw(0,x3);
+
+%screenshot 5
+q5 = qm;
+q5(2) = q5(2) +0.08;
+q5(1) = q5(1) + 0.2;
+q5(6) = q5(6) - 0.06;
+kinsol = doKinematics(r, q5, [], kinematics_options);
+iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+q5(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+q5(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+x5 = [q5;zeros(nv,1)];
+v.draw(0,x5);
+
+%screenshot 6
+q6 = qm;
+q6(2) = q6(2) +0.16;
+q6(1) = q6(1) + 0.4;
+q6(6) = q6(6) - 0.12;
+kinsol = doKinematics(r, q6, [], kinematics_options);
+iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+q6(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+q6(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+x6 = [q6;zeros(nv,1)];
+v.draw(0,x6);
+
+%screenshot 7
+q7 = qm;
+q7(2) = q7(2) +0.24;
+q7(1) = q7(1) + 0.6;
+q7(6) = q7(6) - 0.18;
+kinsol = doKinematics(r, q7, [], kinematics_options);
+iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+q7(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+q7(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+x7 = [q7;zeros(nv,1)];
+v.draw(0,x7);
+
 u0 = r.findTrim(q0);
 u0(8) = -5;
 um = r.findTrim(qm);
@@ -95,9 +152,9 @@ N1 = 7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 0.1;
+options.Px_coeff = 0.01; 
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
-options.contact_robust_cost_coeff = 1e-4;
+options.kappa = 1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -225,10 +282,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
