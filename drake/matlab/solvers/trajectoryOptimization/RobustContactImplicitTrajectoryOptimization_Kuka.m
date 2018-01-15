@@ -239,16 +239,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
                 tStart = tic;
                 global timestep_updated
-                                
+                
                 tic
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
                 nu = obj.nu;%obj.plant.getNumInputs;
-                
-                %fprintf('sum of x value: %4.4f\n',sum(sum(abs(x))));
-                
+
                 % sigma points
                 Px = zeros(obj.nx,obj.nx,obj.N);
                 Px(:,:,1) = obj.cached_Px(:,:,1);
@@ -260,7 +258,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
                 n_sig_point = 2*(obj.nx+nw);
-                w_averg = 1/n_sig_point;
+                w_avg = 1/n_sig_point;
                 
                 w_mu = ones(1,n_sig_point);
                 w_phi = zeros(1,n_sig_point);
@@ -280,7 +278,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 w_noise = [w_mu];%[w_phi;w_mu]
                 K = obj.options.K;
-                eta = 1;
+                eta_final = ones(obj.N,1);
                 
                 %initialize c and dc
                 kappa = obj.options.kappa;
@@ -300,7 +298,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
-                    eta_final = 1;
                     if k == 1
                         % reassign initial object position
                         % currently, not treat object x-y position as
@@ -328,7 +325,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
                         for j = 1:n_sig_point
-                            x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
+                            x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                         end
                         c = c + norm(x(:,k)-x_mean(:,k))^2;
                         
@@ -375,7 +372,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
                         
-                        dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*Bmatrix(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*Bmatrix(:,:,j,k)];
+                        dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*B(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*B(:,:,j,k)];
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                     end
@@ -383,27 +380,27 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
-                        x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     % shift sigma point
                     for j = 1:n_sig_point
                         Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                         eta_optimal = etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
-                        if eta_optimal < eta_final
-                            eta_final = eta_optimal;
+                        if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
+                            eta_final(k+1) = eta_optimal;
                         end
                     end
                     
                     % scale Sigma point deviation by eta
                     for j = 1:n_sig_point
-                        Sig(1:obj.nx,j,k+1) = x(:,k+1) + eta_final*(Sig(1:obj.nx,j,k+1) - x(:,k+1));
+                        Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                     end
                     
                     % recalculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
-                        x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     % check that the mean deviation term is cancelled out
@@ -473,15 +470,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     
                                     chain_rule_indx = k-j;
                                     if j ~= 1
-                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
                                     else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2)*eye(obj.nx);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
                                     end
                                     dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
                                     
                                     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                        dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
-                                        dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;
+                                        dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_dx;
+                                        dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_du;
                                         chain_rule_indx = chain_rule_indx - 1;
                                     end
                                     dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
@@ -495,20 +492,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             dSig_i_kplus1_du = zeros(obj.nx,nu);
                             chain_rule_indx = k-j;
                             if j ~= 1
-                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
                             else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2)*eye(obj.nx);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
                             end
                             dSig_i_kplus1_du = dfdu(:,:,i,j+1);
                             
                             while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
-                                dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
+                                dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_dx;
+                                dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_du;
                                 chain_rule_indx = chain_rule_indx - 1;
                             end
                             % new sigma point due to resampling mechanism
-                            dSig_i_kplus1_dx_resample(:,:,i) = eta*(dSig_i_kplus1_dx - w_averg*dSig_m_kplus1_dx_sum);
-                            dSig_i_kplus1_du_resample(:,:,i) = eta*(dSig_i_kplus1_du - w_averg*dSig_m_kplus1_du_sum);
+                            dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                         end
                         
                         dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
@@ -520,13 +517,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         end
                         
                         for i =1:n_sig_point
-                            dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_averg*dSig_kplus1_dx_sum_resample);
-                            dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_averg*dSig_kplus1_du_sum_resample);
+                            dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                            dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
                         end
                         
                         % gradient of mean residual w.r.t state x and control u, assume norm 2
-                        dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_averg*dSig_m_kplus1_dx_sum);
-                        dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_averg*dSig_m_kplus1_du_sum);
+                        dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);
+                        dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);
                     end
                     
                     % induced by resampling mechanism
@@ -705,7 +702,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 DerivCheck(fun, X0)
                 %disp('finish numerical gradient');
                 
+                tic
                 [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                toc
+                
                 %[c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
                 %
                 %valuecheck(dc,dc_numeric,1e-5);
@@ -761,7 +761,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     w = 0.5/scale^2;
                     nw = size(Pw,1);
                     n_sig_point = 2*(obj.nx+nw);
-                    w_averg = 1/n_sig_point;
+                    w_avg = 1/n_sig_point;
                     
                     w_mu = ones(1,n_sig_point);
                     w_phi = zeros(1,n_sig_point);
@@ -781,7 +781,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     end
                     w_noise = [w_mu];%[w_phi;w_mu]
                     K = obj.options.K;
-                    eta = 1;
                     
                     %initialize c and dc
                     kappa = obj.options.kappa;
@@ -801,7 +800,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     for k = 1:obj.N-1%[Ye: double check the index]
                         %Propagate sigma points through nonlinear dynamics
-                        eta_final = 1;
                         if k == 1
                             % reassign initial object position
                             % currently, not treat object x-y position as
@@ -829,7 +827,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                             x_mean(:,k) = zeros(obj.nx,1);
                             for j = 1:n_sig_point
-                                x_mean(:,k) = x_mean(:,k) + w_averg*Sig(1:obj.nx,j,k);
+                                x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                             end
                             c = c + norm(x(:,k)-x_mean(:,k))^2;
                             
@@ -889,7 +887,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % calculate mean and variance w.r.t. [x_k] from sigma points
                         x_mean(:,k+1) = zeros(obj.nx,1);
                         for j = 1:n_sig_point
-                            x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                         end
                         
                         % shift sigma point
@@ -909,7 +907,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % recalculate mean and variance w.r.t. [x_k] from sigma points
                         x_mean(:,k+1) = zeros(obj.nx,1);
                         for j = 1:n_sig_point
-                            x_mean(:,k+1) = x_mean(:,k+1) + w_averg*Sig(1:obj.nx,j,k+1);
+                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                         end
                         
                         % check that the mean deviation term is cancelled out
@@ -1012,8 +1010,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     chain_rule_indx = chain_rule_indx - 1;
                                 end
                                 % new sigma point due to resampling mechanism
-                                dSig_i_kplus1_dx_resample(:,:,i) = eta*(dSig_i_kplus1_dx - w_averg*dSig_m_kplus1_dx_sum);
-                                dSig_i_kplus1_du_resample(:,:,i) = eta*(dSig_i_kplus1_du - w_averg*dSig_m_kplus1_du_sum);
+                                dSig_i_kplus1_dx_resample(:,:,i) = eta*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                                dSig_i_kplus1_du_resample(:,:,i) = eta*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                             end
                             
                             dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
@@ -1025,13 +1023,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                             
                             for i =1:n_sig_point
-                                dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_averg*dSig_kplus1_dx_sum_resample);
-                                dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_averg*dSig_kplus1_du_sum_resample);
+                                dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                                dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
                             end
                             
                             % gradient of mean residual w.r.t state x and control u, assume norm 2
-                            dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_averg*dSig_m_kplus1_dx_sum);
-                            dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_averg*dSig_m_kplus1_du_sum);
+                            dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);
+                            dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);
                         end
                         
                         % induced by resampling mechanism
