@@ -373,9 +373,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                         [xdn,df_analytical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         
-                        dt = diag(sqrt(eps(t)))*1e-2;
-                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))))*1e-2;
-                        du = diag(sqrt(eps(u_fdb_k)))*1e-2;
+                        dt = diag(sqrt(eps(t)));
+                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
+                        du = diag(sqrt(eps(u_fdb_k)));
                         
                         [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
                         [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);

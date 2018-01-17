@@ -250,7 +250,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             u = X0(30:37);
             global timestep_updated
             
-            %try
+%             try
 %                 if (nargout>1)
 %                     [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
 %                 else
@@ -306,7 +306,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                         end
 %                     end
 %                 end
-            %catch
+%             catch
                 % this function implement an update based on Todorov 2011, where
                 % instead of solving the full SOCP, we make use of polyhedral
                 % friction cone approximations and solve a QP.
@@ -990,7 +990,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         end
                     end
                 end
-                
             %end
         end
         
@@ -1619,7 +1618,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     else
                         break;
                     end
-                    
                 end
             end
         end
