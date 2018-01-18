@@ -359,6 +359,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %j
                         
                         %Sig(1:obj.nx,j,k) = Sig(1:obj.nx,j,k) + 1e-4*ones(length(Sig(1:obj.nx,j,k)),1);
+%                         Sig(1:obj.nx/2,j,k) = [-1.617390424512861
+%   -1.447719400689961
+%   -0.025612953317431
+%    1.349867387828378
+%   -0.017064718637171
+%    1.303730913354772
+%   -0.033968120642102
+%   -0.011585600828140
+%    0.068951966610762
+%    0.813531091903292
+%    0.186252626849383
+%   -0.209387635929438
+%   -0.015000252286218
+%   -0.183352547457143];
                         
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
@@ -371,32 +385,32 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
-                        [xdn,df_analytical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
                         
-                        dt = diag(sqrt(eps(t)));
-                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-                        du = diag(sqrt(eps(u_fdb_k)));
-                        
-                        [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        df(:,1) = (xdnp-xdnm)/(2*dt);
-                        
-                        N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        tic
-                        for m = 1:N_finite_diff_x
-                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                            df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        end
-                        toc
-                        
-                        N_finite_diff_u = length(u_fdb_k);
-                        tic
-                        for m = 1:N_finite_diff_u
-                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                            df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        end
+%                         dt = diag(sqrt(eps(t)));
+%                         dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
+%                         du = diag(sqrt(eps(u_fdb_k)));
+%                         
+%                         [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
+%                         [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
+%                         df(:,1) = (xdnp-xdnm)/(2*dt);
+%                         
+%                         N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+%                         tic
+%                         for m = 1:N_finite_diff_x
+%                             [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+%                             [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+%                             df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+%                         end
+%                         toc
+%                         
+%                         N_finite_diff_u = length(u_fdb_k);
+%                         tic
+%                         for m = 1:N_finite_diff_u
+%                             [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+%                             [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+%                             df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+%                         end
                         
                         Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
                         

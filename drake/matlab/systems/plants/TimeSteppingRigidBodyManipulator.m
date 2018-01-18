@@ -1017,20 +1017,20 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %tElapsed = toc(tStart);
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            return;
+            %return;
             %disp('finish solveQP QP')
             
             %% add gradient check
             %
-            % fun = @(X0) solveQP(obj,X0);
-            % DerivCheck(fun, X0)
-            %
-            % [xdn,df] = solveQP(obj,X0);
-            %
-            % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-            % valuecheck(xdn,xdn_numeric,1e-5);
-            % valuecheck(df,df_numeric,1e-5);
-            %[xdn_QP,df_QP] = solveQP(obj,X0);
+            fun = @(X0) solveQP(obj,X0);
+            DerivCheck(fun, X0)
+            
+            [xdn,df] = solveQP(obj,X0);
+            
+            [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            valuecheck(xdn,xdn_numeric,1e-5);
+            valuecheck(df,df_numeric,1e-5);
+            [xdn_QP,df_QP] = solveQP(obj,X0);
             
             %% gradient check lambda and dlambda
             % X0 = [t;x;u];
@@ -1145,6 +1145,172 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
                     end
                 end
             end
+            
+            %             xdn(1)
+            %             if sum(abs(xdn_QP-xdn)) > 1e-2
+            %                 %keyboard
+            %                 disp('larger cost numerical deviation')
+            %             end
+            %
+            %             if sum(sum(abs(df_QP-df))) > 1e-2
+            %                 disp('larger gradient numerical deviation')
+            %             end
+            
+        end
+        
+        function [xdn,df] = solveLCP_new(obj,X0)
+            t = X0(1);
+            x = X0(2:13);
+            u = X0(14:16);
+            global timestep_updated
+            
+            if (nargout>1)
+                [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
+            else
+                [obj,z,Mvn,wvn] = solveLCP(obj,t,x,u);
+            end
+            
+            num_q = obj.manip.num_positions;
+            q=x(1:num_q); v=x((num_q+1):end);
+            
+            h = timestep_updated;
+            
+            if isempty(z)
+                vn = wvn;
+            else
+                vn = Mvn*z + wvn;
+            end
+            
+            kinsol = obj.manip.doKinematics(q);
+            vToqdot = obj.manip.vToqdot(kinsol);
+            qdn = vToqdot*vn;
+            qn = q+ h*qdn;
+            % Find quaternion indices
+            quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
+            quat_positions = [quat_bodies.position_num];
+            for i=1:size(quat_positions,2)
+                quat_dot = qdn(quat_positions(4:7,i));
+                if norm(quat_dot) > 0
+                    % Update quaternion by following geodesic
+                    qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
+                    qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+                end
+            end
+            xdn = [qn;vn];
+            
+            xdn_LCP_vec = [xdn_LCP_vec,xdn];
+            
+            %if size(xdn_LCP_vec,2) > 100
+            if t > 4.98
+                keyboard
+            end
+            
+            if (nargout>1)  % compute gradients
+                if isempty(z)
+                    dqdn = dwvn;
+                else
+                    dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
+                end
+                df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn];%[Ye: +h*dqdn part miss a vToqdot matrix]
+            end
+            
+            for i=1:length(obj.sensor)
+                if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
+                    if (nargout>1)
+                        [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+                    else
+                        [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+                    end
+                    xdn = [xdn;xdn_sensor];
+                    if (nargout>1)
+                        df = [df; df_sensor];
+                    end
+                end
+            end
+        end
+        
+        function [xdn,df] = update2(obj,t,x,u)
+            %if obj.update_convex && nargout>1
+            %t
+            global timestep_updated
+            global x_initial
+            timestep_updated = 5e-4;
+            % this is the key part.
+            %if t == 0
+            %    x = x_initial;
+            %end
+            X0 = [t;x;u];
+
+            [xdn,df] = solveLCP_new(obj,X0);
+            %tElapsed = toc(tStart);
+            %xdn_QP_vec = [xdn_QP_vec,xdn];
+            
+            %return;
+            %disp('finish solveQP QP')
+            
+            %% add gradient check
+            %
+            fun = @(X0) solveLCP_new(obj,X0);
+            DerivCheck(fun, X0)
+            
+            %[xdn,df] = solveLCP_new(obj,X0);
+            
+            [xdn_numeric,df_numeric] = geval(@(X0) solveLCP_new(obj,X0),X0,struct('grad_method','numerical'));
+            valuecheck(xdn,xdn_numeric,1e-5);
+            valuecheck(df,df_numeric,1e-5);
+            [xdn_QP,df_QP] = solveQP(obj,X0);
+            
+            %% gradient check lambda and dlambda
+            % X0 = [t;x;u];
+            % X0 = X0 + randn(size(X0))*0.1;
+            %
+            % if X0(2) > 3%6.87%t > 1.5%
+            %     fun = @(X0) solveQP(obj,X0);
+            %     DerivCheck(fun, X0)
+            %
+            %     [lambda,dlambda] = solveQP(obj,X0);
+            %
+            %     try
+            %         [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            %         valuecheck(xdn_QP,xdn_numeric,1e-6);
+            %         valuecheck(df_QP,df_numeric,1e-5);
+            %     catch
+            %         keyboard
+            %     end
+            % end
+            
+            
+            %end
+            
+            function DerivCheck(funptr, X0, ~, varargin)
+                
+                % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
+                %`
+                %  Checks the analytic gradient of a function 'funptr' at a point X0, and
+                %  compares to numerical gradient.  Useful for checking gradients computed
+                %  for fminunc and fmincon.
+                %
+                %  Call with same arguments as you would call for optimization (fminunc).
+                %
+                % $id$
+                
+                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+                
+                % Pick a random small vector in parameter space
+                tol = 1e-6;  % Size of numerical step to take
+                rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
+                
+                % Evaluate at symmetric points around X0
+                [f1, JJ1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                
+                % Print results
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr)), sum(sum(f2-f1)));
+                %dd =  dot(rr, JJ)-f2+f1
+                dd =  sum(sum(JJ*rr))-sum(sum(f2-f1))
+            end
+            
+            
             
             %             xdn(1)
             %             if sum(abs(xdn_QP-xdn)) > 1e-2
