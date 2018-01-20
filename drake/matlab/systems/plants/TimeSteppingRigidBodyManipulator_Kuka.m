@@ -248,41 +248,36 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             %X0 = X0 + randn(size(X0))*0.1; 
             
-            [bin_fqp_active, db_tildedX0] = gradient_component_test(X0);
+            [c_test, dc_test] = gradient_component_test(X0);
             
+%             [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
+%             valuecheck(dc_test,dc_test_numerical,1e-5);
+                
             fun = @(X0) gradient_component_test(X0);
             DerivCheck(fun, X0)
             disp('gradient check')
             
-            function DerivCheck(funptr, X0, ~, varargin)
-                
-                % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
-                %`
-                %  Checks the analytic gradient of a function 'funptr' at a point X0, and
-                %  compares to numerical gradient.  Useful for checking gradients computed
-                %  for fminunc and fmincon.
-                %
-                %  Call with same arguments as you would call for optimization (fminunc).
-                %
-                % $id$
-                
+            function DerivCheck(funptr, X0, ~, varargin)                
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                rr(2:37) = rr(2:37) - rr(2:37);
+                rr(1) = 0;
+                %rr(2:10) = 0;
+                m = 16;
+                rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
                 [f1, JJ1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
                 [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(1))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2:m-1))), sum(sum(f2-f1)));
                 %dd =  dot(rr, JJ)-f2+f1
                 dd = sum(sum(JJ*rr))-sum(sum(f2(30:37)-f1(30:37)))
             end
             
-            function [bin_fqp_active, db_tildedX0] = gradient_component_test(X0)
+            function [c_test, dc_test] = gradient_component_test(X0)
                 h = X0(1);
                 x = X0(2:29);
                 u = X0(30:37);
@@ -400,10 +395,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %[tuned for 3D]
                 index = [1:3];% defined for 3D kuka arm
-                index2 = [];
-                for i=1:num_q
-                    index2 = [index2;index'+(i-1)*3];
-                end
                 
                 JA = []; JAx = []; JAy = []; JAz = [];
                 dJA = []; dJAx = []; dJAy = []; dJAz = [];
@@ -412,7 +403,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
                     JA = [JA; J_(index,:)];
                     JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];
-                    dJA = [dJA;dJ_(index2,:)];
+                    dJA = [dJA;dJ_];
                     world_pts = [world_pts, pp];
                 end
                 
@@ -422,7 +413,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     [~,J_,dJ_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
                     JB = [JB; J_(index,:)];
                     JBx = [JBx;J_(1,:)]; JBy = [JBy;J_(2,:)]; JBz = [JBz;J_(3,:)];
-                    dJB = [dJB;dJ_(index2,:)];
+                    dJB = [dJB;dJ_];
                 end
                 
                 J = JA-JB;
@@ -836,7 +827,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 db_tildedh_joint = zeros(num_jointConstraint_active_set,1);
                 for j=1:num_jointConstraint_active_set
                     row = active_set(j+num_dynamicsConstraint_active_set);
-                    %idx = num_dynamicsConstraint_active_set*dim+(row-num_dynamicsConstraint_active_set);
                     idx = num_active*dim+(row-num_active);
                     db_tildedh_joint(j) = -(phi(row)/h^2 - dbdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                     % the first componint of bin_fqp is -bin, the sign is flipped
@@ -874,7 +864,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     %handle joint constraints
                     for j=1:num_jointConstraint_active_set
                         row = active_set(j+num_dynamicsConstraint_active_set);
-                        idx = num_dynamicsConstraint_active_set*dim+(row-num_dynamicsConstraint_active_set);
+                        idx = num_active*dim+(row-num_active);
                         dA_tildedq_joint(j,:,i) = dAdq_tmp(idx,:,i)*V;
                         db_tildedq_joint(j,:,i) = dbdq(idx,:,i);% switch the sign to correct one
                         db_tildedv_joint(j,:,i) = dbdv(idx,i);
@@ -900,8 +890,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     assert(length(dA_tildedq(:,1,i)) == length(active_set));
                 end
                 
-                
-                
                 % partial derivative of b_tilde w.r.t u
                 db_tildedu_dyn = zeros(num_dynamicsConstraint_active_set,1,obj.num_u);
                 db_tildedu_joint = zeros(num_jointConstraint_active_set,1,obj.num_u);
@@ -916,7 +904,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     %handle joint constraints
                     for j=1:num_jointConstraint_active_set
                         row = active_set(j+num_dynamicsConstraint_active_set);
-                        idx = num_dynamicsConstraint_active_set*dim+(row-num_dynamicsConstraint_active_set);
+                        idx = num_active*dim+(row-num_active);
                         db_tildedu_joint(j,:,i) = dbdu(idx,:,i);
                     end
                     
@@ -933,7 +921,17 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 db_tildedq_final = permute(db_tildedq,[1,3,2]);
-                db_tildedX0 = [permute(db_tildedh,[1,3,2])];%,permute(db_tildedq,[1,3,2]),permute(db_tildedv,[1,3,2]),permute(db_tildedu,[1,3,2])
+                db_tildedX0 = [permute(db_tildedq,[1,3,2])];%permute(db_tildedh,[1,3,2]),permute(db_tildedq,[1,3,2]),permute(db_tildedv,[1,3,2]),permute(db_tildedu,[1,3,2])
+                dbdq_test = permute(dbdq,[1,3,2]);
+                
+                %dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
+                
+                c_test = J*vToqdot*v;
+                %dc_test = dJdq(:,:,10);
+%                 dc_test = zeros(52,3);
+                for i=1:14
+                dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
+                end
             end
             % [end of the test]
             

@@ -160,7 +160,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 
                 [f,df] = dynamics(obj,t,x,u+uw);
             end
-            
         end
         
         function [f,df] = dynamics_w_x(obj,t,x,u,w)
