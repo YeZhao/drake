@@ -246,8 +246,45 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         %function [b,db] = solveQP(obj,X0)
         function [xdn,df] = solveQP(obj,X0)
             
-            %X0 = X0 + randn(size(X0))*0.1; 
-            
+            X0 = X0 + randn(size(X0))*0.1; 
+            X0 = [0.0749
+   -1.6816
+   -1.1858
+    0.1035
+    1.9862
+    0.1829
+    0.9844
+   -0.1799
+    0.0091
+    0.0085
+    0.6299
+   -0.0377
+   -0.2036
+    0.0817
+    0.1246
+   -0.1168
+   -0.1349
+    0.0758
+    0.0817
+    0.2512
+    0.0010
+   -0.2130
+    0.0569
+   -0.0692
+   -0.1543
+   -0.0315
+   -0.0331
+    0.1235
+    0.1436
+    0.0011
+   62.4134
+    0.5982
+   -8.4313
+    0.3811
+    1.6962
+    0.0330
+   -5.2107];
+
             [c_test, dc_test] = gradient_component_test(X0);
             
 %             [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
@@ -263,8 +300,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
                 rr(1) = 0;
-                %rr(2:10) = 0;
-                m = 16;
+                rr(2:4) = 0;
+                m = 7;
                 rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
@@ -272,7 +309,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2:m-1))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(5))), sum(sum(f2-f1)));%rr(2:m-1)
                 %dd =  dot(rr, JJ)-f2+f1
                 dd = sum(sum(JJ*rr))-sum(sum(f2(30:37)-f1(30:37)))
             end
@@ -283,63 +320,63 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 u = X0(30:37);
                 %global timestep_updated
                 
-                %             try
-                %                 if (nargout>1)
-                %                     [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
-                %                 else
-                %                     [obj,z,Mvn,wvn] = solveLCP(obj,t,x,u);
-                %                 end
+                % try
+                %     if (nargout>1)
+                %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
+                %     else
+                %         [obj,z,Mvn,wvn] = solveLCP(obj,t,x,u);
+                %     end
                 %
-                %                 num_q = obj.manip.num_positions;
-                %                 q=x(1:num_q); v=x((num_q+1):end);
-                %                 h = obj.timestep;
+                %     num_q = obj.manip.num_positions;
+                %     q=x(1:num_q); v=x((num_q+1):end);
+                %     h = obj.timestep;
                 %
-                %                 if isempty(z)
-                %                     vn = wvn;
-                %                 else
-                %                     vn = Mvn*z + wvn;
-                %                 end
+                %     if isempty(z)
+                %         vn = wvn;
+                %     else
+                %         vn = Mvn*z + wvn;
+                %     end
                 %
-                %                 kinsol = obj.manip.doKinematics(q);
-                %                 vToqdot = obj.manip.vToqdot(kinsol);
-                %                 qdn = vToqdot*vn;
-                %                 qn = q+ h*qdn;
-                %                 % Find quaternion indices
-                %                 quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
-                %                 quat_positions = [quat_bodies.position_num];
-                %                 for i=1:size(quat_positions,2)
-                %                     quat_dot = qdn(quat_positions(4:7,i));
-                %                     if norm(quat_dot) > 0
-                %                         % Update quaternion by following geodesic
-                %                         qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
-                %                         qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
-                %                     end
-                %                 end
-                %                 xdn = [qn;vn];
+                %     kinsol = obj.manip.doKinematics(q);
+                %     vToqdot = obj.manip.vToqdot(kinsol);
+                %     qdn = vToqdot*vn;
+                %     qn = q+ h*qdn;
+                %     % Find quaternion indices
+                %     quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
+                %     quat_positions = [quat_bodies.position_num];
+                %     for i=1:size(quat_positions,2)
+                %         quat_dot = qdn(quat_positions(4:7,i));
+                %         if norm(quat_dot) > 0
+                %             % Update quaternion by following geodesic
+                %             qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
+                %             qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+                %         end
+                %     end
+                %     xdn = [qn;vn];
                 %
-                %                 if (nargout>1)  % compute gradients
-                %                     if isempty(z)
-                %                         dqdn = dwvn;
-                %                     else
-                %                         dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
-                %                     end
-                %                     df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];
-                %                 end
+                %     if (nargout>1)  % compute gradients
+                %         if isempty(z)
+                %             dqdn = dwvn;
+                %         else
+                %             dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
+                %         end
+                %         df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];
+                %     end
                 %
-                %                 for i=1:length(obj.sensor)
-                %                     if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
-                %                         if (nargout>1)
-                %                             [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
-                %                         else
-                %                             [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
-                %                         end
-                %                         xdn = [xdn;xdn_sensor];
-                %                         if (nargout>1)
-                %                             df = [df; df_sensor];
-                %                         end
-                %                     end
-                %                 end
-                %             catch
+                %     for i=1:length(obj.sensor)
+                %         if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
+                %             if (nargout>1)
+                %                 [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+                %             else
+                %                 [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+                %             end
+                %             xdn = [xdn;xdn_sensor];
+                %             if (nargout>1)
+                %                 df = [df; df_sensor];
+                %             end
+                %         end
+                %     end
+                % catch
                 % this function implement an update based on Todorov 2011, where
                 % instead of solving the full SOCP, we make use of polyhedral
                 % friction cone approximations and solve a QP.
@@ -457,21 +494,21 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
                 Hinv = inv(H);
                 
-                %             if isempty(active)
-                %                 vn = v + Hinv*tau*h;
-                %                 qdn = vToqdot*vn;
-                %                 qn = q + qdn*h;
+                % if isempty(active)
+                %     vn = v + Hinv*tau*h;
+                %     qdn = vToqdot*vn;
+                %     qn = q + qdn*h;
                 %
-                %                 df = zeros(0,1+obj.num_x+obj.num_u);
-                %                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
-                %                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                %                 dMvn = zeros(0,1+obj.num_x+obj.num_u);
+                %     df = zeros(0,1+obj.num_x+obj.num_u);
+                %     dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
+                %         h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
+                %     dMvn = zeros(0,1+obj.num_x+obj.num_u);
                 %
-                %                 lambda = [];
-                %                 Mvn = [];
-                %                 wvn = v + Hinv*tau*h;
-                %                 dlambda = [];
-                %             else
+                %     lambda = [];
+                %     Mvn = [];
+                %     wvn = v + Hinv*tau*h;
+                %     dlambda = [];
+                % else
                 num_active = length(active);
                 num_beta = num_active*num_d; % coefficients for friction poly
                 num_full_dim = num_active*dim+nL;
@@ -782,7 +819,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         %dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJz_reshape(j,:)];%[tuned for 2D]
                     end
                     %dJdq(:,:,i) = dJdq_tmp;
-                    dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 2D]
+                    dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 3D]
                     
                     try
                         dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
@@ -926,12 +963,27 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
                 
-                c_test = J*vToqdot*v;
-                %dc_test = dJdq(:,:,10);
-%                 dc_test = zeros(52,3);
-                for i=1:14
-                dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
-                end
+                c_test = J;%J*vToqdot*v;
+                dc_test = dJdq(:,:,4);
+                %dc_test = zeros(52,3);
+                %for i=1:14
+                %    dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
+                %end
+                % for dJdq(:,:,1)-dJdq(:,:,8), only difference comes from
+                % the last three columns, related to object orientation.
+                % There, the analytical solution has all-zero elements
+                % while the numerical gradient has non-zero elements there
+                % because the closest points in plus/minus delta X change.
+                % for dJdq(:,:,9)-dJdq(:,:,11), only difference still comes from
+                % the last three columns, related to object orientation.
+                % Additionally, all the other 1st-11th columns are zero.
+                % for dJdq(:,:,12)-dJdq(:,:,14), difference comes from
+                % the last six columns, related to object position and orientation.
+                % Additionally, all the other 1st-8th columns are zero.
+                % A key point: the numerical gradient changes based on how many dimension 
+                % perturbations are exerted. Because different perturbations will create 
+                % different closest point in every specific case.
+                % Emperical test shows that the perturbation is addable.
             end
             % [end of the test]
             
