@@ -246,61 +246,22 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         %function [b,db] = solveQP(obj,X0)
         function [xdn,df] = solveQP(obj,X0)
             
-            X0 = X0 + randn(size(X0))*0.1; 
-            X0 = [0.0749
-   -1.6816
-   -1.1858
-    0.1035
-    1.9862
-    0.1829
-    0.9844
-   -0.1799
-    0.0091
-    0.0085
-    0.6299
-   -0.0377
-   -0.2036
-    0.0817
-    0.1246
-   -0.1168
-   -0.1349
-    0.0758
-    0.0817
-    0.2512
-    0.0010
-   -0.2130
-    0.0569
-   -0.0692
-   -0.1543
-   -0.0315
-   -0.0331
-    0.1235
-    0.1436
-    0.0011
-   62.4134
-    0.5982
-   -8.4313
-    0.3811
-    1.6962
-    0.0330
-   -5.2107];
-
+            X0 = X0 + randn(size(X0))*0.1;
             [c_test, dc_test] = gradient_component_test(X0);
             
-%             [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
-%             valuecheck(dc_test,dc_test_numerical,1e-5);
-                
+            % [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
+            % valuecheck(dc_test,dc_test_numerical,1e-5);
+            
             fun = @(X0) gradient_component_test(X0);
             DerivCheck(fun, X0)
             disp('gradient check')
             
-            function DerivCheck(funptr, X0, ~, varargin)                
+            function DerivCheck(funptr, X0, ~, varargin)
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                rr(1) = 0;
-                rr(2:4) = 0;
+                rr(1:5) = 0;
                 m = 7;
                 rr(m:end) = rr(m:end) - rr(m:end);
                 
@@ -309,8 +270,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(5))), sum(sum(f2-f1)));%rr(2:m-1)
-                %dd =  dot(rr, JJ)-f2+f1
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(6))), sum(sum(f2-f1)));%rr(2:m-1)
                 dd = sum(sum(JJ*rr))-sum(sum(f2(30:37)-f1(30:37)))
             end
             
@@ -744,22 +704,22 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 JD{2} = Jy;%[tuned for 3D]
                 JD = vertcat(JD{:});
                 % just keep the likely contacts (and store data to check the unlikely):
-                %                 possible_limit_indices = [];% [Ye: to be modified for the checker]
-                %                 phi_check = phiL(~possible_limit_indices);
-                %                 J_check = zeros(0,num_q);
-                %                 phi_check = [phi_check;phiC(~possible_contact_indices)];
-                %                 J_check = [J_check; n(~possible_contact_indices,:)];
+                % possible_limit_indices = [];% [Ye: to be modified for the checker]
+                % phi_check = phiL(~possible_limit_indices);
+                % J_check = zeros(0,num_q);
+                % phi_check = [phi_check;phiC(~possible_contact_indices)];
+                % J_check = [J_check; n(~possible_contact_indices,:)];
                 
                 %phiC = phiC(possible_contact_indices);
                 %Jz = Jz(possible_contact_indices,:);
                 %JD = JD(repmat(possible_contact_indices,mC,1),:);
                 %mu = mu(possible_contact_indices,:);
                 
-                %                 if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
-                %                         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
-                %                         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
-                %                     possible_indices_changed = true;
-                %                 end
+                % if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
+                %         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
+                %         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
+                %     possible_indices_changed = true;
+                % end
                 
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
                 
@@ -786,7 +746,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
                 dJtranspose = reshape(permute(reshape(dJ,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
                 dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
-                
+
                 % compute dlambda/dx, dlambda/du
                 % this part is the key difference from LCP solver since the
                 % force vector is reformulated.
@@ -963,8 +923,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
                 
-                c_test = J;%J*vToqdot*v;
-                dc_test = dJdq(:,:,4);
+                % debugging test for dJdq
+                %c_test = J;%J*vToqdot*v;
+                %dc_test = dJdq(:,:,4);
                 %dc_test = zeros(52,3);
                 %for i=1:14
                 %    dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
@@ -980,116 +941,128 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % for dJdq(:,:,12)-dJdq(:,:,14), difference comes from
                 % the last six columns, related to object position and orientation.
                 % Additionally, all the other 1st-8th columns are zero.
-                % A key point: the numerical gradient changes based on how many dimension 
-                % perturbations are exerted. Because different perturbations will create 
+                % A key point: the numerical gradient changes based on how many dimension
+                % perturbations are exerted. Because different perturbations will create
                 % different closest point in every specific case.
                 % Emperical test shows that the perturbation is addable.
-            end
-            % [end of the test]
-            
-            %% partial derivative of KKT matrix blocks
-            dGdq = zeros(num_params,num_params,num_q);
-            dEdq = zeros(num_params,num_constraint_active_set,num_q);
-            dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
-            for i=1:num_q
-                % partial dervative w.r.t q
-                M = Qinv*dAdq(:,:,i)*Qinv;
-                N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
-                dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
-                    -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                    -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
-                    +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                    +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
-                dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
-                    + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                    - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
-                dEdq(:,:,i) = - dEdq(:,:,i);
-                % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
-                % Ain_fqp_active multiplied in E.
                 
-                % not used, can be used for slack variable analytical solution
-                dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                    -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                % debugging test for dbdv and dbdu, they are correct.
+                % the numerical error in dAdq is only caused by dJdq.
+                % debugging test for dAdq
+                %A = V'*S_weighting*J*vToqdot*Hinv*vToqdot'*J'*S_weighting*V;
+                %c_test = A;
+                %dc_test = dAdq(:,:,1);
                 
-                % partial dervative w.r.t v
-                % dGdv = 0, dEdv = 0, dFdv = 0.
-                % partial dervative w.r.t u
-                % dGdu = 0, dEdu = 0, dFdu = 0.
-            end
-            
-            %% partial derivative of lambda w.r.t. h, q, v, and u
-            dlambdadh = - G*V'*S_weighting*dbdh - E*db_tildedh;
-            
-            dlambdadq = zeros(num_params,num_q);
-            dlambdadv = zeros(num_params,num_q);
-            for i=1:num_q
-                dlambdadq(:,i) =  - dGdq(:,:,i)*V'*S_weighting*c - G*V'*S_weighting*dbdq(:,:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i);
-                dlambdadv(:,i) =  - G*V'*S_weighting*dbdv(:,i) - E*db_tildedv(:,:,i);
-            end
-            
-            dlambdadu = zeros(num_params,obj.num_u);
-            for i=1:obj.num_u
-                dlambdadu(:,i) = - G*V'*S_weighting*dbdu(:,:,i) - E*db_tildedu(:,:,i);
-            end
-            
-            % left-multiplying V for coordinate scaling
-            dlambda = [zeros(length(lambda),1), S_weighting*V*dlambdadq, S_weighting*V*dlambdadv, S_weighting*V*dlambdadu];%V*dlambdadh
-            % note: dlambdadh is not used, since this formulation fixes
-            % the final time, thus h is not a real decision variable.
-            % THus, gradient is not necessary.
-            % TODO: give a final check on each partial derivative
-            % w.r.t. q, v, and u.
-            
-            %% gradient check of components
-            %b_tilde = bin_fqp_active;
-            %try
-            %    db_tilde = [zeros(length(b_tilde),1), permute(db_tildedq,[1,3,2]), permute(db_tildedv,[1,3,2]), permute(db_tildedu,[1,3,2])];%db_tildedh
-            %catch
-            %    keyboard
-            %end
-            %
-            %b = c;
-            %db = [zeros(length(b),1), permute(dbdq,[1,3,2]), dbdv, permute(dbdu,[1,3,2])];%dbdh
-            %             end
-            
-            % Find quaternion indices
-            quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
-            quat_positions = [quat_bodies.position_num];
-            for i=1:size(quat_positions,2)
-                quat_dot = qdn(quat_positions(4:7,i));
-                if norm(quat_dot) > 0
-                    % Update quaternion by following geodesic
-                    qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
-                    qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+                %% partial derivative of KKT matrix blocks
+                dGdq = zeros(num_params,num_params,num_q);
+                dEdq = zeros(num_params,num_constraint_active_set,num_q);
+                dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
+                for i=1:num_q
+                    % partial dervative w.r.t q
+                    M = Qinv*dAdq(:,:,i)*Qinv;
+                    N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+                    dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
+                        -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                        -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
+                        +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                        +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
+                    dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
+                        + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                        - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                    dEdq(:,:,i) = - dEdq(:,:,i);
+                    % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
+                    % Ain_fqp_active multiplied in E.
+                    
+                    % not used, can be used for slack variable analytical solution
+                    dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                        -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                    
+                    % partial dervative w.r.t v
+                    % dGdv = 0, dEdv = 0, dFdv = 0.
+                    % partial dervative w.r.t u
+                    % dGdu = 0, dEdu = 0, dFdu = 0.
                 end
-            end
-            
-            xdn = [qn;vn];
-            
-            % compute gradients
-            if (nargout>1)
-                if isempty(lambda)
-                    dqdn = dwvn;
-                else
-                    dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
+                
+                %% partial derivative of lambda w.r.t. h, q, v, and u
+                dlambdadh = - G*V'*S_weighting*dbdh - E*db_tildedh;
+                
+                dlambdadq = zeros(num_params,num_q);
+                dlambdadv = zeros(num_params,num_q);
+                for i=1:num_q
+                    dlambdadq(:,i) =  - dGdq(:,:,i)*V'*S_weighting*c - G*V'*S_weighting*dbdq(:,:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i);
+                    dlambdadv(:,i) =  - G*V'*S_weighting*dbdv(:,i) - E*db_tildedv(:,:,i);
                 end
-                df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
-            end
-            
-            for i=1:length(obj.sensor)
-                if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
-                    if (nargout>1)
-                        [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+                
+                dlambdadu = zeros(num_params,obj.num_u);
+                for i=1:obj.num_u
+                    dlambdadu(:,i) = - G*V'*S_weighting*dbdu(:,:,i) - E*db_tildedu(:,:,i);
+                end
+                
+                % left-multiplying V for coordinate scaling
+                dlambda = [zeros(length(lambda),1), S_weighting*V*dlambdadq, S_weighting*V*dlambdadv, S_weighting*V*dlambdadu];%V*dlambdadh
+                % note: dlambdadh is not used, since this formulation fixes
+                % the final time, thus h is not a real decision variable.
+                % Thus, gradient is not necessary.
+                % TODO: give a final check on each partial derivative
+                % w.r.t. q, v, and u.
+                
+                %% gradient check of components
+                %b_tilde = bin_fqp_active;
+                %try
+                %    db_tilde = [zeros(length(b_tilde),1), permute(db_tildedq,[1,3,2]), permute(db_tildedv,[1,3,2]), permute(db_tildedu,[1,3,2])];%db_tildedh
+                %catch
+                %    keyboard
+                %end
+                %
+                %b = c;
+                %db = [zeros(length(b),1), permute(dbdq,[1,3,2]), dbdv, permute(dbdu,[1,3,2])];%dbdh
+                
+                % Find quaternion indices
+                quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
+                quat_positions = [quat_bodies.position_num];
+                for i=1:size(quat_positions,2)
+                    quat_dot = qdn(quat_positions(4:7,i));
+                    if norm(quat_dot) > 0
+                        % Update quaternion by following geodesic
+                        qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
+                        qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+                    end
+                end
+                
+                xdn = [qn;vn];
+                
+                % compute gradients
+                if (nargout>1)
+                    if isempty(lambda)
+                        dqdn = dwvn;
                     else
-                        [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+                        dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
                     end
-                    xdn = [xdn;xdn_sensor];
-                    if (nargout>1)
-                        df = [df; df_sensor];
+                    df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
+                end
+                
+                for i=1:length(obj.sensor)
+                    if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
+                        if (nargout>1)
+                            [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+                        else
+                            [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+                        end
+                        xdn = [xdn;xdn_sensor];
+                        if (nargout>1)
+                            df = [df; df_sensor];
+                        end
                     end
                 end
+                
+                c_test = reshape(Mvn,[],1);
+                dc_test = dMvn(:,6);
+                %c_test = lambda;
+                %dc_test = S_weighting*V*dlambdadu(:,8);
+                % debugging test for dlambda, it has several different components
+                % numerical and analytical solutions for dlambdadq do not match well because dGdq and dEdq involves dAdq.
+                % numerical and analytical solutions for dlambdadv and dlambdadu match well. 
             end
-            %end
         end
         
         function [xdn,df] = update(obj,t,x,u)
@@ -1101,36 +1074,34 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             % add gradient check
             
-            %             fun = @(X0) solveQP(obj,X0);
-            %             DerivCheck(fun, X0)
+            % fun = @(X0) solveQP(obj,X0);
+            % DerivCheck(fun, X0)
             %
-            %             [xdn,df] = solveQP(obj,X0);
+            % [xdn,df] = solveQP(obj,X0);
             %
-            %             [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-            %             valuecheck(xdn,xdn_numeric,1e-5);
-            %             valuecheck(df,df_numeric,1e-5);
-            %             [xdn_QP,df_QP] = solveQP(obj,X0);
+            % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            % valuecheck(xdn,xdn_numeric,1e-5);
+            % valuecheck(df,df_numeric,1e-5);
+            % [xdn_QP,df_QP] = solveQP(obj,X0);
             %
-            %             % gradient check lambda and dlambda
-            %             X0 = [t;x;u];
-            %X0 = X0 + randn(size(X0))*0.1;
+            % % gradient check lambda and dlambda
+            % X0 = [t;x;u];
+            % X0 = X0 + randn(size(X0))*0.1;
             
-%             if X0(1) > 0.05%6.87%t > 1.5%
-%                 fun = @(X0) solveQP(obj,X0);
-%                 DerivCheck(fun, X0)
-%                 
-%                 [lambda,dlambda] = solveQP(obj,X0);
-%                 
-%                 try
-%                     [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-%                     valuecheck(xdn_QP,xdn_numeric,1e-6);
-%                     valuecheck(df_QP,df_numeric,1e-5);
-%                 catch
-%                     keyboard
-%                 end
-%             end
-            
-            %end
+            % if X0(1) > 0.05%6.87%t > 1.5%
+            %     fun = @(X0) solveQP(obj,X0);
+            %     DerivCheck(fun, X0)
+            %
+            %     [lambda,dlambda] = solveQP(obj,X0);
+            %
+            %     try
+            %         [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            %         valuecheck(xdn_QP,xdn_numeric,1e-6);
+            %         valuecheck(df_QP,df_numeric,1e-5);
+            %     catch
+            %         keyboard
+            %     end
+            % end
             
             function DerivCheck(funptr, X0, ~, varargin)
                 
@@ -1159,7 +1130,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %dd =  dot(rr, JJ)-f2+f1
                 dd =  sum(sum(JJ*rr))-sum(sum(f2-f1))
             end
-                        
+            
             if (nargout>1)
                 [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
             else
