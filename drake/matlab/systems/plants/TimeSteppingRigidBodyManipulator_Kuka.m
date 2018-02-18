@@ -246,7 +246,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         %function [b,db] = solveQP(obj,X0)
         function [xdn,df] = solveQP(obj,X0)
             
-            X0 = X0 + randn(size(X0))*0.1;
+            %X0 = X0 + randn(size(X0))*0.1;
+            
             [c_test, dc_test] = gradient_component_test(X0);
             
             % [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
@@ -696,7 +697,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 mC = 2;%length(D);% 2D, normally mC = 2 for 3D;[tuned for 3D]
                 
                 % derive jacobian
-                J_size = [nL + nP + (mC+1)*nC,num_q];
+                J_size = [nP + (mC+1)*nC + nL,num_q];
                 
                 %lb = zeros(nL+nP+(mC+2)*nC,1);
                 %ub = Big*ones(nL+nP+(mC+2)*nC,1);
@@ -723,32 +724,44 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
                 
-                dJ = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
+                % new dJ to accommodate lcp formulation
+                dJ_lcp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
                 possible_contact_indices_found = find(possible_contact_indices);
                 n_size = [numel(possible_contact_indices), num_q];
                 col_indices = 1 : num_q;
                 dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                dJ = setSubMatrixGradient(dJ, dJz, nL+nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
+                %dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz, nL+nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
+                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
                 JD_size = size(JD);
                 dJD_matrix = zeros(prod(JD_size), num_q);
+                
+                JD_single_size = size(Jx);
+                dJD_single_matrix{1} = zeros(prod(JD_single_size), num_q);
+                dJD_single_matrix{2} = zeros(prod(JD_single_size), num_q);
                 row_start = 0;
                 for i = 1 : mC
                     dJD_possible_contact = getSubMatrixGradient(dJD{i}, possible_contact_indices_found, col_indices, n_size);
                     dJD_matrix = setSubMatrixGradient(dJD_matrix, dJD_possible_contact, row_start + (1 : nC), col_indices, JD_size);
+                    dJD_single_matrix{i} = setSubMatrixGradient(dJD_single_matrix{i}, dJD_possible_contact, (1 : nC), col_indices, JD_single_size);
                     row_start = row_start + nC;
                 end
                 dJD = dJD_matrix;
-                dJ = setSubMatrixGradient(dJ, dJD, nL+nP + (1 : mC * nC), col_indices, J_size);
+                %dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD, nL+nP + (1 : mC * nC), col_indices, J_size);
+                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
+                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
                 %dJ_original = dJ;
-                dJ = reshape(dJ, [], num_q^2);
+                dJ_lcp = reshape(dJ_lcp, [], num_q^2);
                 
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                dJtranspose = reshape(permute(reshape(dJ,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
+                dJtranspose = reshape(permute(reshape(dJ_lcp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
                 dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
 
+                %-J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J'+ dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
+                %            +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)'
+                
                 % compute dlambda/dx, dlambda/du
-                % this part is the key difference from LCP solver since the
+                % this part is a key difference from LCP solver since the
                 % force vector is reformulated.
                 lambda = f;
                 
