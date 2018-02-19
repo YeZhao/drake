@@ -270,7 +270,17 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(3))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(5))), sum(sum(f2-f1)));
+                
+                SUM = 0;
+                for i=1:14
+                    SUM = SUM + sum(sum(JJ(:,:,i)*rr(i+1)));
+                end
+                
+                SUM = 0;
+                for i=1:14
+                    SUM = SUM + sum(sum(JJ(:,i+1)*rr(i+1)));
+                end
             end
             
             function [c_test, dc_test] = gradient_component_test(X0)
@@ -415,17 +425,17 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
                 
                 %% numerical Jacobian gradient
-                rr = sqrt(eps(X0));
-                rr(1) = 0;%corresponding to time step h
-                m = length(h)+length(q)+1;% only q component affects Jacobian J
-                rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-                
-                X0_p = X0 + rr/2;
-                X0_m = X0 - rr/2;
-                J_object_p = object_gradient_numerical(X0_p);
-                J_object_m = object_gradient_numerical(X0_m);
-                
                 for i=1:num_q
+                    rr = sqrt(eps(X0));
+                    rr(1:i) = 0;%corresponding to time step h
+                    m = i+2;% only q component affects Jacobian J
+                    rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
+    
+                    X0_p = X0 + rr/2;
+                    X0_m = X0 - rr/2;
+                    J_object_p = object_gradient_numerical(X0_p);
+                    J_object_m = object_gradient_numerical(X0_m);
+                    
                     dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
                 end
                 
@@ -465,14 +475,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     JA_num = [];
                     world_pts = [];
-                    for i=1:length(Aidx_num)
-                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Aidx_num(i),Apts_num(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
+                    for k=1:length(Aidx_num)
+                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Aidx_num(k),Apts_num(:,k));%[Ye: reshaping of dJ is commented out in forwardKin() ]
                         JA_num = [JA_num; reshape(J_num_(index,:),[],1)];
                     end
                     
                     JB_num = [];
-                    for i=1:length(Bidx_num)
-                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(i),Bpts_num(:,i));
+                    for k=1:length(Bidx_num)
+                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
                         JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
                     end
                     J_num = JA_num-JB_num;
@@ -1139,11 +1149,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     end
                 end
                 
-                c_test = J;
-                dc_test = dJdq(:,:,2);
+                %c_test = J;
+                %dc_test = dJdq;%dJdq(:,:,4);
                 
-                %c_test = reshape(Mvn,[],1);
-                %dc_test = dMvn(:,6);
+                %c_test = lambda;
+                %dc_test = S_weighting*V*dlambdadq;
+                
+                c_test = reshape(Mvn,[],1);
+                dc_test = dMvn;
                 
                 %c_test = lambda;
                 %dc_test = S_weighting*V*dlambdadu(:,8);
