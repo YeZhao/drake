@@ -738,12 +738,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 % new dJ to accommodate lcp formulation
                 dJ_qp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
-                dJ_lcp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
                 possible_contact_indices_found = find(possible_contact_indices);
                 n_size = [numel(possible_contact_indices), num_q];
                 col_indices = 1 : num_q;
                 dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz_new, nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJz_new, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
                 JD_size = size(JD);
                 dJD_matrix = zeros(prod(JD_size), num_q);
@@ -759,8 +757,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     row_start = row_start + nC;
                 end
                 dJD_new = dJD_matrix;
-                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_new, nP + (1 : mC * nC), col_indices, J_size);
-                dJ_lcp = reshape(dJ_lcp, [], num_q^2); % expand dJ in column format
                 
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
@@ -768,18 +764,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                %dJtranspose_lcp = reshape(permute(reshape(dJ_lcp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose, 
-                dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
+                dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose
                 
-                %dJtranspose_lcp = reshape(permute(reshape(dJ_qp,36,size(J,2),[]),[2,1,3]),36*14,[]);% all it does is to get dJ transpose, 
-
                 % but we don't need it here because our original dJ is already stacked in [x1(q1);y1(q1);z1(q1);x2(q2);y2(q2);z2(q2);x3(q2);y3(q2);z3(q2);...]
                 % the original dJ in LCP is stacked in [x1(q1);x2(q2);x3(q2);y1(q1);y2(q2);y3(q2);z1(q1);z2(q2);z3(q2);...]
                 dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
                 % Hinv*reshape(dJtranspose,num_q,[]) is the same as Hinv*vToqdot'*dJdq(:,:,i)' with i=1:num_q
-                
-                %-J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J'+ dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
-                %            +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)'
+                % Hinv*reshape(matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]) is same as Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' with i=1:num_q
                 
                 % compute dlambda/dx, dlambda/du
                 % this part is a key difference from LCP solver since the
@@ -833,13 +824,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dAdu(:,:,i) = zeros(num_params);
                     dbdu(:,:,i) = J*vToqdot*Hinv*B(:,i)*h;
                 end
-                
-                % another way to construct dJ_qp
-                dJtranspose_qp_from_scratch = zeros(dJtranspose_qp(1),dJtranspose_qp(2));
-                for i=1:num_q
-                    dJtranspose_qp_from_scratch = [dJtranspose_qp_from_scratch,reshape(dJdq(:,:,i)',numel(dJdq(:,:,i)'),[])];
-                end
-                
+                                
                 %% partial derivative of equality constraints (active)
                 num_dynamicsConstraint = num_active+nL;
                 dynamicsConstraint_active_set = find(active_set<=num_active);%[Ye: to be tuned for different systems]
