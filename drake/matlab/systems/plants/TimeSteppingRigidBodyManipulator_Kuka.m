@@ -247,11 +247,48 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         function [xdn,df] = solveQP(obj,X0)
             
             %X0 = X0 + randn(size(X0))*0.1;
+            X0 = [0.0833
+                -1.6737
+                -1.2079
+                0.0848
+                1.6455
+                0.1570
+                1.3135
+                -0.1227
+                0.2648
+                -0.1074
+                0.7642
+                -0.0670
+                0.1215
+                0.0793
+                0.1339
+                -0.0060
+                -0.1467
+                -0.1058
+                -0.0134
+                -0.0400
+                0.1597
+                0.0176
+                -0.0937
+                -0.0001
+                -0.1437
+                -0.1225
+                -0.0455
+                0.0283
+                -0.0089
+                -0.1321
+                62.3891
+                0.7819
+                -8.5221
+                0.2332
+                1.7159
+                -0.2112
+                -4.9224];
             
             [c_test, dc_test] = gradient_component_test(X0);
             
-            % [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
-            % valuecheck(dc_test,dc_test_numerical,1e-5);
+            %[c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
+            %valuecheck(dc_test,dc_test_numerical,1e-5);
             
             fun = @(X0) gradient_component_test(X0);
             DerivCheck(fun, X0)
@@ -262,17 +299,16 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                rr(1:5) = 0;
-                m = 7;
+                rr(1) = 0;
+                m = 16;
                 rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
-                [f1, JJ1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-                [f2, JJ2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(6))), sum(sum(f2-f1)));%rr(2:m-1)
-                dd = sum(sum(JJ*rr))-sum(sum(f2(30:37)-f1(30:37)))
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(3))), sum(sum(f2-f1)));
             end
             
             function [c_test, dc_test] = gradient_component_test(X0)
@@ -281,6 +317,44 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 u = X0(30:37);
                 %global timestep_updated
                 
+                X0 = [0.0833
+                    -1.6737
+                    -1.2079
+                    0.0848
+                    1.6455
+                    0.1570
+                    1.3135
+                    -0.1227
+                    0.2648
+                    -0.1074
+                    0.7642
+                    -0.0670
+                    0.1215
+                    0.0793
+                    0.1339
+                    -0.0060
+                    -0.1467
+                    -0.1058
+                    -0.0134
+                    -0.0400
+                    0.1597
+                    0.0176
+                    -0.0937
+                    -0.0001
+                    -0.1437
+                    -0.1225
+                    -0.0455
+                    0.0283
+                    -0.0089
+                    -0.1321
+                    62.3891
+                    0.7819
+                    -8.5221
+                    0.2332
+                    1.7159
+                    -0.2112
+                    -4.9224];
+            
                 % try
                 %     if (nargout>1)
                 %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -369,9 +443,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
                 
                 if obj.num_u > 0
-                    [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,q,kinsol);
+                    [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,q,kinsol);
                 else
-                    [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu] = getContactTerms(obj,q,kinsol);
+                    [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,q,kinsol);
                 end
                 
                 num_c = length(phiC);
@@ -417,7 +491,73 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 J = JA-JB;
                 dJ = dJA-dJB;
                 Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
+
+                %% numerical Jacobian gradient
+                rr = sqrt(eps(X0));
+                rr(1) = 0;%corresponding to time step h
+                m = length(h)+length(q)+1;% only q component affects Jacobian J, thus set all other elements to be zero
+                rr(m:end) = rr(m:end) - rr(m:end);
                 
+                X0_p = X0 + rr/2;
+                X0_m = X0 - rr/2;
+                J_object_p = object_gradient_numerical(X0_p);
+                J_object_m = object_gradient_numerical(X0_m);
+                
+                for i=1:num_q
+                    dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                end
+                
+                function [J_num] = object_gradient_numerical(X0)
+                    h_num = X0(1);
+                    x_num = X0(2:29);
+                    u_num = X0(30:37);
+                    
+                    q_num=x_num(1:num_q);
+                    v_num=x_num(num_q+(1:obj.manip.getNumVelocities));
+                    
+                    kinematics_options.compute_gradients = 1;
+                    kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
+                    
+                    if obj.num_u > 0
+                        [phiC_num,~,~,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
+                    else
+                        [phiC_num,~,~,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
+                    end
+                    
+                    num_c = length(phiC_num);
+                    
+                    if nargin<5
+                        w = zeros(num_c*num_d,1);
+                    end
+                    
+                    %[tuned for 3D]
+                    active = [1:length(phiC_num)]';
+                                        
+                    Apts_num = xA_num(:,active);
+                    Bpts_num = xB_num(:,active);
+                    Aidx_num = idxA_num(active);
+                    Bidx_num = idxB_num(active);
+                    
+                    %[tuned for 3D]
+                    index = [1:3];% defined for 3D kuka arm
+                    
+                    JA_num = [];
+                    world_pts = [];
+                    for i=1:length(Aidx_num)
+                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Aidx_num(i),Apts_num(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
+                        JA_num = [JA_num; reshape(J_num_(index,:),[],1)];
+                    end
+                    
+                    JB_num = [];
+                    for i=1:length(Bidx_num)
+                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(i),Bpts_num(:,i));
+                        JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
+                    end
+                    J_num = JA_num-JB_num;
+                end
+                %% numerical Jacobian gradient
+                
+                % dJ new sequence, stack Aidx first and then num_q
                 dJx = []; dJy = []; dJz = [];
                 for j=1:length(Aidx)
                     for i=1:num_q
@@ -429,7 +569,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJD{1} = dJx;
                 dJD{2} = dJy;%[tuned for 3D]
                 
-                % dJ new sequence
+                % dJ new sequence, stack Aidx first and then num_q, only used later for dMvn derivation
                 dJx_new = []; dJy_new = []; dJz_new = [];
                 for i=1:num_q
                     for j=1:length(Aidx)
@@ -760,7 +900,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
-                dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format
+                dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format. For one column, stack Aidx first and then num_q
                 
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
@@ -824,7 +964,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dAdu(:,:,i) = zeros(num_params);
                     dbdu(:,:,i) = J*vToqdot*Hinv*B(:,i)*h;
                 end
-                                
+
                 %% partial derivative of equality constraints (active)
                 num_dynamicsConstraint = num_active+nL;
                 dynamicsConstraint_active_set = find(active_set<=num_active);%[Ye: to be tuned for different systems]
@@ -940,13 +1080,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     end
                 end
                 
-                c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
-                db_tildedq_final = permute(db_tildedq,[1,3,2]);
-                db_tildedX0 = [permute(db_tildedq,[1,3,2])];%permute(db_tildedh,[1,3,2]),permute(db_tildedq,[1,3,2]),permute(db_tildedv,[1,3,2]),permute(db_tildedu,[1,3,2])
-                dbdq_test = permute(dbdq,[1,3,2]);
-                
-                %dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
-                
+                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+                %db_tildedq_final = permute(db_tildedq,[1,3,2]);
+                %db_tildedX0 = [permute(db_tildedq,[1,3,2])];%permute(db_tildedh,[1,3,2]),permute(db_tildedq,[1,3,2]),permute(db_tildedv,[1,3,2]),permute(db_tildedu,[1,3,2])
+                %dbdq_test = permute(dbdq,[1,3,2]);
+                                
                 % debugging test for dJdq
                 %c_test = J;%J*vToqdot*v;
                 %dc_test = dJdq(:,:,4);
@@ -1079,8 +1217,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     end
                 end
                 
-                c_test = reshape(Mvn,[],1);
-                dc_test = dMvn(:,6);
+                c_test = J;
+                dc_test = dJdq(:,:,2);
+                
+                %c_test = reshape(Mvn,[],1);
+                %dc_test = dMvn(:,6);
+                
                 %c_test = lambda;
                 %dc_test = S_weighting*V*dlambdadu(:,8);
                 % debugging test for dlambda, it has several different components
