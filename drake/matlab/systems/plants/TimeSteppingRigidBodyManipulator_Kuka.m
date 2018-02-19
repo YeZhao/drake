@@ -429,6 +429,18 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJD{1} = dJx;
                 dJD{2} = dJy;%[tuned for 3D]
                 
+                % dJ new sequence
+                dJx_new = []; dJy_new = []; dJz_new = [];
+                for i=1:num_q
+                    for j=1:length(Aidx)
+                        dJx_new = [dJx_new;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
+                        dJy_new = [dJy_new;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];%[tuned for 3D]
+                        dJz_new = [dJz_new;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
+                    end
+                end
+                dJD_new{1} = dJx_new;
+                dJD_new{2} = dJy_new;%[tuned for 3D]
+                
                 [phiL,JL] = obj.manip.jointLimitConstraints(q);
                 if length(phiL) ~= 16 % kuka arm
                     keyboard
@@ -725,13 +737,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
                 
                 % new dJ to accommodate lcp formulation
+                dJ_qp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
                 dJ_lcp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
                 possible_contact_indices_found = find(possible_contact_indices);
                 n_size = [numel(possible_contact_indices), num_q];
                 col_indices = 1 : num_q;
                 dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                %dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz, nL+nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
-                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
+                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJz_new, nP+mC*nC+(1:nC), 1 : J_size(2), J_size);
+                dJ_qp = setSubMatrixGradient(dJ_qp, dJz_new, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
                 JD_size = size(JD);
                 dJD_matrix = zeros(prod(JD_size), num_q);
                 
@@ -740,23 +753,31 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJD_single_matrix{2} = zeros(prod(JD_single_size), num_q);
                 row_start = 0;
                 for i = 1 : mC
-                    dJD_possible_contact = getSubMatrixGradient(dJD{i}, possible_contact_indices_found, col_indices, n_size);
+                    dJD_possible_contact = getSubMatrixGradient(dJD_new{i}, possible_contact_indices_found, col_indices, n_size);
                     dJD_matrix = setSubMatrixGradient(dJD_matrix, dJD_possible_contact, row_start + (1 : nC), col_indices, JD_size);
                     dJD_single_matrix{i} = setSubMatrixGradient(dJD_single_matrix{i}, dJD_possible_contact, (1 : nC), col_indices, JD_single_size);
                     row_start = row_start + nC;
                 end
-                dJD = dJD_matrix;
-                %dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD, nL+nP + (1 : mC * nC), col_indices, J_size);
-                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
-                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
-                %dJ_original = dJ;
-                dJ_lcp = reshape(dJ_lcp, [], num_q^2);
+                dJD_new = dJD_matrix;
+                dJ_lcp = setSubMatrixGradient(dJ_lcp, dJD_new, nP + (1 : mC * nC), col_indices, J_size);
+                dJ_lcp = reshape(dJ_lcp, [], num_q^2); % expand dJ in column format
+                
+                dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
+                dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
+                dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format
                 
                 dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
                     h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                dJtranspose = reshape(permute(reshape(dJ_lcp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
-                dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
+                %dJtranspose_lcp = reshape(permute(reshape(dJ_lcp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose, 
+                dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);
+                
+                %dJtranspose_lcp = reshape(permute(reshape(dJ_qp,36,size(J,2),[]),[2,1,3]),36*14,[]);% all it does is to get dJ transpose, 
 
+                % but we don't need it here because our original dJ is already stacked in [x1(q1);y1(q1);z1(q1);x2(q2);y2(q2);z2(q2);x3(q2);y3(q2);z3(q2);...]
+                % the original dJ in LCP is stacked in [x1(q1);x2(q2);x3(q2);y1(q1);y2(q2);y3(q2);z1(q1);z2(q2);z3(q2);...]
+                dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
+                % Hinv*reshape(dJtranspose,num_q,[]) is the same as Hinv*vToqdot'*dJdq(:,:,i)' with i=1:num_q
+                
                 %-J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J'+ dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                 %            +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)'
                 
@@ -767,7 +788,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %b = V'*S_weighting*c;
                 %A = J*vToqdot*Hinv*vToqdot'*J';
-                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
                 %% partial derivative of A, b w.r.t. h, q, v and u
@@ -812,6 +832,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 for i=1:obj.num_u
                     dAdu(:,:,i) = zeros(num_params);
                     dbdu(:,:,i) = J*vToqdot*Hinv*B(:,i)*h;
+                end
+                
+                % another way to construct dJ_qp
+                dJtranspose_qp_from_scratch = zeros(dJtranspose_qp(1),dJtranspose_qp(2));
+                for i=1:num_q
+                    dJtranspose_qp_from_scratch = [dJtranspose_qp_from_scratch,reshape(dJdq(:,:,i)',numel(dJdq(:,:,i)'),[])];
                 end
                 
                 %% partial derivative of equality constraints (active)
