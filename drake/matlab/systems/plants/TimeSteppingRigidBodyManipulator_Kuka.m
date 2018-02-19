@@ -247,46 +247,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         function [xdn,df] = solveQP(obj,X0)
             
             %X0 = X0 + randn(size(X0))*0.1;
-            X0 = [0.0833
-                -1.6737
-                -1.2079
-                0.0848
-                1.6455
-                0.1570
-                1.3135
-                -0.1227
-                0.2648
-                -0.1074
-                0.7642
-                -0.0670
-                0.1215
-                0.0793
-                0.1339
-                -0.0060
-                -0.1467
-                -0.1058
-                -0.0134
-                -0.0400
-                0.1597
-                0.0176
-                -0.0937
-                -0.0001
-                -0.1437
-                -0.1225
-                -0.0455
-                0.0283
-                -0.0089
-                -0.1321
-                62.3891
-                0.7819
-                -8.5221
-                0.2332
-                1.7159
-                -0.2112
-                -4.9224];
             
-            [c_test, dc_test] = gradient_component_test(X0);
-            
+            %[c_test, dc_test] = gradient_component_test(X0);
             %[c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
             %valuecheck(dc_test,dc_test_numerical,1e-5);
             
@@ -317,44 +279,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 u = X0(30:37);
                 %global timestep_updated
                 
-                X0 = [0.0833
-                    -1.6737
-                    -1.2079
-                    0.0848
-                    1.6455
-                    0.1570
-                    1.3135
-                    -0.1227
-                    0.2648
-                    -0.1074
-                    0.7642
-                    -0.0670
-                    0.1215
-                    0.0793
-                    0.1339
-                    -0.0060
-                    -0.1467
-                    -0.1058
-                    -0.0134
-                    -0.0400
-                    0.1597
-                    0.0176
-                    -0.0937
-                    -0.0001
-                    -0.1437
-                    -0.1225
-                    -0.0455
-                    0.0283
-                    -0.0089
-                    -0.1321
-                    62.3891
-                    0.7819
-                    -8.5221
-                    0.2332
-                    1.7159
-                    -0.2112
-                    -4.9224];
-            
                 % try
                 %     if (nargout>1)
                 %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -418,8 +342,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 % w is a num_c * num_d disturbance vector
                 % assume for now that it has the same basis vectors as contact forces
-                
-                % TODO: implement derivatives
                 
                 % q_{k+1} = q_{k} + qd_{k+1}*h;
                 % qd_{k+1} = qd_{k} + H^{-1}*(B*u-C)*h + J'*f;
@@ -491,12 +413,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 J = JA-JB;
                 dJ = dJA-dJB;
                 Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
-
+                
                 %% numerical Jacobian gradient
                 rr = sqrt(eps(X0));
                 rr(1) = 0;%corresponding to time step h
-                m = length(h)+length(q)+1;% only q component affects Jacobian J, thus set all other elements to be zero
-                rr(m:end) = rr(m:end) - rr(m:end);
+                m = length(h)+length(q)+1;% only q component affects Jacobian J
+                rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
                 
                 X0_p = X0 + rr/2;
                 X0_m = X0 - rr/2;
