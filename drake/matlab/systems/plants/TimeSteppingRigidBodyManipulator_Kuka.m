@@ -261,8 +261,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
+                %rr(1) = 0;
+                %m = 16;
+                %rr(m:end) = rr(m:end) - rr(m:end);
                 rr(1) = 0;
-                m = 16;
+                m = 3;
                 rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
@@ -270,7 +273,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(5))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2))), sum(sum(f2-f1)));
                 
                 SUM = 0;
                 for i=1:14
@@ -849,7 +852,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % force vector is reformulated.
                 lambda = f;
                 
-                %b = V'*S_weighting*c;
+                b = V'*S_weighting*c;
                 %A = J*vToqdot*Hinv*vToqdot'*J';
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
@@ -1155,8 +1158,29 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %c_test = lambda;
                 %dc_test = S_weighting*V*dlambdadq;
                 
-                c_test = reshape(Mvn,[],1);
-                dc_test = dMvn;
+                %c_test = V'*S_weighting*A*S_weighting*V;
+                %dc_test = dAdq;
+                
+                %c_test = V'*S_weighting*A*S_weighting*V;
+                %dc_test = dAdq;
+                
+                c_test = H;
+                dc_test = dH(:,1);%dHdq(:,:,1);
+                
+                %c_test = Hinv;
+                %dc_test = -Hinv*reshape(matGradMult(dH(:,1),Hinv),num_q,[]);
+                % -Hinv*dHdq(:,:,1)*Hinv
+                
+                %correct
+                %c_test = b;
+                %dc_test = V'*S_weighting*dbdv(:,1);
+                
+                %correct
+                %c_test = b;
+                %dc_test = V'*S_weighting*dbdu(:,:,1);
+                
+                %c_test = reshape(Mvn,[],1);
+                %dc_test = dMvn;
                 
                 %c_test = lambda;
                 %dc_test = S_weighting*V*dlambdadu(:,8);
