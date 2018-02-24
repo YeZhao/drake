@@ -251,29 +251,30 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %[c_test, dc_test] = gradient_component_test(X0);
             %[c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
             %valuecheck(dc_test,dc_test_numerical,1e-5);
+            %valuecheck(c_test,c_test_numerical,1e-5);
             
             fun = @(X0) gradient_component_test(X0);
             DerivCheck(fun, X0)
-            disp('gradient check')
+            %disp('gradient check')
             
             function DerivCheck(funptr, X0, ~, varargin)
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
+                rr(1:2) = 0;
+                m = 4;
+                rr(m:end) = rr(m:end) - rr(m:end);
                 %rr(1) = 0;
                 %m = 16;
                 %rr(m:end) = rr(m:end) - rr(m:end);
-                rr(1) = 0;
-                m = 16;
-                rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
                 [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
                 [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2:15))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(3))), sum(sum(f2-f1)));
                 
                 SUM = 0;
                 for i=1:14
@@ -370,7 +371,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 num_q = obj.manip.getNumPositions;
                 q=x(1:num_q);
                 v=x(num_q+(1:obj.manip.getNumVelocities));
-                
+                               
                 kinematics_options.compute_gradients = 1;
                 kinsol = doKinematics(obj, q, [], kinematics_options);
                 vToqdot = obj.manip.vToqdot(kinsol);
@@ -402,7 +403,21 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %[tuned for 3D]
                 index = [1:3];% defined for 3D kuka arm
+                                
+                [phiL,JL] = obj.manip.jointLimitConstraints(q);
+                if length(phiL) ~= 16 % kuka arm
+                    keyboard
+                end
                 
+                %compute for full dimension joint limit
+                possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
+                nL = sum(possible_limit_indices);
+                JL = JL(possible_limit_indices,:);
+                
+                num_active = length(active);
+                num_beta = num_active*num_d; % coefficients for friction poly
+                num_full_dim = num_active*dim+nL;
+
                 JA = []; JAx = []; JAy = []; JAz = [];
                 dJA = []; dJAx = []; dJAy = []; dJAz = [];
                 world_pts = [];
@@ -436,13 +451,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
     
                     X0_p = X0 + rr/2;
                     X0_m = X0 - rr/2;
-                    J_object_p = object_gradient_numerical(X0_p);
-                    J_object_m = object_gradient_numerical(X0_m);
+                    [J_object_p,V_num_p] = object_gradient_numerical(X0_p);
+                    [J_object_m,V_num_m] = object_gradient_numerical(X0_m);
                     
                     dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                    %dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
                 end
                 
-                function [J_num] = object_gradient_numerical(X0)
+                function [J_num, V_num] = object_gradient_numerical(X0)
                     h_num = X0(1);
                     x_num = X0(2:29);
                     u_num = X0(30:37);
@@ -454,9 +470,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                     
                     if obj.num_u > 0
-                        [phiC_num,~,~,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
+                        [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
                     else
-                        [phiC_num,~,~,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
+                        [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
                     end
                     
                     num_c = length(phiC_num);
@@ -465,16 +481,26 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         w = zeros(num_c*num_d,1);
                     end
                     
-                    %[tuned for 3D]
-                    active = [1:length(phiC_num)]';
-                                        
+                    V_num = horzcat(V_num{:});
+                    I = eye(num_c*num_d);
+                    V_cell_num = cell(1,num_active);
+                    for i=1:num_c+nL
+                        if i<=num_active
+                            % is a contact point
+                            idx_beta_num = active(i):num_c:num_c*num_d;
+                            try
+                                V_cell_num{i} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
+                            catch
+                                keyboard
+                            end
+                        end
+                    end
+                    V_num = blkdiag(V_cell_num{:},eye(nL));
+
                     Apts_num = xA_num(:,active);
                     Bpts_num = xB_num(:,active);
                     Aidx_num = idxA_num(active);
                     Bidx_num = idxB_num(active);
-                    
-                    %[tuned for 3D]
-                    index = [1:3];% defined for 3D kuka arm
                     
                     JA_num = [];
                     world_pts = [];
@@ -516,16 +542,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJD_new{1} = dJx_new;
                 dJD_new{2} = dJy_new;%[tuned for 3D]
                 
-                [phiL,JL] = obj.manip.jointLimitConstraints(q);
-                if length(phiL) ~= 16 % kuka arm
-                    keyboard
-                end
-                
-                %compute for full dimension joint limit
-                possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
-                nL = sum(possible_limit_indices);
-                JL = JL(possible_limit_indices,:);
-                
+                %joint limit
                 J = [J;JL];
                 phiL = phiL(possible_limit_indices);
                 phi = [phiC;phiL];
@@ -557,9 +574,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %     wvn = v + Hinv*tau*h;
                 %     dlambda = [];
                 % else
-                num_active = length(active);
-                num_beta = num_active*num_d; % coefficients for friction poly
-                num_full_dim = num_active*dim+nL;
                 
                 V = horzcat(V{:});
                 I = eye(num_c*num_d);
@@ -1044,7 +1058,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % Emperical test shows that the perturbation is addable.
                 
                 % debugging test for dbdv and dbdu, they are correct.
-                % the numerical error in dAdq is only caused by dJdq.
+                % the numerical error in dAdq is caused by the multiplication.
                 % debugging test for dAdq
                 %A = V'*S_weighting*J*vToqdot*Hinv*vToqdot'*J'*S_weighting*V;
                 %c_test = A;
@@ -1172,17 +1186,45 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % than those corresponding to arm joint states.
                 
                 %c_test = Hinv;
-                %dc_test = -Hinv*reshape(matGradMult(dH(:,2),Hinv),num_q,[]);
-                % -Hinv*dHdq(:,:,1)*Hinv
+                %dc_test = -Hinv*dHdq(:,:,2)*Hinv;%-Hinv*reshape(matGradMult(dH(:,2),Hinv),num_q,[]); 
                 
                 c_test = V'*S_weighting*A*S_weighting*V;
-                for ii=1:14
-                    dc_test(:,ii) = reshape(dAdq(:,:,ii),[],1);
-                end
+                dc_test = dAdq(:,:,2);
+                
+                c_test = A;
+                dc_test = dAdq_tmp(:,:,2);
+                
+                
+%                 c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
+%                 dc_test(:,1) = reshape(zeros(64,64),[],1);
+%                 for ii=1:14
+%                     dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
+%                 end
+%                 for ii=1:14
+%                     dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
+%                 end
+%                 for ii=1:8
+%                     dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
+%                 end
                 % has some non-trivial numerical difference
                 
-                %c_test = F;
-                %dc_test = dFdq(:,:,3);
+%                 c_test = reshape(F,[],1);
+%                 dc_test(:,1) = zeros(numel(dFdq(:,:,1)),1);
+%                 for ii=1:14
+%                     dc_test(:,ii+1) = reshape(dFdq(:,:,ii),[],1);
+%                 end
+%                 for ii=1:14
+%                     dc_test(:,ii+15) = zeros(numel(dFdq(:,:,1)),1);
+%                 end
+%                 for ii=1:8
+%                     dc_test(:,ii+29) = zeros(numel(dFdq(:,:,1)),1);
+%                 end
+                
+%                 c_test = F;
+%                 for ii=1:14
+%                     dc_test(:,ii) = reshape(dAdq(:,:,ii),[],1);
+%                 end
+%                 dc_test = dFdq(:,:,3);
                 
                 %correct
                 %c_test = b;
