@@ -258,7 +258,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %disp('gradient check')
             
             function DerivCheck(funptr, X0, ~, varargin)
-                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+                [~, JJ,Qinv] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
@@ -270,8 +270,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
-                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                [f1, ~,Qinv1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                [f2, ~,Qinv2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
                 fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(3))), sum(sum(f2-f1)));
@@ -287,7 +287,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
             end
             
-            function [c_test, dc_test] = gradient_component_test(X0)
+            function [c_test, dc_test, V, Qinv] = gradient_component_test(X0)
                 h = X0(1);
                 x = X0(2:29);
                 u = X0(30:37);
@@ -455,7 +455,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     [J_object_m,V_num_m] = object_gradient_numerical(X0_m);
                     
                     dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
-                    %dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
+                    dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
                 end
                 
                 function [J_num, V_num] = object_gradient_numerical(X0)
@@ -484,12 +484,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     V_num = horzcat(V_num{:});
                     I = eye(num_c*num_d);
                     V_cell_num = cell(1,num_active);
-                    for i=1:num_c+nL
-                        if i<=num_active
+                    for ii=1:num_c+nL
+                        if ii<=num_active
                             % is a contact point
-                            idx_beta_num = active(i):num_c:num_c*num_d;
+                            idx_beta_num = active(ii):num_c:num_c*num_d;
                             try
-                                V_cell_num{i} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
+                                V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
                             catch
                                 keyboard
                             end
@@ -897,7 +897,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     try
                         dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                             +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                        dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V;
+                        dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*A*S_weighting*V ...
+                                      + V'*S_weighting*A*S_weighting*dV(:,:,i);
                     catch
                         keyboard
                     end
@@ -1188,24 +1189,25 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %c_test = Hinv;
                 %dc_test = -Hinv*dHdq(:,:,2)*Hinv;%-Hinv*reshape(matGradMult(dH(:,2),Hinv),num_q,[]); 
                 
-                c_test = V'*S_weighting*A*S_weighting*V;
-                dc_test = dAdq(:,:,2);
+                %c_test = V'*S_weighting*A*S_weighting*V;
+                %dc_test = dAdq(:,:,2);
+                % match well now
                 
-                c_test = A;
-                dc_test = dAdq_tmp(:,:,2);
+                %c_test = A;
+                %dc_test = dAdq_tmp(:,:,2);
+                % match well now
                 
-                
-%                 c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
-%                 dc_test(:,1) = reshape(zeros(64,64),[],1);
-%                 for ii=1:14
-%                     dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
-%                 end
-%                 for ii=1:14
-%                     dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
-%                 end
-%                 for ii=1:8
-%                     dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
-%                 end
+                % c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
+                % dc_test(:,1) = reshape(zeros(64,64),[],1);
+                % for ii=1:14
+                %     dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
+                % end
+                % for ii=1:14
+                %     dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
+                % end
+                % for ii=1:8
+                %     dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
+                % end
                 % has some non-trivial numerical difference
                 
 %                 c_test = reshape(F,[],1);
@@ -1220,11 +1222,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                     dc_test(:,ii+29) = zeros(numel(dFdq(:,:,1)),1);
 %                 end
                 
-%                 c_test = F;
-%                 for ii=1:14
-%                     dc_test(:,ii) = reshape(dAdq(:,:,ii),[],1);
-%                 end
-%                 dc_test = dFdq(:,:,3);
+                c_test = F;
+                dc_test = dFdq(:,:,2);
                 
                 %correct
                 %c_test = b;
