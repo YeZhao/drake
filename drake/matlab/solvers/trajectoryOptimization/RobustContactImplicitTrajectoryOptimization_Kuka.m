@@ -359,20 +359,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %j
                         
                         %Sig(1:obj.nx,j,k) = Sig(1:obj.nx,j,k) + 1e-4*ones(length(Sig(1:obj.nx,j,k)),1);
-%                         Sig(1:obj.nx/2,j,k) = [-1.617390424512861
-%   -1.447719400689961
-%   -0.025612953317431
-%    1.349867387828378
-%   -0.017064718637171
-%    1.303730913354772
-%   -0.033968120642102
-%   -0.011585600828140
-%    0.068951966610762
-%    0.813531091903292
-%    0.186252626849383
-%   -0.209387635929438
-%   -0.015000252286218
-%   -0.183352547457143];
+                        %Sig(1:obj.nx/2,j,k) = [-1.617390424512861
+                        %   -1.447719400689961
+                        %   -0.025612953317431
+                        %    1.349867387828378
+                        %   -0.017064718637171
+                        %    1.303730913354772
+                        %   -0.033968120642102
+                        %   -0.011585600828140
+                        %    0.068951966610762
+                        %    0.813531091903292
+                        %    0.186252626849383
+                        %   -0.209387635929438
+                        %   -0.015000252286218
+                        %   -0.183352547457143];
                         
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
@@ -2687,19 +2687,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 f = phi;
                 df(:,1:nq) = n;
                 
-                %                 persistent LCP_non_robust_NCP_residual
-                %                 if obj.verbose_print == 1
-                %                     NCP_residual = f.*z;
-                %                     % compute the sum of tangential components
-                %                     NCP_residual_tangential = sum(NCP_residual(2:3));
-                %                     NCP_residual_tangential = NCP_residual_tangential + sum(NCP_residual(5:6));
-                %                     %disp('non-robust NCP residual square');
-                %                     LCP_non_robust_NCP_residual = [LCP_non_robust_NCP_residual NCP_residual_tangential^2];
-                %                     if length(LCP_non_robust_NCP_residual) == obj.N-1
-                %                         %LCP_non_robust_NCP_residual
-                %                         LCP_non_robust_NCP_residual = [];
-                %                     end
-                %                 end
+                % persistent LCP_non_robust_NCP_residual
+                % if obj.verbose_print == 1
+                %     NCP_residual = f.*z;
+                %     % compute the sum of tangential components
+                %     NCP_residual_tangential = sum(NCP_residual(2:3));
+                %     NCP_residual_tangential = NCP_residual_tangential + sum(NCP_residual(5:6));
+                %     %disp('non-robust NCP residual square');
+                %     LCP_non_robust_NCP_residual = [LCP_non_robust_NCP_residual NCP_residual_tangential^2];
+                %     if length(LCP_non_robust_NCP_residual) == obj.N-1
+                %         %LCP_non_robust_NCP_residual
+                %         LCP_non_robust_NCP_residual = [];
+                %     end
+                % end
             end
             
         end
@@ -2741,11 +2741,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             v0 = x0(nq+1:nq+nv);
             q1 = x1(1:nq);
             v1 = x1(nq+1:nq+nv);
-            
-            %             %debugging
-            %             if q1(1) < q0(1)
-            %                 disp('position also reversed')
-            %             end
             
             switch obj.options.integration_method
                 case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
@@ -2916,7 +2911,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 v0 = x0(nq+1:nq+nv);
                 q1 = x1(1:nq);
                 v1 = x1(nq+1:nq+nv);
-                
+                                                
                 switch obj.options.integration_method
                     case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
@@ -2942,11 +2937,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dC1 = zeros(nq,2*nq);
                         dB1 = zeros(nq*nu,2*nq);
                 end
-                
-                if any(abs(C(9:10)) > 0.02) || any(abs(C(12:14)) > 0.02)
-                    disp('here')
-                end
-                
+                                
                 BuminusC = B*u-C;
                 if nu>0
                     dBuminusC0 = matGradMult(dB0,u) - dC0;
@@ -3009,7 +3000,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 f = [fq;fv];
-                df = [dfq;dfv];
+                df = [dfq;dfv];                
             end
         end
         

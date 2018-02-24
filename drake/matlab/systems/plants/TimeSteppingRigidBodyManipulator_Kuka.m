@@ -265,7 +265,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %m = 16;
                 %rr(m:end) = rr(m:end) - rr(m:end);
                 rr(1) = 0;
-                m = 3;
+                m = 16;
                 rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
@@ -273,7 +273,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2:15))), sum(sum(f2-f1)));
                 
                 SUM = 0;
                 for i=1:14
@@ -1163,13 +1163,26 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %c_test = V'*S_weighting*A*S_weighting*V;
                 %dc_test = dAdq;
-                
-                c_test = H;
-                dc_test = dH(:,1);%dHdq(:,:,1);
+                                
+                %c_test = H;
+                %dc_test = dH(:,1);%dHdq(:,:,1);
+                % dH is correct, very tiny numerical discrepancy only
+                % exists in joint 0 and 6 DOF object state, on an order
+                % much smaller (~10^5-10^9)
+                % than those corresponding to arm joint states.
                 
                 %c_test = Hinv;
-                %dc_test = -Hinv*reshape(matGradMult(dH(:,1),Hinv),num_q,[]);
+                %dc_test = -Hinv*reshape(matGradMult(dH(:,2),Hinv),num_q,[]);
                 % -Hinv*dHdq(:,:,1)*Hinv
+                
+                c_test = V'*S_weighting*A*S_weighting*V;
+                for ii=1:14
+                    dc_test(:,ii) = reshape(dAdq(:,:,ii),[],1);
+                end
+                % has some non-trivial numerical difference
+                
+                %c_test = F;
+                %dc_test = dFdq(:,:,3);
                 
                 %correct
                 %c_test = b;
