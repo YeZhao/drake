@@ -240,18 +240,56 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             [xdn,df] = geval(@obj.solveQP,h,x,u,struct('grad_method','numerical'));
         end
         
-        %function [Mvn,dMvn] = solveQP(obj,X0)
-        %function [lambda,dlambda] = solveQP(obj,X0)
-        %function [b_tilde,db_tilde] = solveQP(obj,X0)
-        %function [b,db] = solveQP(obj,X0)
         function [xdn,df] = solveQP(obj,X0)
+              
+            X0 = [0.0833
+                -1.4905
+                -1.3020
+                0.0526
+                1.7536
+                -0.1255
+                1.0367
+                0.0779
+                0.1354
+                -0.0028
+                0.7062
+                0.0284
+                -0.0123
+                0.0560
+                0.0286
+                0.1138
+                0.1027
+                -0.0402
+                -0.0749
+                -0.0742
+                0.0744
+                0.0590
+                -0.2406
+                -0.0049
+                -0.0164
+                0.0004
+                -0.0601
+                0.0295
+                0.0164
+                -0.1063
+                62.4338
+                0.8784
+                -8.3516
+                0.0382
+                1.7373
+                -0.0764
+                -5.1648];
+
+            tic
+            [c_test, dc_test] = gradient_component_test(X0);
+            toc
             
-            %X0 = X0 + randn(size(X0))*0.1;
+            tic
+            [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
+            toc
             
-            %[c_test, dc_test] = gradient_component_test(X0);
-            %[c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
-            %valuecheck(dc_test,dc_test_numerical,1e-5);
-            %valuecheck(c_test,c_test_numerical,1e-5);
+            valuecheck(dc_test,dc_test_numerical,1e-5);
+            valuecheck(c_test,c_test_numerical,1e-5);
             
             fun = @(X0) gradient_component_test(X0);
             DerivCheck(fun, X0)
@@ -261,27 +299,17 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
-                rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                %rr(1:9) = 0;
-                %m = 11;
-                %rr(m:end) = rr(m:end) - rr(m:end);
+                rr = sqrt(eps(X0));% Generate small random-direction vector
+                rr(1) = 0;
+                m = 3;
+                rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
-                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0-rr/2
+                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0+rr/2
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr)), sum(sum(f2-f1)));
-                
-                SUM = 0;
-                for i=1:14
-                    SUM = SUM + sum(sum(JJ(:,:,i)*rr(i+1)));
-                end
-                
-                SUM = 0;
-                for i=1:14
-                    SUM = SUM + sum(sum(JJ(:,i+1)*rr(i+1)));
-                end
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2))), sum(sum(f2-f1)));                
             end
             
             function [c_test, dc_test] = gradient_component_test(X0)
@@ -398,7 +426,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 Aidx = idxA(active);
                 Bidx = idxB(active);
                 
-                %[tuned for 3D]
                 index = [1:3];% defined for 3D kuka arm
                                 
                 [phiL,JL] = obj.manip.jointLimitConstraints(q);
@@ -439,7 +466,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJ = dJA-dJB;
                 Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
                 
-                %% numerical Jacobian gradient
+                %% compute numerical Jacobian gradient for dJ and dV
                 for i=1:num_q
                     rr = sqrt(eps(X0));
                     rr(1:i) = 0;%corresponding to time step h
@@ -471,13 +498,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     else
                         [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
                     end
-                    
-                    num_c = length(phiC_num);
-                    
-                    if nargin<5
-                        w = zeros(num_c*num_d,1);
-                    end
-                    
+
                     V_num = horzcat(V_num{:});
                     I = eye(num_c*num_d);
                     V_cell_num = cell(1,num_active);
@@ -513,7 +534,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     end
                     J_num = JA_num-JB_num;
                 end
-                %% numerical Jacobian gradient
+                %% end of numerical Jacobian gradient for dJ and dV
                 
                 % dJ new sequence, stack Aidx first and then num_q
                 dJx = []; dJy = []; dJz = [];
@@ -555,23 +576,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dtau = [zeros(num_v,1), -dC, zeros(size(B))];
                 end
                 Hinv = inv(H);
-                
-                % if isempty(active)
-                %     vn = v + Hinv*tau*h;
-                %     qdn = vToqdot*vn;
-                %     qn = q + qdn*h;
-                %
-                %     df = zeros(0,1+obj.num_x+obj.num_u);
-                %     dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
-                %         h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                %     dMvn = zeros(0,1+obj.num_x+obj.num_u);
-                %
-                %     lambda = [];
-                %     Mvn = [];
-                %     wvn = v + Hinv*tau*h;
-                %     dlambda = [];
-                % else
-                
+                                
                 V = horzcat(V{:});
                 I = eye(num_c*num_d);
                 V_cell = cell(1,num_active);
@@ -594,7 +599,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
                 % contact smoothing matrix
-                R_min = 1e-3;%1e-4;
+                R_min = 1e-3;
                 R_max = 1e-1;
                 r = zeros(num_active,1);
                 r(phiC>=obj.phi_max) = R_max;
@@ -605,7 +610,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % Todorov's function
                 %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
                 r = repmat(r,1,dim)';
-                %         R = diag([r(:)',r(:)']);
+                %R = diag([r(:)',r(:)']);
                 R = diag(r(:));
                 
                 if any(ind > 0)
@@ -669,10 +674,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     Ain(i+num_active,:) = A(idx,:)*V;
                     bin(i+num_active) = v_min(i+num_active) - c(idx);
                 end
-                
-                %         Ain = 0*Ain; % TMP DEBUG
-                %         bin = 0*bin; % TMP DEBUG
-                
+                                
                 Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
                 bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
                 
@@ -708,18 +710,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %     end
                 % end
                 %f_vec = [f_vec,f];
-                
-                % f_x_sum = 0;
-                % f_y_sum = 0;
-                % f_z_sum = 0;
-                % for i=1:num_active
-                %     f_x_sum = f_x_sum + f(i);
-                %     f_y_sum = f_y_sum + f(2*i);
-                %     f_z_sum = f_z_sum + f(3*i);
-                % end
-                % f_sum = [f_x_sum;f_y_sum;f_z_sum];
-                % f_vec_sum = [f_vec_sum, f_sum];
-                
+
                 %% checker that the analytical solution from KKT condition
                 % gives correct contact force solution
                 Ain_fqp_active = Ain_fqp(active_set,:);
@@ -737,6 +728,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 F = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
                 
                 result_analytical = - G*V'*S_weighting*c - E*bin_fqp_active;
+                %f = S_weighting*V*(result_analytical);
                 
                 % check contact force solved by analytical solution and
                 % gurobi solver, they should be the same
@@ -746,26 +738,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     disp('Error: contact force solved by analytical solution and gurobi solver are different')
                 end
                 %debugging
-                %f = V*(result_analytical);
                 %% end of checker
-                
-                % vis=obj.constructVisualizer;
-                % figure(25)
-                % clf
-                % vis.draw(t,x)
-                % hold on;
-                % plot(world_pts(1,:),world_pts(3,:),'mo');
-                % ff = f/norm(f);
-                %
-                % for jj=1:size(world_pts,2)
-                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*normal(1,jj)],[world_pts(3,jj), world_pts(3,jj)+0.25*normal(3,jj)],'LineWidth',2,'Color',[0 1 0]);
-                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+1)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+1)],'LineWidth',2,'Color',[0 0 1]);
-                %     line([world_pts(1,jj), world_pts(1,jj)+0.25*V((jj-1)*dim+1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V((jj-1)*dim+3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                %     %           line([world_pts(1,jj), world_pts(1,jj)+0.25*V(1,(jj-1)*num_d+2)],[world_pts(3,jj), world_pts(3,jj)+0.25*V(3,(jj-1)*num_d+2)],'LineWidth',2,'Color',[0 0 1]);
-                %     line([world_pts(1,jj), world_pts(1,jj)+ff((jj-1)*dim+1)] ,[world_pts(3,jj), world_pts(3,jj)+ff((jj-1)*dim+3)],'LineWidth',2,'Color',[1 0 0]);
-                % end
-                % hold off;
-                
+                                
                 % update state at next time step
                 vn = v + Hinv*(tau*h + vToqdot'*J'*f);
                 qdn = vToqdot*vn;
@@ -773,13 +747,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 wvn = v + h*Hinv*tau;
                 Mvn = Hinv*vToqdot'*J';% note that the sign of J is negative
-                
-                % v = A*f + c
-                % v2 = Ain*result.x - bin + v_min
-                %
-                % if any(phi<-2e-3)
-                %   keyboard;
-                % end
                 
                 %% compute gradient component
                 total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
@@ -800,23 +767,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 JD{1} = Jx;
                 JD{2} = Jy;%[tuned for 3D]
                 JD = vertcat(JD{:});
-                % just keep the likely contacts (and store data to check the unlikely):
-                % possible_limit_indices = [];% [Ye: to be modified for the checker]
-                % phi_check = phiL(~possible_limit_indices);
-                % J_check = zeros(0,num_q);
-                % phi_check = [phi_check;phiC(~possible_contact_indices)];
-                % J_check = [J_check; n(~possible_contact_indices,:)];
-                
-                %phiC = phiC(possible_contact_indices);
-                %Jz = Jz(possible_contact_indices,:);
-                %JD = JD(repmat(possible_contact_indices,mC,1),:);
-                %mu = mu(possible_contact_indices,:);
-                
-                % if isempty(obj.LCP_cache.data.possible_contact_indices) || ...
-                %         numel(obj.LCP_cache.data.possible_contact_indices)~= numel(possible_contact_indices) || ...
-                %         any(obj.LCP_cache.data.possible_contact_indices~=possible_contact_indices)
-                %     possible_indices_changed = true;
-                % end
                 
                 obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
                 
@@ -1036,11 +986,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         db_tildedu(:,:,i) = [db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                     end
                 end
-                
-                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
-                %db_tildedq_final = permute(db_tildedq,[1,3,2]);
-                %db_tildedX0 = [permute(db_tildedq,[1,3,2])];%permute(db_tildedh,[1,3,2]),permute(db_tildedq,[1,3,2]),permute(db_tildedv,[1,3,2]),permute(db_tildedu,[1,3,2])
-                %dbdq_test = permute(dbdq,[1,3,2]);
                                 
                 % debugging test for dJdq
                 %c_test = J;%J*vToqdot*v;
@@ -1049,6 +994,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %for i=1:14
                 %    dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
                 %end
+                %[problem all fixed now]
                 % for dJdq(:,:,1)-dJdq(:,:,8), only difference comes from
                 % the last three columns, related to object orientation.
                 % There, the analytical solution has all-zero elements
@@ -1120,17 +1066,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
                 
                 dlambda = [dlambdadh, dlambdadq, dlambdadv, dlambdadu];
-                
-                %% gradient check of components
-                %b_tilde = bin_fqp_active;
-                %try
-                %    db_tilde = [zeros(length(b_tilde),1), permute(db_tildedq,[1,3,2]), permute(db_tildedv,[1,3,2]), permute(db_tildedu,[1,3,2])];%db_tildedh
-                %catch
-                %    keyboard
-                %end
-                %
-                %b = c;
-                %db = [zeros(length(b),1), permute(dbdq,[1,3,2]), dbdv, permute(dbdu,[1,3,2])];%dbdh
                 
                 % Find quaternion indices
                 quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
@@ -1281,10 +1216,21 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %bin_fqp_active and db_tildedq match
                 %dlambdadv and dlambdadu are correct.
                 %The only numerical issue comes from dGdq(9:14), sometimes
-                %the difference than numerical value is slightly large, but
-                %overall, the values are close to each other and make
-                %sense. dGdq(1:8) is correct. Thus, there should be no error.
+                %the deviation from the numerical gradient is slightly large, but
+                %overall reasonable, each individual value is close to each
+                %other and makes sense. dGdq(1:8) is correct. No error there.
                 %The numerical difference is slightly magnified in xdn and df.
+                %By checking dimension by dimension, the values match pretty good.
+                %A special part to pay attention to: the first dimension is
+                %gradient w.r.t. h, in this case, the gradient is non-zero.
+                %However, in the update() function, the gradient is w.r.t.
+                %t. There its graident component is zero. This is the
+                %difference between our QP solver and LCP solver.
+                %Using gevl() to compaure the values, the values match quite well 
+                %(all the differences are numerically tolerable). Only a
+                %few large deviations (the numerical values are very large, does 
+                %not make sense), overall, the analytical gradient are more
+                %reliable.
             end
         end
         
@@ -1293,6 +1239,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             X0 = [timestep_updated;x;u];
             
             [xdn,df] = solveQP(obj,X0);
+            %set the gradient w.r.t t to be zero.
+            df(:,1) = zeros(size(df,1),1);
             return;
             
             % add gradient check
@@ -2565,4 +2513,4 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             distance = collisionRaycast(obj.manip, kinsol, origin, point_on_ray, use_margins);
         end
     end
-end
+end`
