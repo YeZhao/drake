@@ -258,23 +258,20 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %disp('gradient check')
             
             function DerivCheck(funptr, X0, ~, varargin)
-                [~, JJ,Qinv] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
                 
                 % Pick a small vector in parameter space
                 rr = sqrt(eps(X0));%randn(length(X0),1)*tol;  % Generate small random-direction vector
-                rr(1:2) = 0;
-                m = 4;
-                rr(m:end) = rr(m:end) - rr(m:end);
-                %rr(1) = 0;
-                %m = 16;
+                %rr(1:9) = 0;
+                %m = 11;
                 %rr(m:end) = rr(m:end) - rr(m:end);
                 
                 % Evaluate at symmetric points around X0
-                [f1, ~,Qinv1] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
-                [f2, ~,Qinv2] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
+                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0
+                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0
                 
                 % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(3))), sum(sum(f2-f1)));
+                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr)), sum(sum(f2-f1)));
                 
                 SUM = 0;
                 for i=1:14
@@ -287,7 +284,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
             end
             
-            function [c_test, dc_test, V, Qinv] = gradient_component_test(X0)
+            function [c_test, dc_test] = gradient_component_test(X0)
                 h = X0(1);
                 x = X0(2:29);
                 u = X0(30:37);
@@ -623,7 +620,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 % joint limit smoothing matrix
                 W_min = 1e-3;
-                W_max = 1e3;%1e-1;
+                W_max = 1e-1;
                 w = zeros(nL,1);
                 w(phiL>=obj.phiL_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
@@ -655,7 +652,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 S_weighting = blkdiag(S_weighting_array{:});
                 
                 try
-                    Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params);
+                    Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-4*eye(num_params);
                 catch
                     keyboard
                 end
@@ -666,8 +663,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     idx = (i-1)*dim + (1:dim);
                     Ain(i,:) = normal(:,i)'*A(idx,:)*V;
                     bin(i) = v_min(i) - normal(:,i)'*c(idx);
-                    Acomp(idx,:) = A(idx,:)*V;
-                    bcomp(idx) = c(idx);
                 end
                 for i=1:nL
                     idx = num_active*dim + i;
@@ -851,8 +846,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
                 dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format. For one column, stack Aidx first and then num_q
                 
-                dwvn = [zeros(num_v,1+num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
-                    h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
+                %wvn = v + Hinv*tau;
+                %here I add the first column Hinv*tau, which is different
+                %from the LCP formulation. h is not a decision variable. In
+                %fact, it does not matter. But when I compare numerical value and analytical values, the first state h is
+                %perturbed as well. Thus, it is better to add Hinv*tau here.
+                dwvn = [Hinv*tau, zeros(num_v,num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
+                        h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
                 dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose
                 
                 % but we don't need it here because our original dJ is already stacked in [x1(q1);y1(q1);z1(q1);x2(q2);y2(q2);z2(q2);x3(q2);y3(q2);z3(q2);...]
@@ -868,10 +868,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 b = V'*S_weighting*c;
                 %A = J*vToqdot*Hinv*vToqdot'*J';
-                c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                 
                 %% partial derivative of A, b w.r.t. h, q, v and u
-                dbdh = J*vToqdot*Hinv*tau;
+                dcdh = J*vToqdot*Hinv*tau;
+                dbdh = V'*S_weighting*dcdh;
                 % preallocate size
                 dHdq = zeros(num_q,num_q,num_q);
                 dCdq = zeros(num_q,1,num_q);
@@ -879,7 +880,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dAdq_tmp = zeros(num_full_dim,num_full_dim,num_q);
                 dAdq = zeros(num_params,num_params,num_q);
                 dAdv = zeros(num_params,num_params,num_q);
-                dbdq = zeros(num_full_dim,1,num_q);
+                dbdq = zeros(num_params,num_q);
+                dcdq = zeros(num_full_dim,num_q);
                 for i=1:num_q % assume num_q == num_v
                     dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
                     dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
@@ -896,23 +898,28 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     try
                         dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
-                            +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                        dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*A*S_weighting*V ...
-                                      + V'*S_weighting*A*S_weighting*dV(:,:,i);
+                                          +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                        dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
+                                      + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
                     catch
                         keyboard
                     end
-                    dbdq(:,:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h - J*vToqdot*Hinv*dCdq(:,:,i)*h;
+                    dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
+                                  - J*vToqdot*Hinv*dCdq(:,:,i)*h;
+                    dbdq(:,i) = V'*S_weighting*dcdq(:,i) + dV(:,:,i)'*S_weighting*c;
                     dAdv(:,:,i) = zeros(num_params);
                 end
                 dCdv = dC(:,num_q+1:2*num_q);
-                dbdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
+                dcdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
+                dbdv = V'*S_weighting*dcdv;
                 
                 dAdu = zeros(num_params,num_params,obj.num_u);
-                dbdu = zeros(num_full_dim,1,obj.num_u);
+                dcdu = zeros(num_full_dim,obj.num_u);
+                dbdu = zeros(num_params,obj.num_u);
                 for i=1:obj.num_u
                     dAdu(:,:,i) = zeros(num_params);
-                    dbdu(:,:,i) = J*vToqdot*Hinv*B(:,i)*h;
+                    dcdu(:,i) = J*vToqdot*Hinv*B(:,i)*h;
+                    dbdu(:,i) = V'*S_weighting*dcdu(:,i);
                 end
 
                 %% partial derivative of equality constraints (active)
@@ -931,7 +938,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 for j=1:num_dynamicsConstraint_active_set
                     row = active_set(j);
                     idx = (row-1)*dim + (1:dim);
-                    db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dbdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                    db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                     % the first componint of bin_fqp is -bin, the sign is flipped
                 end
                 %handle joint constraints
@@ -939,7 +946,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 for j=1:num_jointConstraint_active_set
                     row = active_set(j+num_dynamicsConstraint_active_set);
                     idx = num_active*dim+(row-num_active);
-                    db_tildedh_joint(j) = -(phi(row)/h^2 - dbdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                    db_tildedh_joint(j) = -(phi(row)/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                     % the first componint of bin_fqp is -bin, the sign is flipped
                 end
                 
@@ -968,19 +975,19 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     for j=1:num_dynamicsConstraint_active_set
                         row = active_set(j);
                         idx = (row-1)*dim + (1:dim);
-                        dA_tildedq_dyn(j,:,i) = normal(:,row)'*dAdq_tmp(idx,:,i)*V;
-                        db_tildedq_dyn(j,:,i) = normal(:,row)'*dbdq(idx,:,i);% switch the sign to correct one
-                        db_tildedv_dyn(j,:,i) = normal(:,row)'*dbdv(idx,i);
+                        dA_tildedq_dyn(j,:,i) = -normal(:,row)'*(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
+                        db_tildedq_dyn(j,:,i) = normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
+                        db_tildedv_dyn(j,:,i) = normal(:,row)'*dcdv(idx,i);
                     end
                     %handle joint constraints
                     for j=1:num_jointConstraint_active_set
                         row = active_set(j+num_dynamicsConstraint_active_set);
                         idx = num_active*dim+(row-num_active);
-                        dA_tildedq_joint(j,:,i) = dAdq_tmp(idx,:,i)*V;
-                        db_tildedq_joint(j,:,i) = dbdq(idx,:,i);% switch the sign to correct one
-                        db_tildedv_joint(j,:,i) = dbdv(idx,i);
+                        dA_tildedq_joint(j,:,i) = -(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
+                        db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
+                        db_tildedv_joint(j,:,i) = dcdv(idx,i);
                     end
-                    
+                                    
                     if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
                         dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
                         db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
@@ -1010,13 +1017,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     for j=1:num_dynamicsConstraint_active_set
                         row = active_set(j);
                         idx = (row-1)*dim + (1:dim);
-                        db_tildedu_dyn(j,:,i) = normal(:,row)'*dbdu(idx,:,i);
+                        db_tildedu_dyn(j,:,i) = normal(:,row)'*dcdu(idx,i);
                     end
                     %handle joint constraints
                     for j=1:num_jointConstraint_active_set
                         row = active_set(j+num_dynamicsConstraint_active_set);
                         idx = num_active*dim+(row-num_active);
-                        db_tildedu_joint(j,:,i) = dbdu(idx,:,i);
+                        db_tildedu_joint(j,:,i) = dcdu(idx,i);
                     end
                     
                     if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
@@ -1074,49 +1081,45 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     M = Qinv*dAdq(:,:,i)*Qinv;
                     N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
                     dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
-                        -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                        -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
-                        +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                        +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
+                                  -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                                  -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
+                                  +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                                  +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
                     dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
-                        + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                        - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                                  + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                                  - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
                     dEdq(:,:,i) = - dEdq(:,:,i);
                     % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
                     % Ain_fqp_active multiplied in E.
                     
                     % not used, can be used for slack variable analytical solution
                     dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                        -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
-                    
+                                  -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+
                     % partial dervative w.r.t v
                     % dGdv = 0, dEdv = 0, dFdv = 0.
                     % partial dervative w.r.t u
                     % dGdu = 0, dEdu = 0, dFdu = 0.
                 end
                 
+                %note that lambda = f = S_weighting*V*result_qp (there is coefficient S_weighting*V)
                 %% partial derivative of lambda w.r.t. h, q, v, and u
-                dlambdadh = - G*V'*S_weighting*dbdh - E*db_tildedh;
+                dlambdadh = S_weighting*V*(- G*dbdh - E*db_tildedh);
                 
-                dlambdadq = zeros(num_params,num_q);
-                dlambdadv = zeros(num_params,num_q);
+                dlambdadq = zeros(num_full_dim,num_q);
+                dlambdadv = zeros(num_full_dim,num_q);
                 for i=1:num_q
-                    dlambdadq(:,i) =  - dGdq(:,:,i)*V'*S_weighting*c - G*V'*S_weighting*dbdq(:,:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i);
-                    dlambdadv(:,i) =  - G*V'*S_weighting*dbdv(:,i) - E*db_tildedv(:,:,i);
+                    dlambdadq(:,i) =  S_weighting*V*(- dGdq(:,:,i)*b - G*dbdq(:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i)) ...
+                                      + S_weighting*dV(:,:,i)*result_analytical;
+                    dlambdadv(:,i) =  S_weighting*V*(- G*dbdv(:,i) - E*db_tildedv(:,:,i));
                 end
-                
-                dlambdadu = zeros(num_params,obj.num_u);
+                                
+                dlambdadu = zeros(num_full_dim,obj.num_u);
                 for i=1:obj.num_u
-                    dlambdadu(:,i) = - G*V'*S_weighting*dbdu(:,:,i) - E*db_tildedu(:,:,i);
+                    dlambdadu(:,i) = S_weighting*V*(- G*dbdu(:,i) - E*db_tildedu(:,:,i));
                 end
                 
-                % left-multiplying V for coordinate scaling
-                dlambda = [zeros(length(lambda),1), S_weighting*V*dlambdadq, S_weighting*V*dlambdadv, S_weighting*V*dlambdadu];%V*dlambdadh
-                % note: dlambdadh is not used, since this formulation fixes
-                % the final time, thus h is not a real decision variable.
-                % Thus, gradient is not necessary.
-                % TODO: give a final check on each partial derivative
-                % w.r.t. q, v, and u.
+                dlambda = [dlambdadh, dlambdadq, dlambdadv, dlambdadu];
                 
                 %% gradient check of components
                 %b_tilde = bin_fqp_active;
@@ -1150,9 +1153,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     else
                         dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
                     end
-                    df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
+                    df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
                 end
-                
+
                 for i=1:length(obj.sensor)
                     if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
                         if (nargout>1)
@@ -1197,50 +1200,91 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %dc_test = dAdq_tmp(:,:,2);
                 % match well now
                 
-                % c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
-                % dc_test(:,1) = reshape(zeros(64,64),[],1);
-                % for ii=1:14
-                %     dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
-                % end
-                % for ii=1:14
-                %     dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
-                % end
-                % for ii=1:8
-                %     dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
-                % end
-                % has some non-trivial numerical difference
+                %c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
+                %dc_test(:,1) = reshape(zeros(64,64),[],1);
+                %for ii=1:14
+                %    dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
+                %end
+                %for ii=1:14
+                %    dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
+                %end
+                %for ii=1:8
+                %    dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
+                %end
                 
-%                 c_test = reshape(F,[],1);
-%                 dc_test(:,1) = zeros(numel(dFdq(:,:,1)),1);
-%                 for ii=1:14
-%                     dc_test(:,ii+1) = reshape(dFdq(:,:,ii),[],1);
+%                 %correct
+%                 c_test = reshape(E,[],1);
+%                 dc_test(:,1) = zeros(numel(dEdq(:,:,1)),1);
+%                 for jj=1:14
+%                     dc_test(:,jj+1) = reshape(dEdq(:,:,jj),[],1);
 %                 end
-%                 for ii=1:14
-%                     dc_test(:,ii+15) = zeros(numel(dFdq(:,:,1)),1);
+%                 for jj=1:14
+%                     dc_test(:,jj+15) = zeros(numel(dEdq(:,:,1)),1);
 %                 end
-%                 for ii=1:8
-%                     dc_test(:,ii+29) = zeros(numel(dFdq(:,:,1)),1);
+%                 for jj=1:8
+%                     dc_test(:,jj+29) = zeros(numel(dEdq(:,:,1)),1);
 %                 end
                 
-                c_test = F;
-                dc_test = dFdq(:,:,2);
+%                 c_test = lambda;
+%                 dc_test = dlambda;
                 
                 %correct
-                %c_test = b;
-                %dc_test = V'*S_weighting*dbdv(:,1);
+                % c_test = b;
+                % dc_test(:,1) = dbdh;
+                % for jj=1:14
+                %     dc_test(:,jj+1) = reshape(dbdq(:,jj),[],1);
+                % end
+                % for jj=1:14
+                %     dc_test(:,jj+15) = reshape(dbdv(:,jj),[],1);
+                % end
+                % for jj=1:8
+                %     dc_test(:,jj+29) = reshape(dbdu(:,jj),[],1);
+                % end
+
+%                 c_test = F;
+%                 dc_test = dFdq(:,:,4);
+
+%                 c_test = Ain_fqp_active;
+%                 dc_test = dA_tildedq(:,:,4);
+%                 
+%                 c_test2 = Qinv;
+%                 dc_test2 = dQinvdq(:,:,4);
+
+%                 c_test = V'*S_weighting*(A+R)*S_weighting*V;
+%                 dc_test = dAdq(:,:,2);
                 
-                %correct
-                %c_test = b;
-                %dc_test = V'*S_weighting*dbdu(:,:,1);
-                
-                %c_test = reshape(Mvn,[],1);
-                %dc_test = dMvn;
+%                 c_test = pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params));
+%                 dc_test = -pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params))*dAdq(:,:,2)*pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params));
                 
                 %c_test = lambda;
-                %dc_test = S_weighting*V*dlambdadu(:,8);
-                % debugging test for dlambda, it has several different components
-                % numerical and analytical solutions for dlambdadq do not match well because dGdq and dEdq involves dAdq.
-                % numerical and analytical solutions for dlambdadv and dlambdadu match well. 
+%                dc_test(:,1) = dlambdadh;
+%                 for jj=1:14
+%                     dc_test(:,jj+1) = reshape(dlambdadq(:,jj),[],1);
+%                 end
+%                 for jj=1:14
+%                     dc_test(:,jj+15) = reshape(dlambdadv(:,jj),[],1);
+%                 end
+%                 for jj=1:8
+%                     dc_test(:,jj+29) = reshape(dlambdadu(:,jj),[],1);
+%                 end
+
+                c_test = xdn;
+                dc_test = df;
+                
+%                 c_test = reshape(wvn,[],1);
+%                 dc_test = dwvn;
+                
+                %Final comment of gradient debugging
+                %dMvn and dwvn are correct
+                %dbdh, dbdq, dbdv, dbdu are correct
+                %Ain_fqp_active and dA_tildedq match
+                %bin_fqp_active and db_tildedq match
+                %dlambdadv and dlambdadu are correct.
+                %The only numerical issue comes from dGdq(9:14), sometimes
+                %the difference than numerical value is slightly large, but
+                %overall, the values are close to each other and make
+                %sense. dGdq(1:8) is correct. Thus, there should be no error.
+                %The numerical difference is slightly magnified in xdn and df.
             end
         end
         
