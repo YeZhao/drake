@@ -241,997 +241,788 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         end
         
         function [xdn,df] = solveQP(obj,X0)
-              
-            X0 = [0.0833
-                -1.4905
-                -1.3020
-                0.0526
-                1.7536
-                -0.1255
-                1.0367
-                0.0779
-                0.1354
-                -0.0028
-                0.7062
-                0.0284
-                -0.0123
-                0.0560
-                0.0286
-                0.1138
-                0.1027
-                -0.0402
-                -0.0749
-                -0.0742
-                0.0744
-                0.0590
-                -0.2406
-                -0.0049
-                -0.0164
-                0.0004
-                -0.0601
-                0.0295
-                0.0164
-                -0.1063
-                62.4338
-                0.8784
-                -8.3516
-                0.0382
-                1.7373
-                -0.0764
-                -5.1648];
-
-            tic
-            [c_test, dc_test] = gradient_component_test(X0);
-            toc
             
-            tic
-            [c_test_numerical,dc_test_numerical] = geval(@(X0) gradient_component_test(X0),X0,struct('grad_method','numerical'));
-            toc
+            h = X0(1);
+            x = X0(2:29);
+            u = X0(30:37);
+            %global timestep_updated
             
-            valuecheck(dc_test,dc_test_numerical,1e-5);
-            valuecheck(c_test,c_test_numerical,1e-5);
+            % try
+            %     if (nargout>1)
+            %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
+            %     else
+            %         [obj,z,Mvn,wvn] = solveLCP(obj,t,x,u);
+            %     end
+            %
+            %     num_q = obj.manip.num_positions;
+            %     q=x(1:num_q); v=x((num_q+1):end);
+            %     h = obj.timestep;
+            %
+            %     if isempty(z)
+            %         vn = wvn;
+            %     else
+            %         vn = Mvn*z + wvn;
+            %     end
+            %
+            %     kinsol = obj.manip.doKinematics(q);
+            %     vToqdot = obj.manip.vToqdot(kinsol);
+            %     qdn = vToqdot*vn;
+            %     qn = q+ h*qdn;
+            %     % Find quaternion indices
+            %     quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
+            %     quat_positions = [quat_bodies.position_num];
+            %     for i=1:size(quat_positions,2)
+            %         quat_dot = qdn(quat_positions(4:7,i));
+            %         if norm(quat_dot) > 0
+            %             % Update quaternion by following geodesic
+            %             qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
+            %             qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+            %         end
+            %     end
+            %     xdn = [qn;vn];
+            %
+            %     if (nargout>1)  % compute gradients
+            %         if isempty(z)
+            %             dqdn = dwvn;
+            %         else
+            %             dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
+            %         end
+            %         df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];
+            %     end
+            %
+            %     for i=1:length(obj.sensor)
+            %         if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
+            %             if (nargout>1)
+            %                 [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+            %             else
+            %                 [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+            %             end
+            %             xdn = [xdn;xdn_sensor];
+            %             if (nargout>1)
+            %                 df = [df; df_sensor];
+            %             end
+            %         end
+            %     end
+            % catch
+            % this function implement an update based on Todorov 2011, where
+            % instead of solving the full SOCP, we make use of polyhedral
+            % friction cone approximations and solve a QP.
             
-            fun = @(X0) gradient_component_test(X0);
-            DerivCheck(fun, X0)
-            %disp('gradient check')
+            % w is a num_c * num_d disturbance vector
+            % assume for now that it has the same basis vectors as contact forces
             
-            function DerivCheck(funptr, X0, ~, varargin)
-                [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
-                
-                % Pick a small vector in parameter space
-                rr = sqrt(eps(X0));% Generate small random-direction vector
-                rr(1) = 0;
-                m = 3;
-                rr(m:end) = rr(m:end) - rr(m:end);
-                
-                % Evaluate at symmetric points around X0
-                [f1, ~] = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0-rr/2
-                [f2, ~] = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0+rr/2
-                
-                % Print results
-                fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', sum(sum(JJ*rr(2))), sum(sum(f2-f1)));                
+            % q_{k+1} = q_{k} + qd_{k+1}*h;
+            % qd_{k+1} = qd_{k} + H^{-1}*(B*u-C)*h + J'*f;
+            
+            if obj.twoD
+                num_d = 2;
+            else
+                num_d = 4;
+            end
+            dim = 3;%[tuned for 3D]
+            %h = timestep_updated;
+            
+            num_q = obj.manip.getNumPositions;
+            q=x(1:num_q);
+            v=x(num_q+(1:obj.manip.getNumVelocities));
+            
+            kinematics_options.compute_gradients = 1;
+            kinsol = doKinematics(obj, q, [], kinematics_options);
+            vToqdot = obj.manip.vToqdot(kinsol);
+            
+            [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
+            
+            if obj.num_u > 0
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,q,kinsol);
+            else
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,q,kinsol);
             end
             
-            function [c_test, dc_test] = gradient_component_test(X0)
-                h = X0(1);
-                x = X0(2:29);
-                u = X0(30:37);
-                %global timestep_updated
+            num_c = length(phiC);
+            
+            if nargin<5
+                w = zeros(num_c*num_d,1);
+            end
+            
+            %[tuned for 3D]
+            active = [1:length(phiC)]';%find(phiC + h*n*vToqdot*v < obj.active_threshold);
+            
+            phiC = phiC(active);
+            normal = normal(:,active);
+            
+            Apts = xA(:,active);
+            Bpts = xB(:,active);
+            Aidx = idxA(active);
+            Bidx = idxB(active);
+            
+            index = [1:3];% defined for 3D kuka arm
+            
+            [phiL,JL] = obj.manip.jointLimitConstraints(q);
+            if length(phiL) ~= 16 % kuka arm
+                keyboard
+            end
+            
+            %compute for full dimension joint limit
+            possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
+            nL = sum(possible_limit_indices);
+            JL = JL(possible_limit_indices,:);
+            
+            num_active = length(active);
+            num_beta = num_active*num_d; % coefficients for friction poly
+            num_full_dim = num_active*dim+nL;
+            
+            JA = []; JAx = []; JAy = []; JAz = [];
+            dJA = []; dJAx = []; dJAy = []; dJAz = [];
+            world_pts = [];
+            for i=1:length(Aidx)
+                [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
+                JA = [JA; J_(index,:)];
+                JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];
+                dJA = [dJA;dJ_];
+                world_pts = [world_pts, pp];
+            end
+            
+            JB = []; JBx = []; JBy = []; JBz = [];
+            dJB = []; dJBx = []; dJBy = []; dJBz = [];
+            for i=1:length(Bidx)
+                [~,J_,dJ_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
+                JB = [JB; J_(index,:)];
+                JBx = [JBx;J_(1,:)]; JBy = [JBy;J_(2,:)]; JBz = [JBz;J_(3,:)];
+                dJB = [dJB;dJ_];
+            end
+            
+            J = JA-JB;
+            dJ = dJA-dJB;
+            Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
+            
+            %% compute numerical Jacobian gradient for dJ and dV
+            for i=1:num_q
+                rr = sqrt(eps(X0));
+                rr(1:i) = 0;%corresponding to time step h
+                m = i+2;% only q component affects Jacobian J
+                rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
                 
-                % try
-                %     if (nargout>1)
-                %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
-                %     else
-                %         [obj,z,Mvn,wvn] = solveLCP(obj,t,x,u);
-                %     end
-                %
-                %     num_q = obj.manip.num_positions;
-                %     q=x(1:num_q); v=x((num_q+1):end);
-                %     h = obj.timestep;
-                %
-                %     if isempty(z)
-                %         vn = wvn;
-                %     else
-                %         vn = Mvn*z + wvn;
-                %     end
-                %
-                %     kinsol = obj.manip.doKinematics(q);
-                %     vToqdot = obj.manip.vToqdot(kinsol);
-                %     qdn = vToqdot*vn;
-                %     qn = q+ h*qdn;
-                %     % Find quaternion indices
-                %     quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
-                %     quat_positions = [quat_bodies.position_num];
-                %     for i=1:size(quat_positions,2)
-                %         quat_dot = qdn(quat_positions(4:7,i));
-                %         if norm(quat_dot) > 0
-                %             % Update quaternion by following geodesic
-                %             qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
-                %             qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
-                %         end
-                %     end
-                %     xdn = [qn;vn];
-                %
-                %     if (nargout>1)  % compute gradients
-                %         if isempty(z)
-                %             dqdn = dwvn;
-                %         else
-                %             dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
-                %         end
-                %         df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];
-                %     end
-                %
-                %     for i=1:length(obj.sensor)
-                %         if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
-                %             if (nargout>1)
-                %                 [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
-                %             else
-                %                 [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
-                %             end
-                %             xdn = [xdn;xdn_sensor];
-                %             if (nargout>1)
-                %                 df = [df; df_sensor];
-                %             end
-                %         end
-                %     end
-                % catch
-                % this function implement an update based on Todorov 2011, where
-                % instead of solving the full SOCP, we make use of polyhedral
-                % friction cone approximations and solve a QP.
+                X0_p = X0 + rr/2;
+                X0_m = X0 - rr/2;
+                [J_object_p,V_num_p] = object_gradient_numerical(X0_p);
+                [J_object_m,V_num_m] = object_gradient_numerical(X0_m);
                 
-                % w is a num_c * num_d disturbance vector
-                % assume for now that it has the same basis vectors as contact forces
+                dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
+            end
+            
+            function [J_num, V_num] = object_gradient_numerical(X0)
+                h_num = X0(1);
+                x_num = X0(2:29);
+                u_num = X0(30:37);
                 
-                % q_{k+1} = q_{k} + qd_{k+1}*h;
-                % qd_{k+1} = qd_{k} + H^{-1}*(B*u-C)*h + J'*f;
+                q_num=x_num(1:num_q);
+                v_num=x_num(num_q+(1:obj.manip.getNumVelocities));
                 
-                if obj.twoD
-                    num_d = 2;
-                else
-                    num_d = 4;
-                end
-                dim = 3;%[tuned for 3D]
-                %h = timestep_updated;
-                
-                num_q = obj.manip.getNumPositions;
-                q=x(1:num_q);
-                v=x(num_q+(1:obj.manip.getNumVelocities));
-                               
                 kinematics_options.compute_gradients = 1;
-                kinsol = doKinematics(obj, q, [], kinematics_options);
-                vToqdot = obj.manip.vToqdot(kinsol);
-                
-                [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
+                kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                 
                 if obj.num_u > 0
-                    [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,q,kinsol);
+                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
                 else
-                    [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,q,kinsol);
+                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
                 end
                 
-                num_c = length(phiC);
-                
-                if nargin<5
-                    w = zeros(num_c*num_d,1);
-                end
-                
-                %[tuned for 3D]
-                active = [1:length(phiC)]';%find(phiC + h*n*vToqdot*v < obj.active_threshold);
-                
-                phiC = phiC(active);
-                normal = normal(:,active);
-                
-                Apts = xA(:,active);
-                Bpts = xB(:,active);
-                Aidx = idxA(active);
-                Bidx = idxB(active);
-                
-                index = [1:3];% defined for 3D kuka arm
-                                
-                [phiL,JL] = obj.manip.jointLimitConstraints(q);
-                if length(phiL) ~= 16 % kuka arm
-                    keyboard
-                end
-                
-                %compute for full dimension joint limit
-                possible_limit_indices = true(length(phiL),1);%(phiL + h*JL*vToqdot*v) < obj.active_threshold;
-                nL = sum(possible_limit_indices);
-                JL = JL(possible_limit_indices,:);
-                
-                num_active = length(active);
-                num_beta = num_active*num_d; % coefficients for friction poly
-                num_full_dim = num_active*dim+nL;
-
-                JA = []; JAx = []; JAy = []; JAz = [];
-                dJA = []; dJAx = []; dJAy = []; dJAz = [];
-                world_pts = [];
-                for i=1:length(Aidx)
-                    [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
-                    JA = [JA; J_(index,:)];
-                    JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];
-                    dJA = [dJA;dJ_];
-                    world_pts = [world_pts, pp];
-                end
-                
-                JB = []; JBx = []; JBy = []; JBz = [];
-                dJB = []; dJBx = []; dJBy = []; dJBz = [];
-                for i=1:length(Bidx)
-                    [~,J_,dJ_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
-                    JB = [JB; J_(index,:)];
-                    JBx = [JBx;J_(1,:)]; JBy = [JBy;J_(2,:)]; JBz = [JBz;J_(3,:)];
-                    dJB = [dJB;dJ_];
-                end
-                
-                J = JA-JB;
-                dJ = dJA-dJB;
-                Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
-                
-                %% compute numerical Jacobian gradient for dJ and dV
-                for i=1:num_q
-                    rr = sqrt(eps(X0));
-                    rr(1:i) = 0;%corresponding to time step h
-                    m = i+2;% only q component affects Jacobian J
-                    rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-    
-                    X0_p = X0 + rr/2;
-                    X0_m = X0 - rr/2;
-                    [J_object_p,V_num_p] = object_gradient_numerical(X0_p);
-                    [J_object_m,V_num_m] = object_gradient_numerical(X0_m);
-                    
-                    dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
-                    dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
-                end
-                
-                function [J_num, V_num] = object_gradient_numerical(X0)
-                    h_num = X0(1);
-                    x_num = X0(2:29);
-                    u_num = X0(30:37);
-                    
-                    q_num=x_num(1:num_q);
-                    v_num=x_num(num_q+(1:obj.manip.getNumVelocities));
-                    
-                    kinematics_options.compute_gradients = 1;
-                    kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
-                    
-                    if obj.num_u > 0
-                        [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
-                    else
-                        [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
-                    end
-
-                    V_num = horzcat(V_num{:});
-                    I = eye(num_c*num_d);
-                    V_cell_num = cell(1,num_active);
-                    for ii=1:num_c+nL
-                        if ii<=num_active
-                            % is a contact point
-                            idx_beta_num = active(ii):num_c:num_c*num_d;
-                            try
-                                V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
-                            catch
-                                keyboard
-                            end
-                        end
-                    end
-                    V_num = blkdiag(V_cell_num{:},eye(nL));
-
-                    Apts_num = xA_num(:,active);
-                    Bpts_num = xB_num(:,active);
-                    Aidx_num = idxA_num(active);
-                    Bidx_num = idxB_num(active);
-                    
-                    JA_num = [];
-                    world_pts = [];
-                    for k=1:length(Aidx_num)
-                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Aidx_num(k),Apts_num(:,k));%[Ye: reshaping of dJ is commented out in forwardKin() ]
-                        JA_num = [JA_num; reshape(J_num_(index,:),[],1)];
-                    end
-                    
-                    JB_num = [];
-                    for k=1:length(Bidx_num)
-                        [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
-                        JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
-                    end
-                    J_num = JA_num-JB_num;
-                end
-                %% end of numerical Jacobian gradient for dJ and dV
-                
-                % dJ new sequence, stack Aidx first and then num_q
-                dJx = []; dJy = []; dJz = [];
-                for j=1:length(Aidx)
-                    for i=1:num_q
-                        dJx = [dJx;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
-                        dJy = [dJy;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];%[tuned for 3D]
-                        dJz = [dJz;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
-                    end
-                end
-                dJD{1} = dJx;
-                dJD{2} = dJy;%[tuned for 3D]
-                
-                % dJ new sequence, stack Aidx first and then num_q, only used later for dMvn derivation
-                dJx_new = []; dJy_new = []; dJz_new = [];
-                for i=1:num_q
-                    for j=1:length(Aidx)
-                        dJx_new = [dJx_new;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
-                        dJy_new = [dJy_new;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];%[tuned for 3D]
-                        dJz_new = [dJz_new;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
-                    end
-                end
-                dJD_new{1} = dJx_new;
-                dJD_new{2} = dJy_new;%[tuned for 3D]
-                
-                %joint limit
-                J = [J;JL];
-                phiL = phiL(possible_limit_indices);
-                phi = [phiC;phiL];
-                
-                num_q = obj.manip.getNumPositions;
-                num_v = obj.manip.getNumVelocities;
-                
-                if (obj.num_u>0)
-                    tau = B*u - C;
-                    dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
-                else
-                    tau = -C;
-                    dtau = [zeros(num_v,1), -dC, zeros(size(B))];
-                end
-                Hinv = inv(H);
-                                
-                V = horzcat(V{:});
+                V_num = horzcat(V_num{:});
                 I = eye(num_c*num_d);
-                V_cell = cell(1,num_active);
-                v_min = zeros(length(phi),1);
-                for i=1:length(phi)
-                    if i<=num_active
+                V_cell_num = cell(1,num_active);
+                for ii=1:num_c+nL
+                    if ii<=num_active
                         % is a contact point
-                        idx_beta = active(i):num_c:num_c*num_d;
+                        idx_beta_num = active(ii):num_c:num_c*num_d;
                         try
-                            V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
+                            V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
                         catch
                             keyboard
                         end
                     end
-                    v_min(i) = -phi(i)/h;
                 end
-                V = blkdiag(V_cell{:},eye(nL));
+                V_num = blkdiag(V_cell_num{:},eye(nL));
                 
-                A = J*vToqdot*Hinv*vToqdot'*J';
-                c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+                Apts_num = xA_num(:,active);
+                Bpts_num = xB_num(:,active);
+                Aidx_num = idxA_num(active);
+                Bidx_num = idxB_num(active);
                 
-                % contact smoothing matrix
-                R_min = 1e-3;
-                R_max = 1e-1;
-                r = zeros(num_active,1);
-                r(phiC>=obj.phi_max) = R_max;
-                r(phiC<=obj.contact_threshold) = R_min;
-                ind = (phiC > obj.contact_threshold) & (phiC < obj.phi_max);
-                y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-                r(ind) = R_min + R_max./(1+exp(-10*y));
-                % Todorov's function
-                %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
-                r = repmat(r,1,dim)';
-                %R = diag([r(:)',r(:)']);
-                R = diag(r(:));
-                
-                if any(ind > 0)
-                    S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
-                else
-                    S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
-                    % right now, use a unified weighting coeff for x
-                    % direction regardless whether the brick enters the
-                    % safety region. But it could be tuned to different
-                    % values such that different weighting can be used
+                JA_num = [];
+                world_pts = [];
+                for k=1:length(Aidx_num)
+                    [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Aidx_num(k),Apts_num(:,k));%[Ye: reshaping of dJ is commented out in forwardKin() ]
+                    JA_num = [JA_num; reshape(J_num_(index,:),[],1)];
                 end
                 
-                % joint limit smoothing matrix
-                W_min = 1e-3;
-                W_max = 1e-1;
-                w = zeros(nL,1);
-                w(phiL>=obj.phiL_max) = W_max;
-                w(phiL<=obj.contact_threshold) = W_min;
-                ind = (phiL > obj.contact_threshold) & (phiL < obj.phiL_max);
-                y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-                w(ind) = W_min + W_max./(1+exp(-10*y));
-                W = diag(w(:));
-                
-                R = blkdiag(R,W);
-                
-                num_params = num_beta+nL;
-                % lambda_ub = zeros(num_params,1);
-                % scale_fact = 1e3;
-                % phiC_pos = phiC;
-                % phiC_pos(phiC<0)=0;
-                % lambda_ub(1:num_beta) = repmat(max(0.01, scale_fact*(obj.phi_max./phiC_pos - 1.0)),1,num_d)';
-                % phiL_pos = phiL;
-                % phiL_pos(phiL<0)=0;
-                % lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
-                lambda_ub = inf*ones(num_params,1);% disable this unnecessary bounding constraint
-                
-                % define weighting parameters
-                for i=1:num_active
-                    S_weighting_array{i} = S_weighting_unit;
+                JB_num = [];
+                for k=1:length(Bidx_num)
+                    [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
+                    JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
                 end
-                for i=1:nL
-                    S_weighting_array{num_active+i} = 1;
+                J_num = JA_num-JB_num;
+            end
+            %% end of numerical Jacobian gradient for dJ and dV
+            
+            % dJ new sequence, stack Aidx first and then num_q
+            dJx = []; dJy = []; dJz = [];
+            for j=1:length(Aidx)
+                for i=1:num_q
+                    dJx = [dJx;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
+                    dJy = [dJy;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];%[tuned for 3D]
+                    dJz = [dJz;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
                 end
-                S_weighting = blkdiag(S_weighting_array{:});
-                
-                try
-                    Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-4*eye(num_params);
-                catch
-                    keyboard
+            end
+            dJD{1} = dJx;
+            dJD{2} = dJy;%[tuned for 3D]
+            
+            % dJ new sequence, stack Aidx first and then num_q, only used later for dMvn derivation
+            dJx_new = []; dJy_new = []; dJz_new = [];
+            for i=1:num_q
+                for j=1:length(Aidx)
+                    dJx_new = [dJx_new;dJ(dim*(i-1)+dim*num_q*(j-1)+1,:)];
+                    dJy_new = [dJy_new;dJ(dim*(i-1)+dim*num_q*(j-1)+2,:)];%[tuned for 3D]
+                    dJz_new = [dJz_new;dJ(dim*(i-1)+dim*num_q*(j-1)+3,:)];
                 end
-                % N*(A*z + c) - v_min \ge 0
-                Ain = zeros(num_active+nL,num_params);
-                bin = zeros(num_active+nL,1);
-                for i=1:num_active
-                    idx = (i-1)*dim + (1:dim);
-                    Ain(i,:) = normal(:,i)'*A(idx,:)*V;
-                    bin(i) = v_min(i) - normal(:,i)'*c(idx);
-                end
-                for i=1:nL
-                    idx = num_active*dim + i;
-                    Ain(i+num_active,:) = A(idx,:)*V;
-                    bin(i+num_active) = v_min(i+num_active) - c(idx);
-                end
-                                
-                Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
-                bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
-                
-                %[result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
-                
-                %if 1 % info_fqp<0
-                %disp('calling gurobi');
-                model.LCP_cache.data.fastqp_active_set = [];
-                gurobi_options.outputflag = 0; % verbose flag
-                gurobi_options.method = 1; % -1=automatic, 0=primal simplex, 1=dual simplex, 2=barrier
-                
-                try
-                    model.Q = sparse(Q);
-                    model.obj = V'*S_weighting*c;
-                    model.A = sparse(Ain);
-                    model.rhs = bin;
-                    model.sense = repmat('>',length(bin),1);
-                    model.lb = zeros(num_params,1);
-                    model.ub = lambda_ub;
-                    result = gurobi(model,gurobi_options);
-                    result_qp = result.x;
-                catch
-                    keyboard
-                end
-                f = S_weighting*V*(result_qp);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
-                active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
-                obj.LCP_cache.data.fastqp_active_set = active_set;
-                
-                % mu_tolerance = 1e-5;
-                % for i=1:num_active
-                %     if abs(sqrt(f(1+(i-1)*3)^2+f(2+(i-1)*3)^2)/f(i*3)) > mu(1) + mu_tolerance% need to be modified for non-terrain based surface
-                %         keyboard
-                %     end
-                % end
-                %f_vec = [f_vec,f];
-
-                %% checker that the analytical solution from KKT condition
-                % gives correct contact force solution
-                Ain_fqp_active = Ain_fqp(active_set,:);
-                bin_fqp_active = bin_fqp(active_set);
-                
-                Qinv = pinv(2*Q);
-                % this analytical solution is slightly different than the
-                % one in SJ Wright's numerical optimizaiton
-                G = Qinv - Qinv*Ain_fqp_active' ...
-                    *pinv(Ain_fqp_active*Qinv*Ain_fqp_active')*Ain_fqp_active*Qinv;
-                E = Qinv*Ain_fqp_active'*pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
-                E = -E;
-                % note that, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
-                % Ain_fqp_active multiplied in E.
-                F = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
-                
-                result_analytical = - G*V'*S_weighting*c - E*bin_fqp_active;
-                %f = S_weighting*V*(result_analytical);
-                
-                % check contact force solved by analytical solution and
-                % gurobi solver, they should be the same
-                lambda_diff = result_analytical - result_qp;
-                lambda_diff_sum = sum(abs(lambda_diff));
-                if lambda_diff_sum > 1e-2
-                    disp('Error: contact force solved by analytical solution and gurobi solver are different')
-                end
-                %debugging
-                %% end of checker
-                                
-                % update state at next time step
-                vn = v + Hinv*(tau*h + vToqdot'*J'*f);
-                qdn = vToqdot*vn;
-                qn = q + qdn*h;
-                
-                wvn = v + h*Hinv*tau;
-                Mvn = Hinv*vToqdot'*J';% note that the sign of J is negative
-                
-                %% compute gradient component
-                total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
-                possible_contact_indices = zeros(total_possible_contact_point,1);
-                for i = 1:length(active)
-                    possible_contact_indices(active(i)) = true(1);
-                end
-                
-                nP = 0;
-                nC = num_active;
-                mC = 2;%length(D);% 2D, normally mC = 2 for 3D;[tuned for 3D]
-                
-                % derive jacobian
-                J_size = [nP + (mC+1)*nC + nL,num_q];
-                
-                %lb = zeros(nL+nP+(mC+2)*nC,1);
-                %ub = Big*ones(nL+nP+(mC+2)*nC,1);
-                JD{1} = Jx;
-                JD{2} = Jy;%[tuned for 3D]
-                JD = vertcat(JD{:});
-                
-                obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
-                
-                % new dJ to accommodate lcp formulation
-                dJ_qp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
-                possible_contact_indices_found = find(possible_contact_indices);
-                n_size = [numel(possible_contact_indices), num_q];
-                col_indices = 1 : num_q;
-                dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
-                dJ_qp = setSubMatrixGradient(dJ_qp, dJz_new, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
-                JD_size = size(JD);
-                dJD_matrix = zeros(prod(JD_size), num_q);
-                
-                JD_single_size = size(Jx);
-                dJD_single_matrix{1} = zeros(prod(JD_single_size), num_q);
-                dJD_single_matrix{2} = zeros(prod(JD_single_size), num_q);
-                row_start = 0;
-                for i = 1 : mC
-                    dJD_possible_contact = getSubMatrixGradient(dJD_new{i}, possible_contact_indices_found, col_indices, n_size);
-                    dJD_matrix = setSubMatrixGradient(dJD_matrix, dJD_possible_contact, row_start + (1 : nC), col_indices, JD_size);
-                    dJD_single_matrix{i} = setSubMatrixGradient(dJD_single_matrix{i}, dJD_possible_contact, (1 : nC), col_indices, JD_single_size);
-                    row_start = row_start + nC;
-                end
-                dJD_new = dJD_matrix;
-                
-                dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
-                dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
-                dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format. For one column, stack Aidx first and then num_q
-                
-                %wvn = v + Hinv*tau;
-                %here I add the first column Hinv*tau, which is different
-                %from the LCP formulation. h is not a decision variable. In
-                %fact, it does not matter. But when I compare numerical value and analytical values, the first state h is
-                %perturbed as well. Thus, it is better to add Hinv*tau here.
-                dwvn = [Hinv*tau, zeros(num_v,num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
-                        h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
-                dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose
-                
-                % but we don't need it here because our original dJ is already stacked in [x1(q1);y1(q1);z1(q1);x2(q2);y2(q2);z2(q2);x3(q2);y3(q2);z3(q2);...]
-                % the original dJ in LCP is stacked in [x1(q1);x2(q2);x3(q2);y1(q1);y2(q2);y3(q2);z1(q1);z2(q2);z3(q2);...]
-                dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
-                % Hinv*reshape(dJtranspose,num_q,[]) is the same as Hinv*vToqdot'*dJdq(:,:,i)' with i=1:num_q
-                % Hinv*reshape(matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]) is same as Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' with i=1:num_q
-                
-                % compute dlambda/dx, dlambda/du
-                % this part is a key difference from LCP solver since the
-                % force vector is reformulated.
-                lambda = f;
-                
-                b = V'*S_weighting*c;
-                %A = J*vToqdot*Hinv*vToqdot'*J';
-                %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
-                
-                %% partial derivative of A, b w.r.t. h, q, v and u
-                dcdh = J*vToqdot*Hinv*tau;
-                dbdh = V'*S_weighting*dcdh;
-                % preallocate size
-                dHdq = zeros(num_q,num_q,num_q);
-                dCdq = zeros(num_q,1,num_q);
-                dJdq = zeros(num_full_dim,num_q,num_q);
-                dAdq_tmp = zeros(num_full_dim,num_full_dim,num_q);
-                dAdq = zeros(num_params,num_params,num_q);
-                dAdv = zeros(num_params,num_params,num_q);
-                dbdq = zeros(num_params,num_q);
-                dcdq = zeros(num_full_dim,num_q);
-                for i=1:num_q % assume num_q == num_v
-                    dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
-                    dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
-                    dJx_reshape = reshape(dJx(:,i),num_q,[])';
-                    dJy_reshape = reshape(dJy(:,i),num_q,[])';%[tuned for 3D]
-                    dJz_reshape = reshape(dJz(:,i),num_q,[])';
-                    dJdq_tmp = [];
-                    for j=1:nC
-                        dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];%3D
-                        %dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJz_reshape(j,:)];%[tuned for 2D]
-                    end
-                    %dJdq(:,:,i) = dJdq_tmp;
-                    dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 3D]
-                    
+            end
+            dJD_new{1} = dJx_new;
+            dJD_new{2} = dJy_new;%[tuned for 3D]
+            
+            %joint limit
+            J = [J;JL];
+            phiL = phiL(possible_limit_indices);
+            phi = [phiC;phiL];
+            
+            num_q = obj.manip.getNumPositions;
+            num_v = obj.manip.getNumVelocities;
+            
+            if (obj.num_u>0)
+                tau = B*u - C;
+                dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
+            else
+                tau = -C;
+                dtau = [zeros(num_v,1), -dC, zeros(size(B))];
+            end
+            Hinv = inv(H);
+            
+            V = horzcat(V{:});
+            I = eye(num_c*num_d);
+            V_cell = cell(1,num_active);
+            v_min = zeros(length(phi),1);
+            for i=1:length(phi)
+                if i<=num_active
+                    % is a contact point
+                    idx_beta = active(i):num_c:num_c*num_d;
                     try
-                        dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
-                                          +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                        dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
-                                      + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
+                        V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
                     catch
                         keyboard
                     end
-                    dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
-                                  - J*vToqdot*Hinv*dCdq(:,:,i)*h;
-                    dbdq(:,i) = V'*S_weighting*dcdq(:,i) + dV(:,:,i)'*S_weighting*c;
-                    dAdv(:,:,i) = zeros(num_params);
                 end
-                dCdv = dC(:,num_q+1:2*num_q);
-                dcdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
-                dbdv = V'*S_weighting*dcdv;
-                
-                dAdu = zeros(num_params,num_params,obj.num_u);
-                dcdu = zeros(num_full_dim,obj.num_u);
-                dbdu = zeros(num_params,obj.num_u);
-                for i=1:obj.num_u
-                    dAdu(:,:,i) = zeros(num_params);
-                    dcdu(:,i) = J*vToqdot*Hinv*B(:,i)*h;
-                    dbdu(:,i) = V'*S_weighting*dcdu(:,i);
+                v_min(i) = -phi(i)/h;
+            end
+            V = blkdiag(V_cell{:},eye(nL));
+            
+            A = J*vToqdot*Hinv*vToqdot'*J';
+            c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+            
+            % contact smoothing matrix
+            R_min = 1e-3;
+            R_max = 1e-1;
+            r = zeros(num_active,1);
+            r(phiC>=obj.phi_max) = R_max;
+            r(phiC<=obj.contact_threshold) = R_min;
+            ind = (phiC > obj.contact_threshold) & (phiC < obj.phi_max);
+            y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+            r(ind) = R_min + R_max./(1+exp(-10*y));
+            % Todorov's function
+            %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
+            r = repmat(r,1,dim)';
+            %R = diag([r(:)',r(:)']);
+            R = diag(r(:));
+            
+            if any(ind > 0)
+                S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
+            else
+                S_weighting_unit = diag(ones(3,1));%[tuned for 3D]
+                % right now, use a unified weighting coeff for x
+                % direction regardless whether the brick enters the
+                % safety region. But it could be tuned to different
+                % values such that different weighting can be used
+            end
+            
+            % joint limit smoothing matrix
+            W_min = 1e-3;
+            W_max = 1e-1;
+            w = zeros(nL,1);
+            w(phiL>=obj.phiL_max) = W_max;
+            w(phiL<=obj.contact_threshold) = W_min;
+            ind = (phiL > obj.contact_threshold) & (phiL < obj.phiL_max);
+            y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+            w(ind) = W_min + W_max./(1+exp(-10*y));
+            W = diag(w(:));
+            
+            R = blkdiag(R,W);
+            
+            num_params = num_beta+nL;
+            % lambda_ub = zeros(num_params,1);
+            % scale_fact = 1e3;
+            % phiC_pos = phiC;
+            % phiC_pos(phiC<0)=0;
+            % lambda_ub(1:num_beta) = repmat(max(0.01, scale_fact*(obj.phi_max./phiC_pos - 1.0)),1,num_d)';
+            % phiL_pos = phiL;
+            % phiL_pos(phiL<0)=0;
+            % lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
+            lambda_ub = inf*ones(num_params,1);% disable this unnecessary bounding constraint
+            
+            % define weighting parameters
+            for i=1:num_active
+                S_weighting_array{i} = S_weighting_unit;
+            end
+            for i=1:nL
+                S_weighting_array{num_active+i} = 1;
+            end
+            S_weighting = blkdiag(S_weighting_array{:});
+            
+            try
+                Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-4*eye(num_params);
+            catch
+                keyboard
+            end
+            % N*(A*z + c) - v_min \ge 0
+            Ain = zeros(num_active+nL,num_params);
+            bin = zeros(num_active+nL,1);
+            for i=1:num_active
+                idx = (i-1)*dim + (1:dim);
+                Ain(i,:) = normal(:,i)'*A(idx,:)*V;
+                bin(i) = v_min(i) - normal(:,i)'*c(idx);
+            end
+            for i=1:nL
+                idx = num_active*dim + i;
+                Ain(i+num_active,:) = A(idx,:)*V;
+                bin(i+num_active) = v_min(i+num_active) - c(idx);
+            end
+            
+            Ain_fqp = full([-Ain; -eye(num_params); eye(num_params)]);
+            bin_fqp = [-bin; zeros(num_params,1); lambda_ub];
+            
+            %[result_qp,info_fqp] = fastQPmex({Q},V'*c,Ain_fqp,bin_fqp,[],[],obj.LCP_cache.data.fastqp_active_set);
+            
+            %if 1 % info_fqp<0
+            %disp('calling gurobi');
+            model.LCP_cache.data.fastqp_active_set = [];
+            gurobi_options.outputflag = 0; % verbose flag
+            gurobi_options.method = 1; % -1=automatic, 0=primal simplex, 1=dual simplex, 2=barrier
+            
+            try
+                model.Q = sparse(Q);
+                model.obj = V'*S_weighting*c;
+                model.A = sparse(Ain);
+                model.rhs = bin;
+                model.sense = repmat('>',length(bin),1);
+                model.lb = zeros(num_params,1);
+                model.ub = lambda_ub;
+                result = gurobi(model,gurobi_options);
+                result_qp = result.x;
+            catch
+                keyboard
+            end
+            f = S_weighting*V*(result_qp);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
+            active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
+            obj.LCP_cache.data.fastqp_active_set = active_set;
+            
+            % mu_tolerance = 1e-5;
+            % for i=1:num_active
+            %     if abs(sqrt(f(1+(i-1)*3)^2+f(2+(i-1)*3)^2)/f(i*3)) > mu(1) + mu_tolerance% need to be modified for non-terrain based surface
+            %         keyboard
+            %     end
+            % end
+            %f_vec = [f_vec,f];
+            
+            %% checker that the analytical solution from KKT condition
+            % gives correct contact force solution
+            Ain_fqp_active = Ain_fqp(active_set,:);
+            bin_fqp_active = bin_fqp(active_set);
+            
+            Qinv = pinv(2*Q);
+            % this analytical solution is slightly different than the
+            % one in SJ Wright's numerical optimizaiton
+            G = Qinv - Qinv*Ain_fqp_active' ...
+                *pinv(Ain_fqp_active*Qinv*Ain_fqp_active')*Ain_fqp_active*Qinv;
+            E = Qinv*Ain_fqp_active'*pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+            E = -E;
+            % note that, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
+            % Ain_fqp_active multiplied in E.
+            F = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+            
+            result_analytical = - G*V'*S_weighting*c - E*bin_fqp_active;
+            %f = S_weighting*V*(result_analytical);
+            
+            % check contact force solved by analytical solution and
+            % gurobi solver, they should be the same
+            lambda_diff = result_analytical - result_qp;
+            lambda_diff_sum = sum(abs(lambda_diff));
+            if lambda_diff_sum > 1e-2
+                disp('Error: contact force solved by analytical solution and gurobi solver are different')
+            end
+            %debugging
+            %% end of checker
+            
+            % update state at next time step
+            vn = v + Hinv*(tau*h + vToqdot'*J'*f);
+            qdn = vToqdot*vn;
+            qn = q + qdn*h;
+            
+            wvn = v + h*Hinv*tau;
+            Mvn = Hinv*vToqdot'*J';% note that the sign of J is negative
+            
+            %% compute gradient component
+            total_possible_contact_point = num_active;%[Ye: to be tuned for other systems]
+            possible_contact_indices = zeros(total_possible_contact_point,1);
+            for i = 1:length(active)
+                possible_contact_indices(active(i)) = true(1);
+            end
+            
+            nP = 0;
+            nC = num_active;
+            mC = 2;%length(D);% 2D, normally mC = 2 for 3D;[tuned for 3D]
+            
+            % derive jacobian
+            J_size = [nP + (mC+1)*nC + nL,num_q];
+            
+            %lb = zeros(nL+nP+(mC+2)*nC,1);
+            %ub = Big*ones(nL+nP+(mC+2)*nC,1);
+            JD{1} = Jx;
+            JD{2} = Jy;%[tuned for 3D]
+            JD = vertcat(JD{:});
+            
+            obj.LCP_cache.data.possible_contact_indices=possible_contact_indices;
+            
+            % new dJ to accommodate lcp formulation
+            dJ_qp = zeros(prod(J_size), num_q); % was sparse, but reshape trick for the transpose below didn't work
+            possible_contact_indices_found = find(possible_contact_indices);
+            n_size = [numel(possible_contact_indices), num_q];
+            col_indices = 1 : num_q;
+            dJz = getSubMatrixGradient(reshape(dJz, [], num_q), possible_contact_indices_found, col_indices, n_size);
+            dJ_qp = setSubMatrixGradient(dJ_qp, dJz_new, [3:3:(mC+1)*nC], 1 : J_size(2), J_size);
+            JD_size = size(JD);
+            dJD_matrix = zeros(prod(JD_size), num_q);
+            
+            JD_single_size = size(Jx);
+            dJD_single_matrix{1} = zeros(prod(JD_single_size), num_q);
+            dJD_single_matrix{2} = zeros(prod(JD_single_size), num_q);
+            row_start = 0;
+            for i = 1 : mC
+                dJD_possible_contact = getSubMatrixGradient(dJD_new{i}, possible_contact_indices_found, col_indices, n_size);
+                dJD_matrix = setSubMatrixGradient(dJD_matrix, dJD_possible_contact, row_start + (1 : nC), col_indices, JD_size);
+                dJD_single_matrix{i} = setSubMatrixGradient(dJD_single_matrix{i}, dJD_possible_contact, (1 : nC), col_indices, JD_single_size);
+                row_start = row_start + nC;
+            end
+            dJD_new = dJD_matrix;
+            
+            dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{1}, [1:3:(mC+1)*nC], col_indices, J_size);
+            dJ_qp = setSubMatrixGradient(dJ_qp, dJD_single_matrix{2}, [2:3:(mC+1)*nC], col_indices, J_size);
+            dJ_qp = reshape(dJ_qp, [], num_q^2); % expand dJ in column format. For one column, stack Aidx first and then num_q
+            
+            %wvn = v + Hinv*tau;
+            %here I add the first column Hinv*tau, which is different
+            %from the LCP formulation. h is not a decision variable. In
+            %fact, it does not matter. But when I compare numerical value and analytical values, the first state h is
+            %perturbed as well. Thus, it is better to add Hinv*tau here.
+            dwvn = [Hinv*tau, zeros(num_v,num_q),eye(num_v),zeros(num_v,obj.num_u)] + ...
+                h*Hinv*dtau - [zeros(num_v,1),h*Hinv*matGradMult(dH(:,1:num_q),Hinv*tau),zeros(num_v,num_q),zeros(num_v,obj.num_u)];
+            dJtranspose_qp = reshape(permute(reshape(dJ_qp,size(J,1),size(J,2),[]),[2,1,3]),numel(J),[]);% all it does is to get dJ transpose
+            
+            % but we don't need it here because our original dJ is already stacked in [x1(q1);y1(q1);z1(q1);x2(q2);y2(q2);z2(q2);x3(q2);y3(q2);z3(q2);...]
+            % the original dJ in LCP is stacked in [x1(q1);x2(q2);x3(q2);y1(q1);y2(q2);y3(q2);z1(q1);z2(q2);z3(q2);...]
+            dMvn = [zeros(numel(Mvn),1),reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
+            % Hinv*reshape(dJtranspose,num_q,[]) is the same as Hinv*vToqdot'*dJdq(:,:,i)' with i=1:num_q
+            % Hinv*reshape(matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]) is same as Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' with i=1:num_q
+            
+            % compute dlambda/dx, dlambda/du
+            % this part is a key difference from LCP solver since the
+            % force vector is reformulated.
+            lambda = f;
+            
+            b = V'*S_weighting*c;
+            %A = J*vToqdot*Hinv*vToqdot'*J';
+            %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
+            
+            %% partial derivative of A, b w.r.t. h, q, v and u
+            dcdh = J*vToqdot*Hinv*tau;
+            dbdh = V'*S_weighting*dcdh;
+            % preallocate size
+            dHdq = zeros(num_q,num_q,num_q);
+            dCdq = zeros(num_q,1,num_q);
+            dJdq = zeros(num_full_dim,num_q,num_q);
+            dAdq_tmp = zeros(num_full_dim,num_full_dim,num_q);
+            dAdq = zeros(num_params,num_params,num_q);
+            dAdv = zeros(num_params,num_params,num_q);
+            dbdq = zeros(num_params,num_q);
+            dcdq = zeros(num_full_dim,num_q);
+            for i=1:num_q % assume num_q == num_v
+                dHdq(:,:,i) = reshape(dH(:,i),num_q,num_q);
+                dCdq(:,:,i) = reshape(dC(:,i),num_q,1);
+                dJx_reshape = reshape(dJx(:,i),num_q,[])';
+                dJy_reshape = reshape(dJy(:,i),num_q,[])';%[tuned for 3D]
+                dJz_reshape = reshape(dJz(:,i),num_q,[])';
+                dJdq_tmp = [];
+                for j=1:nC
+                    dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];%3D
                 end
-
-                %% partial derivative of equality constraints (active)
-                num_dynamicsConstraint = num_active+nL;
-                dynamicsConstraint_active_set = find(active_set<=num_active);%[Ye: to be tuned for different systems]
-                jointConstraint_active_set = find(active_set>num_active & active_set<=num_dynamicsConstraint);%[Ye: to be tuned for different systems]
-                boundingConstraint_active_set = find(active_set>num_dynamicsConstraint);
-                num_dynamicsConstraint_active_set = length(dynamicsConstraint_active_set);
-                num_jointConstraint_active_set = length(jointConstraint_active_set);
-                num_boundingConstraint_active_set = length(boundingConstraint_active_set);
-                num_constraint_active_set = num_dynamicsConstraint_active_set + num_jointConstraint_active_set + num_boundingConstraint_active_set;
+                dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 3D]
                 
-                % partial derivative of b_tilde w.r.t h
+                try
+                    dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
+                        +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
+                    dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
+                        + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
+                catch
+                    keyboard
+                end
+                dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
+                    - J*vToqdot*Hinv*dCdq(:,:,i)*h;
+                dbdq(:,i) = V'*S_weighting*dcdq(:,i) + dV(:,:,i)'*S_weighting*c;
+                dAdv(:,:,i) = zeros(num_params);
+            end
+            dCdv = dC(:,num_q+1:2*num_q);
+            dcdv = J*vToqdot - J*vToqdot*Hinv*dCdv*h;
+            dbdv = V'*S_weighting*dcdv;
+            
+            dAdu = zeros(num_params,num_params,obj.num_u);
+            dcdu = zeros(num_full_dim,obj.num_u);
+            dbdu = zeros(num_params,obj.num_u);
+            for i=1:obj.num_u
+                dAdu(:,:,i) = zeros(num_params);
+                dcdu(:,i) = J*vToqdot*Hinv*B(:,i)*h;
+                dbdu(:,i) = V'*S_weighting*dcdu(:,i);
+            end
+            
+            %% partial derivative of equality constraints (active)
+            num_dynamicsConstraint = num_active+nL;
+            dynamicsConstraint_active_set = find(active_set<=num_active);%[Ye: to be tuned for different systems]
+            jointConstraint_active_set = find(active_set>num_active & active_set<=num_dynamicsConstraint);%[Ye: to be tuned for different systems]
+            boundingConstraint_active_set = find(active_set>num_dynamicsConstraint);
+            num_dynamicsConstraint_active_set = length(dynamicsConstraint_active_set);
+            num_jointConstraint_active_set = length(jointConstraint_active_set);
+            num_boundingConstraint_active_set = length(boundingConstraint_active_set);
+            num_constraint_active_set = num_dynamicsConstraint_active_set + num_jointConstraint_active_set + num_boundingConstraint_active_set;
+            
+            % partial derivative of b_tilde w.r.t h
+            %handle dynamics constraints
+            db_tildedh_dyn = zeros(num_dynamicsConstraint_active_set,1);
+            for j=1:num_dynamicsConstraint_active_set
+                row = active_set(j);
+                idx = (row-1)*dim + (1:dim);
+                db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                % the first componint of bin_fqp is -bin, the sign is flipped
+            end
+            %handle joint constraints
+            db_tildedh_joint = zeros(num_jointConstraint_active_set,1);
+            for j=1:num_jointConstraint_active_set
+                row = active_set(j+num_dynamicsConstraint_active_set);
+                idx = num_active*dim+(row-num_active);
+                db_tildedh_joint(j) = -(phi(row)/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                % the first componint of bin_fqp is -bin, the sign is flipped
+            end
+            
+            if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
+                db_tildedh = [db_tildedh_dyn;zeros(num_boundingConstraint_active_set, 1)];
+            elseif ~isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                db_tildedh = [db_tildedh_dyn;db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
+            elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
+                db_tildedh = [zeros(num_boundingConstraint_active_set, 1)];
+            elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                db_tildedh = [db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
+            end
+            
+            dA_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,num_params,num_q);
+            db_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
+            db_tildedv_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
+            dA_tildedq_joint = zeros(num_jointConstraint_active_set,num_params,num_q);
+            db_tildedq_joint = zeros(num_jointConstraint_active_set,1,num_q);
+            db_tildedv_joint = zeros(num_jointConstraint_active_set,1,num_q);
+            dA_tildedq = zeros(num_constraint_active_set,num_params,num_q);
+            db_tildedq = zeros(num_constraint_active_set,1,num_q);
+            db_tildedv = zeros(num_constraint_active_set,1,num_q);
+            for i=1:num_q % assume num_q == num_v
+                % partial derivative of A_tilde and b_tilde w.r.t q and v
                 %handle dynamics constraints
-                db_tildedh_dyn = zeros(num_dynamicsConstraint_active_set,1);
                 for j=1:num_dynamicsConstraint_active_set
                     row = active_set(j);
                     idx = (row-1)*dim + (1:dim);
-                    db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
-                    % the first componint of bin_fqp is -bin, the sign is flipped
+                    dA_tildedq_dyn(j,:,i) = -normal(:,row)'*(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
+                    db_tildedq_dyn(j,:,i) = normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
+                    db_tildedv_dyn(j,:,i) = normal(:,row)'*dcdv(idx,i);
                 end
                 %handle joint constraints
-                db_tildedh_joint = zeros(num_jointConstraint_active_set,1);
                 for j=1:num_jointConstraint_active_set
                     row = active_set(j+num_dynamicsConstraint_active_set);
                     idx = num_active*dim+(row-num_active);
-                    db_tildedh_joint(j) = -(phi(row)/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
-                    % the first componint of bin_fqp is -bin, the sign is flipped
+                    dA_tildedq_joint(j,:,i) = -(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
+                    db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
+                    db_tildedv_joint(j,:,i) = dcdv(idx,i);
                 end
                 
                 if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                    db_tildedh = [db_tildedh_dyn;zeros(num_boundingConstraint_active_set, 1)];
+                    dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
+                    db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                    db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                 elseif ~isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                    db_tildedh = [db_tildedh_dyn;db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
+                    dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);dA_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
+                    db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);db_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                    db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);db_tildedv_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                 elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                    db_tildedh = [zeros(num_boundingConstraint_active_set, 1)];
+                    dA_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, num_params)];
+                    db_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
+                    db_tildedv(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
                 elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                    db_tildedh = [db_tildedh_joint;zeros(num_boundingConstraint_active_set, 1)];
+                    dA_tildedq(:,:,i) = [dA_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
+                    db_tildedq(:,:,i) = [db_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                    db_tildedv(:,:,i) = [db_tildedv_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
                 end
-                
-                dA_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,num_params,num_q);
-                db_tildedq_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
-                db_tildedv_dyn = zeros(num_dynamicsConstraint_active_set,1,num_q);
-                dA_tildedq_joint = zeros(num_jointConstraint_active_set,num_params,num_q);
-                db_tildedq_joint = zeros(num_jointConstraint_active_set,1,num_q);
-                db_tildedv_joint = zeros(num_jointConstraint_active_set,1,num_q);
-                dA_tildedq = zeros(num_constraint_active_set,num_params,num_q);
-                db_tildedq = zeros(num_constraint_active_set,1,num_q);
-                db_tildedv = zeros(num_constraint_active_set,1,num_q);
-                for i=1:num_q % assume num_q == num_v
-                    % partial derivative of A_tilde and b_tilde w.r.t q and v
-                    %handle dynamics constraints
-                    for j=1:num_dynamicsConstraint_active_set
-                        row = active_set(j);
-                        idx = (row-1)*dim + (1:dim);
-                        dA_tildedq_dyn(j,:,i) = -normal(:,row)'*(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                        db_tildedq_dyn(j,:,i) = normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
-                        db_tildedv_dyn(j,:,i) = normal(:,row)'*dcdv(idx,i);
-                    end
-                    %handle joint constraints
-                    for j=1:num_jointConstraint_active_set
-                        row = active_set(j+num_dynamicsConstraint_active_set);
-                        idx = num_active*dim+(row-num_active);
-                        dA_tildedq_joint(j,:,i) = -(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                        db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
-                        db_tildedv_joint(j,:,i) = dcdv(idx,i);
-                    end
-                                    
-                    if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                        dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
-                        db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                        db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    elseif ~isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                        dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);dA_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
-                        db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);db_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                        db_tildedv(:,:,i) = [db_tildedv_dyn(:,:,i);db_tildedv_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                        dA_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, num_params)];
-                        db_tildedq(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
-                        db_tildedv(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
-                    elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                        dA_tildedq(:,:,i) = [dA_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
-                        db_tildedq(:,:,i) = [db_tildedq_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                        db_tildedv(:,:,i) = [db_tildedv_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    end
-                    assert(length(dA_tildedq(:,1,i)) == length(active_set));
-                end
-                
-                % partial derivative of b_tilde w.r.t u
-                db_tildedu_dyn = zeros(num_dynamicsConstraint_active_set,1,obj.num_u);
-                db_tildedu_joint = zeros(num_jointConstraint_active_set,1,obj.num_u);
-                db_tildedu = zeros(num_constraint_active_set,1,obj.num_u);
-                for i=1:obj.num_u
-                    %handle dynamics constraints
-                    for j=1:num_dynamicsConstraint_active_set
-                        row = active_set(j);
-                        idx = (row-1)*dim + (1:dim);
-                        db_tildedu_dyn(j,:,i) = normal(:,row)'*dcdu(idx,i);
-                    end
-                    %handle joint constraints
-                    for j=1:num_jointConstraint_active_set
-                        row = active_set(j+num_dynamicsConstraint_active_set);
-                        idx = num_active*dim+(row-num_active);
-                        db_tildedu_joint(j,:,i) = dcdu(idx,i);
-                    end
-                    
-                    if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                        db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    elseif ~isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                        db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
-                        db_tildedu(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
-                    elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
-                        db_tildedu(:,:,i) = [db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
-                    end
-                end
-                                
-                % debugging test for dJdq
-                %c_test = J;%J*vToqdot*v;
-                %dc_test = dJdq(:,:,4);
-                %dc_test = zeros(52,3);
-                %for i=1:14
-                %    dc_test(:,i) = dJdq(:,:,i)*vToqdot*v;
-                %end
-                %[problem all fixed now]
-                % for dJdq(:,:,1)-dJdq(:,:,8), only difference comes from
-                % the last three columns, related to object orientation.
-                % There, the analytical solution has all-zero elements
-                % while the numerical gradient has non-zero elements there
-                % because the closest points in plus/minus delta X change.
-                % for dJdq(:,:,9)-dJdq(:,:,11), only difference still comes from
-                % the last three columns, related to object orientation.
-                % Additionally, all the other 1st-11th columns are zero.
-                % for dJdq(:,:,12)-dJdq(:,:,14), difference comes from
-                % the last six columns, related to object position and orientation.
-                % Additionally, all the other 1st-8th columns are zero.
-                % A key point: the numerical gradient changes based on how many dimension
-                % perturbations are exerted. Because different perturbations will create
-                % different closest point in every specific case.
-                % Emperical test shows that the perturbation is addable.
-                
-                % debugging test for dbdv and dbdu, they are correct.
-                % the numerical error in dAdq is caused by the multiplication.
-                % debugging test for dAdq
-                %A = V'*S_weighting*J*vToqdot*Hinv*vToqdot'*J'*S_weighting*V;
-                %c_test = A;
-                %dc_test = dAdq(:,:,1);
-                
-                %% partial derivative of KKT matrix blocks
-                dGdq = zeros(num_params,num_params,num_q);
-                dEdq = zeros(num_params,num_constraint_active_set,num_q);
-                dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
-                for i=1:num_q
-                    % partial dervative w.r.t q
-                    M = Qinv*dAdq(:,:,i)*Qinv;
-                    N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
-                    dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
-                                  -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                                  -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
-                                  +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
-                                  +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
-                    dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
-                                  + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                                  - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
-                    dEdq(:,:,i) = - dEdq(:,:,i);
-                    % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
-                    % Ain_fqp_active multiplied in E.
-                    
-                    % not used, can be used for slack variable analytical solution
-                    dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
-                                  -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
-
-                    % partial dervative w.r.t v
-                    % dGdv = 0, dEdv = 0, dFdv = 0.
-                    % partial dervative w.r.t u
-                    % dGdu = 0, dEdu = 0, dFdu = 0.
-                end
-                
-                %note that lambda = f = S_weighting*V*result_qp (there is coefficient S_weighting*V)
-                %% partial derivative of lambda w.r.t. h, q, v, and u
-                dlambdadh = S_weighting*V*(- G*dbdh - E*db_tildedh);
-                
-                dlambdadq = zeros(num_full_dim,num_q);
-                dlambdadv = zeros(num_full_dim,num_q);
-                for i=1:num_q
-                    dlambdadq(:,i) =  S_weighting*V*(- dGdq(:,:,i)*b - G*dbdq(:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i)) ...
-                                      + S_weighting*dV(:,:,i)*result_analytical;
-                    dlambdadv(:,i) =  S_weighting*V*(- G*dbdv(:,i) - E*db_tildedv(:,:,i));
-                end
-                                
-                dlambdadu = zeros(num_full_dim,obj.num_u);
-                for i=1:obj.num_u
-                    dlambdadu(:,i) = S_weighting*V*(- G*dbdu(:,i) - E*db_tildedu(:,:,i));
-                end
-                
-                dlambda = [dlambdadh, dlambdadq, dlambdadv, dlambdadu];
-                
-                % Find quaternion indices
-                quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
-                quat_positions = [quat_bodies.position_num];
-                for i=1:size(quat_positions,2)
-                    quat_dot = qdn(quat_positions(4:7,i));
-                    if norm(quat_dot) > 0
-                        % Update quaternion by following geodesic
-                        qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
-                        qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
-                    end
-                end
-                
-                xdn = [qn;vn];
-                
-                % compute gradients
-                if (nargout>1)
-                    if isempty(lambda)
-                        dqdn = dwvn;
-                    else
-                        dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
-                    end
-                    df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
-                end
-
-                for i=1:length(obj.sensor)
-                    if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
-                        if (nargout>1)
-                            [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
-                        else
-                            [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
-                        end
-                        xdn = [xdn;xdn_sensor];
-                        if (nargout>1)
-                            df = [df; df_sensor];
-                        end
-                    end
-                end
-                
-                %c_test = J;
-                %dc_test = dJdq;%dJdq(:,:,4);
-                
-                %c_test = lambda;
-                %dc_test = S_weighting*V*dlambdadq;
-                
-                %c_test = V'*S_weighting*A*S_weighting*V;
-                %dc_test = dAdq;
-                
-                %c_test = V'*S_weighting*A*S_weighting*V;
-                %dc_test = dAdq;
-                                
-                %c_test = H;
-                %dc_test = dH(:,1);%dHdq(:,:,1);
-                % dH is correct, very tiny numerical discrepancy only
-                % exists in joint 0 and 6 DOF object state, on an order
-                % much smaller (~10^5-10^9)
-                % than those corresponding to arm joint states.
-                
-                %c_test = Hinv;
-                %dc_test = -Hinv*dHdq(:,:,2)*Hinv;%-Hinv*reshape(matGradMult(dH(:,2),Hinv),num_q,[]); 
-                
-                %c_test = V'*S_weighting*A*S_weighting*V;
-                %dc_test = dAdq(:,:,2);
-                % match well now
-                
-                %c_test = A;
-                %dc_test = dAdq_tmp(:,:,2);
-                % match well now
-                
-                %c_test = reshape(V'*S_weighting*A*S_weighting*V,[],1);
-                %dc_test(:,1) = reshape(zeros(64,64),[],1);
-                %for ii=1:14
-                %    dc_test(:,ii+1) = reshape(dAdq(:,:,ii),[],1);
-                %end
-                %for ii=1:14
-                %    dc_test(:,ii+15) = reshape(dAdv(:,:,ii),[],1);
-                %end
-                %for ii=1:8
-                %    dc_test(:,ii+29) = reshape(dAdu(:,:,ii),[],1);
-                %end
-                
-%                 %correct
-%                 c_test = reshape(E,[],1);
-%                 dc_test(:,1) = zeros(numel(dEdq(:,:,1)),1);
-%                 for jj=1:14
-%                     dc_test(:,jj+1) = reshape(dEdq(:,:,jj),[],1);
-%                 end
-%                 for jj=1:14
-%                     dc_test(:,jj+15) = zeros(numel(dEdq(:,:,1)),1);
-%                 end
-%                 for jj=1:8
-%                     dc_test(:,jj+29) = zeros(numel(dEdq(:,:,1)),1);
-%                 end
-                
-%                 c_test = lambda;
-%                 dc_test = dlambda;
-                
-                %correct
-                % c_test = b;
-                % dc_test(:,1) = dbdh;
-                % for jj=1:14
-                %     dc_test(:,jj+1) = reshape(dbdq(:,jj),[],1);
-                % end
-                % for jj=1:14
-                %     dc_test(:,jj+15) = reshape(dbdv(:,jj),[],1);
-                % end
-                % for jj=1:8
-                %     dc_test(:,jj+29) = reshape(dbdu(:,jj),[],1);
-                % end
-
-%                 c_test = F;
-%                 dc_test = dFdq(:,:,4);
-
-%                 c_test = Ain_fqp_active;
-%                 dc_test = dA_tildedq(:,:,4);
-%                 
-%                 c_test2 = Qinv;
-%                 dc_test2 = dQinvdq(:,:,4);
-
-%                 c_test = V'*S_weighting*(A+R)*S_weighting*V;
-%                 dc_test = dAdq(:,:,2);
-                
-%                 c_test = pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params));
-%                 dc_test = -pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params))*dAdq(:,:,2)*pinv(V'*S_weighting*(A+R)*S_weighting*V + 1e-8*eye(num_params));
-                
-                %c_test = lambda;
-%                dc_test(:,1) = dlambdadh;
-%                 for jj=1:14
-%                     dc_test(:,jj+1) = reshape(dlambdadq(:,jj),[],1);
-%                 end
-%                 for jj=1:14
-%                     dc_test(:,jj+15) = reshape(dlambdadv(:,jj),[],1);
-%                 end
-%                 for jj=1:8
-%                     dc_test(:,jj+29) = reshape(dlambdadu(:,jj),[],1);
-%                 end
-
-                c_test = xdn;
-                dc_test = df;
-                
-%                 c_test = reshape(wvn,[],1);
-%                 dc_test = dwvn;
-                
-                %Final comment of gradient debugging
-                %dMvn and dwvn are correct
-                %dbdh, dbdq, dbdv, dbdu are correct
-                %Ain_fqp_active and dA_tildedq match
-                %bin_fqp_active and db_tildedq match
-                %dlambdadv and dlambdadu are correct.
-                %The only numerical issue comes from dGdq(9:14), sometimes
-                %the deviation from the numerical gradient is slightly large, but
-                %overall reasonable, each individual value is close to each
-                %other and makes sense. dGdq(1:8) is correct. No error there.
-                %The numerical difference is slightly magnified in xdn and df.
-                %By checking dimension by dimension, the values match pretty good.
-                %A special part to pay attention to: the first dimension is
-                %gradient w.r.t. h, in this case, the gradient is non-zero.
-                %However, in the update() function, the gradient is w.r.t.
-                %t. There its graident component is zero. This is the
-                %difference between our QP solver and LCP solver.
-                %Using gevl() to compaure the values, the values match quite well 
-                %(all the differences are numerically tolerable). Only a
-                %few large deviations (the numerical values are very large, does 
-                %not make sense), overall, the analytical gradient are more
-                %reliable.
+                assert(length(dA_tildedq(:,1,i)) == length(active_set));
             end
+            
+            % partial derivative of b_tilde w.r.t u
+            db_tildedu_dyn = zeros(num_dynamicsConstraint_active_set,1,obj.num_u);
+            db_tildedu_joint = zeros(num_jointConstraint_active_set,1,obj.num_u);
+            db_tildedu = zeros(num_constraint_active_set,1,obj.num_u);
+            for i=1:obj.num_u
+                %handle dynamics constraints
+                for j=1:num_dynamicsConstraint_active_set
+                    row = active_set(j);
+                    idx = (row-1)*dim + (1:dim);
+                    db_tildedu_dyn(j,:,i) = normal(:,row)'*dcdu(idx,i);
+                end
+                %handle joint constraints
+                for j=1:num_jointConstraint_active_set
+                    row = active_set(j+num_dynamicsConstraint_active_set);
+                    idx = num_active*dim+(row-num_active);
+                    db_tildedu_joint(j,:,i) = dcdu(idx,i);
+                end
+                
+                if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
+                    db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                elseif ~isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                    db_tildedu(:,:,i) = [db_tildedu_dyn(:,:,i);db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                elseif isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
+                    db_tildedu(:,:,i) = [zeros(num_boundingConstraint_active_set, 1)];
+                elseif isempty(dynamicsConstraint_active_set) && ~isempty(jointConstraint_active_set)
+                    db_tildedu(:,:,i) = [db_tildedu_joint(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
+                end
+            end
+            
+            %% partial derivative of KKT matrix blocks
+            dGdq = zeros(num_params,num_params,num_q);
+            dEdq = zeros(num_params,num_constraint_active_set,num_q);
+            dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
+            for i=1:num_q
+                % partial dervative w.r.t q
+                M = Qinv*dAdq(:,:,i)*Qinv;
+                N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
+                dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
+                    -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                    -Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv ...
+                    +Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
+                    +Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N*Ain_fqp_active*Qinv;
+                dEdq(:,:,i) = - M*Ain_fqp_active'*N + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N ...
+                    + Qinv*dA_tildedq(:,:,i)'*N - Qinv*Ain_fqp_active'*N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                    - Qinv*Ain_fqp_active'*N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                dEdq(:,:,i) = - dEdq(:,:,i);
+                % again, Ain in Ain_fqp_active is negative, thus the sign of E is negative since there are three
+                % Ain_fqp_active multiplied in E.
+                
+                % not used, can be used for slack variable analytical solution
+                dFdq(:,:,i) = N*Ain_fqp_active*M*Ain_fqp_active'*N - N*dA_tildedq(:,:,i)*Qinv*Ain_fqp_active'*N ...
+                    -N*Ain_fqp_active*Qinv*dA_tildedq(:,:,i)'*N;
+                
+                % partial dervative w.r.t v
+                % dGdv = 0, dEdv = 0, dFdv = 0.
+                % partial dervative w.r.t u
+                % dGdu = 0, dEdu = 0, dFdu = 0.
+            end
+            
+            %note that lambda = f = S_weighting*V*result_qp (there is coefficient S_weighting*V)
+            %% partial derivative of lambda w.r.t. h, q, v, and u
+            dlambdadh = S_weighting*V*(- G*dbdh - E*db_tildedh);
+            
+            dlambdadq = zeros(num_full_dim,num_q);
+            dlambdadv = zeros(num_full_dim,num_q);
+            for i=1:num_q
+                dlambdadq(:,i) =  S_weighting*V*(- dGdq(:,:,i)*b - G*dbdq(:,i) - dEdq(:,:,i)*bin_fqp_active - E*db_tildedq(:,:,i)) ...
+                    + S_weighting*dV(:,:,i)*result_analytical;
+                dlambdadv(:,i) =  S_weighting*V*(- G*dbdv(:,i) - E*db_tildedv(:,:,i));
+            end
+            
+            dlambdadu = zeros(num_full_dim,obj.num_u);
+            for i=1:obj.num_u
+                dlambdadu(:,i) = S_weighting*V*(- G*dbdu(:,i) - E*db_tildedu(:,:,i));
+            end
+            
+            dlambda = [dlambdadh, dlambdadq, dlambdadv, dlambdadu];
+            
+            % Find quaternion indices
+            quat_bodies = obj.manip.body([obj.manip.body.floating] == 2);
+            quat_positions = [quat_bodies.position_num];
+            for i=1:size(quat_positions,2)
+                quat_dot = qdn(quat_positions(4:7,i));
+                if norm(quat_dot) > 0
+                    % Update quaternion by following geodesic
+                    qn(quat_positions(4:7,i)) = q(quat_positions(4:7,i)) + quat_dot/norm(quat_dot)*tan(norm(h*quat_dot));
+                    qn(quat_positions(4:7,i)) = qn(quat_positions(4:7,i))/norm(qn(quat_positions(4:7,i)));
+                end
+            end
+            
+            xdn = [qn;vn];
+            
+            % compute gradients
+            if (nargout>1)
+                if isempty(lambda)
+                    dqdn = dwvn;
+                else
+                    dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
+                end
+                df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
+            end
+            
+            for i=1:length(obj.sensor)
+                if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
+                    if (nargout>1)
+                        [obj,xdn_sensor,df_sensor] = update(obj.sensor{i},obj,t,x,u);
+                    else
+                        [obj,xdn_sensor] = update(obj.sensor{i},obj,t,x,u);
+                    end
+                    xdn = [xdn;xdn_sensor];
+                    if (nargout>1)
+                        df = [df; df_sensor];
+                    end
+                end
+            end
+            
+            %Final comment of gradient debugging
+            %dMvn and dwvn are correct
+            %dbdh, dbdq, dbdv, dbdu are correct
+            %Ain_fqp_active and dA_tildedq match
+            %bin_fqp_active and db_tildedq match
+            %dlambdadv and dlambdadu are correct.
+            %The only numerical issue comes from dGdq(9:14), sometimes
+            %the deviation from the numerical gradient is slightly large, but
+            %overall reasonable, each individual value is close to each
+            %other and makes sense. dGdq(1:8) is correct. No error there.
+            %The numerical difference is slightly magnified in xdn and df.
+            %By checking dimension by dimension, the values match pretty good.
+            %A special part to pay attention to: the first dimension is
+            %gradient w.r.t. h, in this case, the gradient is non-zero.
+            %However, in the update() function, the gradient is w.r.t.
+            %t. There its graident component is zero. This is the
+            %difference between our QP solver and LCP solver.
+            %Using gevl() to compaure the values, the values match quite well
+            %(all the differences are numerically tolerable). Only a
+            %few large deviations (the numerical values are very large, does
+            %not make sense), overall, the analytical gradient are more
+            %reliable.
         end
         
         function [xdn,df] = update(obj,t,x,u)
