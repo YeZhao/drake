@@ -90,8 +90,8 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 25;
-N1 = 7;%phase 1: pick
+N = 10;%25;
+N1 = 4;%7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 options.robustLCPcost_coeff = 1000;

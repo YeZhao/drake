@@ -245,7 +245,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             h = X0(1);
             x = X0(2:29);
             u = X0(30:37);
-            %global timestep_updated
+            global timestep_updated
             
             % try
             %     if (nargout>1)
@@ -313,7 +313,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             % q_{k+1} = q_{k} + qd_{k+1}*h;
             % qd_{k+1} = qd_{k} + H^{-1}*(B*u-C)*h + J'*f;
-            
+             
             if obj.twoD
                 num_d = 2;
             else
@@ -396,21 +396,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
             
             %% compute numerical Jacobian gradient for dJ and dV
-            for i=1:num_q
-                rr = sqrt(eps(X0));
-                rr(1:i) = 0;%corresponding to time step h
-                m = i+2;% only q component affects Jacobian J
-                rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-                
-                X0_p = X0 + rr/2;
-                X0_m = X0 - rr/2;
-                [J_object_p,V_num_p] = object_gradient_numerical(X0_p);
-                [J_object_m,V_num_m] = object_gradient_numerical(X0_m);
-                
-                dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
-                dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
-            end
-            
             function [J_num, V_num] = object_gradient_numerical(X0)
                 h_num = X0(1);
                 x_num = X0(2:29);
@@ -463,6 +448,43 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
                 J_num = JA_num-JB_num;
             end
+            
+            fcn = @object_gradient_numerical;
+            
+            tic
+            parfor i=1:num_q
+                rr = sqrt(eps(X0));
+                rr(1:i) = 0;%corresponding to time step h
+                m = i+2;% only q component affects Jacobian J
+                rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
+                
+                X0_p = X0 + rr/2;
+                X0_m = X0 - rr/2;
+                [J_object_p(:,:,i),V_num_p(:,:,i)] = feval(fcn,X0_p);
+                [J_object_m(:,:,i),V_num_m(:,:,i)] = feval(fcn,X0_m);
+                
+                dJ(:,i) = (J_object_p(:,:,i) - J_object_m(:,:,i))/rr(i+1);
+                dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
+            end
+            toc
+            
+%             tic
+%             for i=1:num_q
+%                 rr = sqrt(eps(X0));
+%                 rr(1:i) = 0;%corresponding to time step h
+%                 m = i+2;% only q component affects Jacobian J
+%                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
+%                 
+%                 X0_p = X0 + rr/2;
+%                 X0_m = X0 - rr/2;
+%                 [J_object_p(:,:,i),V_num_p(:,:,i)] = feval(fcn,X0_p);
+%                 [J_object_m(:,:,i),V_num_m(:,:,i)] = feval(fcn,X0_m);
+%                 
+%                 dJ(:,i) = (J_object_p(:,:,i) - J_object_m(:,:,i))/rr(i+1);
+%                 dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
+%             end
+%             toc
+            
             %% end of numerical Jacobian gradient for dJ and dV
             
             % dJ new sequence, stack Aidx first and then num_q
@@ -1033,9 +1055,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %set the gradient w.r.t t to be zero.
             df(:,1) = zeros(size(df,1),1);
             return;
-            
-            % add gradient check
-            
+                        
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)
             %
@@ -1049,21 +1069,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             % % gradient check lambda and dlambda
             % X0 = [t;x;u];
             % X0 = X0 + randn(size(X0))*0.1;
-            
-            % if X0(1) > 0.05%6.87%t > 1.5%
-            %     fun = @(X0) solveQP(obj,X0);
-            %     DerivCheck(fun, X0)
-            %
-            %     [lambda,dlambda] = solveQP(obj,X0);
-            %
-            %     try
-            %         [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
-            %         valuecheck(xdn_QP,xdn_numeric,1e-6);
-            %         valuecheck(df_QP,df_numeric,1e-5);
-            %     catch
-            %         keyboard
-            %     end
-            % end
             
             function DerivCheck(funptr, X0, ~, varargin)
                 
@@ -2304,4 +2309,4 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             distance = collisionRaycast(obj.manip, kinsol, origin, point_on_ray, use_margins);
         end
     end
-end`
+end
