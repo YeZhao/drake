@@ -295,6 +295,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % time counter
                 tStart = tic;
                 
+                
+                Sig = load('Sig_data.dat');
+                x = load('x_data.dat');
+                u = load('u_data.dat');
+%                 df_par1 = load('df_par1.dat');
+%                 df_nonpar1 = load('df_nonpar1.dat');
+%                 df_par5 = load('df_par5.dat');
+%                 df_nonpar5 = load('df_nonpar5.dat');
+%                 df_par10 = load('df_par10.dat');
+%                 df_nonpar10 = load('df_nonpar10.dat');
+                
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
                     if k == 1
@@ -353,7 +364,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     k
                     
                     tic
-                    
+                    obj.plant.friction_coeff = w_mu(1);
                     for j = 1:n_sig_point
                         %Generate sigma points from Px(i+1)
                         %[the sequential way to be modified]
@@ -364,15 +375,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
                         
-                        if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                            obj.plant.friction_coeff = w_mu(j);
-                        end
+%                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+%                             obj.plant.friction_coeff = w_mu(j);
+%                         end
                         
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
 
-                        [xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        tic
+                        [xdn(:,j),df(:,:,j)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                        toc
                         
 %                         %numerical diff
 %                         dt = diag(sqrt(eps(t)));
@@ -400,10 +413,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
 %                         end
                         % only columns 9,12,13,14 occasionally have value differences.
                         
-                        Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
+                        Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx,j);
                         
-                        dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);
-                        dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
+                        dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end,j);
+                        dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1,j) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                     end
                     toc
@@ -411,8 +424,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     
 %                 function [xdn,df] = objPlantUpdate(t,Sig,u_fdb_k)
-%                     size(Sig)
-%                     size(u_fdb_k)
 %                     [xdn,df] = obj.plant.update(t,Sig,u_fdb_k);
 %                 end
 %                 
@@ -482,67 +493,81 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
 %                     kplus1 = k+1;
 %                     kminus1 = k-1;
 %                     nxhalf = nx/2;
-%                     tic
 %                     
-%                     parfor j = 1:n_sig_point
+%                     %save -ascii Sig_data.dat Sig
+%                     %save -ascii x_data.dat x
+%                     %save -ascii u_data.dat u
+%                     
+%                     tic
+%                     for j = 1:n_sig_point
 %                         %Generate sigma points from Px(i+1)
 %                         %[the sequential way to be modified]
 %                         % currently, only use the initial variance matrix for the propogation
 %                         j
 %                         
 %                         % a hacky way to implement the control input
-%                         [H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
-%                         Hinv(:,:,j,k) = inv(H(:,:,j));
+%                         %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+%                         %Hinv(:,:,j,k) = inv(H(:,:,j));
 %                         
 %                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
 %                             %obj.plant.friction_coeff = w_mu(j);
 %                         end
 %                         
 %                         % add feedback control
-%                         t = timestep_updated*(kminus1);%[double make sure obj.h is updated correctly]
-%                         u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+%                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+%                         %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
 % 
 %                         %[xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-%                         [xdn(:,j),df(:,:,j)] = feval(plant_update,t,Sig(1:nx,j,k),u_fdb_k(:,j));
+%                         [xdn(:,j),df(:,:,j)] = feval(plant_update,t,Sig(1:nx,j,k),u(:,k) - K*(Sig(1:nx,j,k) - x(:,k)));
 %                         
-% %                         %numerical diff
-% %                         dt = diag(sqrt(eps(t)));
-% %                         dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-% %                         du = diag(sqrt(eps(u_fdb_k)));
-% %                         
-% %                         [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
-% %                         [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
-% %                         df(:,1) = (xdnp-xdnm)/(2*dt);
-% %                         
-% %                         N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-% %                         tic
-% %                         for m = 1:N_finite_diff_x
-% %                             [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-% %                             [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-% %                             df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-% %                         end
-% %                         
-% %                         N_finite_diff_u = length(u_fdb_k);
-% %                         
-% %                         for m = 1:N_finite_diff_u
-% %                             [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-% %                             [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-% %                             df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-% %                         end
+%                         % %numerical diff
+%                         % dt = diag(sqrt(eps(t)));
+%                         % dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
+%                         % du = diag(sqrt(eps(u_fdb_k)));
+%                         %
+%                         % [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
+%                         % [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
+%                         % df(:,1) = (xdnp-xdnm)/(2*dt);
+%                         %
+%                         % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+%                         % tic
+%                         % for m = 1:N_finite_diff_x
+%                         %     [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+%                         %     [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+%                         %     df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+%                         % end
+%                         %
+%                         % N_finite_diff_u = length(u_fdb_k);
+%                         %
+%                         % for m = 1:N_finite_diff_u
+%                         %     [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+%                         %     [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+%                         %     df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+%                         % end
 %                         % only columns 9,12,13,14 occasionally have value differences.
-%                         
-%                     end
-%                     
-%                     for j=1:n_sig_point
-%                         Sig(1:nx,j,kplus1) = xdn(1:nx,j);
-%                          
-%                         dfdu(:,:,j,kplus1) = df(:,end-nu+1:end,j);
-%                         dfdSig(:,:,j,kplus1) = df(:,2:nx+1,j) - dfdu(:,:,j,kplus1)*K;
-%                         dfdx(:,:,j,kplus1) = dfdu(:,:,j,kplus1)*K; 
 %                     end
 %                     toc
-                    
+%                     
+%                     tic
+%                     for j=1:n_sig_point
+%                         
+%                         [H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+%                         Hinv(:,:,j,k) = inv(H(:,:,j));
+%                         
+%                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
+%                         
+%                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+%                         dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
+%                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K; 
+%                     end
+%                     toc
 
+%                     df_nonpar1 = df(:,:,1);
+%                     df_nonpar5 = df(:,:,5);
+%                     df_nonpar10 = df(:,:,10);
+%                     save -ascii df_nonpar1.dat df_nonpar1
+%                     save -ascii df_nonpar5.dat df_nonpar5
+%                     save -ascii df_nonpar10.dat df_nonpar10
                     
                     % calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);

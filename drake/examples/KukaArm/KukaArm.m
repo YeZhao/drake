@@ -444,6 +444,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             if compute_first_derivative
                 [n,D] = jointContactJacobians(obj,kinsol);
             end
+            
             if compute_kinematics_gradients
                 %finite diff since we don't trust this
                 %[~, ~, dn, dD] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
@@ -456,15 +457,17 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 dD{4} = dn;
                 dq = diag(sqrt(eps(kinsol.q)))*1e-2;
                 
-                for k = 1:14
-                    [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
-                    [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
-                    dn(:,k) = vec(np-nm)/(2*dq(k,k));
-                    dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
-                    dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
-                    dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));
-                    dD{4}(:,k) = vec(Dp{4}-Dm{4})/(2*dq(k,k));
-                end
+%                 tic
+%                 for k = 1:14
+%                     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
+%                     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
+%                     dn(:,k) = vec(np-nm)/(2*dq(k,k));
+%                     dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
+%                     dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
+%                     dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));
+%                     dD{4}(:,k) = vec(Dp{4}-Dm{4})/(2*dq(k,k));
+%                 end
+%                 toc
             end
         end
     end

@@ -225,10 +225,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',4e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 

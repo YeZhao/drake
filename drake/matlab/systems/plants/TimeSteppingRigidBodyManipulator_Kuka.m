@@ -320,7 +320,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 num_d = 4;
             end
             dim = 3;%[tuned for 3D]
-            %h = timestep_updated;
+            h = 0.222;
             
             num_q = obj.manip.getNumPositions;
             q=x(1:num_q);
@@ -407,11 +407,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinematics_options.compute_gradients = 1;
                 kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                 
+                %tic
                 if obj.num_u > 0
                     [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
                 else
                     [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
                 end
+                %toc
                 
                 V_num = horzcat(V_num{:});
                 I = eye(num_c*num_d);
@@ -420,11 +422,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     if ii<=num_active
                         % is a contact point
                         idx_beta_num = active(ii):num_c:num_c*num_d;
-                        try
-                            V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
-                        catch
-                            keyboard
-                        end
+                        V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
                     end
                 end
                 V_num = blkdiag(V_cell_num{:},eye(nL));
@@ -451,8 +449,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             fcn = @object_gradient_numerical;
             
-            tic
-            parfor i=1:num_q
+            %tic
+            for i=1:num_q
                 rr = sqrt(eps(X0));
                 rr(1:i) = 0;%corresponding to time step h
                 m = i+2;% only q component affects Jacobian J
@@ -466,10 +464,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJ(:,i) = (J_object_p(:,:,i) - J_object_m(:,:,i))/rr(i+1);
                 dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
             end
-            toc
+            %toc
             
 %             tic
-%             for i=1:num_q
+%             parfor i=1:num_q
 %                 rr = sqrt(eps(X0));
 %                 rr(1:i) = 0;%corresponding to time step h
 %                 m = i+2;% only q component affects Jacobian J
@@ -484,9 +482,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                 dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
 %             end
 %             toc
-            
+             
             %% end of numerical Jacobian gradient for dJ and dV
-            
+             
             % dJ new sequence, stack Aidx first and then num_q
             dJx = []; dJy = []; dJz = [];
             for j=1:length(Aidx)
@@ -536,11 +534,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 if i<=num_active
                     % is a contact point
                     idx_beta = active(i):num_c:num_c*num_d;
-                    try
-                        V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
-                    catch
-                        keyboard
-                    end
+                    V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
                 end
                 v_min(i) = -phi(i)/h;
             end
@@ -607,11 +601,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
             
-            try
-                Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-4*eye(num_params);
-            catch
-                keyboard
-            end
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-7*eye(num_params);
+
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
             bin = zeros(num_active+nL,1);
@@ -648,6 +639,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 result = gurobi(model,gurobi_options);
                 result_qp = result.x;
             catch
+                display('gurobi solve failure');
                 keyboard
             end
             f = S_weighting*V*(result_qp);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
@@ -794,15 +786,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dJdq_tmp = [dJdq_tmp;dJx_reshape(j,:);dJy_reshape(j,:);dJz_reshape(j,:)];%3D
                 end
                 dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[tuned for 3D]
-                
-                try
-                    dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
+                dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                         +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                    dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
+                dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
                         + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
-                catch
-                    keyboard
-                end
+
                 dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
                     - J*vToqdot*Hinv*dCdq(:,:,i)*h;
                 dbdq(:,i) = V'*S_weighting*dcdq(:,i) + dV(:,:,i)'*S_weighting*c;
@@ -1049,8 +1037,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         
         function [xdn,df] = update(obj,t,x,u)
             global timestep_updated
-            X0 = [timestep_updated;x;u];
-            
+            X0 = [0;x;u];
+            %X0'
             [xdn,df] = solveQP(obj,X0);
             %set the gradient w.r.t t to be zero.
             df(:,1) = zeros(size(df,1),1);
@@ -1195,13 +1183,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
             end
             xdn = [qn;vn];
-            
-            %xdn_LCP_vec = [xdn_LCP_vec,xdn];
-            
-            %if size(xdn_LCP_vec,2) > 100
-            if t > 4.98
-                keyboard
-            end
             
             if (nargout>1)  % compute gradients
                 if isempty(z)
