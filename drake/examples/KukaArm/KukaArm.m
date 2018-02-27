@@ -10,6 +10,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         uncertainty_source
         object_initial_position
         friction_coeff
+        time_step
     end
     
     methods

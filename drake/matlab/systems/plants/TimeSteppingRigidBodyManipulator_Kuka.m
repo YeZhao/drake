@@ -26,6 +26,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
         active_collision_options; % used in contactConstraint
         body
+        w_mu
     end
     
     methods
@@ -205,7 +206,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
         end
         
-        function [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,q,kinsol)
+        function [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,noise_index,q,kinsol)
             if nargin<3
                 kinematics_options.compute_gradients = 1;
                 kinsol = doKinematics(obj, q, [], kinematics_options);
@@ -220,8 +221,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             % reconstruct perturbed mu
-            if ~isempty(obj.friction_coeff)
-                mu = obj.friction_coeff*ones(length(mu),1);
+            if ~isempty(noise_index)
+                %mu = obj.friction_coeff*ones(length(mu),1);
+                mu = obj.w_mu(noise_index)*ones(length(mu),1);% design for parallelization
             end
             % [double make sure that mu is not interweaving contactConstraints]
             
@@ -242,11 +244,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         
         function [xdn,df] = solveQP(obj,X0)
             
-            h = X0(1);
+            noise_index = X0(1);
             x = X0(2:29);
             u = X0(30:37);
             global timestep_updated
-            
+            obj.w_mu = load('friction_coeff_noise.dat');
             % try
             %     if (nargout>1)
             %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -313,14 +315,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             % q_{k+1} = q_{k} + qd_{k+1}*h;
             % qd_{k+1} = qd_{k} + H^{-1}*(B*u-C)*h + J'*f;
-             
+            
             if obj.twoD
                 num_d = 2;
             else
                 num_d = 4;
             end
             dim = 3;%[tuned for 3D]
-            h = 0.222;
+            h = obj.time_step;
             
             num_q = obj.manip.getNumPositions;
             q=x(1:num_q);
@@ -333,9 +335,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
             
             if obj.num_u > 0
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,q,kinsol);
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,noise_index,q,kinsol);
             else
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,q,kinsol);
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,noise_index,q,kinsol);
             end
             
             num_c = length(phiC);
@@ -409,9 +411,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 %tic
                 if obj.num_u > 0
-                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,q_num,kinsol_num);
+                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
                 else
-                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,q_num,kinsol_num);
+                    [phiC_num,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
                 end
                 %toc
                 
@@ -997,6 +999,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
             
+            % expand one more dimension at the end for friction coeff w_mu
+            df = [df,zeros(size(df,1),1)];
+            
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
                     if (nargout>1)
@@ -1035,9 +1040,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %reliable.
         end
         
-        function [xdn,df] = update(obj,t,x,u)
+        function [xdn,df] = update(obj,index,x,u)
             global timestep_updated
-            X0 = [0;x;u];
+            X0 = [index;x;u];
             %X0'
             [xdn,df] = solveQP(obj,X0);
             %set the gradient w.r.t t to be zero.
