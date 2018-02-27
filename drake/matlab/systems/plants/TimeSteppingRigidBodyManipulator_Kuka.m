@@ -247,7 +247,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             noise_index = X0(1);
             x = X0(2:29);
             u = X0(30:37);
-            global timestep_updated
             obj.w_mu = load('friction_coeff_noise.dat');
             % try
             %     if (nargout>1)
@@ -450,8 +449,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             fcn = @object_gradient_numerical;
-            
-            %tic
+            tic
+            dV = zeros(num_full_dim,(num_d*num_c+nL),num_q);
             for i=1:num_q
                 rr = sqrt(eps(X0));
                 rr(1:i) = 0;%corresponding to time step h
@@ -460,33 +459,15 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 X0_p = X0 + rr/2;
                 X0_m = X0 - rr/2;
-                [J_object_p(:,:,i),V_num_p(:,:,i)] = feval(fcn,X0_p);
-                [J_object_m(:,:,i),V_num_m(:,:,i)] = feval(fcn,X0_m);
+                [J_object_p,V_num_p] = feval(fcn,X0_p);
+                [J_object_m,V_num_m] = feval(fcn,X0_m);
                 
-                dJ(:,i) = (J_object_p(:,:,i) - J_object_m(:,:,i))/rr(i+1);
-                dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
+                dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
             end
-            %toc
-            
-%             tic
-%             parfor i=1:num_q
-%                 rr = sqrt(eps(X0));
-%                 rr(1:i) = 0;%corresponding to time step h
-%                 m = i+2;% only q component affects Jacobian J
-%                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-%                 
-%                 X0_p = X0 + rr/2;
-%                 X0_m = X0 - rr/2;
-%                 [J_object_p(:,:,i),V_num_p(:,:,i)] = feval(fcn,X0_p);
-%                 [J_object_m(:,:,i),V_num_m(:,:,i)] = feval(fcn,X0_m);
-%                 
-%                 dJ(:,i) = (J_object_p(:,:,i) - J_object_m(:,:,i))/rr(i+1);
-%                 dV(:,:,i) = (V_num_p(:,:,i) - V_num_m(:,:,i))/rr(i+1);
-%             end
-%             toc
-             
+            toc
             %% end of numerical Jacobian gradient for dJ and dV
-             
+            
             % dJ new sequence, stack Aidx first and then num_q
             dJx = []; dJy = []; dJz = [];
             for j=1:length(Aidx)
@@ -1041,11 +1022,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         end
         
         function [xdn,df] = update(obj,index,x,u)
-            global timestep_updated
-            X0 = [index;x;u];
-            %X0'
+            X0 = [index;x;u];%note that the first input is sigma point index
             [xdn,df] = solveQP(obj,X0);
-            %set the gradient w.r.t t to be zero.
+            %set the gradient w.r.t index to be zero.
             df(:,1) = zeros(size(df,1),1);
             return;
                         
