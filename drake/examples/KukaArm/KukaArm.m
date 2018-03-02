@@ -261,9 +261,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
+            tic
             terrain_options=struct();
             terrain_options.active_collision_options.terrain_only = true;
-            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground,~,~,~,~,~,~,~] = obj.contactConstraints(kinsol.q,false,terrain_options.active_collision_options);
+            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground] = obj.contactConstraints(kinsol.q,false,terrain_options.active_collision_options);
+            toc
+            
+            tic
             n_ground_contact_point = 4;
             % note that, here A and B are inverted 
             phi_ground = phi_ground(1:n_ground_contact_point);
@@ -288,7 +292,9 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             finger_contact_right2 = [finger_contact_delta;0.04;0.1025];
             finger_contact_right3 = [-finger_contact_delta;0.04;0.1225];
             finger_contact_right4 = [-finger_contact_delta;0.04;0.1025];
+            toc
             
+            tic
             b = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
             iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
             R_world_to_B = rpy2rotmat(b(4:6));
@@ -300,7 +306,34 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fr2 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right2,0);
             fr3 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right3,0);
             fr4 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right4,0);
+            toc
+            tic
+            %iiwa_link_2_init = obj.forwardKin(kinsol,3,[0;0;0],1);
+            iiwa_link_6_init = obj.forwardKin(kinsol,7,[0;0;0],1);
+            iiwa_link_7_init = obj.forwardKin(kinsol,8,[0;0;0],1);
             
+            %D-H parameters of kuka arm
+            d1 = 0.4200;
+            d2 = 0.4000;
+            a = zeros(1,7);
+            alpha = [pi/2,-pi/2,-pi/2,pi/2,pi/2,-pi/2,0];
+            d = [0,0,d1,0,d2,0,0];
+            theta = kinsol.q(1:7);
+            T = eye(4);
+            for i=1:7
+                A(:,:,i) = [cos(theta(i)),-sin(theta(i))*cos(alpha(i)),sin(theta(i))*sin(alpha(i)),a(i)*cos(theta(i));
+                            sin(theta(i)),cos(theta(i))*cos(alpha(i)),-cos(theta(i))*sin(alpha(i)),a(i)*sin(theta(i));
+                            0,sin(alpha(i)),cos(alpha(i)),d(i);
+                            0,0,0,1];
+                T = T*A(:,:,i);
+            end
+            R_DHbase_world = [-1,0,0;0,-1,0;0,0,1];
+            pos_ee = R_DHbase_world*[T(1,4);T(2,4);T(3,4)+0.36];
+            R_ee = R_DHbase_world*T(1:3,1:3)*R_DHbase_world;
+            R_ee_fwdkin = rpy2rotmat(iiwa_link_7_init(4:6));
+            toc
+
+            tic
             fl1 = R_world_to_B'*fl1;
             fl2 = R_world_to_B'*fl2;
             fl3 = R_world_to_B'*fl3;
@@ -405,6 +438,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             idxB = obj.cylinder_id*ones(nC,1);
             
             mu = 1.0*ones(nC,1);
+            toc
         end
         
         function [n,D] = jointContactJacobians(obj,kinsol)
