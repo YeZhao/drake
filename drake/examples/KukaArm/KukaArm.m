@@ -282,57 +282,65 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             
             % modified object and four contact points on each finger stick
             cylinder_radius = 0.03;
-            cylinder_height = 0.18;
+            %cylinder_height = 0.18;
             finger_contact_delta = 0.01;
+            right_finger_y_shift = 0.04;
             finger_contact_left1 = [finger_contact_delta;0;.04];
             finger_contact_left2 = [finger_contact_delta;0;.02];
             finger_contact_left3 = [-finger_contact_delta;0;.04];
             finger_contact_left4 = [-finger_contact_delta;0;.02];
-            finger_contact_right1 = [finger_contact_delta;0.04;0.1225];
-            finger_contact_right2 = [finger_contact_delta;0.04;0.1025];
-            finger_contact_right3 = [-finger_contact_delta;0.04;0.1225];
-            finger_contact_right4 = [-finger_contact_delta;0.04;0.1025];
+            finger_contact_right1 = [finger_contact_delta;right_finger_y_shift;0.1225];
+            finger_contact_right2 = [finger_contact_delta;right_finger_y_shift;0.1025];
+            finger_contact_right3 = [-finger_contact_delta;right_finger_y_shift;0.1225];
+            finger_contact_right4 = [-finger_contact_delta;right_finger_y_shift;0.1025];
             toc
             
-            tic
             b = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
-            iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
+            %iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
             R_world_to_B = rpy2rotmat(b(4:6));
-            fl1 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left1,0);
-            fl2 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left2,0);
-            fl3 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left3,0);
-            fl4 = obj.forwardKin(kinsol,obj.left_finger_id,finger_contact_left4,0);
-            fr1 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right1,0);
-            fr2 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right2,0);
-            fr3 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right3,0);
-            fr4 = obj.forwardKin(kinsol,obj.right_finger_id,finger_contact_right4,0);
-            toc
-            tic
+                        
             %iiwa_link_2_init = obj.forwardKin(kinsol,3,[0;0;0],1);
-            iiwa_link_6_init = obj.forwardKin(kinsol,7,[0;0;0],1);
-            iiwa_link_7_init = obj.forwardKin(kinsol,8,[0;0;0],1);
+            %iiwa_link_6_init = obj.forwardKin(kinsol,7,[0;0;0],1);
+            %iiwa_link_7_init = obj.forwardKin(kinsol,8,[0;0;0],1);
             
+            tic
             %D-H parameters of kuka arm
-            d1 = 0.4200;
-            d2 = 0.4000;
-            a = zeros(1,7);
-            alpha = [pi/2,-pi/2,-pi/2,pi/2,pi/2,-pi/2,0];
-            d = [0,0,d1,0,d2,0,0];
             theta = kinsol.q(1:7);
-            T = eye(4);
-            for i=1:7
-                A(:,:,i) = [cos(theta(i)),-sin(theta(i))*cos(alpha(i)),sin(theta(i))*sin(alpha(i)),a(i)*cos(theta(i));
-                            sin(theta(i)),cos(theta(i))*cos(alpha(i)),-cos(theta(i))*sin(alpha(i)),a(i)*sin(theta(i));
-                            0,sin(alpha(i)),cos(alpha(i)),d(i);
-                            0,0,0,1];
-                T = T*A(:,:,i);
-            end
-            R_DHbase_world = [-1,0,0;0,-1,0;0,0,1];
-            pos_ee = R_DHbase_world*[T(1,4);T(2,4);T(3,4)+0.36];
-            R_ee = R_DHbase_world*T(1:3,1:3)*R_DHbase_world;
-            R_ee_fwdkin = rpy2rotmat(iiwa_link_7_init(4:6));
-            toc
+            % d1 = 0.4200;
+            % d2 = 0.4000;
+            % a = zeros(1,7);
+            % alpha = [pi/2,-pi/2,-pi/2,pi/2,pi/2,-pi/2,0];
+            % d = [0,0,d1,0,d2,0,0];
+            % T = eye(4);
+            % for i=1:7
+            %     A(:,:,i) = [cos(theta(i)),-sin(theta(i))*cos(alpha(i)),sin(theta(i))*sin(alpha(i)),a(i)*cos(theta(i));
+            %                 sin(theta(i)),cos(theta(i))*cos(alpha(i)),-cos(theta(i))*sin(alpha(i)),a(i)*sin(theta(i));
+            %                 0,sin(alpha(i)),cos(alpha(i)),d(i);
+            %                 0,0,0,1];
+            %     T = T*A(:,:,i);
+            % end
+            
+            T = [sin(theta(7))*(sin(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) - cos(theta(7))*(sin(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3))))),   cos(theta(7))*(sin(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) + sin(theta(7))*(sin(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3))))), sin(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) - cos(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))), - (21*cos(theta(1))*sin(theta(2)))/50 - (2*sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))))/5 - (2*cos(theta(1))*cos(theta(4))*sin(theta(2)))/5;
+                cos(theta(7))*(sin(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3))))) - sin(theta(7))*(sin(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))), - cos(theta(7))*(sin(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))) - sin(theta(7))*(sin(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3))))), cos(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) - sin(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))),   (2*sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))))/5 - (21*sin(theta(1))*sin(theta(2)))/50 - (2*cos(theta(4))*sin(theta(1))*sin(theta(2)))/5;
+                sin(theta(7))*(sin(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) - cos(theta(5))*sin(theta(2))*sin(theta(3))) - cos(theta(7))*(cos(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) - sin(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4)))),                                                                                                                                                                                                                                                                 cos(theta(7))*(sin(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) - cos(theta(5))*sin(theta(2))*sin(theta(3))) + sin(theta(7))*(cos(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) - sin(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4)))),                                                                                                                                                            sin(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) + cos(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4))),                                                                        (21*cos(theta(2)))/50 + (2*cos(theta(2))*cos(theta(4)))/5 + (2*cos(theta(3))*sin(theta(2))*sin(theta(4)))/5;
+                0,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        0,                                                                                                                                                                                                                                                                                                                                                                                        0,                                                                                                                                                                            1];
 
+            R_DHbase_world = [-1,0,0;0,-1,0;0,0,1];% rotation from DH base coordinate to world coordinate (rotation around z axis)
+            pos_ee = R_DHbase_world*[T(1,4);T(2,4);T(3,4)+0.36];%0.36 is the base vertical position w.r.t. world coordinate
+            %R_ee = R_DHbase_world*T(1:3,1:3)*R_DHbase_world;
+            %R_ee_fwdkin = rpy2rotmat(iiwa_link_7_init(4:6));
+            
+            fr1 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;-right_finger_y_shift;0.081+0.1225];
+            fr2 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;-right_finger_y_shift;0.081+0.1025];
+            fr3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;-right_finger_y_shift;0.081+0.1225];
+            fr4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;-right_finger_y_shift;0.081+0.1025];
+            
+            fl1 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1225];
+            fl2 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1025];
+            fl3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1225];
+            fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1025];            
+            toc
+            
             tic
             fl1 = R_world_to_B'*fl1;
             fl2 = R_world_to_B'*fl2;
@@ -370,7 +378,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             normal = [cylinder_normal, right_normal1, right_normal2, ...
                       right_normal3, right_normal4, left_normal1, left_normal2, ...
                       left_normal3, left_normal4];
-            
+            toc
+            tic
             d = cell(1,2);
             Tr11 = cross(right_normal1,[0;0;1]);
             Tr11 = Tr11/norm(Tr11);
@@ -398,6 +407,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tl41 = Tl41/norm(Tl41);
             Tl42 = cross(left_normal4,Tl41);
             
+            toc
+            tic
             d{1} = [R_world_to_B'*[-ones(1,n_ground_contact_point);zeros(2,n_ground_contact_point)],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
             d{2} = [R_world_to_B'*[zeros(1,n_ground_contact_point);ones(1,n_ground_contact_point);zeros(1,n_ground_contact_point)],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
