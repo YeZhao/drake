@@ -191,7 +191,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             u0 = B(1:Nq_arm,:)\C(1:Nq_arm);
         end
         
-        function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints2(obj,kinsol,allow_multiple_contacts,active_collision_options)
+        function [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = contactConstraints_old(obj,kinsol,allow_multiple_contacts,active_collision_options)
             
             % @retval phi (m x 1) Vector of gap function values (typically contact distance), for m possible contacts
             % @retval normal (3 x m) Contact normal vector in world coordinates, points from B to A
@@ -261,13 +261,35 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
-            tic
-            terrain_options=struct();
-            terrain_options.active_collision_options.terrain_only = true;
-            [phi_ground,normal_ground,d_ground,xA_ground,xB_ground] = obj.contactConstraints(kinsol.q,false,terrain_options.active_collision_options);
-            toc
+            %%
+            normal_ground = repmat([0;0;1],1,4);
+            d_ground{1} = repmat([1;0;0],1,4);
+            d_ground{2} = repmat([0;-1;0],1,4);
             
-            tic
+            obj_pos = kinsol.q(9:11);
+            obj_ori = kinsol.q(12:14);
+            cylinder_radius = 0.03;
+            cylinder_height_half = 0.09;
+            R_world_to_obj = rpy2rotmat(obj_ori);
+            
+            xA_ground = [cylinder_radius, -cylinder_radius, 0, 0;
+                             0, 0, cylinder_radius, -cylinder_radius;
+                             -cylinder_height_half, -cylinder_height_half, -cylinder_height_half, -cylinder_height_half];
+            
+            xB_ground(:,1) = obj_pos + R_world_to_obj*[cylinder_radius;0;-cylinder_height_half];
+            xB_ground(:,2) = obj_pos + R_world_to_obj*[-cylinder_radius;0;-cylinder_height_half];
+            xB_ground(:,3) = obj_pos + R_world_to_obj*[0;cylinder_radius;-cylinder_height_half];
+            xB_ground(:,4) = obj_pos + R_world_to_obj*[0;-cylinder_radius;-cylinder_height_half];
+            
+            phi_ground = xB_ground(3,:)';
+            xB_ground(3,:) = zeros(1,4);
+            
+            %% pieces of code above compute the ground contact constraint manually
+            % terrain_options=struct();
+            % terrain_options.active_collision_options.terrain_only = true;
+            % [phi_ground,normal_ground,d_ground,xA_ground,xB_ground] = obj.contactConstraints(kinsol.q,false,terrain_options.active_collision_options);
+            %% 
+            
             n_ground_contact_point = 4;
             % note that, here A and B are inverted 
             phi_ground = phi_ground(1:n_ground_contact_point);
@@ -281,8 +303,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             xA_ground = xB_ground_tmp;
             
             % modified object and four contact points on each finger stick
-            cylinder_radius = 0.03;
-            %cylinder_height = 0.18;
             finger_contact_delta = 0.01;
             right_finger_y_shift = 0.04;
             finger_contact_left1 = [finger_contact_delta;0;.04];
@@ -293,18 +313,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             finger_contact_right2 = [finger_contact_delta;right_finger_y_shift;0.1025];
             finger_contact_right3 = [-finger_contact_delta;right_finger_y_shift;0.1225];
             finger_contact_right4 = [-finger_contact_delta;right_finger_y_shift;0.1025];
-            toc
             
             b = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
-            %iiwa_link_7 = obj.forwardKin(kinsol,obj.iiwa_link_7_id,[0;0;0],1);
             R_world_to_B = rpy2rotmat(b(4:6));
-                        
-            %iiwa_link_2_init = obj.forwardKin(kinsol,3,[0;0;0],1);
-            %iiwa_link_6_init = obj.forwardKin(kinsol,7,[0;0;0],1);
-            %iiwa_link_7_init = obj.forwardKin(kinsol,8,[0;0;0],1);
             
-            tic
-            %D-H parameters of kuka arm
+            %% D-H parameters of kuka arm
             theta = kinsol.q(1:7);
             % d1 = 0.4200;
             % d2 = 0.4000;
@@ -320,6 +333,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             %     T = T*A(:,:,i);
             % end
             
+            % pieces of code above are embedded into the analytical solution below
             T = [sin(theta(7))*(sin(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) - cos(theta(7))*(sin(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3))))),   cos(theta(7))*(sin(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) + sin(theta(7))*(sin(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3))))), sin(theta(6))*(cos(theta(5))*(cos(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) - cos(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(3))*sin(theta(1)) + cos(theta(1))*cos(theta(2))*sin(theta(3)))) - cos(theta(6))*(sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))) + cos(theta(1))*cos(theta(4))*sin(theta(2))), - (21*cos(theta(1))*sin(theta(2)))/50 - (2*sin(theta(4))*(sin(theta(1))*sin(theta(3)) - cos(theta(1))*cos(theta(2))*cos(theta(3))))/5 - (2*cos(theta(1))*cos(theta(4))*sin(theta(2)))/5;
                 cos(theta(7))*(sin(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3))))) - sin(theta(7))*(sin(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))), - cos(theta(7))*(sin(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) - cos(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))) - sin(theta(7))*(sin(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) + cos(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3))))), cos(theta(6))*(sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) - cos(theta(4))*sin(theta(1))*sin(theta(2))) - sin(theta(6))*(cos(theta(5))*(cos(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))) + sin(theta(1))*sin(theta(2))*sin(theta(4))) + sin(theta(5))*(cos(theta(1))*cos(theta(3)) - cos(theta(2))*sin(theta(1))*sin(theta(3)))),   (2*sin(theta(4))*(cos(theta(1))*sin(theta(3)) + cos(theta(2))*cos(theta(3))*sin(theta(1))))/5 - (21*sin(theta(1))*sin(theta(2)))/50 - (2*cos(theta(4))*sin(theta(1))*sin(theta(2)))/5;
                 sin(theta(7))*(sin(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) - cos(theta(5))*sin(theta(2))*sin(theta(3))) - cos(theta(7))*(cos(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) - sin(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4)))),                                                                                                                                                                                                                                                                 cos(theta(7))*(sin(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) - cos(theta(5))*sin(theta(2))*sin(theta(3))) + sin(theta(7))*(cos(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) - sin(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4)))),                                                                                                                                                            sin(theta(6))*(cos(theta(5))*(cos(theta(2))*sin(theta(4)) - cos(theta(3))*cos(theta(4))*sin(theta(2))) + sin(theta(2))*sin(theta(3))*sin(theta(5))) + cos(theta(6))*(cos(theta(2))*cos(theta(4)) + cos(theta(3))*sin(theta(2))*sin(theta(4))),                                                                        (21*cos(theta(2)))/50 + (2*cos(theta(2))*cos(theta(4)))/5 + (2*cos(theta(3))*sin(theta(2))*sin(theta(4)))/5;
@@ -339,9 +353,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fl2 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1025];
             fl3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1225];
             fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(kinsol.q(8)-0.04);0.081+0.1025];            
-            toc
+            %%
             
-            tic
             fl1 = R_world_to_B'*fl1;
             fl2 = R_world_to_B'*fl2;
             fl3 = R_world_to_B'*fl3;
@@ -378,8 +391,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             normal = [cylinder_normal, right_normal1, right_normal2, ...
                       right_normal3, right_normal4, left_normal1, left_normal2, ...
                       left_normal3, left_normal4];
-            toc
-            tic
+            
             d = cell(1,2);
             Tr11 = cross(right_normal1,[0;0;1]);
             Tr11 = Tr11/norm(Tr11);
@@ -407,8 +419,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             Tl41 = Tl41/norm(Tl41);
             Tl42 = cross(left_normal4,Tl41);
             
-            toc
-            tic
             d{1} = [R_world_to_B'*[-ones(1,n_ground_contact_point);zeros(2,n_ground_contact_point)],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
             d{2} = [R_world_to_B'*[zeros(1,n_ground_contact_point);ones(1,n_ground_contact_point);zeros(1,n_ground_contact_point)],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
@@ -449,7 +459,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             idxB = obj.cylinder_id*ones(nC,1);
             
             mu = 1.0*ones(nC,1);
-            toc
         end
         
         function [n,D] = jointContactJacobians(obj,kinsol)
@@ -488,8 +497,16 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             [phi,normal,d,xA,xB,idxA,idxB,mu] = worldContactConstraints(obj,kinsol);
             
             if compute_first_derivative
-                [n,D] = jointContactJacobians(obj,kinsol);
+                if ~isstruct(kinsol)
+                    % treat input as contactPositions(obj,q)
+                    kinsol = doKinematics(obj, kinsol, []);
+                end                
+                [n, D] = contactConstraintDerivatives(obj, normal, kinsol, idxA, idxB, xA, xB, d);
             end
+            
+            % if compute_first_derivative
+            %     [n_old,D_old] = jointContactJacobians(obj,kinsol);
+            % end
             
             if compute_kinematics_gradients
                 %finite diff since we don't trust this
@@ -501,19 +518,17 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 dD{2} = dn;
                 dD{3} = dn;
                 dD{4} = dn;
-                dq = diag(sqrt(eps(kinsol.q)))*1e-2;
+                %dq = diag(sqrt(eps(kinsol.q)))*1e-2;
                 
-%                 tic
-%                 for k = 1:14
-%                     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
-%                     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
-%                     dn(:,k) = vec(np-nm)/(2*dq(k,k));
-%                     dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
-%                     dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
-%                     dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));
-%                     dD{4}(:,k) = vec(Dp{4}-Dm{4})/(2*dq(k,k));
-%                 end
-%                 toc
+                % for k = 1:14
+                %     [np,Dp] = jointContactJacobians(obj,kinsol.q+dq(:,k));
+                %     [nm,Dm] = jointContactJacobians(obj,kinsol.q-dq(:,k));
+                %     dn(:,k) = vec(np-nm)/(2*dq(k,k));
+                %     dD{1}(:,k) = vec(Dp{1}-Dm{1})/(2*dq(k,k));
+                %     dD{2}(:,k) = vec(Dp{2}-Dm{2})/(2*dq(k,k));
+                %     dD{3}(:,k) = vec(Dp{3}-Dm{3})/(2*dq(k,k));
+                %     dD{4}(:,k) = vec(Dp{4}-Dm{4})/(2*dq(k,k));
+                % end
             end
         end
     end
