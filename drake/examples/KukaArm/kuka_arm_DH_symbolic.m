@@ -1,4 +1,4 @@
-syms theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll T
+syms theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll T xB_x xB_y xB_z
 state_vec = [theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll];
 
 d1 = 0.4200;
@@ -71,8 +71,17 @@ fl3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.
 fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.081+0.1025];
 
 % Jacobian for A
-JA_fr1_theta1 = diff(fr1,theta_1)
-JA_fr1_theta2 = diff(fr1,theta_2)
+JA_fr1_theta1 = diff(fr1,theta_1);
+JA_fr1_theta2 = diff(fr1,theta_1);
+JA_fr1_obj_yaw = diff(fr1,obj_yaw);
+
+%dJ, second derivative
+dJA_fr1_theta1_theta1 = diff(fr1,theta_1,2);
+dJA_fr1_theta2_theta1 = diff(diff(fr1,theta_2),theta_1);
+dJA_fr1_theta1_to_8_theta1 = diff([diff(fr1,theta_1);diff(fr1,theta_2);diff(fr1,theta_3);diff(fr1,theta_4);diff(fr1,theta_5);diff(fr1,theta_6);diff(fr1,theta_7);diff(fr1,theta_8)],theta_1);
+dJA_fr2_theta1_to_8_theta1 = diff([diff(fr2,theta_1);diff(fr2,theta_2);diff(fr2,theta_3);diff(fr2,theta_4);diff(fr2,theta_5);diff(fr2,theta_6);diff(fr2,theta_7);diff(fr2,theta_8)],theta_1);
+
+dJA_fr1_obj_yaw_theta1 = diff(diff(fr1,obj_yaw),theta_1);
 
 
 b = [obj_x obj_y obj_z obj_yaw obj_pitch obj_roll]';
@@ -116,11 +125,22 @@ JB_ground1_theta1 = diff(x_ground1,theta_1);
 right_normal1 = [fr1(1:2) - b_local(1:2);0];
 right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
 
+% full version
 fr1_B = cylinder_radius*right_normal1;
 fr1_B(3) = fr1(3) - b_local(3);
 
+%dJ, second derivative, full version
 fr1_B = b(1:3) + R_world_to_B*fr1_B;
+dJB_fr1_theta1 = diff(fr1_B,theta_1,2);
+dJB_fr1_obj_yaw = diff(diff(fr1_B,obj_yaw),theta_1);
 
-JB_fr1_theta1 = diff(fr1_B,theta_1);
+%simplified version, assuming the contact point is known
+%fr1_B = b(1:3) + R_world_to_B*[xB_x xB_y xB_z]';
+%JB_fr1_obj_yaw = diff(fr1_B,obj_yaw);
+
+%dJ, second derivative, simplified version, assuming the contact point is known
+fr1_B = b(1:3) + R_world_to_B*[xB_x xB_y xB_z]';
+dJB_fr1_theta1_theta1 = diff(fr1_B,theta_1,2);
+dJB_fr1_obj_yaw_theta1 = diff(diff(fr1_B,obj_yaw),theta_1);
 
 
