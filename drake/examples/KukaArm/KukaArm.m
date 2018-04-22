@@ -314,7 +314,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             finger_contact_right3 = [-finger_contact_delta;right_finger_y_shift;0.1225];
             finger_contact_right4 = [-finger_contact_delta;right_finger_y_shift;0.1025];
             
-            b = obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
+            b = kinsol.q(9:14);%obj.forwardKin(kinsol,obj.cylinder_id,[0;0;0],1);
             R_world_to_B = rpy2rotmat(b(4:6));
             
             %% D-H parameters of kuka arm
