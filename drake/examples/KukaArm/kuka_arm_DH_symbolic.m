@@ -70,27 +70,46 @@ fl2 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;(theta_8-0.04);0
 fl3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.081+0.1225];
 fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.081+0.1025];
 
+cylinder_radius = 0.03;
+cylinder_height_half = 0.09;
+
+b = [obj_x obj_y obj_z obj_yaw obj_pitch obj_roll]';
+obj_pos = b(1:3);
+obj_ori = b(4:6);
+R_world_to_B = rpy2rotmat(obj_ori);
+            
+x_ground1A = obj_pos + R_world_to_B*[cylinder_radius;0;-cylinder_height_half];
+x_ground2A = obj_pos + R_world_to_B*[-cylinder_radius;0;-cylinder_height_half];
+x_ground3A = obj_pos + R_world_to_B*[0;cylinder_radius;-cylinder_height_half];
+x_ground4A = obj_pos + R_world_to_B*[0;-cylinder_radius;-cylinder_height_half];
+
 % Jacobian for A
+JA_x_ground1_theta1 = diff(x_ground1A,theta_1);
+JA_x_ground1_obj_x = diff(x_ground1A,obj_x);
+JA_x_ground1_obj_yaw = diff(x_ground1A,obj_yaw);
+
 JA_fr1_theta1 = diff(fr1,theta_1);
 JA_fr1_theta2 = diff(fr1,theta_1);
 JA_fr1_obj_yaw = diff(fr1,obj_yaw);
 
 %dJ, second derivative
+dJA_x_ground1_theta1 = diff([zeros(3*8,1);reshape(eye(3),[],1);diff(x_ground1A,obj_yaw);diff(x_ground1A,obj_pitch);diff(x_ground1A,obj_roll)],theta_1);
+
 dJA_fr1_theta1_theta1 = diff(fr1,theta_1,2);
 dJA_fr1_theta2_theta1 = diff(diff(fr1,theta_2),theta_1);
 dJA_fr1_theta1_to_8_theta1 = diff([diff(fr1,theta_1);diff(fr1,theta_2);diff(fr1,theta_3);diff(fr1,theta_4);diff(fr1,theta_5);diff(fr1,theta_6);diff(fr1,theta_7);diff(fr1,theta_8)],theta_1);
 dJA_fr2_theta1_to_8_theta1 = diff([diff(fr2,theta_1);diff(fr2,theta_2);diff(fr2,theta_3);diff(fr2,theta_4);diff(fr2,theta_5);diff(fr2,theta_6);diff(fr2,theta_7);diff(fr2,theta_8)],theta_1);
+dJA_fr3_theta1_to_8_theta1 = diff([diff(fr3,theta_1);diff(fr3,theta_2);diff(fr3,theta_3);diff(fr3,theta_4);diff(fr3,theta_5);diff(fr3,theta_6);diff(fr3,theta_7);diff(fr3,theta_8)],theta_1);
+dJA_fr4_theta1_to_8_theta1 = diff([diff(fr4,theta_1);diff(fr4,theta_2);diff(fr4,theta_3);diff(fr4,theta_4);diff(fr4,theta_5);diff(fr4,theta_6);diff(fr4,theta_7);diff(fr4,theta_8)],theta_1);
+dJA_fl1_theta1_to_8_theta1 = diff([diff(fl1,theta_1);diff(fl1,theta_2);diff(fl1,theta_3);diff(fl1,theta_4);diff(fl1,theta_5);diff(fl1,theta_6);diff(fl1,theta_7);diff(fl1,theta_8)],theta_1);
+dJA_fl2_theta1_to_8_theta1 = diff([diff(fl2,theta_1);diff(fl2,theta_2);diff(fl2,theta_3);diff(fl2,theta_4);diff(fl2,theta_5);diff(fl2,theta_6);diff(fl2,theta_7);diff(fl2,theta_8)],theta_1);
+dJA_fl3_theta1_to_8_theta1 = diff([diff(fl3,theta_1);diff(fl3,theta_2);diff(fl3,theta_3);diff(fl3,theta_4);diff(fl3,theta_5);diff(fl3,theta_6);diff(fl3,theta_7);diff(fl3,theta_8)],theta_1);
+dJA_fl4_theta1_to_8_theta1 = diff([diff(fl4,theta_1);diff(fl4,theta_2);diff(fl4,theta_3);diff(fl4,theta_4);diff(fl4,theta_5);diff(fl4,theta_6);diff(fl4,theta_7);diff(fl4,theta_8)],theta_1);
 
 dJA_fr1_obj_yaw_theta1 = diff(diff(fr1,obj_yaw),theta_1);
-
-
-b = [obj_x obj_y obj_z obj_yaw obj_pitch obj_roll]';
-
-Rx = [1, 0, 0;0, cos(b(4)), -sin(b(4));0, sin(b(4)), cos(b(4))];
-Ry = [cos(b(5)), 0, sin(b(5));0, 1, 0;-sin(b(5)), 0, cos(b(5))];
-Rz = [cos(b(6)), -sin(b(6)), 0;sin(b(6)), cos(b(6)), 0;0, 0, 1];
-
-R_world_to_B = Rz*Ry*Rx;
+dJA_fr1_obj_x_theta1 = diff(diff(fr1,obj_x),theta_1);
+dJA_fr1_obj_y_theta1 = diff(diff(fr1,obj_y),theta_1);
+dJA_fr1_obj_z_theta1 = diff(diff(fr1,obj_z),theta_1);
 
 fl1 = R_world_to_B'*fl1;
 fl2 = R_world_to_B'*fl2;
@@ -102,25 +121,22 @@ fr2 = R_world_to_B'*fr2;
 fr3 = R_world_to_B'*fr3;
 fr4 = R_world_to_B'*fr4;
 
-cylinder_radius = 0.03;
-cylinder_height_half = 0.09;
-
 b_local = R_world_to_B'*b(1:3);
 contact_pt(1) = b_local(1) + cylinder_radius/norm(fl1(1:2)-b_local(1:2)) * (fl1(1) - b_local(1));
 contact_pt(2) = b_local(2) + cylinder_radius/norm(fl1(1:2)-b_local(1:2)) * (fl1(2) - b_local(2));
 contact_pt(3) = fl1(3);
 
 % Jacobian for B
-xA_ground = [cylinder_radius, -cylinder_radius, 0, 0;
+xB_ground = [cylinder_radius, -cylinder_radius, 0, 0;
     0, 0, cylinder_radius, -cylinder_radius;
     -cylinder_height_half, -cylinder_height_half, -cylinder_height_half, -cylinder_height_half];
 
-x_ground1 = b(1:3) + R_world_to_B*xA_ground(:,1);
-x_ground2 = b(1:3) + R_world_to_B*xA_ground(:,2);
-x_ground3 = b(1:3) + R_world_to_B*xA_ground(:,3);
-x_ground4 = b(1:3) + R_world_to_B*xA_ground(:,4);
+x_ground1B = b(1:3) + R_world_to_B*xB_ground(:,1);
+x_ground2B = b(1:3) + R_world_to_B*xB_ground(:,2);
+x_ground3B = b(1:3) + R_world_to_B*xB_ground(:,3);
+x_ground4B = b(1:3) + R_world_to_B*xB_ground(:,4);
 
-JB_ground1_theta1 = diff(x_ground1,theta_1);
+JB_ground1_theta1 = diff(x_ground1B,theta_1);
 
 right_normal1 = [fr1(1:2) - b_local(1:2);0];
 right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
@@ -135,8 +151,9 @@ dJB_fr1_theta1 = diff(fr1_B,theta_1,2);
 dJB_fr1_obj_yaw = diff(diff(fr1_B,obj_yaw),theta_1);
 
 %simplified version, assuming the contact point is known
-%fr1_B = b(1:3) + R_world_to_B*[xB_x xB_y xB_z]';
-%JB_fr1_obj_yaw = diff(fr1_B,obj_yaw);
+fr1_B = b(1:3) + R_world_to_B*[xB_x xB_y xB_z]';
+JB_fr1_obj_yaw = diff(fr1_B,obj_yaw);
+JB_fr1_obj_ori = [diff(fr1_B,obj_yaw),diff(fr1_B,obj_pitch),diff(fr1_B,obj_roll)];
 
 %dJ, second derivative, simplified version, assuming the contact point is known
 fr1_B = b(1:3) + R_world_to_B*[xB_x xB_y xB_z]';
