@@ -121,10 +121,13 @@ fr2 = R_world_to_B'*fr2;
 fr3 = R_world_to_B'*fr3;
 fr4 = R_world_to_B'*fr4;
 
+
 b_local = R_world_to_B'*b(1:3);
-contact_pt(1) = b_local(1) + cylinder_radius/norm(fl1(1:2)-b_local(1:2)) * (fl1(1) - b_local(1));
-contact_pt(2) = b_local(2) + cylinder_radius/norm(fl1(1:2)-b_local(1:2)) * (fl1(2) - b_local(2));
-contact_pt(3) = fl1(3);
+contact_pt(1) = b_local(1) + cylinder_radius/norm(fr1(1:2)-b_local(1:2)) * (fr1(1) - b_local(1));
+contact_pt(2) = b_local(2) + cylinder_radius/norm(fr1(1:2)-b_local(1:2)) * (fr1(2) - b_local(2));
+contact_pt(3) = fr1(3);
+contact_pt = contact_pt';
+contact_pt = R_world_to_B*contact_pt;
 
 % Jacobian for B
 xB_ground = [cylinder_radius, -cylinder_radius, 0, 0;
