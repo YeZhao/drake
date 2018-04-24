@@ -1,7 +1,7 @@
 function dJA_finger = dJA_analytical(q,contact_index)
 theta_1 = q(1);theta_2 = q(2);theta_3 = q(3);theta_4 = q(4);theta_5 = q(5);theta_6 = q(6);theta_7 = q(7);theta_8 = q(8);
 obj_x = q(9); obj_y = q(10); obj_z = q(11); obj_yaw = q(12); obj_pitch = q(13); obj_roll = q(14);
-                
+          
 switch contact_index
     case 1
 

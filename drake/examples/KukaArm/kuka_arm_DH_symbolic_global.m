@@ -1,4 +1,4 @@
-syms theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll T xB_x xB_y xB_z real
+syms theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll T xB_x xB_y xB_z fr1x fr1y fr1z real
 state_vec = [theta_1 theta_2 theta_3 theta_4 theta_5 theta_6 theta_7 theta_8 obj_x obj_y obj_z obj_yaw obj_pitch obj_roll];
 
 d1 = 0.4200;
@@ -70,6 +70,11 @@ fl2 = pos_ee + R_DHbase_world*T(1:3,1:3)*[-finger_contact_delta;(theta_8-0.04);0
 fl3 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.081+0.1225];
 fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.081+0.1025];
 
+J_fr1_theta_1 = jacobian(fr1,theta_1);
+dJ_fr1_theta_1_theta_1 = jacobian(jacobian(fr1,theta_1),theta_1);
+
+fr1 = [fr1x;fr1y;fr1z];
+
 cylinder_radius = 0.03;
 cylinder_height_half = 0.09;
 
@@ -77,7 +82,7 @@ b = [obj_x obj_y obj_z obj_yaw obj_pitch obj_roll]';
 obj_pos = b(1:3);
 obj_ori = b(4:6);
 R_world_to_B = rpy2rotmat(obj_ori);
-            
+
 x_ground1A = obj_pos + R_world_to_B*[cylinder_radius;0;-cylinder_height_half];
 x_ground2A = obj_pos + R_world_to_B*[-cylinder_radius;0;-cylinder_height_half];
 x_ground3A = obj_pos + R_world_to_B*[0;cylinder_radius;-cylinder_height_half];
@@ -121,7 +126,6 @@ fr2 = R_world_to_B'*fr2;
 fr3 = R_world_to_B'*fr3;
 fr4 = R_world_to_B'*fr4;
 
-
 b_local = R_world_to_B'*b(1:3);
 contact_pt(1) = b_local(1) + cylinder_radius/norm(fr1(1:2)-b_local(1:2)) * (fr1(1) - b_local(1));
 contact_pt(2) = b_local(2) + cylinder_radius/norm(fr1(1:2)-b_local(1:2)) * (fr1(2) - b_local(2));
@@ -150,6 +154,13 @@ fr1_B(3) = fr1(3) - b_local(3);
 
 %dJ, second derivative, full version
 fr1_B = b(1:3) + R_world_to_B*fr1_B;
+JB_fr1_theta1 = diff(fr1_B,theta_1);
+
+JB_fr1_B_fr1orignial = jacobian(fr1_B,[fr1x,fr1y,fr1z]);
+dJB_fr1_B_fr1orignial1 = jacobian(JB_fr1_B_fr1orignial(:,1),[fr1x,fr1y,fr1z]);
+dJB_fr1_B_fr1orignial2 = jacobian(JB_fr1_B_fr1orignial(:,2),[fr1x,fr1y,fr1z]);
+dJB_fr1_B_fr1orignial3 = jacobian(JB_fr1_B_fr1orignial(:,3),[fr1x,fr1y,fr1z]);
+
 dJB_fr1_theta1 = diff(fr1_B,theta_1,2);
 dJB_fr1_obj_yaw = diff(diff(fr1_B,obj_yaw),theta_1);
 
