@@ -382,10 +382,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                         
-                        tic
+                        %tic
                         %[xdn(:,j),df(:,:,j)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k,w_mu(j));
                         [xdn(:,j),df(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u(:,k) - K*(Sig(1:nx,j,k) - x(:,k)));
-                        toc
+                        %toc
                         
                         % %numerical diff
                         % dt = diag(sqrt(eps(t)));
