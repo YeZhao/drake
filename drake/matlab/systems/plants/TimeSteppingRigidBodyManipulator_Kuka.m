@@ -429,7 +429,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             Jx = JAx - JBx; Jy = JAy - JBy; Jz = JAz - JBz;
             
             %% compute numerical Jacobian gradient for dJ and dV
-            function [J_num, V_num, JA_num, JB_num] = object_gradient_numerical(X0)
+            function [J_num, V_num] = object_gradient_numerical(X0)
                 h_num = X0(1);
                 x_num = X0(2:29);
                 u_num = X0(30:37);
@@ -523,7 +523,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 kinematics_options.compute_gradients = 1;
                 kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
-                                
+                     
                 if obj.num_u > 0
                     [V_num] = getV(obj,noise_index,q_num,kinsol_num);
                 else
@@ -553,16 +553,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinematics_options.compute_gradients = 1;
                 kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                 
-                %tic
                 xB_num = obj.computexB(kinsol_num);
-                %toc
                 
 %                 if obj.num_u > 0
 %                     [~,~,~,~,~,~,xB_num,~,~,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
 %                 else
 %                     [~,~,~,~,~,~,xB_num,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
 %                 end
-                
+
 %                 tic
 %                 V_num = horzcat(V_num{:});
 %                 I = eye(num_c*num_d);
@@ -575,11 +573,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                     end
 %                 end
 %                 V_num = blkdiag(V_cell_num{:},eye(nL));
-                
-                %Apts_num = xA_num(:,active);
-                Bpts_num = xB_num(:,active);
-                %Aidx_num = idxA_num(active);
-                %Bidx_num = idxB_num(active);
+%                 
+%                 Apts_num = xA_num(:,active);
+%                 Bpts_num = xB_num(:,active);
+%                 Aidx_num = idxA_num(active);
+%                 Bidx_num = idxB_num(active);
 %                 toc
 %                 theta_1 = q_num(1);theta_2 = q_num(2);theta_3 = q_num(3);theta_4 = q_num(4);theta_5 = q_num(5);theta_6 = q_num(6);theta_7 = q_num(7);theta_8 = q_num(8);
 %                 obj_x = q_num(9);
@@ -598,7 +596,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                 JB_num = [];
 %                 for k=1:length(Bidx_num)
 %                     [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
-%                     JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
+%                     JB_num = [JB_num; reshape(J_num_,[],1)];
 %                 end      
 %                 JB_ground1_obj_yaw = [ (9*cos(conj(q_num(14)))*sin(conj(q_num(12)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*sin(conj(q_num(14))))/100;
 %                     (9*cos(conj(q_num(12)))*cos(conj(q_num(14))))/100 + (9*sin(conj(q_num(12)))*sin(conj(q_num(14)))*sin(conj(q_num(13))))/100;
@@ -610,16 +608,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
 %                 tic
                 fingercontact_num = 8;
                 for k=1:fingercontact_num
-                    JB_finger_obj_ori = dJB_finger_obj_ori_analytical(q_num,Bpts_num(1,4+k),Bpts_num(2,4+k),Bpts_num(3,4+k));
-                    J_num_ = [zeros(3,8),eye(3),JB_finger_obj_ori];
-                    JB_num(:,k) = reshape(J_num_,[],1);
-                end
-%                 toc
-                
+                    JB_finger_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,4+k),xB_num(2,4+k),xB_num(3,4+k));
+                    J_num_new = [zeros(3,8),eye(3),JB_finger_obj_ori];
+                    JB_num(:,k) = reshape(J_num_new,[],1);
+                end                
             end
             
             fcn = @object_gradient_numerical;
-            fcnB_old = @B_gradient_numerical_old;
             fcnB = @B_gradient_numerical;
             fcnV = @V_gradient_numerical;
             
@@ -633,13 +628,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 disp('timing')
                 X0_p = X0 + rr/2;
                 X0_m = X0 - rr/2;
-%                 tic
-%                 [J_object_p,V_num_p,JA_num_p, JB_num_p] = feval(fcn,X0_p);
-%                 [J_object_m,V_num_m,JA_num_m, JB_num_m] = feval(fcn,X0_m);
-%                 
-%                 dJ(:,i) = (J_object_p - J_object_m)/rr(i+1);
-%                 dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
-%                 toc
+                
+                tic
+                [J_object_p,V_num_p] = feval(fcn,X0_p);
+                [J_object_m,V_num_m] = feval(fcn,X0_m);
+                
+                dJ_ori(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                dV_ori(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
+                toc
                 
                 %% new approach, 4xfaster
                 tic
@@ -648,37 +644,23 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
                 toc
                 
-                q = X0(2:15);
-%                 [~,~,V,~,~,~,xB_nom,~,~,~,~,~] = getContactTerms(obj,noise_index,q,kinsol);
-%                 
-%                 Bpts_nom = xB_nom(:,active);
-%                 
-%                 xB_x = Bpts_nom(1,5);
-%                 xB_y = Bpts_nom(2,5);
-%                 xB_z = Bpts_nom(3,5);
-
-%                 theta_1 = q(1);theta_2 = q(2);theta_3 = q(3);theta_4 = q(4);theta_5 = q(5);theta_6 = q(6);theta_7 = q(7);theta_8 = q(8);
-%                 obj_x = q(9);
-%                 obj_y = q(10);
-%                 obj_z = q(11);
-%                 obj_yaw = q(12);
-%                 obj_pitch = q(13);
-%                 obj_roll = q(14);
-                
-                %match, with dJB_fr1_theta1 = zeros(3,1), 3x1 simplified version
-                
+                q = X0(2:15);                
                 obj_dim = 6;
-                arm_dim = 8;
                 groundcontact_num = 4;
                 fingercontact_num = 8;
                 tic
-                dJA_ground = zeros(length(q)*3*groundcontact_num,1);
-                dJA_finger = [];
-                for fingercontactIndx = 1:fingercontact_num
-                    dJA_single_finger = [dJA_analytical(q,fingercontactIndx);zeros(obj_dim*3,1)];
-                    dJA_finger = [dJA_finger;dJA_single_finger];
+                if i < fingercontact_num
+                    dJA_ground = zeros(length(q)*3*groundcontact_num,1);
+                    dJA_finger = [];
+                    for fingercontactIndx = 1:fingercontact_num
+                        dJA_single_finger = [dJA_analytical(q,fingercontactIndx,i);zeros(obj_dim*3,1)];
+                        dJA_finger = [dJA_finger;dJA_single_finger];
+                    end
+                    dJA(:,i) = [dJA_ground;dJA_finger];
+                else
+                    dJA(:,i) = zeros((groundcontact_num+fingercontact_num)*3*length(q),1);
                 end
-                dJA(:,i) = [dJA_ground;dJA_finger];
+                
                 toc
                 tic
                 [JB_finger_num_p] = feval(fcnB,X0_p);
@@ -690,32 +672,15 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB_single_finger = (JB_finger_num_p - JB_finger_num_m)/rr(i+1);
                 dJB_finger = [dJB_finger;reshape(dJB_single_finger,[],1)];
                 dJB(:,i) = [dJB_ground;dJB_finger];
-                toc
+
                 dJ(:,i) = dJA(:,i) - dJB(:,i);
-                %toc
-                
-                tic
-                %we use chain rule, but still very slow, even slower than the
-                %whole time of all other computation. So doing numerically for B object is
-                %the best option so far.
-                dJB_fr1_theta1_theta1 = dJB_fr1_theta1_theta1_func_compose(q);
                 toc
+                
 %                 tic
 %                 [JB_num_p_ref1] = feval(fcnB_old,X0_p);
 %                 [JB_num_m_ref1] = feval(fcnB_old,X0_m);
 %                 dJB(:,i) = (JB_num_p_ref1 - JB_num_m_ref1)/rr(i+1);
 %                 toc
-
-                %for first derivative, chain rule helps
-                tic
-                JB_fr1_theta1_slow = JB_fr1_theta1_func(q);
-                toc
-                tic
-                JB_fr1_theta1_fast = JB_fr1_theta1_func_compose(q);
-                toc
-                tic
-                JJJ = dJA_analytical(q,1);
-                toc
                 
                 %final one
                 %dJ(:,i) = ((JA_object_p - JB_object_p) - (JA_object_m - JB_object_m))/rr(i+1);

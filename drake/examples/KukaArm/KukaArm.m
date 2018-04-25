@@ -393,31 +393,29 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                       left_normal3, left_normal4];
             
             d = cell(1,2);
-            Tr11 = cross(right_normal1,[0;0;1]);
-            Tr11 = Tr11/norm(Tr11);
-            Tr12 = cross(right_normal1,Tr11);
-            Tr21 = cross(right_normal2,[0;0;1]);
-            Tr21 = Tr21/norm(Tr21);
-            Tr22 = cross(right_normal2,Tr21);
-            Tr31 = cross(right_normal3,[0;0;1]);
-            Tr31 = Tr31/norm(Tr31);
-            Tr32 = cross(right_normal3,Tr31);
-            Tr41 = cross(right_normal4,[0;0;1]);
-            Tr41 = Tr41/norm(Tr41);
-            Tr42 = cross(right_normal4,Tr41);
+            Tr11 = [right_normal1(2), -right_normal1(1) ,0]'/sqrt(right_normal1(1)^2 + right_normal1(2)^2);
+            Tr12 = [0,0,-1]';
             
-            Tl11 = cross(left_normal1,[0;0;1]);
-            Tl11 = Tl11/norm(Tl11);
-            Tl12 = cross(left_normal1,Tl11);
-            Tl21 = cross(left_normal2,[0;0;1]);
-            Tl21 = Tl21/norm(Tl21);
-            Tl22 = cross(left_normal2,Tl21);
-            Tl31 = cross(left_normal3,[0;0;1]);
-            Tl31 = Tl31/norm(Tl31);
-            Tl32 = cross(left_normal3,Tl31);
-            Tl41 = cross(left_normal4,[0;0;1]);
-            Tl41 = Tl41/norm(Tl41);
-            Tl42 = cross(left_normal4,Tl41);
+            Tr21 = [right_normal2(2), -right_normal2(1) ,0]'/sqrt(right_normal2(1)^2 + right_normal2(2)^2);
+            Tr22 = [0,0,-1]';
+            
+            Tr31 = [right_normal3(2), -right_normal3(1) ,0]'/sqrt(right_normal3(1)^2 + right_normal3(2)^2);
+            Tr32 = [0,0,-1]';
+            
+            Tr41 = [right_normal4(2), -right_normal4(1) ,0]'/sqrt(right_normal4(1)^2 + right_normal4(2)^2);
+            Tr42 = [0,0,-1]';
+            
+            Tl11 = [left_normal1(2), -left_normal1(1) ,0]'/sqrt(left_normal1(1)^2 + left_normal1(2)^2);
+            Tl12 = [0,0,-1]';
+            
+            Tl21 = [left_normal2(2), -left_normal2(1) ,0]'/sqrt(left_normal2(1)^2 + left_normal2(2)^2);
+            Tl22 = [0,0,-1]';
+            
+            Tl31 = [left_normal3(2), -left_normal3(1) ,0]'/sqrt(left_normal3(1)^2 + left_normal3(2)^2);
+            Tl32 = [0,0,-1]';
+            
+            Tl41 = [left_normal4(2), -left_normal4(1) ,0]'/sqrt(left_normal4(1)^2 + left_normal4(2)^2);
+            Tl42 = [0,0,-1]';
             
             d{1} = [R_world_to_B'*[-ones(1,n_ground_contact_point);zeros(2,n_ground_contact_point)],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
             d{2} = [R_world_to_B'*[zeros(1,n_ground_contact_point);ones(1,n_ground_contact_point);zeros(1,n_ground_contact_point)],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
@@ -586,37 +584,71 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                       left_normal3, left_normal4];
             
             d = cell(1,2);
-            Tr11 = cross(right_normal1,[0;0;1]);
-            Tr11 = Tr11/norm(Tr11);
-            Tr12 = cross(right_normal1,Tr11);
-            Tr21 = cross(right_normal2,[0;0;1]);
-            Tr21 = Tr21/norm(Tr21);
-            Tr22 = cross(right_normal2,Tr21);
-            Tr31 = cross(right_normal3,[0;0;1]);
-            Tr31 = Tr31/norm(Tr31);
-            Tr32 = cross(right_normal3,Tr31);
-            Tr41 = cross(right_normal4,[0;0;1]);
-            Tr41 = Tr41/norm(Tr41);
-            Tr42 = cross(right_normal4,Tr41);
+%             Tr11 = cross(right_normal1,[0;0;1]);
+%             Tr11 = Tr11/norm(Tr11);
+%             Tr12 = cross(right_normal1,Tr11);
+%                
+%             Tr21 = cross(right_normal2,[0;0;1]);
+%             Tr21 = Tr21/norm(Tr21);
+%             Tr22 = cross(right_normal2,Tr21);
+%             
+%             Tr31 = cross(right_normal3,[0;0;1]);
+%             Tr31 = Tr31/norm(Tr31);
+%             Tr32 = cross(right_normal3,Tr31);
+%             
+%             Tr41 = cross(right_normal4,[0;0;1]);
+%             Tr41 = Tr41/norm(Tr41);
+%             Tr42 = cross(right_normal4,Tr41);
+%             
+%             Tl11 = cross(left_normal1,[0;0;1]);
+%             Tl11 = Tl11/norm(Tl11);
+%             Tl12 = cross(left_normal1,Tl11);
+%             
+%             Tl21 = cross(left_normal2,[0;0;1]);
+%             Tl21 = Tl21/norm(Tl21);
+%             Tl22 = cross(left_normal2,Tl21);
+%             
+%             Tl31 = cross(left_normal3,[0;0;1]);
+%             Tl31 = Tl31/norm(Tl31);
+%             Tl32 = cross(left_normal3,Tl31);
+%             
+%             Tl41 = cross(left_normal4,[0;0;1]);
+%             Tl41 = Tl41/norm(Tl41);
+%             Tl42 = cross(left_normal4,Tl41);             
+
+            Tr11 = [right_normal1(2), -right_normal1(1) ,0]'/sqrt(right_normal1(1)^2 + right_normal1(2)^2);
+            Tr12 = [0,0,-1]';
             
-            Tl11 = cross(left_normal1,[0;0;1]);
-            Tl11 = Tl11/norm(Tl11);
-            Tl12 = cross(left_normal1,Tl11);
-            Tl21 = cross(left_normal2,[0;0;1]);
-            Tl21 = Tl21/norm(Tl21);
-            Tl22 = cross(left_normal2,Tl21);
-            Tl31 = cross(left_normal3,[0;0;1]);
-            Tl31 = Tl31/norm(Tl31);
-            Tl32 = cross(left_normal3,Tl31);
-            Tl41 = cross(left_normal4,[0;0;1]);
-            Tl41 = Tl41/norm(Tl41);
-            Tl42 = cross(left_normal4,Tl41);
+            Tr21 = [right_normal2(2), -right_normal2(1) ,0]'/sqrt(right_normal2(1)^2 + right_normal2(2)^2);
+            Tr22 = [0,0,-1]';
+            
+            Tr31 = [right_normal3(2), -right_normal3(1) ,0]'/sqrt(right_normal3(1)^2 + right_normal3(2)^2);
+            Tr32 = [0,0,-1]';
+            
+            Tr41 = [right_normal4(2), -right_normal4(1) ,0]'/sqrt(right_normal4(1)^2 + right_normal4(2)^2);
+            Tr42 = [0,0,-1]';
+            
+            Tl11 = [left_normal1(2), -left_normal1(1) ,0]'/sqrt(left_normal1(1)^2 + left_normal1(2)^2);
+            Tl12 = [0,0,-1]';
+            
+            Tl21 = [left_normal2(2), -left_normal2(1) ,0]'/sqrt(left_normal2(1)^2 + left_normal2(2)^2);
+            Tl22 = [0,0,-1]';
+            
+            Tl31 = [left_normal3(2), -left_normal3(1) ,0]'/sqrt(left_normal3(1)^2 + left_normal3(2)^2);
+            Tl32 = [0,0,-1]';
+            
+            Tl41 = [left_normal4(2), -left_normal4(1) ,0]'/sqrt(left_normal4(1)^2 + left_normal4(2)^2);
+            Tl42 = [0,0,-1]';
             
             d{1} = [R_world_to_B'*[-ones(1,n_ground_contact_point);zeros(2,n_ground_contact_point)],Tr11,Tr21,Tr31,Tr41,Tl11,Tl21,Tl31,Tl41];
             d{2} = [R_world_to_B'*[zeros(1,n_ground_contact_point);ones(1,n_ground_contact_point);zeros(1,n_ground_contact_point)],Tr12,Tr22,Tr32,Tr42,Tl12,Tl22,Tl32,Tl42];
             
             d{1} = R_world_to_B*d{1};
             d{2} = R_world_to_B*d{2};
+            
+%             if ((abs(sum(sum(d_test{1} - d{1}))) > 1e-7) | (abs(sum(sum(d_test{2} - d{2}))) > 1e-7))
+%                 keyboard
+%             end
             
 %             xA = [xA_ground, finger_contact_right1, finger_contact_right2, ...
 %                 finger_contact_right3, finger_contact_right4, ...

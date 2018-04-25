@@ -73,11 +73,11 @@ fl4 = pos_ee + R_DHbase_world*T(1:3,1:3)*[finger_contact_delta;(theta_8-0.04);0.
 J_fr1_theta_1 = jacobian(fr1,theta_1);
 dJ_fr1_theta_1_theta_1 = jacobian(jacobian(fr1,theta_1),theta_1);
 
-fr1 = [fr1x;fr1y;fr1z];
 
 cylinder_radius = 0.03;
 cylinder_height_half = 0.09;
 
+% fr1 = [fr1x;fr1y;fr1z];
 b = [obj_x obj_y obj_z obj_yaw obj_pitch obj_roll]';
 obj_pos = b(1:3);
 obj_ori = b(4:6);
@@ -102,14 +102,17 @@ dJA_x_ground1_theta1 = diff([zeros(3*8,1);reshape(eye(3),[],1);diff(x_ground1A,o
 
 dJA_fr1_theta1_theta1 = diff(fr1,theta_1,2);
 dJA_fr1_theta2_theta1 = diff(diff(fr1,theta_2),theta_1);
-dJA_fr1_theta1_to_8_theta1 = diff([diff(fr1,theta_1);diff(fr1,theta_2);diff(fr1,theta_3);diff(fr1,theta_4);diff(fr1,theta_5);diff(fr1,theta_6);diff(fr1,theta_7);diff(fr1,theta_8)],theta_1);
-dJA_fr2_theta1_to_8_theta1 = diff([diff(fr2,theta_1);diff(fr2,theta_2);diff(fr2,theta_3);diff(fr2,theta_4);diff(fr2,theta_5);diff(fr2,theta_6);diff(fr2,theta_7);diff(fr2,theta_8)],theta_1);
-dJA_fr3_theta1_to_8_theta1 = diff([diff(fr3,theta_1);diff(fr3,theta_2);diff(fr3,theta_3);diff(fr3,theta_4);diff(fr3,theta_5);diff(fr3,theta_6);diff(fr3,theta_7);diff(fr3,theta_8)],theta_1);
-dJA_fr4_theta1_to_8_theta1 = diff([diff(fr4,theta_1);diff(fr4,theta_2);diff(fr4,theta_3);diff(fr4,theta_4);diff(fr4,theta_5);diff(fr4,theta_6);diff(fr4,theta_7);diff(fr4,theta_8)],theta_1);
-dJA_fl1_theta1_to_8_theta1 = diff([diff(fl1,theta_1);diff(fl1,theta_2);diff(fl1,theta_3);diff(fl1,theta_4);diff(fl1,theta_5);diff(fl1,theta_6);diff(fl1,theta_7);diff(fl1,theta_8)],theta_1);
-dJA_fl2_theta1_to_8_theta1 = diff([diff(fl2,theta_1);diff(fl2,theta_2);diff(fl2,theta_3);diff(fl2,theta_4);diff(fl2,theta_5);diff(fl2,theta_6);diff(fl2,theta_7);diff(fl2,theta_8)],theta_1);
-dJA_fl3_theta1_to_8_theta1 = diff([diff(fl3,theta_1);diff(fl3,theta_2);diff(fl3,theta_3);diff(fl3,theta_4);diff(fl3,theta_5);diff(fl3,theta_6);diff(fl3,theta_7);diff(fl3,theta_8)],theta_1);
-dJA_fl4_theta1_to_8_theta1 = diff([diff(fl4,theta_1);diff(fl4,theta_2);diff(fl4,theta_3);diff(fl4,theta_4);diff(fl4,theta_5);diff(fl4,theta_6);diff(fl4,theta_7);diff(fl4,theta_8)],theta_1);
+dJA_fr1_theta1_to_8_theta_1 = diff([diff(fr1,theta_1);diff(fr1,theta_2);diff(fr1,theta_3);diff(fr1,theta_4);diff(fr1,theta_5);diff(fr1,theta_6);diff(fr1,theta_7);diff(fr1,theta_8)],theta_1);
+dJA_fr2_theta1_to_8_theta_1 = diff([diff(fr2,theta_1);diff(fr2,theta_2);diff(fr2,theta_3);diff(fr2,theta_4);diff(fr2,theta_5);diff(fr2,theta_6);diff(fr2,theta_7);diff(fr2,theta_8)],theta_1);
+dJA_fr3_theta1_to_8_theta_1 = diff([diff(fr3,theta_1);diff(fr3,theta_2);diff(fr3,theta_3);diff(fr3,theta_4);diff(fr3,theta_5);diff(fr3,theta_6);diff(fr3,theta_7);diff(fr3,theta_8)],theta_1);
+dJA_fr4_theta1_to_8_theta_1 = diff([diff(fr4,theta_1);diff(fr4,theta_2);diff(fr4,theta_3);diff(fr4,theta_4);diff(fr4,theta_5);diff(fr4,theta_6);diff(fr4,theta_7);diff(fr4,theta_8)],theta_1);
+dJA_fl1_theta1_to_8_theta_1 = diff([diff(fl1,theta_1);diff(fl1,theta_2);diff(fl1,theta_3);diff(fl1,theta_4);diff(fl1,theta_5);diff(fl1,theta_6);diff(fl1,theta_7);diff(fl1,theta_8)],theta_1);
+dJA_fl2_theta1_to_8_theta_1 = diff([diff(fl2,theta_1);diff(fl2,theta_2);diff(fl2,theta_3);diff(fl2,theta_4);diff(fl2,theta_5);diff(fl2,theta_6);diff(fl2,theta_7);diff(fl2,theta_8)],theta_1);
+dJA_fl3_theta1_to_8_theta_1 = diff([diff(fl3,theta_1);diff(fl3,theta_2);diff(fl3,theta_3);diff(fl3,theta_4);diff(fl3,theta_5);diff(fl3,theta_6);diff(fl3,theta_7);diff(fl3,theta_8)],theta_1);
+dJA_fl4_theta1_to_8_theta_1 = diff([diff(fl4,theta_1);diff(fl4,theta_2);diff(fl4,theta_3);diff(fl4,theta_4);diff(fl4,theta_5);diff(fl4,theta_6);diff(fl4,theta_7);diff(fl4,theta_8)],theta_1);
+
+dJA_fr1_theta1_to_8_obj_x = diff([diff(fr1,obj_x);diff(fr1,obj_y);diff(fr1,obj_z);diff(fr1,obj_yaw);diff(fr1,obj_pitch);diff(fr1,obj_roll)],obj_x);
+
 
 dJA_fr1_obj_yaw_theta1 = diff(diff(fr1,obj_yaw),theta_1);
 dJA_fr1_obj_x_theta1 = diff(diff(fr1,obj_x),theta_1);
@@ -147,7 +150,7 @@ JB_ground1_theta1 = diff(x_ground1B,theta_1);
 
 right_normal1 = [fr1(1:2) - b_local(1:2);0];
 right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
-
+            
 % full version
 fr1_B = cylinder_radius*right_normal1;
 fr1_B(3) = fr1(3) - b_local(3);
