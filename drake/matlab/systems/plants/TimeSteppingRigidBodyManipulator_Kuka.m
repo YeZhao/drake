@@ -470,46 +470,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     JA_num = [JA_num; reshape(J_num_(index,:),[],1)];
                 end
                 
-%                 theta_1 = q_num(1);theta_2 = q_num(2);theta_3 = q_num(3);theta_4 = q_num(4);theta_5 = q_num(5);theta_6 = q_num(6);theta_7 = q_num(7);theta_8 = q_num(8);
-%                 obj_x = q_num(9);
-%                 obj_y = q_num(10);
-%                 obj_z = q_num(11);
-%                 obj_yaw = q_num(12);
-%                 obj_pitch = q_num(13);
-%                 obj_roll = q_num(14);
-%                 
-%                 xB_x = Bpts_num(1,5);
-%                 xB_y = Bpts_num(2,5);
-%                 xB_z = Bpts_num(3,5);
-% 
-%                 JA_fr1_theta1 = [(407*cos(q_num(6))*(sin(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) - cos(q_num(4))*sin(q_num(1))*sin(q_num(2))))/2000 - (21*sin(q_num(1))*sin(q_num(2)))/50 + (cos(q_num(7))*(sin(q_num(5))*(cos(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(5))*(cos(q_num(1))*cos(q_num(3)) - cos(q_num(2))*sin(q_num(1))*sin(q_num(3)))))/25 - (cos(q_num(7))*(sin(q_num(6))*(sin(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) - cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) + cos(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(1))*cos(q_num(3)) - cos(q_num(2))*sin(q_num(1))*sin(q_num(3))))))/100 + (2*sin(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))))/5 - (407*sin(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(1))*cos(q_num(3)) - cos(q_num(2))*sin(q_num(1))*sin(q_num(3)))))/2000 + (sin(q_num(7))*(sin(q_num(5))*(cos(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(5))*(cos(q_num(1))*cos(q_num(3)) - cos(q_num(2))*sin(q_num(1))*sin(q_num(3)))))/100 + (sin(q_num(7))*(sin(q_num(6))*(sin(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) - cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) + cos(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(cos(q_num(1))*sin(q_num(3)) + cos(q_num(2))*cos(q_num(3))*sin(q_num(1))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(1))*cos(q_num(3)) - cos(q_num(2))*sin(q_num(1))*sin(q_num(3))))))/25 - (2*cos(q_num(4))*sin(q_num(1))*sin(q_num(2)))/5;
-%                     (21*cos(q_num(1))*sin(q_num(2)))/50 + (407*cos(q_num(6))*(sin(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) + cos(q_num(1))*cos(q_num(4))*sin(q_num(2))))/2000 - (cos(q_num(7))*(sin(q_num(6))*(sin(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) + cos(q_num(1))*cos(q_num(4))*sin(q_num(2))) + cos(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) - cos(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(3))*sin(q_num(1)) + cos(q_num(1))*cos(q_num(2))*sin(q_num(3))))))/100 + (cos(q_num(7))*(sin(q_num(5))*(cos(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) - cos(q_num(1))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(5))*(cos(q_num(3))*sin(q_num(1)) + cos(q_num(1))*cos(q_num(2))*sin(q_num(3)))))/25 + (sin(q_num(7))*(sin(q_num(6))*(sin(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) + cos(q_num(1))*cos(q_num(4))*sin(q_num(2))) + cos(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) - cos(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(3))*sin(q_num(1)) + cos(q_num(1))*cos(q_num(2))*sin(q_num(3))))))/25 - (407*sin(q_num(6))*(cos(q_num(5))*(cos(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) - cos(q_num(1))*sin(q_num(2))*sin(q_num(4))) + sin(q_num(5))*(cos(q_num(3))*sin(q_num(1)) + cos(q_num(1))*cos(q_num(2))*sin(q_num(3)))))/2000 + (sin(q_num(7))*(sin(q_num(5))*(cos(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))) - cos(q_num(1))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(5))*(cos(q_num(3))*sin(q_num(1)) + cos(q_num(1))*cos(q_num(2))*sin(q_num(3)))))/100 + (2*sin(q_num(4))*(sin(q_num(1))*sin(q_num(3)) - cos(q_num(1))*cos(q_num(2))*cos(q_num(3))))/5 + (2*cos(q_num(1))*cos(q_num(4))*sin(q_num(2)))/5;
-%                     0];
-%                 
-%                 JA_fr1_theta2 = [(21*cos(q_num(1))*cos(q_num(2)))/50 + (407*cos(q_num(6))*(cos(q_num(1))*cos(q_num(2))*cos(q_num(4)) + cos(q_num(1))*cos(q_num(3))*sin(q_num(2))*sin(q_num(4))))/2000 - (cos(q_num(7))*(sin(q_num(5))*(cos(q_num(1))*cos(q_num(2))*sin(q_num(4)) - cos(q_num(1))*cos(q_num(3))*cos(q_num(4))*sin(q_num(2))) - cos(q_num(1))*cos(q_num(5))*sin(q_num(2))*sin(q_num(3))))/25 - (cos(q_num(7))*(sin(q_num(6))*(cos(q_num(1))*cos(q_num(2))*cos(q_num(4)) + cos(q_num(1))*cos(q_num(3))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(6))*(cos(q_num(5))*(cos(q_num(1))*cos(q_num(2))*sin(q_num(4)) - cos(q_num(1))*cos(q_num(3))*cos(q_num(4))*sin(q_num(2))) + cos(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5)))))/100 + (407*sin(q_num(6))*(cos(q_num(5))*(cos(q_num(1))*cos(q_num(2))*sin(q_num(4)) - cos(q_num(1))*cos(q_num(3))*cos(q_num(4))*sin(q_num(2))) + cos(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5))))/2000 - (sin(q_num(7))*(sin(q_num(5))*(cos(q_num(1))*cos(q_num(2))*sin(q_num(4)) - cos(q_num(1))*cos(q_num(3))*cos(q_num(4))*sin(q_num(2))) - cos(q_num(1))*cos(q_num(5))*sin(q_num(2))*sin(q_num(3))))/100 + (sin(q_num(7))*(sin(q_num(6))*(cos(q_num(1))*cos(q_num(2))*cos(q_num(4)) + cos(q_num(1))*cos(q_num(3))*sin(q_num(2))*sin(q_num(4))) - cos(q_num(6))*(cos(q_num(5))*(cos(q_num(1))*cos(q_num(2))*sin(q_num(4)) - cos(q_num(1))*cos(q_num(3))*cos(q_num(4))*sin(q_num(2))) + cos(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5)))))/25 + (2*cos(q_num(1))*cos(q_num(2))*cos(q_num(4)))/5 + (2*cos(q_num(1))*cos(q_num(3))*sin(q_num(2))*sin(q_num(4)))/5;
-%                     (21*cos(q_num(2))*sin(q_num(1)))/50 - (cos(q_num(7))*(sin(q_num(5))*(cos(q_num(2))*sin(q_num(1))*sin(q_num(4)) - cos(q_num(3))*cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) - cos(q_num(5))*sin(q_num(1))*sin(q_num(2))*sin(q_num(3))))/25 + (407*sin(q_num(6))*(cos(q_num(5))*(cos(q_num(2))*sin(q_num(1))*sin(q_num(4)) - cos(q_num(3))*cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5))))/2000 - (sin(q_num(7))*(sin(q_num(5))*(cos(q_num(2))*sin(q_num(1))*sin(q_num(4)) - cos(q_num(3))*cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) - cos(q_num(5))*sin(q_num(1))*sin(q_num(2))*sin(q_num(3))))/100 + (cos(q_num(7))*(cos(q_num(6))*(cos(q_num(5))*(cos(q_num(2))*sin(q_num(1))*sin(q_num(4)) - cos(q_num(3))*cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5))) - sin(q_num(6))*(cos(q_num(2))*cos(q_num(4))*sin(q_num(1)) + cos(q_num(3))*sin(q_num(1))*sin(q_num(2))*sin(q_num(4)))))/100 - (sin(q_num(7))*(cos(q_num(6))*(cos(q_num(5))*(cos(q_num(2))*sin(q_num(1))*sin(q_num(4)) - cos(q_num(3))*cos(q_num(4))*sin(q_num(1))*sin(q_num(2))) + sin(q_num(1))*sin(q_num(2))*sin(q_num(3))*sin(q_num(5))) - sin(q_num(6))*(cos(q_num(2))*cos(q_num(4))*sin(q_num(1)) + cos(q_num(3))*sin(q_num(1))*sin(q_num(2))*sin(q_num(4)))))/25 + (407*cos(q_num(6))*(cos(q_num(2))*cos(q_num(4))*sin(q_num(1)) + cos(q_num(3))*sin(q_num(1))*sin(q_num(2))*sin(q_num(4))))/2000 + (2*cos(q_num(2))*cos(q_num(4))*sin(q_num(1)))/5 + (2*cos(q_num(3))*sin(q_num(1))*sin(q_num(2))*sin(q_num(4)))/5;
-%                     (cos(q_num(7))*(sin(q_num(5))*(sin(q_num(2))*sin(q_num(4)) + cos(q_num(2))*cos(q_num(3))*cos(q_num(4))) + cos(q_num(2))*cos(q_num(5))*sin(q_num(3))))/25 - (2*cos(q_num(4))*sin(q_num(2)))/5 - (21*sin(q_num(2)))/50 - (407*sin(q_num(6))*(cos(q_num(5))*(sin(q_num(2))*sin(q_num(4)) + cos(q_num(2))*cos(q_num(3))*cos(q_num(4))) - cos(q_num(2))*sin(q_num(3))*sin(q_num(5))))/2000 + (sin(q_num(7))*(sin(q_num(5))*(sin(q_num(2))*sin(q_num(4)) + cos(q_num(2))*cos(q_num(3))*cos(q_num(4))) + cos(q_num(2))*cos(q_num(5))*sin(q_num(3))))/100 - (cos(q_num(7))*(cos(q_num(6))*(cos(q_num(5))*(sin(q_num(2))*sin(q_num(4)) + cos(q_num(2))*cos(q_num(3))*cos(q_num(4))) - cos(q_num(2))*sin(q_num(3))*sin(q_num(5))) - sin(q_num(6))*(cos(q_num(4))*sin(q_num(2)) - cos(q_num(2))*cos(q_num(3))*sin(q_num(4)))))/100 - (407*cos(q_num(6))*(cos(q_num(4))*sin(q_num(2)) - cos(q_num(2))*cos(q_num(3))*sin(q_num(4))))/2000 + (sin(q_num(7))*(cos(q_num(6))*(cos(q_num(5))*(sin(q_num(2))*sin(q_num(4)) + cos(q_num(2))*cos(q_num(3))*cos(q_num(4))) - cos(q_num(2))*sin(q_num(3))*sin(q_num(5))) - sin(q_num(6))*(cos(q_num(4))*sin(q_num(2)) - cos(q_num(2))*cos(q_num(3))*sin(q_num(4)))))/25 + (2*cos(q_num(2))*cos(q_num(3))*sin(q_num(4)))/5];
-                
-                
                 JB_num = [];
                 for k=1:length(Bidx_num)
                     [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
                     JB_num = [JB_num; reshape(J_num_(index,:),[],1)];
                 end
                 
-%                 JB_ground1_obj_yaw = [ (9*cos(conj(q_num(14)))*sin(conj(q_num(12)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*sin(conj(q_num(14))))/100;
-%                     (9*cos(conj(q_num(12)))*cos(conj(q_num(14))))/100 + (9*sin(conj(q_num(12)))*sin(conj(q_num(14)))*sin(conj(q_num(13))))/100;
-%                     (9*cos(conj(q_num(13)))*sin(conj(q_num(12))))/100];
-%                 
-%                 JB_ground1_obj_pitch = [ - (3*cos(conj(q_num(14)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*cos(conj(q_num(14)))*cos(conj(q_num(13))))/100;
-%                     - (3*sin(conj(q_num(14)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*cos(conj(q_num(13)))*sin(conj(q_num(14))))/100;
-%                     (9*cos(conj(q_num(12)))*sin(conj(q_num(13))))/100 - (3*cos(conj(q_num(13))))/100];
-%                 
-% 
-%                 JB_fr1_obj_yaw = [conj(xB_y)*(sin(conj(obj_yaw))*sin(conj(obj_roll)) + cos(conj(obj_yaw))*cos(conj(obj_roll))*sin(conj(obj_pitch))) + conj(xB_z)*(cos(conj(obj_yaw))*sin(conj(obj_roll)) - cos(conj(obj_roll))*sin(conj(obj_yaw))*sin(conj(obj_pitch)));
-%                                   - conj(xB_y)*(cos(conj(obj_roll))*sin(conj(obj_yaw)) - cos(conj(obj_yaw))*sin(conj(obj_roll))*sin(conj(obj_pitch))) - conj(xB_z)*(cos(conj(obj_yaw))*cos(conj(obj_roll)) + sin(conj(obj_yaw))*sin(conj(obj_roll))*sin(conj(obj_pitch)));
-%                                                                                                                                  cos(conj(obj_yaw))*cos(conj(obj_pitch))*conj(xB_y) - cos(conj(obj_pitch))*sin(conj(obj_yaw))*conj(xB_z)];
-%                 
                 J_num = JA_num-JB_num;
             end
             
@@ -555,57 +521,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 xB_num = obj.computexB(kinsol_num);
                 
-%                 if obj.num_u > 0
-%                     [~,~,~,~,~,~,xB_num,~,~,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
-%                 else
-%                     [~,~,~,~,~,~,xB_num,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
-%                 end
-
-%                 tic
-%                 V_num = horzcat(V_num{:});
-%                 I = eye(num_c*num_d);
-%                 V_cell_num = cell(1,num_active);
-%                 for ii=1:num_c+nL
-%                     if ii<=num_active
-%                         % is a contact point
-%                         idx_beta_num = active(ii):num_c:num_c*num_d;
-%                         V_cell_num{ii} = V_num*I(idx_beta_num,:)'; % basis vectors for ith contact
-%                     end
-%                 end
-%                 V_num = blkdiag(V_cell_num{:},eye(nL));
-%                 
-%                 Apts_num = xA_num(:,active);
-%                 Bpts_num = xB_num(:,active);
-%                 Aidx_num = idxA_num(active);
-%                 Bidx_num = idxB_num(active);
-%                 toc
-%                 theta_1 = q_num(1);theta_2 = q_num(2);theta_3 = q_num(3);theta_4 = q_num(4);theta_5 = q_num(5);theta_6 = q_num(6);theta_7 = q_num(7);theta_8 = q_num(8);
-%                 obj_x = q_num(9);
-%                 obj_y = q_num(10);
-%                 obj_z = q_num(11);
-%                 obj_yaw = q_num(12);
-%                 obj_pitch = q_num(13);
-%                 obj_roll = q_num(14);
-                
-%                 xB_x = Bpts_num(1,5);
-%                 xB_y = Bpts_num(2,5);
-%                 xB_z = Bpts_num(3,5);
-%                 toc
-%                 tic
-%                 
-%                 JB_num = [];
-%                 for k=1:length(Bidx_num)
-%                     [~,J_num_,~] = forwardKin(obj.manip,kinsol_num,Bidx_num(k),Bpts_num(:,k));
-%                     JB_num = [JB_num; reshape(J_num_,[],1)];
-%                 end      
-%                 JB_ground1_obj_yaw = [ (9*cos(conj(q_num(14)))*sin(conj(q_num(12)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*sin(conj(q_num(14))))/100;
-%                     (9*cos(conj(q_num(12)))*cos(conj(q_num(14))))/100 + (9*sin(conj(q_num(12)))*sin(conj(q_num(14)))*sin(conj(q_num(13))))/100;
-%                     (9*cos(conj(q_num(13)))*sin(conj(q_num(12))))/100];
-%                 
-%                 JB_ground1_obj_pitch = [ - (3*cos(conj(q_num(14)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*cos(conj(q_num(14)))*cos(conj(q_num(13))))/100;
-%                     - (3*sin(conj(q_num(14)))*sin(conj(q_num(13))))/100 - (9*cos(conj(q_num(12)))*cos(conj(q_num(13)))*sin(conj(q_num(14))))/100;
-%                     (9*cos(conj(q_num(12)))*sin(conj(q_num(13))))/100 - (3*cos(conj(q_num(13))))/100];
-%                 tic
                 fingercontact_num = 8;
                 for k=1:fingercontact_num
                     JB_finger_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,4+k),xB_num(2,4+k),xB_num(3,4+k));
@@ -618,38 +533,33 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             fcnB = @B_gradient_numerical;
             fcnV = @V_gradient_numerical;
             
-            tic
+            %tic
             dV = zeros(num_full_dim,(num_d*num_c+nL),num_q);
             for i=1:num_q
                 rr = sqrt(eps(X0));
                 rr(1:i) = 0;%corresponding to time step h
                 m = i+2;% only q component affects Jacobian J
                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-                disp('timing')
                 X0_p = X0 + rr/2;
                 X0_m = X0 - rr/2;
                 
-                tic
-                [J_object_p,V_num_p] = feval(fcn,X0_p);
-                [J_object_m,V_num_m] = feval(fcn,X0_m);
+                % % old approach for comparison
+                % [J_object_p,V_num_p] = feval(fcn,X0_p);
+                % [J_object_m,V_num_m] = feval(fcn,X0_m);
+                %
+                % dJ_ori(:,i) = (J_object_p - J_object_m)/rr(i+1);
+                % dV_ori(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
                 
-                dJ_ori(:,i) = (J_object_p - J_object_m)/rr(i+1);
-                dV_ori(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
-                toc
-                
-                %% new approach, 4xfaster
-                tic
+                %% new approach, 4 times faster
                 [V_num_p] = feval(fcnV,X0_p);
                 [V_num_m] = feval(fcnV,X0_m);
                 dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
-                toc
                 
                 q = X0(2:15);                
                 obj_dim = 6;
                 groundcontact_num = 4;
                 fingercontact_num = 8;
-                tic
-                if i < fingercontact_num
+                if i <= fingercontact_num
                     dJA_ground = zeros(length(q)*3*groundcontact_num,1);
                     dJA_finger = [];
                     for fingercontactIndx = 1:fingercontact_num
@@ -661,8 +571,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     dJA(:,i) = zeros((groundcontact_num+fingercontact_num)*3*length(q),1);
                 end
                 
-                toc
-                tic
                 [JB_finger_num_p] = feval(fcnB,X0_p);
                 [JB_finger_num_m] = feval(fcnB,X0_m);
                 
@@ -673,20 +581,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB_finger = [dJB_finger;reshape(dJB_single_finger,[],1)];
                 dJB(:,i) = [dJB_ground;dJB_finger];
 
-                dJ(:,i) = dJA(:,i) - dJB(:,i);
-                toc
-                
-%                 tic
-%                 [JB_num_p_ref1] = feval(fcnB_old,X0_p);
-%                 [JB_num_m_ref1] = feval(fcnB_old,X0_m);
-%                 dJB(:,i) = (JB_num_p_ref1 - JB_num_m_ref1)/rr(i+1);
-%                 toc
-                
-                %final one
-                %dJ(:,i) = ((JA_object_p - JB_object_p) - (JA_object_m - JB_object_m))/rr(i+1);
-                %dJ(:,i) = [dJA_fr1_theta1 - dJB_fr1_theta1;];                
+                dJ(:,i) = dJA(:,i) - dJB(:,i);                
             end
-            toc
+            %toc
             %% end of numerical Jacobian gradient for dJ and dV
             
             % dJ new sequence, stack Aidx first and then num_q
