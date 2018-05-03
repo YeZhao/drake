@@ -238,6 +238,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
                 global timestep_updated
                 global time_step
+                global x_previous
+                global df_previous
+                
                 tic
                 x_full = x_full + randn(size(x_full))*0.1;
                 u_full = u_full + randn(size(u_full))*0.1;
@@ -301,6 +304,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 plant_update = @objPlantUpdate;
                 obj.plant.time_step = time_step;
+                df_previous_full = [];
+                xdn_previous_full = [];
                 
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
@@ -369,11 +374,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %[the sequential way to be modified]
                         % currently, only use the initial variance matrix for the propogation
                         noise_index = j
-                    
+                        
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
-                    
+                        
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                             obj.plant.friction_coeff = w_mu(j);
                         end
@@ -384,6 +389,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                         %tic
                         %[xdn(:,j),df(:,:,j)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k,w_mu(j));
+                        if k > 1
+                            x_previous = xdn_previous_full(:,j);
+                            df_previous = df_previous_full(:,:,j);
+                        end
+                        
                         [xdn(:,j),df(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u(:,k) - K*(Sig(1:nx,j,k) - x(:,k)));
                         %toc
                         
@@ -419,6 +429,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1,j) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                     end
+                    xdn_previous_full = xdn;
+                    df_previous_full = df;
+                    
                     % end of original non-parallezied version
                     
 %                     parfor jj = 1:n_sig_point

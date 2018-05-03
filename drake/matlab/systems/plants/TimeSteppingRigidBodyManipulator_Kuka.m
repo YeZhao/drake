@@ -275,6 +275,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         end
         
         function [xdn,df] = solveQP(obj,X0)
+            global x_previous
+            global df_previous
             
             noise_index = X0(1);
             x = X0(2:29);
@@ -551,6 +553,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 % dV_ori(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
                 
                 %% new approach, 4 times faster
+                
                 [V_num_p] = feval(fcnV,X0_p);
                 [V_num_m] = feval(fcnV,X0_m);
                 dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
@@ -580,8 +583,23 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB_single_finger = (JB_finger_num_p - JB_finger_num_m)/rr(i+1);
                 dJB_finger = [dJB_finger;reshape(dJB_single_finger,[],1)];
                 dJB(:,i) = [dJB_ground;dJB_finger];
-
-                dJ(:,i) = dJA(:,i) - dJB(:,i);                
+                
+                dJ(:,i) = dJA(:,i) - dJB(:,i);
+                
+%                 tic
+%                 finger_contact_delta = 0.01;
+%                 right_finger_y_shift = 0.04;
+%                 finger_contact_right1 = [finger_contact_delta;right_finger_y_shift;0.1225];
+%                 [fr1,Jr1,dJr1] = forwardKin(obj.manip,kinsol,8,finger_contact_right1,0);
+%                 toc
+% 
+%                 disp('detail')
+%                 %tic
+%                 dJB_fr1_theta1_theta1 = dJB_fr1_theta1_theta1_func_compose(kinsol,q);
+%                 %tic
+%                 ddJB_new = dJB_new(q);
+                %toc
+                %toc
             end
             %toc
             %% end of numerical Jacobian gradient for dJ and dV
@@ -742,6 +760,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             catch
                 display('gurobi solve failure');
                 keyboard
+                xdn = x_previous;
+                df = df_previous;
+                return
             end
             f = S_weighting*V*(result_qp);% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
             active_set = find(abs(Ain_fqp*result_qp - bin_fqp)<1e-6);
