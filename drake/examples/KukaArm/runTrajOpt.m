@@ -31,7 +31,7 @@ global iteration_num
 %     0.015;0.79;0.09;0;0;0];
 %trial 3
 qm = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-0.0145;0.79;0.09;0;0;0];
+    0.0145;0.79;0.09;0;0;0];
 %trial 5, inital gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %       0.01;0.79;0.09;0;0;0];
@@ -54,13 +54,13 @@ rel_rot_object_gripper = rpy2rotmat(qm(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 1
 % q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
 %       -0.57;-0.57;0.59;0;0;0];
-%trial 2 
+%trial 2
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
 %trial 4
 q1 = qm;
 q1(2) = q1(2) + 0.3;
-q1(1) = q1(1) + 0.8; 
+q1(1) = q1(1) + 0.8;
 q1(6) = q1(6) - 0.25;
 %q1(8) = q1(8) - 0.02;
 kinsol = doKinematics(r, q1, [], kinematics_options);
@@ -91,7 +91,7 @@ u1(8) = -5;
 
 T0 = 2;
 N = 25;
-N1 = 4;%7;%phase 1: pick
+N1 = 7;%7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 options.robustLCPcost_coeff = 1000;
@@ -155,7 +155,7 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 % R_ee_m = rpy2rotmat(iiwa_link_7_final_m(4:6));
 % qm(9:11) = iiwa_link_7_final_m(1:3) + R_ee_m*rel_pos_object_gripper(1:3)';
 % qm(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final_m(4:6))')');
-% qm(11) = qm(11) + 0.1;% adjust the height 
+% qm(11) = qm(11) + 0.1;% adjust the height
 % xm = [qm;zeros(nv,1)];
 % v.draw(0,xm);
 
@@ -216,8 +216,8 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % Q = diag(state_cost);
 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
-%traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
+% traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
+% traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
 
@@ -225,10 +225,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',4e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',4e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
@@ -243,7 +243,7 @@ v.playback(xtraj,struct('slider',true));
 % % LQR Cost Matrices
 Q = diag(10*ones(1,nx));
 R = .1*eye(nu);
-Qf = 100*eye(nx); 
+Qf = 100*eye(nx);
 
 ltvsys = tvlqr(r,xtraj,utraj,Q,R,Qf);
 sys=feedback(r,ltvsys);
@@ -278,7 +278,7 @@ x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal);
 c_nominal = ctraj.eval(t_nominal);
 c_normal_nominal = c_nominal(1:6:end,:);
-global phi_cache_full 
+global phi_cache_full
 
     function [f,df] = running_cost_fun(h,x,u)
         R = 1e-6*eye(nu);
@@ -309,18 +309,18 @@ global phi_cache_full
         end
         
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
-%         global robustLCPcost_coeff
-%         if isempty(iteration_num)
-%             robustLCPcost_coeff = 1;
-%             iteration_num = 1;
-%         elseif iteration_num > 15
-%             robustLCPcost_coeff = 10;
-%         elseif iteration_num > 30
-%             robustLCPcost_coeff = 100;
-%         elseif iteration_num > 45
-%             robustLCPcost_coeff = 1000;    
-%         end        
-%         iteration_num = iteration_num + 1;
+        % global robustLCPcost_coeff
+        % if isempty(iteration_num)
+        %     robustLCPcost_coeff = 1;
+        %     iteration_num = 1;
+        % elseif iteration_num > 15
+        %     robustLCPcost_coeff = 10;
+        % elseif iteration_num > 30
+        %     robustLCPcost_coeff = 100;
+        % elseif iteration_num > 45
+        %     robustLCPcost_coeff = 1000;
+        % end
+        % iteration_num = iteration_num + 1;
     end
 
 end

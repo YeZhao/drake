@@ -206,16 +206,16 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
         end
         
-        function [phiC,normal,V,n,D,xA,xB,idxA,idxB,mu,dn,dD] = getContactTerms(obj,noise_index,q,kinsol)
+        function [phiC,normal,V,n,D,xA,xB,idxA,idxB] = getContactTerms(obj,noise_index,q,kinsol)
             if nargin<3
                 kinematics_options.compute_gradients = 1;
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
             if strcmp(obj.uncertainty_source, 'friction_coeff')
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
+                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
             elseif nargout > 10
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
+                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
             else
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
             end
@@ -368,9 +368,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             [H,C,B,dH,dC,dB] = manipulatorDynamics(obj.manip,q,v);
             
             if obj.num_u > 0
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~,~,~] = getContactTerms(obj,noise_index,q,kinsol);
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB] = getContactTerms(obj,noise_index,q,kinsol);
             else
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB,~] = getContactTerms(obj,noise_index,q,kinsol);
+                [phiC,normal,V,~,~,xA,xB,idxA,idxB] = getContactTerms(obj,noise_index,q,kinsol);
             end
             
             num_c = length(phiC);
@@ -443,9 +443,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                 
                 if obj.num_u > 0
-                    [~,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~,~,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
+                    [~,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num] = getContactTerms(obj,noise_index,q_num,kinsol_num);
                 else
-                    [~,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num,~] = getContactTerms(obj,noise_index,q_num,kinsol_num);
+                    [~,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num] = getContactTerms(obj,noise_index,q_num,kinsol_num);
                 end
                             
                 V_num = horzcat(V_num{:});
@@ -584,22 +584,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB_finger = [dJB_finger;reshape(dJB_single_finger,[],1)];
                 dJB(:,i) = [dJB_ground;dJB_finger];
                 
-                dJ(:,i) = dJA(:,i) - dJB(:,i);
-                
-%                 tic
-%                 finger_contact_delta = 0.01;
-%                 right_finger_y_shift = 0.04;
-%                 finger_contact_right1 = [finger_contact_delta;right_finger_y_shift;0.1225];
-%                 [fr1,Jr1,dJr1] = forwardKin(obj.manip,kinsol,8,finger_contact_right1,0);
-%                 toc
-% 
-%                 disp('detail')
-%                 %tic
-%                 dJB_fr1_theta1_theta1 = dJB_fr1_theta1_theta1_func_compose(kinsol,q);
-%                 %tic
-%                 ddJB_new = dJB_new(q);
-                %toc
-                %toc
+                dJ(:,i) = dJA(:,i) - dJB(:,i);                
             end
             %toc
             %% end of numerical Jacobian gradient for dJ and dV

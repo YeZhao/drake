@@ -43,7 +43,7 @@ end
 
 %todo: add joint limits, periodicity constraint
 
-N = 70;%30;%150;
+N = 20;%70;%30;%150;
 T = 2;
 T0 = 2;
  

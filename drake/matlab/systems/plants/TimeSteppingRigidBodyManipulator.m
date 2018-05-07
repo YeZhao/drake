@@ -1017,7 +1017,7 @@ classdef TimeSteppingRigidBodyManipulator < DrakeSystem
             %tElapsed = toc(tStart);
             %xdn_QP_vec = [xdn_QP_vec,xdn];
             
-            %return;
+            return;
             %disp('finish solveQP QP')
             
             %% add gradient check

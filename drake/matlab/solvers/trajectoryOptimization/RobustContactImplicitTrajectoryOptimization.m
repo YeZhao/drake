@@ -201,15 +201,16 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     assert(size(gamma_inds,1) == 2);
                     
                     % add ERM cost for sliding velocity constraint uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                    %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                        {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     % add ERM cost for friction cone coefficient uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    
+                    obj = obj.addCost(FunctionHandleObjective(6+2,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
                     
                     % add ERM cost for normal distance uncertainty
-                    %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_normaldistance(obj,h,x0,x1,u,lambda,gamma),1), ...
-                    %      {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_normaldistance(obj,h,x0,x1,u,lambda,gamma),1), ...
+                          {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                     
                     %(to be continued)
                     % (simple version) add ERM cost for normal distance uncertainty
@@ -267,18 +268,22 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 g = obj.W*gamma + obj.M*lambda + obj.r;
                 dg = [obj.M obj.W];
                 
-                %                 % distribution-free version
-                %                 delta = 1000;% coefficient
-                %                 f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
-                %                 df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                % % distribution-free version
+                % delta = 1000;% coefficient
+                % f = delta/2 * norm(gamma.*g)^2;% - slack_var*ones(zdim,1);
+                % df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
                 
                 % probabilistic version
                 sigma = 0.5;
                 mu_cov = sigma^2*[lambda(1)^2;lambda(4)^2];% make sure it is squared
                 delta = 10^7;% coefficient
-                f = delta/2 * (norm(diag(gamma)*g)^2 + norm(mu_cov)^2);% - slack_var*ones(zdim,1);
+                f2 = delta/2 * (norm(diag(gamma)*g)^2 + norm(diag(gamma)*mu_cov)^2);% - slack_var*ones(zdim,1);
+                df2 = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
+                    + delta*(diag(gamma)*mu_cov)'*[2*gamma(1)*sigma^2*lambda(1),zeros(1,5),mu_cov(1),0;zeros(1,3), 2*sigma^2*gamma(2)*lambda(4), zeros(1,2),0,mu_cov(2)];
+                
+                f = delta/2 * (norm(diag(gamma)*g)^2 + norm(diag(gamma)*mu_cov)^2);% - slack_var*ones(zdim,1);
                 df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
-                    + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
+                    + delta*(diag(gamma)*mu_cov)'*[2*gamma(1)*sigma^2*lambda(1),zeros(1,5),mu_cov(1),0;zeros(1,3), 2*sigma^2*gamma(2)*lambda(4), zeros(1,2),0,mu_cov(2)];
             end
             
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
@@ -361,7 +366,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) + 
+                            Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) +
                             % add terrain height uncertainty sample to each sigma point
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
@@ -614,116 +619,116 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                 %                 figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
                 %                 figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
                 
-%                 figure(15)
-%                 clf
-%                 Sig_permute = permute(Sig,[1,3,2]);
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(1,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(1,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([0,7])
-%                 title('Sigma Point x');
-%                 
-%                 figure(16)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(7,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(7,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([0,11])
-%                 title('Sigma Point vx');
-%                 
-%                 figure(17)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(2,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(2,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([0,4])
-%                 title('Sigma Point z');
-%                 
-%                 figure(18)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(8,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(8,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-7,0])
-%                 title('Sigma Point vz');
-%                 
-%                 figure(19)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(3,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(3,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point first hip');
-%                 
-%                 figure(20)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(9,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(9,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point hip velocity');
-%                 
-%                 figure(21)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(4,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(4,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point first knee');
-%                 
-%                 figure(22)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(10,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(10,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point first knee velocity');
-%                 
-%                 figure(23)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(5,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(5,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point second hip');
-%                 
-%                 figure(24)
-%                 clf
-%                 for j = 1:n_sig_point
-%                     plot(Sig_permute(6,:,j),'r-')
-%                     hold on;
-%                 end
-%                 hold on;
-%                 plot(x(6,:),'b-','Linewidth',3)
-%                 %xlim([0,30]);ylim([-1,1])
-%                 title('Sigma Point second knee');
+                %                 figure(15)
+                %                 clf
+                %                 Sig_permute = permute(Sig,[1,3,2]);
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(1,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(1,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([0,7])
+                %                 title('Sigma Point x');
+                %
+                %                 figure(16)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(7,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(7,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([0,11])
+                %                 title('Sigma Point vx');
+                %
+                %                 figure(17)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(2,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(2,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([0,4])
+                %                 title('Sigma Point z');
+                %
+                %                 figure(18)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(8,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(8,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-7,0])
+                %                 title('Sigma Point vz');
+                %
+                %                 figure(19)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(3,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(3,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point first hip');
+                %
+                %                 figure(20)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(9,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(9,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point hip velocity');
+                %
+                %                 figure(21)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(4,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(4,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point first knee');
+                %
+                %                 figure(22)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(10,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(10,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point first knee velocity');
+                %
+                %                 figure(23)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(5,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(5,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point second hip');
+                %
+                %                 figure(24)
+                %                 clf
+                %                 for j = 1:n_sig_point
+                %                     plot(Sig_permute(6,:,j),'r-')
+                %                     hold on;
+                %                 end
+                %                 hold on;
+                %                 plot(x(6,:),'b-','Linewidth',3)
+                %                 %xlim([0,30]);ylim([-1,1])
+                %                 title('Sigma Point second knee');
                 
                 %tElapsed = toc(tStart);
                 
@@ -780,7 +785,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     fprintf('difference between numerical and analytical: %4.15f\n',dd);
                 end
                 
-                function [c,dc] = robustVariancecost_check(obj, X0)                    
+                function [c,dc] = robustVariancecost_check(obj, X0)
                     x_full = X0(1:obj.nx*obj.N);
                     u_full = X0(obj.nx*obj.N+1:end);
                     
@@ -863,7 +868,7 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                             S = scale*S;
                             Sig(:,:,k) = [S -S];
                             for j = 1:(2*(obj.nx+nw))
-                                Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) + 
+                                Sig(:,j,k) =  [x(:,k); w_noise(:,k)];%Sig(:,j,k) +
                                 % add terrain height uncertainty sample to each sigma point
                             end
                             x_mean(:,k) = zeros(obj.nx,1);
@@ -2579,6 +2584,796 @@ classdef RobustContactImplicitTrajectoryOptimization < DirectTrajectoryOptimizat
                     
                 end
                 
+                X0 = [h; x0; x1; u; lambda; gamma];
+                
+%                 delta = 10^7;% coefficient
+%                 f = delta/2 * (norm(E_Phi)^2);% - slack_var*ones(zdim,1);
+%                 df = delta*(E_Phi'*dE_Phi');
+%                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];                 
+                
+                f_numeric = f;
+                df_numeric = df;
+                
+                %[f_numeric,df_numeric] = geval(@(X0) ERMcost_slidingVelocity_check(obj,X0),X0,struct('grad_method','numerical'));
+                %valuecheck(df,df_numeric,1e-5);
+                %valuecheck(f,f_numeric,1e-5);
+                disp('here')
+                
+                function [f,df] = ERMcost_slidingVelocity_check(obj, X0)
+                    h = X0(1);
+                    x0 = X0(2:1+12);
+                    x1 = X0(14:13+12);
+                    u = X0(25+1:25+3);
+                    lambda = X0(28+1:28+6);
+                    gamma = X0(34+1:34+2);
+                    
+                    zdim = size(obj.W,2);
+                    xdim = size(obj.M,2);
+                    nq = obj.plant.getNumPositions;
+                    nv = obj.plant.getNumVelocities;
+                    nu = obj.plant.getNumInputs;
+                    nl = length(lambda);
+                    
+                    obj.nq = nq;
+                    obj.nv = nv;
+                    obj.nu = nu;
+                    
+                    obj.h = h;
+                    
+                    % von Mises-Fisher distribution for quaternion rotation vector
+                    mu_dirc = [1,0,0,0]'; % this is for flat terrain, no rotation. can be terrain dependent.
+                    %mu_dirc = [0.2,0.15,0.3,0.9206]'; % for a tilt terrain
+                    
+                    kappa = 10;
+                    I_kappa_plus = exp(kappa) + exp(-kappa);
+                    I_kappa_minus = exp(kappa) - exp(-kappa);
+                    
+                    h_kappa = (kappa*I_kappa_plus - I_kappa_minus)/(kappa*I_kappa_minus);
+                    mu_r = mu_dirc*h_kappa;
+                    Sigma_r = h_kappa/kappa * eye(4) + (1 - 3*h_kappa/kappa - h_kappa^2)*mu_r*mu_r';
+                    
+                    %remove distribution and make it deterministic
+                    mu_r=[1;0;0;0];
+                    Sigma_r = zeros(4);
+                    
+                    obj.mu_r = mu_r;
+                    obj.Sigma_r = Sigma_r;
+                    
+                    mu_w = mu_r(1);mu_x = mu_r(2);mu_y = mu_r(3);mu_z = mu_r(4);
+                    
+                    Rbar = [1-2*mu_y^2-2*mu_z^2, 2*mu_x*mu_y-2*mu_z*mu_w, 2*mu_x*mu_z+2*mu_y*mu_w;
+                        2*mu_x*mu_y+2*mu_z*mu_w, 1-2*mu_x^2-2*mu_z^2, 2*mu_y*mu_z-2*mu_x*mu_w;
+                        2*mu_x*mu_z-2*mu_y*mu_w, 2*mu_y*mu_z+2*mu_x*mu_w, 1-2*mu_x^2-2*mu_y^2];
+                    
+                    % normal direction n
+                    F = [2*mu_y, 2*mu_z, 2*mu_w, 2*mu_x;
+                        -2*mu_x, -2*mu_w, 2*mu_z, 2*mu_y;
+                        2*mu_w, -2*mu_x, -2*mu_y, 2*mu_z];
+                    Fc = Rbar(:,3) - F*mu_r;
+                    
+                    % tangential direction D_{r,x}
+                    G = [2*mu_w, 2*mu_x, -2*mu_y, -2*mu_z;
+                        2*mu_z, 2*mu_y, 2*mu_x,  2*mu_w;
+                        -2*mu_y, 2*mu_z, -2*mu_w, 2*mu_x];
+                    Gc = Rbar(:,1) - G*mu_r;
+                    
+                    % tangential direction D_{r,y}
+                    H = [-2*mu_z, 2*mu_y,  2*mu_x, -2*mu_w;
+                        2*mu_w,  -2*mu_x, 2*mu_y, -2*mu_z;
+                        2*mu_x,  2*mu_w,  2*mu_z, 2*mu_y];
+                    Hc = Rbar(:,2) - H*mu_r;
+                    
+                    % RigidBodyManipulator dynamics
+                    q0 = x0(1:nq);
+                    v0 = x0(nq+1:nq+nv);
+                    q1 = x1(1:nq);
+                    v1 = x1(nq+1:nq+nv);
+                    
+                    % currently only implement MIDPOINT method
+                    [M,C,B,dM,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
+                    Minv = inv(M);
+                    obj.C = C;
+                    obj.B = B;
+                    obj.u = u;
+                    obj.Minv = Minv;
+                    
+                    for i=1:nq
+                        dMdq(:,:,i) = reshape(dM(:,i),[nq, nq]);
+                        dCdq(:,i) = reshape(dC(:,i),[nq, 1]);
+                        dCdqdot(:,i) = reshape(dC(:,i+nq),[nq, 1]);
+                    end
+                    
+                    obj.dMdq = dMdq;
+                    obj.dCdq = dCdq;
+                    obj.dCdqdot = dCdqdot;
+                    
+                    qdot_prev = v0;
+                    u_prev = u;
+                    
+                    if nl>0
+                        [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                        % construct J and dJ from n,D,dn, and dD so they relate to the
+                        % lambda vector
+                        J = zeros(nl,nq);
+                        J(1:1+obj.nD:end,:) = n;
+                        dJ = zeros(nl*nq,nq);
+                        dJ(1:1+obj.nD:end,:) = dn;%[double check how dn is factorized]
+                        
+                        for j=1:length(D),
+                            J(1+j:1+obj.nD:end,:) = D{j};
+                            dJ(1+j:1+obj.nD:end,:) = dD{j};
+                        end
+                    end
+                    
+                    E_Phi = zeros(4,1);
+                    V_Phi = zeros(4,1);
+                    
+                    for foot_indx = 1:2
+                        Jg(1:2,:) = J(3*foot_indx-1:3*foot_indx,:);
+                        Jg(3,:) = J(3*foot_indx-2,:);
+                        
+                        obj.Jg = Jg;
+                        
+                        for i=1:nq
+                            for j =1:((1+obj.nD)*2)
+                                if foot_indx == 1
+                                    dJgdq(:,j,i) = dJ(2*(1+obj.nD)*(j-1)+1:2*(1+obj.nD)*(j-1)+3,i);
+                                elseif foot_indx == 2
+                                    dJgdq(:,j,i) = dJ(2*(1+obj.nD)*(j-1)+4:2*(1+obj.nD)*(j-1)+6,i);
+                                end
+                            end
+                        end
+                        
+                        % Composed matrices
+                        Fy = H;
+                        Fyc = Hc;
+                        U = Minv*Jg'*F;
+                        V = U'*Jg'*G;
+                        Vy = U'*Jg'*Fy;
+                        Z = Minv*Jg'*Fc;
+                        Zy = Minv*Jg'*Fyc;
+                        X = G'*Jg*Z;
+                        Xy = Fy'*Jg*Z;
+                        Xxy = G'*Jg*Zy;
+                        K = Minv*Jg'*G;
+                        Ky = Minv*Jg'*Fy;
+                        L = Minv*Jg'*Gc;
+                        Ly = Minv*Jg'*Fyc;
+                        Wx = K'*Jg'*G;
+                        Wy = Ky'*Jg'*Fy;
+                        Wxy = K'*Jg'*Fy;
+                        Y = U'*Jg'*Fc;
+                        Yx = K'*Jg'*Gc;
+                        Yy = Ky'*Jg'*Fyc;%[double check]
+                        Q = U'*Jg'*Gc;
+                        Qy = U'*Jg'*Fyc;
+                        Qxy = Ky'*Jg'*Gc;%[double check]
+                        O = (V+V')*mu_r+X+Q;
+                        Oy = (Vy+Vy')*mu_r+Xy+Qy;
+                        Oxy = (Wxy+Wxy')*mu_r+Xxy+Qxy;
+                        
+                        qdot_blk = (qdot_prev + Minv*(B*u_prev - C)*h);
+                        J_blk = Jg*qdot_blk;
+                        T = G'*J_blk;
+                        Tc = Gc'*J_blk;
+                        Ty = Fy'*J_blk;
+                        Tyc = Fyc'*J_blk;
+                        obj.qdot_blk = qdot_blk;
+                        obj.J_blk = J_blk;
+                        
+                        %--------------- second LCP condition ---------------%
+                        % expectation and covariance of M_v_x
+                        E_M_Drx_nr = trace(V*Sigma_r) + mu_r'*V*mu_r + Z'*Jg'*(G*mu_r + Gc) + mu_r'*U'*Jg'*Gc;
+                        
+                        V_M_Drx_nr = trace(U*Sigma_r*(V+V')*Sigma_r*G'*Jg) + O'*Sigma_r*O ...
+                            +(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc)^2 - E_M_Drx_nr^2;
+                        
+                        E_M_Drx_Drx = trace(Wx*Sigma_r) + mu_r'*Wx*mu_r + L'*Jg'*(2*G*mu_r + Gc);
+                        V_M_Drx_Drx = 2*trace(K*Sigma_r*Wx*Sigma_r*G'*Jg) + 4*(mu_r'*Wx + Yx')*Sigma_r*(Wx*mu_r + Yx) ...
+                            +(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc)^2 - E_M_Drx_Drx^2; %[not used]
+                        
+                        E_M_Drx_Dry = trace(Wxy*Sigma_r) + mu_r'*Wxy*mu_r + L'*Jg'*(Fy*mu_r + Fyc) + mu_r'*K'*Jg'*Fyc;
+                        E_M_Dry_Drx = E_M_Drx_Dry;
+                        % no V_M_Drx_Dry defined, not used
+                        
+                        for i=1:nq
+                            % expectation derivative w.r.t q and qdot
+                            obj.dJgdq_i = dJgdq(:,:,i);
+                            dE_M_Drx_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*G' + Fc*(G*mu_r + Gc)' + F*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                + jacobian_gradient(F',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*F',Minv,G*mu_r) ...
+                                + jacobian_gradient(Fc',Minv,G*mu_r + Gc) + jacobian_gradient(mu_r'*F',Minv,Gc);
+                            dE_M_Drx_nr_dqdot(i,:) = 0;
+                            
+                            dE_M_Drx_Drx_dq(i,:) = trace( (-Minv*Jg'*(G*(Sigma_r + mu_r*mu_r')*G' + Gc*(2*G*mu_r + Gc)')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                + jacobian_gradient(G',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*G',Minv,G*mu_r) ...
+                                + jacobian_gradient(Gc',Minv,2*G*mu_r+Gc);
+                            dE_M_Drx_Drx_dqdot(i,:) = 0;
+                            
+                            dE_M_Drx_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*G' + Fyc*(G*mu_r + Gc)' + Fy*mu_r*Gc')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                + jacobian_gradient(Fy',Minv,G*Sigma_r) + jacobian_gradient(mu_r'*Fy',Minv,G*mu_r) ...
+                                + jacobian_gradient(Fyc',Minv,G*mu_r + Gc) + jacobian_gradient(mu_r'*Fy',Minv,Gc);
+                            dE_M_Drx_Dry_dqdot(i,:) = 0;
+                            
+                            dE_M_Dry_Drx_dq(i,:) = dE_M_Drx_Dry_dq(i,:);
+                            dE_M_Dry_Drx_dqdot(i,:) = 0;
+                            
+                            % covariance derivative w.r.t q and qdot
+                            dV_M_Drx_nr_dq_first_chain(:,:,i) = -K*Sigma_r*(V+V')*Sigma_r*U' - U*Sigma_r*V*Sigma_r*K' - K*Sigma_r*V*Sigma_r*U' ...
+                                -U*(mu_r*O'+O*mu_r')*K'-K*(mu_r*O'+O*mu_r')*U'-Z*O'*K'-L*O'*U'-K*O*Z'-U*O*L' ...
+                                +2*(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc) ...
+                                *(-K*Sigma_r*U' - U*mu_r*mu_r'*K' - U*mu_r*L' - Z*mu_r'*K' - Z*L');
+                            dV_M_Drx_nr_dq_first_chain(:,:,i) = dV_M_Drx_nr_dq_first_chain(:,:,i)';% transponse due to that the equation above is derived based on dV_M_nr_Drx
+                            dV_M_Drx_nr_dq(i,:) = trace(dV_M_Drx_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                            dV_M_Drx_nr_dq(i,:) = dV_M_Drx_nr_dq(i,:) - 2*E_M_Drx_nr*dE_M_Drx_nr_dq(i,:);%[double check this part]
+                            dV_M_Drx_nr_dq(i,:) = dV_M_Drx_nr_dq(i,:) + jacobian_gradient3(Minv,F*Sigma_r*F',Minv,G*Sigma_r*G',eye(nq)) ...
+                                + jacobian_gradient2(mu_r'*F'+Fc',Minv,G*Sigma_r*F',Minv,G*mu_r+Gc) ...
+                                + jacobian_gradient2(mu_r'*F'+Fc',Minv,G*Sigma_r*G',Minv,F*mu_r+Fc) ...
+                                + jacobian_gradient2(mu_r'*G'+Gc',Minv,F*Sigma_r*F',Minv,G*mu_r+Gc) ...
+                                + jacobian_gradient2(mu_r'*G'+Gc',Minv,F*Sigma_r*G',Minv,F*mu_r+Fc) ...
+                                +2*(trace(U*Sigma_r*G'*Jg)+mu_r'*V*mu_r+mu_r'*Q+X'*mu_r+Z'*Jg'*Gc) ...
+                                *(jacobian_gradient1(Minv,F*Sigma_r*G') + jacobian_gradient(mu_r'*F',Minv,G*mu_r) ...
+                                + jacobian_gradient(mu_r'*F',Minv,Gc) + jacobian_gradient(Fc',Minv,G*mu_r+Gc));
+                            
+                            dV_M_Drx_nr_dqdot(i,:) = 0;
+                            
+                            dV_M_Drx_Drx_dq_first_chain(:,:,i) = -4*K*Sigma_r*Wx*Sigma_r*K' + 4*(-K*mu_r*mu_r'*Wx*Sigma_r*K' - K*Sigma_r*Wx*mu_r*mu_r'*K' ...
+                                -K*mu_r*Yx'*Sigma_r*K'-K*Sigma_r*Wx*mu_r*L'-L*mu_r'*Wx*Sigma_r*K'-K*Sigma_r*Yx*mu_r'*K'-L*Yx'*Sigma_r*K'-K*Sigma_r*Yx*L') ...
+                                +2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
+                                *(-K*(Sigma_r + mu_r*mu_r')*K' - 2*K*mu_r*L' - L*L');
+                            dV_M_Drx_Drx_dq(i,:) = trace(dV_M_Drx_Drx_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                            dV_M_Drx_Drx_dq(i,:) = dV_M_Drx_Drx_dq(i,:) - 2*E_M_Drx_Drx*dE_M_Drx_Drx_dq(i,:);%[double check this part]
+                            dV_M_Drx_Drx_dq(i,:) = dV_M_Drx_Drx_dq(i,:) + 2*jacobian_gradient3(Minv,G*Sigma_r*G',Minv,G*Sigma_r*G',eye(nq)) ...
+                                + 4*jacobian_gradient2(mu_r'*G'+Gc',Minv,G*Sigma_r*G',Minv,G*mu_r+Gc) ...
+                                + 2*(trace(K*Sigma_r*G'*Jg)+mu_r'*Wx*mu_r+2*mu_r'*Yx+L'*Jg'*Gc) ...
+                                *(jacobian_gradient1(Minv,G*Sigma_r*G') + jacobian_gradient(mu_r'*G',Minv,G*mu_r+Gc) ...
+                                + jacobian_gradient(mu_r'*G'+Gc',Minv,Gc));
+                            
+                            dV_M_Drx_Drx_dqdot(i,:) = 0;
+                            
+                            dV_M_Drx_Dry_dq_first_chain(:,:,i) = -K*Sigma_r*(Wxy+Wxy')*Sigma_r*Ky' - Ky*Sigma_r*Wxy*Sigma_r*K' - K*Sigma_r*Wxy*Sigma_r*Ky' ...
+                                -Ky*(mu_r*Oxy'+Oxy*mu_r')*K'-K*(mu_r*Oxy'+Oxy*mu_r')*Ky'-Zy*Oxy'*K'-L*Oxy'*Ky'-K*Oxy*Zy'-Ky*Oxy*L' ...
+                                +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Wxy*mu_r+mu_r'*Qxy+Xxy'*mu_r+Zy'*Jg'*Gc) ...
+                                *(-K*Sigma_r*Ky' - Ky*mu_r*mu_r'*K' - Ky*mu_r*L' - Zy*mu_r'*K' - Zy*L');
+                            dV_M_Drx_Dry_dq(i,:) = trace(dV_M_Drx_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                            dV_M_Drx_Dry_dq(i,:) = dV_M_Drx_Dry_dq(i,:) - 2*E_M_Drx_Dry*dE_M_Drx_Dry_dq(i,:);%[double check this part]
+                            dV_M_Drx_Dry_dq(i,:) = dV_M_Drx_Dry_dq(i,:) + jacobian_gradient3(Minv,Fy*Sigma_r*Fy',Minv,G*Sigma_r*G',eye(nq)) ...
+                                + jacobian_gradient2(mu_r'*Fy'+Fc',Minv,G*Sigma_r*Fy',Minv,G*mu_r+Gc) ...
+                                + jacobian_gradient2(mu_r'*Fy'+Fyc',Minv,G*Sigma_r*G',Minv,Fy*mu_r+Fyc) ...
+                                + jacobian_gradient2(mu_r'*G'+Gc',Minv,Fy*Sigma_r*Fy',Minv,G*mu_r+Gc) ...
+                                + jacobian_gradient2(mu_r'*G'+Gc',Minv,Fy*Sigma_r*G',Minv,Fy*mu_r+Fyc) ...
+                                +2*(trace(Ky*Sigma_r*G'*Jg)+mu_r'*Wxy*mu_r+mu_r'*Qxy+Xxy'*mu_r+Zy'*Jg'*Gc) ...
+                                *(jacobian_gradient1(Minv,Fy*Sigma_r*G') + jacobian_gradient(mu_r'*Fy',Minv,G*mu_r) ...
+                                + jacobian_gradient(mu_r'*Fy',Minv,Gc) + jacobian_gradient(Fyc',Minv,G*mu_r+Gc));
+                            
+                            dV_M_Drx_Dry_dqdot(i,:) = 0;
+                            
+                            dV_M_Dry_Drx_dq(i,:) = dV_M_Drx_Dry_dq(i,:);
+                            dV_M_Dry_Drx_dqdot(i,:) = 0;
+                        end
+                        
+                        dE_M_Drx_nr = [0;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;dE_M_Drx_nr_dq/2;dE_M_Drx_nr_dqdot/2;zeros(3,1);zeros(8,1)];
+                        dE_M_Drx_Drx = [0;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;dE_M_Drx_Drx_dq/2;dE_M_Drx_Drx_dqdot/2;zeros(3,1);zeros(8,1)];
+                        dE_M_Drx_Dry = [0;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;dE_M_Drx_Dry_dq/2;dE_M_Drx_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
+                        dE_M_Dry_Drx = dE_M_Drx_Dry;
+                        
+                        % expectation and covariance of b_v_x
+                        E_b_Drx = (mu_r'*G' + Gc')*J_blk;
+                        V_b_Drx = trace(T*T'*Sigma_r);
+                        
+                        for i=1:nq
+                            dE_b_Drx_dq(i,:) = trace( (-h*(K*mu_r + L)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(K*mu_r + L)'*dCdq(:,i)) ...
+                                + trace(((G*mu_r + Gc)*qdot_blk')'*obj.dJgdq_i);% the last part is dJq/dq
+                            
+                            dE_b_Drx_dqdot(i,:) = - trace( h*(K*mu_r + L)'*dCdqdot(:,i));
+                            
+                            dV_b_Drx_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*T'*Sigma_r*K' -h*K*Sigma_r*T*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
+                                - trace( (2*h*K*Sigma_r*T)'*dCdq(:,i)) + jacobian_gradient(G',qdot_blk*qdot_blk',G*Sigma_r);
+                            dV_b_Drx_dqdot(i,:) = - trace( (2*h*K*Sigma_r*T)'*dCdqdot(:,i));
+                        end
+                        
+                        dE_b_Drx_dh = (mu_r'*G' + Gc')*Jg*Minv*(B*u_prev - C);
+                        dE_b_Drx_du = ((mu_r'*G' + Gc')*Jg*Minv*B*h)';
+                        
+                        dE_b_Drx = [dE_b_Drx_dh;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_dq/2;dE_b_Drx_dqdot/2;dE_b_Drx_du;zeros(8,1)];
+                        
+                        dV_b_Drx_dh = 2*h*trace(G'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*G*Sigma_r) + trace(G'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*G*Sigma_r) ...
+                            + trace(G'*Jg*qdot_prev*(B*u_prev - C)'*Minv*Jg'*G*Sigma_r);
+                        dV_b_Drx_du = 2*(G'*Jg*Minv*B)'*h*Sigma_r*T;
+                        dV_b_Drx = [dV_b_Drx_dh;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_dq/2;dV_b_Drx_dqdot/2;dV_b_Drx_du;zeros(8,1)];
+                        
+                        lambda_n = lambda(1+3*(foot_indx-1));
+                        lambda_tx = lambda(2+3*(foot_indx-1));
+                        lambda_ty = lambda(3+3*(foot_indx-1));
+                        gamma_single = gamma(foot_indx);
+                        lambda_vec = [lambda_n;lambda_tx;lambda_ty;gamma_single];
+                        
+                        E_M_v_x = [h*E_M_Drx_nr, h*E_M_Drx_Drx, h*E_M_Drx_Dry, 1]';
+                        E_Mvx_lambda_plus_bvx = E_M_v_x'*lambda_vec + E_b_Drx;
+                        
+                        dE_M_v_x = [h*dE_M_Drx_nr, h*dE_M_Drx_Drx, h*dE_M_Drx_Dry, zeros(36,1)]';
+                        
+                        % NCP residual, currently assume no smoothing func applied
+                        E_Phi(1+2*(foot_indx-1)) = lambda_tx*E_Mvx_lambda_plus_bvx;
+                        % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                        dE_Phi_dh(1+2*(foot_indx-1)) = lambda_tx*(E_M_v_x'*lambda_vec/h + dE_b_Drx_dh);% the last part is dE_b_Drx/dh
+                        dE_Phi_dq0(:,1+2*(foot_indx-1)) = lambda_tx*h*(dE_M_Drx_nr_dq*lambda_n+dE_M_Drx_Drx_dq*lambda_tx+dE_M_Drx_Dry_dq*lambda_ty)/2 + lambda_tx*dE_b_Drx_dq/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                        dE_Phi_dv0(:,1+2*(foot_indx-1)) = lambda_tx*h*(dE_M_Drx_nr_dqdot*lambda_n+dE_M_Drx_Drx_dqdot*lambda_tx+dE_M_Drx_Dry_dqdot*lambda_ty)/2 + lambda_tx*dE_b_Drx_dqdot/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                        dE_Phi_dq1(:,1+2*(foot_indx-1)) = dE_Phi_dq0(:,1+2*(foot_indx-1));
+                        dE_Phi_dv1(:,1+2*(foot_indx-1)) = dE_Phi_dv0(:,1+2*(foot_indx-1));
+                        dE_Phi_du(:,1+2*(foot_indx-1)) = lambda_tx*dE_b_Drx_du;
+                        dE_Phi_dlambda_n(1+2*(foot_indx-1)) = lambda_tx*h*E_M_Drx_nr;
+                        dE_Phi_dlambda_tx(1+2*(foot_indx-1)) = E_Mvx_lambda_plus_bvx + h*E_M_Drx_Drx*lambda_tx;
+                        dE_Phi_dlambda_ty(1+2*(foot_indx-1)) = lambda_tx*h*E_M_Drx_Dry;
+                        dE_Phi_dgamma(1+2*(foot_indx-1)) = lambda_tx;
+                        
+                        if(foot_indx == 1)
+                            dE_Phi(:,1) = [dE_Phi_dh(1); dE_Phi_dq0(:,1); dE_Phi_dv0(:,1); dE_Phi_dq1(:,1); dE_Phi_dv1(:,1); dE_Phi_du(:,1);dE_Phi_dlambda_n(1); ...
+                                dE_Phi_dlambda_tx(1);dE_Phi_dlambda_ty(1);zeros(3,1);dE_Phi_dgamma(1);0];
+                        elseif(foot_indx == 2)
+                            dE_Phi(:,3) = [dE_Phi_dh(3); dE_Phi_dq0(:,3); dE_Phi_dv0(:,3); dE_Phi_dq1(:,3); dE_Phi_dv1(:,3); dE_Phi_du(:,3);zeros(3,1); ...
+                                dE_Phi_dlambda_n(3);dE_Phi_dlambda_tx(3);dE_Phi_dlambda_ty(3);0;dE_Phi_dgamma(3)];
+                        end
+                        
+                        %--------------- third LCP condition ---------------%
+                        % expectation and covariance of M_v_y
+                        E_M_Dry_nr = trace(Vy*Sigma_r) + mu_r'*Vy*mu_r + Z'*Jg'*(Fy*mu_r + Fyc) + mu_r'*U'*Jg'*Fyc;
+                        E_M_Dry_Dry = trace(Wy*Sigma_r) + mu_r'*Wy*mu_r + Ly'*Jg'*(2*Fy*mu_r+Fyc);
+                        
+                        for i=1:nq
+                            % expectation derivative w.r.t q and qdot
+                            dE_M_Dry_nr_dq(i,:) = trace( (-Minv*Jg'*(F*(Sigma_r + mu_r*mu_r')*Fy' + Fc*(Fy*mu_r + Fyc)' + F*mu_r*Fyc')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                + jacobian_gradient(F',Minv,Fy*Sigma_r) + jacobian_gradient(mu_r'*F',Minv,Fy*mu_r) ...
+                                + jacobian_gradient(Fc',Minv,Fy*mu_r + Fyc) + jacobian_gradient(mu_r'*F',Minv,Fyc);
+                            dE_M_Dry_nr_dqdot(i,:) = 0;
+                            
+                            dE_M_Dry_Dry_dq(i,:) = trace( (-Minv*Jg'*(Fy*(Sigma_r + mu_r*mu_r')*Fy' + Fyc*(2*Fy*mu_r + Fyc)')*Jg*Minv)'*dMdq(:,:,i) ) ...
+                                + jacobian_gradient(Fy',Minv,Fy*Sigma_r) + jacobian_gradient(mu_r'*Fy',Minv,Fy*mu_r) ...
+                                + jacobian_gradient(Fyc',Minv,2*Fy*mu_r+Fyc);
+                            dE_M_Dry_Dry_dqdot(i,:) = 0;
+                            
+                            % covariance derivative w.r.t q and qdot
+                            dV_M_Dry_nr_dq_first_chain(:,:,i) = -Ky*Sigma_r*(Vy+Vy')*Sigma_r*U' - U*Sigma_r*Vy*Sigma_r*Ky' - Ky*Sigma_r*Vy*Sigma_r*U' ...
+                                -U*(mu_r*Oy'+Oy*mu_r')*Ky'-Ky*(mu_r*Oy'+Oy*mu_r')*U'-Z*Oy'*Ky'-Ly*Oy'*U'-Ky*Oy*Z'-U*Oy*Ly' ...
+                                +2*(trace(U*Sigma_r*Fy'*Jg)+mu_r'*Vy*mu_r+mu_r'*Qy+Xy'*mu_r+Z'*Jg'*Fyc) ...
+                                *(-Ky*Sigma_r*U' - U*mu_r*mu_r'*Ky' - U*mu_r*Ly' - Z*mu_r'*Ky' - Z*Ly');
+                            dV_M_Dry_nr_dq_first_chain(:,:,i) = dV_M_Dry_nr_dq_first_chain(:,:,i)';% transponse due to that the equation above is derived based on dV_M_nr_Dry
+                            dV_M_Dry_nr_dq(i,:) = trace(dV_M_Dry_nr_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                            dV_M_Dry_nr_dq(i,:) = dV_M_Dry_nr_dq(i,:) - 2*E_M_Dry_nr*dE_M_Dry_nr_dq(i,:);%[double check this part]
+                            dV_M_Dry_nr_dq(i,:) = dV_M_Dry_nr_dq(i,:) + jacobian_gradient3(Minv,F*Sigma_r*F',Minv,Fy*Sigma_r*Fy',eye(nq)) ...
+                                + jacobian_gradient2(mu_r'*F'+Fc',Minv,Fy*Sigma_r*F',Minv,Fy*mu_r+Fyc) ...
+                                + jacobian_gradient2(mu_r'*F'+Fc',Minv,Fy*Sigma_r*Fy',Minv,F*mu_r+Fc) ...
+                                + jacobian_gradient2(mu_r'*Fy'+Fyc',Minv,F*Sigma_r*F',Minv,Fy*mu_r+Fyc) ...
+                                + jacobian_gradient2(mu_r'*Fy'+Fyc',Minv,F*Sigma_r*Fy',Minv,F*mu_r+Fc) ...
+                                +2*(trace(U*Sigma_r*Fy'*Jg)+mu_r'*Vy*mu_r+mu_r'*Qy+Xy'*mu_r+Z'*Jg'*Fyc) ...
+                                *(jacobian_gradient1(Minv,F*Sigma_r*Fy') + jacobian_gradient(mu_r'*F',Minv,Fy*mu_r) ...
+                                + jacobian_gradient(mu_r'*F',Minv,Fyc) + jacobian_gradient(Fc',Minv,Fy*mu_r+Fyc));
+                            
+                            dV_M_Dry_nr_dqdot(i,:) = 0;
+                            
+                            dV_M_Dry_Dry_dq_first_chain(:,:,i) = -4*Ky*Sigma_r*Wy*Sigma_r*Ky' + 4*(-Ky*mu_r*mu_r'*Wy*Sigma_r*Ky' - Ky*Sigma_r*Wy*mu_r*mu_r'*Ky' ...
+                                -Ky*mu_r*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Wy*mu_r*Ly'-Ly*mu_r'*Wy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*mu_r'*Ky'-Ly*Yy'*Sigma_r*Ky'-Ky*Sigma_r*Yy*Ly') ...
+                                +2*(trace(Ky*Sigma_r*Fy'*Jg)+mu_r'*Wy*mu_r+2*mu_r'*Yy+Ly'*Jg'*Fyc) ...
+                                *(-Ky*(Sigma_r + mu_r*mu_r')*Ky' - 2*Ky*mu_r*Ly' - Ly*Ly');
+                            dV_M_Dry_Dry_dq(i,:) = trace(dV_M_Dry_Dry_dq_first_chain(:,:,i)'*dMdq(:,:,i));
+                            dV_M_Dry_Dry_dq(i,:) = dV_M_Dry_Dry_dq(i,:) - 2*E_M_Dry_Dry*dE_M_Dry_Dry_dq(i,:);%[double check this part]
+                            dV_M_Dry_Dry_dq(i,:) = dV_M_Dry_Dry_dq(i,:) + 2*jacobian_gradient3(Minv,Fy*Sigma_r*Fy',Minv,Fy*Sigma_r*Fy',eye(nq)) ...
+                                + 4*jacobian_gradient2(mu_r'*Fy'+Fyc',Minv,Fy*Sigma_r*Fy',Minv,Fy*mu_r+Fyc) ...
+                                + 2*(trace(Ky*Sigma_r*Fy'*Jg)+mu_r'*Wy*mu_r+2*mu_r'*Yy+Ly'*Jg'*Fyc) ...
+                                *(jacobian_gradient1(Minv,Fy*Sigma_r*Fy') + jacobian_gradient(mu_r'*Fy',Minv,Fy*mu_r+Fyc) ...
+                                + jacobian_gradient(mu_r'*Fy'+Fyc',Minv,Fyc));
+                            
+                            dV_M_Dry_Dry_dqdot(i,:) = 0;
+                        end
+                        
+                        %[h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                        dE_M_Dry_nr = [0;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;dE_M_Dry_nr_dq/2;dE_M_Dry_nr_dqdot/2;zeros(3,1);zeros(8,1)];
+                        dE_M_Dry_Dry = [0;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;dE_M_Dry_Dry_dq/2;dE_M_Dry_Dry_dqdot/2;zeros(3,1);zeros(8,1)];
+                        
+                        % expectation and covariance of b_v_y
+                        E_b_Dry = (mu_r'*Fy' + Fyc')*J_blk;
+                        V_b_Dry = trace(Ty*Ty'*Sigma_r);
+                        
+                        for i=1:nq
+                            dE_b_Dry_dq(i,:) = trace( (-h*(Ky*mu_r + Ly)*(B*u_prev - C)'*Minv)'*dMdq(:,:,i) ) - trace( h*(Ky*mu_r + Ly)'*dCdq(:,i)) ...
+                                + trace(((Fy*mu_r + Fyc)*qdot_blk')'*obj.dJgdq_i);% the last part is dJq/dq;
+                            dE_b_Dry_dqdot(i,:) = - trace( h*(Ky*mu_r + Ly)'*dCdqdot(:,i));
+                            
+                            dV_b_Dry_dq(i,:) = trace( (-h*Minv*(B*u_prev - C)*Ty'*Sigma_r*Ky' -h*Ky*Sigma_r*Ty*(B*u_prev - C)'*Minv)'*dMdq(:,:,i)) ...
+                                - trace( (2*h*Ky*Sigma_r*Ty)'*dCdq(:,i)) + jacobian_gradient(Fy',qdot_blk*qdot_blk',Fy*Sigma_r);
+                            dV_b_Dry_dqdot(i,:) = - trace( (2*h*Ky*Sigma_r*Ty)'*dCdqdot(:,i));
+                        end
+                        dE_b_Dry_dh = (mu_r'*Fy' + Fyc')*Jg*Minv*(B*u_prev - C);
+                        dE_b_Dry_du = ((mu_r'*Fy' + Fyc')*Jg*Minv*B*h)';
+                        
+                        dE_b_Dry = [dE_b_Dry_dh;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_dq/2;dE_b_Dry_dqdot/2;dE_b_Dry_du;zeros(8,1)];
+                        
+                        dV_b_Dry_dh = 2*h*trace(Fy'*Jg*Minv*(B*u_prev - C)*(B*u_prev - C)'*Minv*Jg'*Fy*Sigma_r) + trace(Fy'*Jg*Minv*(B*u_prev - C)*qdot_prev'*Jg'*Fy*Sigma_r) ...
+                            + trace(Fy'*Jg*qdot_prev*(B*u_prev - C)'*Minv*Jg'*Fy*Sigma_r);
+                        dV_b_Dry_du = 2*(Fy'*Jg*Minv*B)'*h*Sigma_r*Ty;
+                        dV_b_Dry = [dV_b_Dry_dh;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_dq/2;dV_b_Dry_dqdot/2;dV_b_Dry_du;zeros(8,1)];
+                        
+                        % vectrozie expectation components
+                        E_M_v_y = [h*E_M_Dry_nr, h*E_M_Dry_Drx, h*E_M_Dry_Dry, 1]';
+                        E_Mvy_lambda_plus_bvy = E_M_v_y'*lambda_vec + E_b_Dry;
+                        
+                        dE_M_v_y = [h*dE_M_Dry_nr, h*dE_M_Dry_Drx, h*dE_M_Dry_Dry, zeros(36,1)]';
+                        
+                        % NCP residual, currently assume no smoothing func applied
+                        E_Phi(2+2*(foot_indx-1)) = lambda_ty*E_Mvy_lambda_plus_bvy;
+                        % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                        dE_Phi_dh(2+2*(foot_indx-1)) = lambda_ty*(E_M_v_y'*lambda_vec/h + dE_b_Dry_dh);% the last part is dE_b_Dry/dh
+                        dE_Phi_dq0(:,2+2*(foot_indx-1)) = lambda_ty*h*(dE_M_Dry_nr_dq*lambda_n+dE_M_Dry_Drx_dq*lambda_tx+dE_M_Dry_Dry_dq*lambda_ty)/2 + lambda_ty*dE_b_Dry_dq/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                        dE_Phi_dv0(:,2+2*(foot_indx-1)) = lambda_ty*h*(dE_M_Dry_nr_dqdot*lambda_n+dE_M_Dry_Drx_dqdot*lambda_tx+dE_M_Dry_Dry_dqdot*lambda_ty)/2 + lambda_ty*dE_b_Dry_dqdot/2;% the last 1/2 is due to d((q0+q1)/2)/dq0
+                        dE_Phi_dq1(:,2+2*(foot_indx-1)) = dE_Phi_dq0(:,2+2*(foot_indx-1));
+                        dE_Phi_dv1(:,2+2*(foot_indx-1)) = dE_Phi_dv0(:,2+2*(foot_indx-1));
+                        dE_Phi_du(:,2+2*(foot_indx-1)) = lambda_ty*dE_b_Dry_du;
+                        dE_Phi_dlambda_n(2+2*(foot_indx-1)) = lambda_ty*h*E_M_Dry_nr;
+                        dE_Phi_dlambda_tx(2+2*(foot_indx-1)) = lambda_ty*h*E_M_Dry_Drx;
+                        dE_Phi_dlambda_ty(2+2*(foot_indx-1)) = E_Mvy_lambda_plus_bvy + lambda_ty*h*E_M_Dry_Dry;
+                        dE_Phi_dgamma(2+2*(foot_indx-1)) = lambda_ty;
+                        
+                        if(foot_indx == 1)
+                            dE_Phi(:,2) = [dE_Phi_dh(2); dE_Phi_dq0(:,2); dE_Phi_dv0(:,2); dE_Phi_dq1(:,2); dE_Phi_dv1(:,2); dE_Phi_du(:,2);dE_Phi_dlambda_n(2); ...
+                                dE_Phi_dlambda_tx(2);dE_Phi_dlambda_ty(2);zeros(3,1);dE_Phi_dgamma(2);0];
+                        elseif(foot_indx == 2)
+                            dE_Phi(:,4) = [dE_Phi_dh(4); dE_Phi_dq0(:,4); dE_Phi_dv0(:,4); dE_Phi_dq1(:,4); dE_Phi_dv1(:,4); dE_Phi_du(:,4);zeros(3,1); ...
+                                dE_Phi_dlambda_n(4);dE_Phi_dlambda_tx(4);dE_Phi_dlambda_ty(4);0;dE_Phi_dgamma(4)];
+                        end
+                        
+                        % LCP variance matrix of V_Mvx_lambda_plus_bvx
+                        %fourth order expectation
+                        [E_xnxn,dE_xnxn_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,F,Fc);
+                        [E_xnxx,dE_xnxx_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,G,Gc);
+                        [E_xnxy,dE_xnxy_dq] = expectation_fourth_order_multiply(G,Gc,F,Fc,G,Gc,H,Hc);
+                        
+                        [E_xxxn,dE_xxxn_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,F,Fc);
+                        [E_xxxx,dE_xxxx_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,G,Gc);
+                        [E_xxxy,dE_xxxy_dq] = expectation_fourth_order_multiply(G,Gc,G,Gc,G,Gc,H,Hc);
+                        
+                        [E_xyxn,dE_xyxn_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,F,Fc);
+                        [E_xyxx,dE_xyxx_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,G,Gc);
+                        [E_xyxy,dE_xyxy_dq] = expectation_fourth_order_multiply(G,Gc,H,Hc,G,Gc,H,Hc);
+                        
+                        E_Mvx_lambda_lambda_Mvx_quad = h^2*(E_xnxn*lambda_n^2 + E_xnxx*lambda_n*lambda_tx + E_xnxy*lambda_n*lambda_ty ...
+                            + E_xxxn*lambda_tx*lambda_n + E_xxxx*lambda_tx^2 + E_xxxy*lambda_tx*lambda_ty ...
+                            + E_xyxn*lambda_ty*lambda_n + E_xyxx*lambda_ty*lambda_tx + E_xyxy*lambda_ty^2);
+                        E_Mvx_lambda_lambda_Mvx_linear = 2*h*E_M_Drx_nr*lambda_n*gamma_single + 2*h*E_M_Drx_Drx*lambda_tx*gamma_single ...
+                            + 2*h*E_M_Drx_Dry*lambda_ty*gamma_single + gamma_single^2;
+                        E_Mvx_lambda_lambda_Mvx = E_Mvx_lambda_lambda_Mvx_quad + E_Mvx_lambda_lambda_Mvx_linear;
+                        
+                        % computing derivative of E_Mvx_lambda_lambda_Mvx
+                        dE_Mvx_lambda_lambda_Mvx_dh = 2*E_Mvx_lambda_lambda_Mvx_quad/h + (E_Mvx_lambda_lambda_Mvx_linear-gamma_single^2)/h;
+                        dE_Mvx_lambda_lambda_Mvx_dq0 = h^2/2*(dE_xnxn_dq*lambda_n^2 + dE_xnxx_dq*lambda_n*lambda_tx + dE_xnxy_dq*lambda_n*lambda_ty ...
+                            + dE_xxxn_dq*lambda_tx*lambda_n + dE_xxxx_dq*lambda_tx^2 + dE_xxxy_dq*lambda_tx*lambda_ty ...
+                            + dE_xyxn_dq*lambda_ty*lambda_n + dE_xyxx_dq*lambda_ty*lambda_tx + dE_xyxy_dq*lambda_ty^2) + h*dE_M_Drx_nr_dq*lambda_n*gamma_single ...
+                            + h*dE_M_Drx_Drx_dq*lambda_tx*gamma_single + h*dE_M_Drx_Dry_dq*lambda_ty*gamma_single;
+                        dE_Mvx_lambda_lambda_Mvx_dv0 = zeros(nv,1);
+                        dE_Mvx_lambda_lambda_Mvx_dq1 = dE_Mvx_lambda_lambda_Mvx_dq0;
+                        dE_Mvx_lambda_lambda_Mvx_dv1 = zeros(nv,1);
+                        dE_Mvx_lambda_lambda_Mvx_du = zeros(nu,1);
+                        dE_Mvx_lambda_lambda_Mvx_dlambda_n = h^2*(2*E_xnxn*lambda_n + E_xnxx*lambda_tx + E_xnxy*lambda_ty + E_xxxn*lambda_tx + E_xyxn*lambda_ty) ...
+                            + 2*h*E_M_Drx_nr*gamma_single;
+                        dE_Mvx_lambda_lambda_Mvx_dlambda_tx = h^2*(E_xnxx*lambda_n + E_xxxn*lambda_n + 2*E_xxxx*lambda_tx + E_xxxy*lambda_ty + E_xyxx*lambda_ty) ...
+                            + 2*h*E_M_Drx_Drx*gamma_single;
+                        dE_Mvx_lambda_lambda_Mvx_dlambda_ty = h^2*(E_xnxy*lambda_n + E_xxxy*lambda_tx + E_xyxn*lambda_n + E_xyxx*lambda_tx + 2* E_xyxy*lambda_ty) ...
+                            + 2*h*E_M_Drx_Dry*gamma_single;
+                        dE_Mvx_lambda_lambda_Mvx_dgamma = 2*h*E_M_Drx_nr*lambda_n + 2*h*E_M_Drx_Drx*lambda_tx ...
+                            + 2*h*E_M_Drx_Dry*lambda_ty + 2*gamma_single;
+                        
+                        if(foot_indx == 1)
+                            dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
+                                dE_Mvx_lambda_lambda_Mvx_dv1;dE_Mvx_lambda_lambda_Mvx_du;dE_Mvx_lambda_lambda_Mvx_dlambda_n;dE_Mvx_lambda_lambda_Mvx_dlambda_tx; ...
+                                dE_Mvx_lambda_lambda_Mvx_dlambda_ty;zeros(3,1);dE_Mvx_lambda_lambda_Mvx_dgamma;0];
+                        elseif(foot_indx == 2)
+                            dE_Mvx_lambda_lambda_Mvx = [dE_Mvx_lambda_lambda_Mvx_dh;dE_Mvx_lambda_lambda_Mvx_dq0;dE_Mvx_lambda_lambda_Mvx_dv0;dE_Mvx_lambda_lambda_Mvx_dq1; ...
+                                dE_Mvx_lambda_lambda_Mvx_dv1;dE_Mvx_lambda_lambda_Mvx_du;zeros(3,1);dE_Mvx_lambda_lambda_Mvx_dlambda_n; ...
+                                dE_Mvx_lambda_lambda_Mvx_dlambda_tx;dE_Mvx_lambda_lambda_Mvx_dlambda_ty;0;dE_Mvx_lambda_lambda_Mvx_dgamma];
+                        end
+                        
+                        %cov(M_{v,x}^T,b_{v,x}) = E[(M_{v,x}^T - E(M_{v,x}^T))(b_{v,x}-E(b_{v,x}))] = E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}];
+                        % E[M_{v,x}^T*b_{v,x}]
+                        [E_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_nr_Drx_dq,dE_Mvx_bvx_Drx_nr_Drx_dqdot,dE_Mvx_bvx_Drx_nr_Drx_dh,dE_Mvx_bvx_Drx_nr_Drx_du] = expectation_third_order_multiply(G,Gc,F,Fc,G,Gc);
+                        [E_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Drx_Drx_dq,dE_Mvx_bvx_Drx_Drx_Drx_dqdot,dE_Mvx_bvx_Drx_Drx_Drx_dh,dE_Mvx_bvx_Drx_Drx_Drx_du] = expectation_third_order_multiply(G,Gc,G,Gc,G,Gc);
+                        [E_Mvx_bvx_Drx_Dry_Drx,dE_Mvx_bvx_Drx_Dry_Drx_dq,dE_Mvx_bvx_Drx_Dry_Drx_dqdot,dE_Mvx_bvx_Drx_Dry_Drx_dh,dE_Mvx_bvx_Drx_Dry_Drx_du] = expectation_third_order_multiply(G,Gc,Fy,Fyc,G,Gc);
+                        E_Mvx_bvx = [E_Mvx_bvx_Drx_nr_Drx;E_Mvx_bvx_Drx_Drx_Drx;E_Mvx_bvx_Drx_Dry_Drx;E_b_Drx];
+                        
+                        dE_Mvx_bvx_Drx_nr_Drx = [dE_Mvx_bvx_Drx_nr_Drx_dh;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_dq/2;dE_Mvx_bvx_Drx_nr_Drx_dqdot/2;dE_Mvx_bvx_Drx_nr_Drx_du;zeros(8,1)];
+                        dE_Mvx_bvx_Drx_Drx_Drx = [dE_Mvx_bvx_Drx_Drx_Drx_dh;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_dq/2;dE_Mvx_bvx_Drx_Drx_Drx_dqdot/2;dE_Mvx_bvx_Drx_Drx_Drx_du;zeros(8,1)];
+                        dE_Mvx_bvx_Drx_Dry_Drx = [dE_Mvx_bvx_Drx_Dry_Drx_dh;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_dq/2;dE_Mvx_bvx_Drx_Dry_Drx_dqdot/2;dE_Mvx_bvx_Drx_Dry_Drx_du;zeros(8,1)];
+                        
+                        dE_Mvx_bvx = [dE_Mvx_bvx_Drx_nr_Drx,dE_Mvx_bvx_Drx_Drx_Drx,dE_Mvx_bvx_Drx_Dry_Drx,dE_b_Drx]';
+                        
+                        %  V[M_{v,x}*lambda+b_{v,x}] = V[M_{v,x}*lambda] + cov(M_{v,x}*lambda,b_{v,x}) + cov(b_{v,x},M_{v,x}*lambda) + V[b_{v,x}]
+                        % = V[M_{v,x}*lambda] + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
+                        % = E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*cov(M_{v,x}^T,b_{v,x}) + V[b_{v,x}]
+                        % = E[M_{v,x}*lambda*lambda^T*M_{v,x}^T] - (E[M_{v,x}*lambda])^2 + 2*lambda^T*(E[M_{v,x}^T*b_{v,x}] - E[M_{v,x}^T]*E[b_{v,x}]) + V[b_{v,x}]
+                        V_Mvx_lambda_plus_bvx = E_Mvx_lambda_lambda_Mvx - (E_M_v_x'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvx_bvx - E_M_v_x*E_b_Drx) + V_b_Drx;%[double check]
+                        
+                        V_Phi(1+2*(foot_indx-1)) = lambda_tx^2*V_Mvx_lambda_plus_bvx;
+                        % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                        dV_Phi(:,1+2*(foot_indx-1)) = lambda_tx^2*(dE_Mvx_lambda_lambda_Mvx - 2*(E_M_v_x'*lambda_vec)*(dE_M_v_x'*lambda_vec) + (2*lambda_vec'*dE_Mvx_bvx)' - 2*lambda_vec'*E_M_v_x*dE_b_Drx ...
+                            -(2*lambda_vec'*dE_M_v_x*E_b_Drx)' + dV_b_Drx);
+                        
+                        % LCP variance matrix of V_Mvy_lambda_plus_bvy
+                        %fourth order expectation
+                        [E_ynyn,dE_ynyn_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,F,Fc);
+                        [E_ynyx,dE_ynyx_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,G,Gc);
+                        [E_ynyy,dE_ynyy_dq] = expectation_fourth_order_multiply(H,Hc,F,Fc,H,Hc,H,Hc);
+                        
+                        [E_yxyn,dE_yxyn_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,F,Fc);
+                        [E_yxyx,dE_yxyx_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,G,Gc);
+                        [E_yxyy,dE_yxyy_dq] = expectation_fourth_order_multiply(H,Hc,G,Gc,H,Hc,H,Hc);
+                        
+                        [E_yyyn,dE_yyyn_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,F,Fc);
+                        [E_yyyx,dE_yyyx_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,G,Gc);
+                        [E_yyyy,dE_yyyy_dq] = expectation_fourth_order_multiply(H,Hc,H,Hc,H,Hc,H,Hc);
+                        
+                        % computing E_Mvy_lambda_lambda_Mvy
+                        E_Mvy_lambda_lambda_Mvy_quad = h^2*(E_ynyn*lambda_n^2 + E_ynyx*lambda_n*lambda_tx + E_ynyy*lambda_n*lambda_ty ...
+                            + E_yxyn*lambda_tx*lambda_n + E_yxyx*lambda_tx^2 + E_yxyy*lambda_tx*lambda_ty ...
+                            + E_yyyn*lambda_ty*lambda_n + E_yyyx*lambda_ty*lambda_tx + E_yyyy*lambda_ty^2);
+                        E_Mvy_lambda_lambda_Mvy_linear = 2*h*E_M_Dry_nr*lambda_n*gamma_single + 2*h*E_M_Dry_Drx*lambda_tx*gamma_single ...
+                            + 2*h*E_M_Dry_Dry*lambda_ty*gamma_single + gamma_single^2;
+                        E_Mvy_lambda_lambda_Mvy = E_Mvy_lambda_lambda_Mvy_quad + E_Mvy_lambda_lambda_Mvy_linear;
+                        
+                        % computing derivative of E_Mvy_lambda_lambda_Mvy
+                        dE_Mvy_lambda_lambda_Mvy_dh = 2*E_Mvy_lambda_lambda_Mvy_quad/h + (E_Mvy_lambda_lambda_Mvy_linear-gamma_single^2)/h;
+                        dE_Mvy_lambda_lambda_Mvy_dq0 = h^2/2*(dE_ynyn_dq*lambda_n^2 + dE_ynyx_dq*lambda_n*lambda_tx + dE_ynyy_dq*lambda_n*lambda_ty ...
+                            + dE_yxyn_dq*lambda_tx*lambda_n + dE_yxyx_dq*lambda_tx^2 + dE_yxyy_dq*lambda_tx*lambda_ty ...
+                            + dE_yyyn_dq*lambda_ty*lambda_n + dE_yyyx_dq*lambda_ty*lambda_tx + dE_yyyy_dq*lambda_ty^2) + h*dE_M_Dry_nr_dq*lambda_n*gamma_single ...
+                            + h*dE_M_Dry_Drx_dq*lambda_tx*gamma_single + h*dE_M_Dry_Dry_dq*lambda_ty*gamma_single;
+                        dE_Mvy_lambda_lambda_Mvy_dv0 = zeros(nv,1);
+                        dE_Mvy_lambda_lambda_Mvy_dq1 = dE_Mvy_lambda_lambda_Mvy_dq0;
+                        dE_Mvy_lambda_lambda_Mvy_dv1 = zeros(nv,1);
+                        dE_Mvy_lambda_lambda_Mvy_du = zeros(nu,1);
+                        dE_Mvy_lambda_lambda_Mvy_dlambda_n = h^2*(2*E_ynyn*lambda_n + E_ynyx*lambda_tx + E_ynyy*lambda_ty + E_yxyn*lambda_tx + E_yyyn*lambda_ty) ...
+                            + 2*h*E_M_Dry_nr*gamma_single;
+                        dE_Mvy_lambda_lambda_Mvy_dlambda_tx = h^2*(E_ynyx*lambda_n + E_yxyn*lambda_n + 2*E_yxyx*lambda_tx + E_yxyy*lambda_ty + E_yyyx*lambda_ty) ...
+                            + 2*h*E_M_Dry_Drx*gamma_single;
+                        dE_Mvy_lambda_lambda_Mvy_dlambda_ty = h^2*(E_ynyy*lambda_n + E_yxyy*lambda_tx + E_yyyn*lambda_n + E_yyyx*lambda_tx + 2* E_yyyy*lambda_ty) ...
+                            + 2*h*E_M_Dry_Dry*gamma_single;
+                        dE_Mvy_lambda_lambda_Mvy_dgamma = 2*h*E_M_Dry_nr*lambda_n + 2*h*E_M_Dry_Drx*lambda_tx ...
+                            + 2*h*E_M_Dry_Dry*lambda_ty + 2*gamma_single;
+                        
+                        if(foot_indx == 1)
+                            dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
+                                dE_Mvy_lambda_lambda_Mvy_dv1;dE_Mvy_lambda_lambda_Mvy_du;dE_Mvy_lambda_lambda_Mvy_dlambda_n; ...
+                                dE_Mvy_lambda_lambda_Mvy_dlambda_tx;dE_Mvy_lambda_lambda_Mvy_dlambda_ty;zeros(3,1);dE_Mvy_lambda_lambda_Mvy_dgamma;0];
+                        elseif(foot_indx == 2)
+                            dE_Mvy_lambda_lambda_Mvy = [dE_Mvy_lambda_lambda_Mvy_dh;dE_Mvy_lambda_lambda_Mvy_dq0;dE_Mvy_lambda_lambda_Mvy_dv0;dE_Mvy_lambda_lambda_Mvy_dq1; ...
+                                dE_Mvy_lambda_lambda_Mvy_dv1;dE_Mvy_lambda_lambda_Mvy_du;zeros(3,1);dE_Mvy_lambda_lambda_Mvy_dlambda_n; ...
+                                dE_Mvy_lambda_lambda_Mvy_dlambda_tx;dE_Mvy_lambda_lambda_Mvy_dlambda_ty;0;dE_Mvy_lambda_lambda_Mvy_dgamma];
+                        end
+                        %Computing cov(M_{v,y}^T,b_{v,y}) = E[(M_{v,y}^T - E(M_{v,y}^T))(b_{v,y}-E(b_{v,y}))] = E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}];
+                        
+                        % E[M_{v,y}^T*b_{v,y}]
+                        [E_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_nr_Dry_dq,dE_Mvy_bvy_Dry_nr_Dry_dqdot,dE_Mvy_bvy_Dry_nr_Dry_dh,dE_Mvy_bvy_Dry_nr_Dry_du] = expectation_third_order_multiply(H,Hc,F,Fc,H,Hc);
+                        [E_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Drx_Dry_dq,dE_Mvy_bvy_Dry_Drx_Dry_dqdot,dE_Mvy_bvy_Dry_Drx_Dry_dh,dE_Mvy_bvy_Dry_Drx_Dry_du] = expectation_third_order_multiply(H,Hc,G,Gc,H,Hc);
+                        [E_Mvy_bvy_Dry_Dry_Dry,dE_Mvy_bvy_Dry_Dry_Dry_dq,dE_Mvy_bvy_Dry_Dry_Dry_dqdot,dE_Mvy_bvy_Dry_Dry_Dry_dh,dE_Mvy_bvy_Dry_Dry_Dry_du] = expectation_third_order_multiply(H,Hc,H,Hc,H,Hc);
+                        E_Mvy_bvy = [E_Mvy_bvy_Dry_nr_Dry;E_Mvy_bvy_Dry_Drx_Dry;E_Mvy_bvy_Dry_Dry_Dry;E_b_Dry];
+                        
+                        dE_Mvy_bvy_Dry_nr_Dry = [dE_Mvy_bvy_Dry_nr_Dry_dh;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_dq/2;dE_Mvy_bvy_Dry_nr_Dry_dqdot/2;dE_Mvy_bvy_Dry_nr_Dry_du;zeros(8,1)];
+                        dE_Mvy_bvy_Dry_Drx_Dry = [dE_Mvy_bvy_Dry_Drx_Dry_dh;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_dq/2;dE_Mvy_bvy_Dry_Drx_Dry_dqdot/2;dE_Mvy_bvy_Dry_Drx_Dry_du;zeros(8,1)];
+                        dE_Mvy_bvy_Dry_Dry_Dry = [dE_Mvy_bvy_Dry_Dry_Dry_dh;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_dq/2;dE_Mvy_bvy_Dry_Dry_Dry_dqdot/2;dE_Mvy_bvy_Dry_Dry_Dry_du;zeros(8,1)];
+                        
+                        dE_Mvy_bvy = [dE_Mvy_bvy_Dry_nr_Dry,dE_Mvy_bvy_Dry_Drx_Dry,dE_Mvy_bvy_Dry_Dry_Dry,dE_b_Dry]';
+                        
+                        %  V[M_{v,y}*lambda+b_{v,y}] = V[M_{v,y}*lambda] + cov(M_{v,y}*lambda,b_{v,y}) + cov(b_{v,y},M_{v,y}*lambda) + V[b_{v,y}]
+                        % = V[M_{v,y}*lambda] + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
+                        % = E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*cov(M_{v,y}^T,b_{v,y}) + V[b_{v,y}]
+                        % = E[M_{v,y}*lambda*lambda^T*M_{v,y}^T] - (E[M_{v,y}*lambda])^2 + 2*lambda^T*(E[M_{v,y}^T*b_{v,y}] - E[M_{v,y}^T]*E[b_{v,y}]) + V[b_{v,y}]
+                        V_Mvy_lambda_plus_bvy = E_Mvy_lambda_lambda_Mvy - (E_M_v_y'*lambda_vec)^2 + 2*lambda_vec'*(E_Mvy_bvy - E_M_v_y*E_b_Dry) + V_b_Dry;
+                        
+                        V_Phi(2+2*(foot_indx-1)) = lambda_ty^2*V_Mvy_lambda_plus_bvy;
+                        % derivative w.r.t [h;q0;q0dot;q1;q1dot;u;lambda_n;lambda_tx;lambda_ty;gamma]
+                        dV_Phi(:,2+2*(foot_indx-1)) = lambda_ty^2*(dE_Mvy_lambda_lambda_Mvy - 2*(E_M_v_y'*lambda_vec)*(dE_M_v_y'*lambda_vec) + (2*lambda_vec'*dE_Mvy_bvy)' - 2*lambda_vec'*E_M_v_y*dE_b_Dry ...
+                            -(2*lambda_vec'*dE_M_v_y*E_b_Dry)'+ dV_b_Dry);
+                    end
+                    
+                    delta = 10^7;% coefficient
+                    f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
+                    df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
+                    %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
+                
+%                     persistent sliding_LCP_ERM_NCP_residual
+%                     sliding_LCP_ERM_NCP_residual = [sliding_LCP_ERM_NCP_residual, f/(delta/2)];
+%                     if length(sliding_LCP_ERM_NCP_residual) == obj.N-1
+%                         sliding_LCP_ERM_NCP_residual
+%                         sliding_LCP_ERM_NCP_residual = [];
+%                     end
+                    
+                    % obj.verbose_print = 1;
+                    % if obj.verbose_print == 1
+                    %     disp('ERM NCP residual square');
+                    %     f
+                    % end
+                    
+                    %% debugging
+                    %------- begin comparison ----------
+                    % a comparison test between probabilistic expectation and distribution-free Phi
+                    v1_est = v0 + Minv*(B*u_prev - C + D{1}'*[lambda(2);lambda(5)] + D{2}'*[lambda(3);lambda(6)] + n'*[lambda(1);lambda(4)])*h;
+                    
+                    %deterministic (distribution-free) cost func and its derivative
+                    f_deter = zeros(obj.nC*(1+obj.nD),1);
+                    df_deter = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                    
+                    f_deter(1:1+obj.nD:end) = phi;
+                    df_deter(1:1+obj.nD:end,1:nq) = n;
+                    for j=1:obj.nD
+                        f_deter(1+j:1+obj.nD:end) = gamma+D{j}*v1;
+                        df_deter(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                        df_deter(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                        df_deter(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v1);%d/dq
+                    end
+                    
+                    Phi = f_deter.*lambda;
+                    %E_Phi
+                    %Phi
+                    %% ------- end comparison ----------
+                    
+                    % % test non-zero values
+                    % nonzero_index_set = find(abs(dE_Phi) > 1e-3);
+                    % if length(nonzero_index_set) > 4
+                    %     disp('number of nonzero index set elements > 4')
+                    % end
+                    
+                    function dX_dq = jacobian_gradient(A,B,C)
+                        %X = trace(A*Jg*B*Jg'*C)
+                        dX_dJg = A'*C'*obj.Jg*B' + C*A*obj.Jg*B;
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient1(A,B)
+                        %X = trace(A*Jg'*B*Jg)
+                        dX_dJg = B*obj.Jg*A + B'*obj.Jg*A';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient2(A,B,C,D,E)
+                        %X = trace(A*Jg*B*Jg'*C*Jg*D*Jg'*E)
+                        dX_dJg = A'*E'*obj.Jg*D'*obj.Jg'*C'*obj.Jg*B' + C*obj.Jg*D*obj.Jg'*E*A*obj.Jg*B ...
+                            + C'*obj.Jg*B'*obj.Jg'*A'*E'*obj.Jg*D' + E*A*obj.Jg*B*obj.Jg'*C*obj.Jg*D;
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient3(A,B,C,D,E)
+                        %X = trace(A*Jg'*B*Jg*C*Jg'*D*Jg*E)
+                        dX_dJg = B*obj.Jg*C*obj.Jg'*D*obj.Jg*E*A + B'*obj.Jg*A'*E'*obj.Jg'*D'*obj.Jg*C' ...
+                            + D*obj.Jg*E*A*obj.Jg'*B*obj.Jg*C + D'*obj.Jg*C'*obj.Jg'*B'*obj.Jg*A'*E';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient4(A,B,C,D,E)
+                        %X = trace(A*Jg'*B*Jg)*C*Jg*D*Jg'*E
+                        dX_dJg = B*obj.Jg*A*(C*obj.Jg*D*obj.Jg'*E) + B'*obj.Jg*A'*(E'*obj.Jg*D'*obj.Jg'*C') ...
+                            + trace(A*Jg'*B*Jg)*C'*E'*obj.Jg*D' + trace(A*Jg'*B*Jg)*E*C*obj.Jg*D;
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient5(A,B,C,D,E,F)
+                        %X = A*Jg*B*Jg'*C*trace(D*Jg'*E*Jg*F)
+                        dX_dJg = A'*C'*obj.Jg*B'*trace(D*Jg'*E*Jg*F) + C*A*obj.Jg*B*trace(D*Jg'*E*Jg*F) ...
+                            + A*Jg*B*Jg'*C*E*obj.Jg*F*D + A*Jg*B*Jg'*C*E'*obj.Jg*D'*F';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient6(A,B,C,D)
+                        %X = A*Jg*B*Jg'*C*Jg*D
+                        dX_dJg = A'*D'*obj.Jg'*C'*obj.Jg*B' + C*obj.Jg*D*A*obj.Jg*B + C'*obj.Jg*B'*obj.Jg'*A'*D';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient7(A,B,C,D)
+                        %X = trace(A*Jg'*B*Jg)*C*Jg*D
+                        dX_dJg = B*obj.Jg*A*(C*obj.Jg*D) + B'*obj.Jg*A'*(C*obj.Jg*D) + trace(A*obj.Jg'*B*obj.Jg)*C'*D';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function dX_dq = jacobian_gradient8(A,B,C,D)
+                        %X = A*Jg*B*Jg'*C*Jg*D
+                        dX_dJg = A'*D'*obj.Jg'*C'*obj.Jg*B' + C*obj.Jg*D*A*obj.Jg*B + C'*obj.Jg*B'*obj.Jg'*A'*D';
+                        
+                        dX_dq = trace(dX_dJg'*obj.dJgdq_i);
+                    end
+                    
+                    function [E,dEdq,dEdqdot,dEdh,dEdu] = expectation_third_order_multiply(Ain, ain, Bin, bin, Cin, cin)
+                        %refactor input matrices
+                        AAin = obj.h*obj.Minv*obj.Jg'*Ain;
+                        aain = obj.h*obj.Minv*obj.Jg'*ain;
+                        BBin = obj.Jg'*Bin;
+                        bbin = obj.Jg'*bin;
+                        CCin = obj.J_blk'*Cin;
+                        ccin = obj.J_blk'*cin;
+                        
+                        % expectation
+                        term1 = ((AAin*obj.mu_r+aain)'*BBin+(BBin*obj.mu_r+bbin)'*AAin);
+                        term2 = CCin';
+                        term3 = trace(AAin*obj.Sigma_r*BBin')+(AAin*obj.mu_r+aain)'*(BBin*obj.mu_r+bbin);
+                        term4 = (CCin*obj.mu_r+ccin)';
+                        
+                        E = term1*obj.Sigma_r*term2 +term3*term4;
+                        
+                        % derivative of expectation (d/dM * dM/dq)
+                        % first term
+                        dEdM = - (AAin*obj.mu_r+aain)*term2'*obj.Sigma_r*BBin'*obj.Minv - obj.Minv*(BBin*obj.mu_r+bbin)*term2'*obj.Sigma_r*AAin' - obj.Minv*obj.h*obj.Jg'*Cin*obj.Sigma_r*term1'*(obj.B*obj.u-C)'*obj.Minv;
+                        % second term
+                        dEdM = dEdM -obj.Minv*term4*BBin*obj.Sigma_r*AAin' -(AAin*obj.mu_r+aain)*term4*(BBin*obj.mu_r+bbin)'*obj.Minv - obj.Minv*(obj.Jg'*Cin*obj.mu_r+obj.Jg'*cin)*term3*obj.h*(obj.B*obj.u-obj.C)'*obj.Minv;
+                        
+                        dEdC = -(term1*Sigma_r*Cin'*Jg*h*Minv)' - (term3*(mu_r'*Cin'+cin')*Jg*Minv*h)';
+                        
+                        dEdh = E/obj.h + term1*obj.Sigma_r*Cin'*obj.Jg*obj.Minv*(obj.B*obj.u - obj.C) +term3*(obj.mu_r'*Cin' + cin')*obj.Jg*obj.Minv*(obj.B*obj.u - obj.C);
+                        
+                        dEdJ_times_dJdq = jacobian_gradient6(obj.mu_r'*Ain'+ain',obj.Minv*obj.h,Bin*obj.Sigma_r*Cin',obj.qdot_blk) ...
+                            + jacobian_gradient6(obj.mu_r'*Bin'+bin',obj.h*obj.Minv,Ain*obj.Sigma_r*Cin',obj.qdot_blk) ...
+                            + jacobian_gradient7(obj.h*obj.Minv,Ain*obj.Sigma_r*Bin',obj.mu_r'*Cin',obj.qdot_blk) ...
+                            + jacobian_gradient8(obj.mu_r'*Ain'+ain',obj.Minv*obj.h,(Bin*obj.mu_r+bin)*obj.mu_r'*Cin',obj.qdot_blk);
+                        
+                        for i=1:nq
+                            dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + trace(dEdC'*obj.dCdq(:,i)) + dEdJ_times_dJdq;
+                            dEdqdot(i,:) = trace(dEdC'*obj.dCdqdot(:,i));
+                        end
+                        
+                        dEdu = (term1*obj.Sigma_r*Cin'*obj.Jg*(obj.Minv*obj.B*obj.h))' - (term3*(obj.mu_r'*Cin'+cin')*obj.Jg*obj.Minv*obj.B*obj.h)';
+                    end
+                    
+                    function [E,dEdq] = expectation_fourth_order_multiply(Ain, ain, Bin, bin, Cin, cin, Din, din)
+                        %refactor input matrices
+                        AAin = obj.Minv*obj.Jg'*Ain;
+                        aain = obj.Minv*obj.Jg'*ain;
+                        BBin = obj.Jg'*Bin;
+                        bbin = obj.Jg'*bin;
+                        CCin = obj.Minv*obj.Jg'*Cin;
+                        ccin = obj.Minv*obj.Jg'*cin;
+                        DDin = obj.Jg'*Din;
+                        ddin = obj.Jg'*din;
+                        
+                        % expectation
+                        term1 = ((AAin*obj.mu_r+aain)'*BBin+(BBin*obj.mu_r+bbin)'*AAin);
+                        term2 = (CCin'*(DDin*obj.mu_r+ddin)+DDin'*(CCin*obj.mu_r+ccin));
+                        term3 = trace(AAin*obj.Sigma_r*BBin')+(AAin*obj.mu_r+aain)'*(BBin*obj.mu_r+bbin);
+                        term4 = trace(CCin*obj.Sigma_r*DDin')+(CCin*obj.mu_r+ccin)'*(DDin*obj.mu_r+ddin);
+                        
+                        E = trace(AAin*obj.Sigma_r*(CCin'*DDin + DDin'*CCin)*obj.Sigma_r*BBin') + term1*obj.Sigma_r*term2 + term3*term4;
+                        
+                        % derivative of expectation (d/dM * dM/dq)
+                        % first term
+                        dEdM = -obj.Minv*BBin*obj.Sigma_r*(CCin'*DDin+DDin'*CCin)*obj.Sigma_r*AAin' - CCin*obj.Sigma_r*AAin'*BBin*obj.Sigma_r*DDin'*obj.Minv - obj.Minv*DDin*obj.Sigma_r*AAin'*BBin*obj.Sigma_r*CCin';
+                        % second term
+                        dEdM = dEdM - obj.Minv*(AAin*obj.mu_r+aain)*term2'*obj.Sigma_r*BBin'*obj.Minv - obj.Minv*(BBin*obj.mu_r+bbin)*term2'*obj.Sigma_r*AAin' - CCin*obj.Sigma_r*term1'*(DDin*obj.mu_r+ddin)'*obj.Minv ...
+                            - obj.Minv*DDin*obj.Sigma_r*term1'*(obj.mu_r'*CCin'+ccin');
+                        % third term
+                        dEdM = dEdM -obj.Minv*term4*BBin*obj.Sigma_r*AAin' -(AAin*obj.mu_r+aain)*term4*(BBin*obj.mu_r+bbin)'*obj.Minv - obj.Minv*term3*DDin*obj.Sigma_r*CCin'...
+                            - (CCin*obj.mu_r+ccin)*term3*(DDin*obj.mu_r+ddin)'*obj.Minv;
+                        
+                        dEdJ_times_dJdq = jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Cin',obj.Minv,Din*obj.Sigma_r*Bin',eye(nq)) ...
+                            + jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Din',obj.Minv,Cin*obj.Sigma_r*Bin',eye(nq)) ...
+                            + jacobian_gradient2(obj.mu_r'*Ain'+ain',obj.Minv,Bin*obj.Sigma_r*Cin',obj.Minv,Din*obj.mu_r+din) ...
+                            + jacobian_gradient2(obj.mu_r'*Ain'+ain',obj.Minv,Bin*obj.Sigma_r*Din',obj.Minv,Cin*obj.mu_r+cin) ...
+                            + jacobian_gradient2(obj.mu_r'*Bin'+bin',obj.Minv,Ain*obj.Sigma_r*Cin',obj.Minv,Din*obj.mu_r+din) ...
+                            + jacobian_gradient2(obj.mu_r'*Bin'+bin',obj.Minv,Ain*obj.Sigma_r*Din',obj.Minv,Cin*obj.mu_r+cin) ...
+                            + jacobian_gradient3(obj.Minv,Ain*obj.Sigma_r*Bin',obj.Minv,Cin*obj.Sigma_r*Din',eye(obj.nq)) ...
+                            + jacobian_gradient2(obj.mu_r'*Ain'+ain',obj.Minv,(Bin*obj.mu_r+bin)*(obj.mu_r'*Cin'+cin'),obj.Minv,Din*obj.mu_r+din) ...
+                            + jacobian_gradient4(obj.Minv,Ain*obj.Sigma_r*Bin',obj.mu_r'*Cin'+cin',obj.Minv,Din*obj.mu_r+din) ...
+                            + jacobian_gradient5(obj.mu_r'*Ain'+ain',obj.Minv,(Bin*obj.mu_r+bin),obj.Minv,Cin*obj.Sigma_r*Din',eye(obj.nq));
+                        
+                        %dEdC = 0;
+                        
+                        for i=1:nq
+                            dEdq(i,:) = trace(dEdM'*obj.dMdq(:,:,i)) + dEdJ_times_dJdq;
+                            dEdqot(i,:) = 0;
+                        end
+                        
+                    end
+                    
+                end
             end
             
             function [f,df] = deterministic_cost_slidingVelocity(obj, x1, gamma, lambda)

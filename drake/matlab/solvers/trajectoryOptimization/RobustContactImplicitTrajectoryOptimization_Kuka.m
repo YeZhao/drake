@@ -208,7 +208,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -319,8 +319,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                         [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
                         if d
-                           diverge = k;
-                           return;
+                            diverge = k;
+                            return;
                         end
                         
                         S = scale*S;
@@ -363,11 +363,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % end
                     end
                     k
-                                        
+                    
                     nx = obj.nx;
                     nu = obj.nu;
                     nxhalf = nx/2;
-                                        
+                    
                     % begin of original non-parallezied version
                     for j = 1:n_sig_point
                         %Generate sigma points from Px(i+1)
@@ -434,42 +434,42 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     % end of original non-parallezied version
                     
-%                     parfor jj = 1:n_sig_point
-%                         %Generate sigma points from Px(i+1)
-%                         %[the sequential way to be modified]
-%                         % currently, only use the initial variance matrix for the propogation
-%                         noise_index = jj
-%                         
-%                         % a hacky way to implement the control input
-%                         %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
-%                         %Hinv(:,:,j,k) = inv(H(:,:,j));
-%                         
-%                         % this friction coeff samples are directly embedded
-%                         % as the input argument of update() function
-%                         %if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-%                             %obj.plant.friction_coeff = w_mu(j);
-%                         %end
-%                         
-%                         % add feedback control
-%                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
-%                         %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
-% 
-%                         %[xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-%                         [xdn(:,jj),df(:,:,jj)] = feval(plant_update,noise_index,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
-%                     end
-%                     
-%                     for jj=1:n_sig_point
-%                         
-%                         [H(:,:,jj),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,jj,k),Sig(nxhalf+1:nx,jj,k));
-%                         Hinv(:,:,jj,k) = inv(H(:,:,jj));
-%                         
-%                         Sig(1:nx,jj,k+1) = xdn(1:nx,jj);
-%                         
-%                         dfdu(:,:,jj,k+1) = df(:,end-nu+1:end,jj);
-%                         dfdSig(:,:,jj,k+1) = df(:,2:nx+1,jj) - dfdu(:,:,jj,k+1)*K;
-%                         dfdx(:,:,jj,k+1) = dfdu(:,:,jj,k+1)*K; 
-%                     end
-
+                    %                     parfor jj = 1:n_sig_point
+                    %                         %Generate sigma points from Px(i+1)
+                    %                         %[the sequential way to be modified]
+                    %                         % currently, only use the initial variance matrix for the propogation
+                    %                         noise_index = jj
+                    %
+                    %                         % a hacky way to implement the control input
+                    %                         %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+                    %                         %Hinv(:,:,j,k) = inv(H(:,:,j));
+                    %
+                    %                         % this friction coeff samples are directly embedded
+                    %                         % as the input argument of update() function
+                    %                         %if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                    %                             %obj.plant.friction_coeff = w_mu(j);
+                    %                         %end
+                    %
+                    %                         % add feedback control
+                    %                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                    %                         %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+                    %
+                    %                         %[xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                    %                         [xdn(:,jj),df(:,:,jj)] = feval(plant_update,noise_index,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
+                    %                     end
+                    %
+                    %                     for jj=1:n_sig_point
+                    %
+                    %                         [H(:,:,jj),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,jj,k),Sig(nxhalf+1:nx,jj,k));
+                    %                         Hinv(:,:,jj,k) = inv(H(:,:,jj));
+                    %
+                    %                         Sig(1:nx,jj,k+1) = xdn(1:nx,jj);
+                    %
+                    %                         dfdu(:,:,jj,k+1) = df(:,end-nu+1:end,jj);
+                    %                         dfdSig(:,:,jj,k+1) = df(:,2:nx+1,jj) - dfdu(:,:,jj,k+1)*K;
+                    %                         dfdx(:,:,jj,k+1) = dfdu(:,:,jj,k+1)*K;
+                    %                     end
+                    
                     % calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
@@ -883,8 +883,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             
                             [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
                             if d
-                               diverge = k;
-                               return;
+                                diverge = k;
+                                return;
                             end
                             
                             S = scale*S;
@@ -2963,7 +2963,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 v0 = x0(nq+1:nq+nv);
                 q1 = x1(1:nq);
                 v1 = x1(nq+1:nq+nv);
-                                                
+                
                 switch obj.options.integration_method
                     case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
@@ -2989,7 +2989,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dC1 = zeros(nq,2*nq);
                         dB1 = zeros(nq*nu,2*nq);
                 end
-                                
+                
                 BuminusC = B*u-C;
                 if nu>0
                     dBuminusC0 = matGradMult(dB0,u) - dC0;
@@ -3052,7 +3052,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 f = [fq;fv];
-                df = [dfq;dfv];                
+                df = [dfq;dfv];
             end
         end
         
