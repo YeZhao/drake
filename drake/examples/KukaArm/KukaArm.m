@@ -11,6 +11,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         object_initial_position
         friction_coeff
         time_step
+        uncertain_mu
+        uncertain_phi
     end
     
     methods
@@ -261,6 +263,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
+            % surface distance uncertainty
+            if strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(obj.uncertainty_source, 'object_initial_position')
+                kinsol.q(9:10) = kinsol.q(9:10)+obj.uncertain_phi;%add uncertainty of object x and y positions
+            end
+            
             %%
             normal_ground = repmat([0;0;1],1,4);
             d_ground{1} = repmat([1;0;0],1,4);
@@ -456,13 +463,22 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 obj.left_finger_id; obj.left_finger_id];
             idxB = obj.cylinder_id*ones(nC,1);
             
-            mu = 1.0*ones(nC,1);
+            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
+                mu = obj.uncertain_mu*ones(nC,1);
+            else
+                mu = 1.0*ones(nC,1);
+            end
         end
         
         function [normal,d,mu] = worldContactConstraints_v2(obj,kinsol)
             if ~isstruct(kinsol)
                 % treat input as contactPositions(obj,q)
                 kinsol = doKinematics(obj, kinsol, []);
+            end
+            
+            % surface distance uncertainty
+            if strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(obj.uncertainty_source, 'object_initial_position')
+                kinsol.q(9:10) = kinsol.q(9:10)+obj.uncertain_phi;%add uncertainty of object x and y positions
             end
             
             %%
@@ -678,7 +694,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             % todo: add caps at the end of cylinders
             nC = 8+n_ground_contact_point;
             
-            mu = 1.0*ones(nC,1);
+            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
+                mu = obj.uncertain_mu*ones(nC,1);
+            else
+                mu = 1.0*ones(nC,1);
+            end
         end
         
         function [xB] = computexB(obj,kinsol)

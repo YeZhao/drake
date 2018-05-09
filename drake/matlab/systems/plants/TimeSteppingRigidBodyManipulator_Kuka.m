@@ -26,7 +26,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
         active_collision_options; % used in contactConstraint
         body
-        w_mu
     end
     
     methods
@@ -212,7 +211,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            if strcmp(obj.uncertainty_source, 'friction_coeff')
+            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
             elseif nargout > 10
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
@@ -221,9 +220,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             % reconstruct perturbed mu
-            if ~isempty(noise_index)
-                %mu = obj.friction_coeff*ones(length(mu),1);
-                mu = obj.w_mu(noise_index)*ones(length(mu),1);% design for parallelization
+            if ~isempty(obj.uncertain_mu)
+                mu = obj.uncertain_mu*ones(length(mu),1);
             end
             % [double make sure that mu is not interweaving contactConstraints]
             
@@ -244,18 +242,15 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            if strcmp(obj.uncertainty_source, 'friction_coeff')
+            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
                 [normal,d,mu] = obj.contactConstraints_manual_v2(kinsol);
             elseif nargout > 10
                 [normal,d,mu] = obj.contactConstraints_manual_v2(kinsol);
-            else
-                [normal,d,mu] = obj.manip.contactConstraints_v2(kinsol);
             end
             
             % reconstruct perturbed mu
-            if ~isempty(noise_index)
-                %mu = obj.friction_coeff*ones(length(mu),1);
-                mu = obj.w_mu(noise_index)*ones(length(mu),1);% design for parallelization
+            if ~isempty(obj.uncertain_mu)
+                mu = obj.uncertain_mu*ones(length(mu),1);
             end
             % [double make sure that mu is not interweaving contactConstraints]
             
@@ -281,7 +276,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             noise_index = X0(1);
             x = X0(2:29);
             u = X0(30:37);
-            obj.w_mu = load('friction_coeff_noise.dat');
             % try
             %     if (nargout>1)
             %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -744,7 +738,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 result_qp = result.x;
             catch
                 display('gurobi solve failure');
-                keyboard
+                %keyboard
                 xdn = x_previous;
                 df = df_previous;
                 return
@@ -1502,7 +1496,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 possible_indices_changed = false;
                 
                 while (1)
-                    
                     if (nL > 0)
                         if (obj.position_control)
                             phiL = q(pos_control_index) - u;
@@ -1546,7 +1539,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     if has_contacts
                         if (nargout>4)
-                            if strcmp(obj.uncertainty_source, 'friction_coeff')
+                            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
                             else
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
