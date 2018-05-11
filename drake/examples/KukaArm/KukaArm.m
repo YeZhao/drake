@@ -12,7 +12,10 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         friction_coeff
         time_step
         uncertain_mu
+        uncertain_mu_mean
+        uncertain_mu_set
         uncertain_phi
+        uncertain_position_set
     end
     
     methods
@@ -263,11 +266,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 kinsol = doKinematics(obj, kinsol, []);
             end
             
-            % surface distance uncertainty
-            if strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(obj.uncertainty_source, 'object_initial_position')
-                kinsol.q(9:10) = kinsol.q(9:10)+obj.uncertain_phi;%add uncertainty of object x and y positions
-            end
-            
             %%
             normal_ground = repmat([0;0;1],1,4);
             d_ground{1} = repmat([1;0;0],1,4);
@@ -464,7 +462,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             idxB = obj.cylinder_id*ones(nC,1);
             
             if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
-                mu = obj.uncertain_mu*ones(nC,1);
+                if isempty(obj.uncertain_mu)
+                    mu = obj.uncertain_mu_mean*ones(nC,1);
+                else
+                    mu = obj.uncertain_mu*ones(nC,1);
+                end
             else
                 mu = 1.0*ones(nC,1);
             end
@@ -475,16 +477,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 % treat input as contactPositions(obj,q)
                 kinsol = doKinematics(obj, kinsol, []);
             end
-            
-            % surface distance uncertainty
-            if strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(obj.uncertainty_source, 'object_initial_position')
-                kinsol.q(9:10) = kinsol.q(9:10)+obj.uncertain_phi;%add uncertainty of object x and y positions
-            end
-            
-            %%
-            %             normal_ground = repmat([0;0;1],1,4);
-            %             d_ground{1} = repmat([1;0;0],1,4);
-            %             d_ground{2} = repmat([0;-1;0],1,4);
             
             obj_pos = kinsol.q(9:11);
             obj_ori = kinsol.q(12:14);
