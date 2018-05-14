@@ -116,8 +116,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
-            
-            [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints_manual(q0,false,obj.options.active_collision_options);
+
+            if strcmp(obj.plant.uncertainty_source, 'friction_coeff') || strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                mu = mean(obj.plant.uncertain_mu_set)*ones(obj.nC,1);
+            else
+                mu = ones(obj.nC,1);%trivial value
+            end
             
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
@@ -178,20 +182,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
                     assert(size(gamma_inds,1) == obj.nC);
                     
-%                     obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
-%                          {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
-                     
-
-%                     % add ERM cost for sliding velocity constraint uncertainty
-                      % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
-                      %   {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
-%                     
-%                     % add ERM cost for friction cone coefficient uncertainty
-%                     obj = obj.addCost(FunctionHandleObjective(obj.nC*(1+obj.nD)+obj.nC,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
-%                     
-%                     % add ERM cost for normal distance uncertainty
-%                     obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_normaldistance(obj,h,x0,x1,u,lambda,gamma),1), ...
-%                           {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
+                        {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
+                    
+                    % % add ERM cost for sliding velocity constraint uncertainty
+                    % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
+                    %   {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
+                    %
+                    % % add ERM cost for friction cone coefficient uncertainty
+                    % obj = obj.addCost(FunctionHandleObjective(obj.nC*(1+obj.nD)+obj.nC,@(lambda,gamma)ERMcost_friction(obj,lambda,gamma),1),{lambda_inds;gamma_inds});
+                    %
+                    % % add ERM cost for normal distance uncertainty
+                    % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_normaldistance(obj,h,x0,x1,u,lambda,gamma),1), ...
+                    %   {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);lambda_inds;gamma_inds});
                 end
                 
                 if obj.nJL > 0
@@ -226,7 +229,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -234,8 +237,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             
             function [f,df] = ERMcost(obj,x,gamma,lambda)
                 y = [x;gamma;lambda];
+                global f_accumulate;
+                global number_of_call;
                 
-                %obj.plant.uncertainty_source = 'object_initial_position';%'friction_coeff+object_initial_position';%
                 if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                     w_mu = load('friction_coeff_noise.dat');
                     sample_num = length(w_mu);
@@ -250,8 +254,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     w_phi = load('initial_position_noise.dat');
                     sample_num = length(w_mu);
                     for i=1:sample_num
-                        obj.plant.uncertain_mu = w_mu(i);
+                        obj.plant.uncertain_mu = w_mu(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
                         obj.plant.uncertain_phi = w_phi(:,i);
+                        y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
                         ff_stack(:,i) = ff;
                         dff_stack(:,:,i) = dff;
@@ -261,14 +266,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     sample_num = length(w_phi);
                     for i=1:sample_num
                         obj.plant.uncertain_phi = w_phi(:,i);
+                        y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
                         ff_stack(:,i) = ff;
                         dff_stack(:,:,i) = dff;
                     end
                 elseif isempty(obj.plant.uncertainty_source)%non-robust version
+                    sample_num = 1;
                     [ff,dff] = ERM_nonlincompl_fun(obj,y);
-                    ff_stack(:,i) = ff;
-                    dff_stack(:,:,i) = dff;
+                    ff_stack = ff;
+                    dff_stack = dff;
                 else
                     w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
                     save -ascii friction_coeff_noise.dat w_mu
@@ -278,30 +285,48 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %save -ascii initial_position_noise.dat w_phi
                 end
                 
-                ff_mean = sum(ff_stack,2);
-                dff_mean = sum(dff_stack,3);
+                ff_mean = sum(ff_stack,2)/sample_num;
+                ff_mean_vec = repmat(ff_mean,1,sample_num);
+                dff_mean = sum(dff_stack,3)/sample_num;
+                mean_dev = zeros(1,length(y));
+                var_dev = zeros(1,length(y));
+                for i=1:sample_num
+                    mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
+                    var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
+                end
                 
-                delta = 10^7;% coefficient
-                f = delta/2 * (norm(lambda.*ff)^2 + norm(lambda.*ff - lambda.*ff_mean)^2);
-                df = delta*((lambda.*ff)'*diag(lambda)*dff + (lambda.*(ff - ff_mean))'*(diag(lambda)*dff - diag(lambda)*dff_mean)) ...
-                     + [zeros(1,nX+obj.nC), delta*((lambda.*ff)'*diag(ff) + (lambda.*(ff - ff_mean))'*diag(ff - ff_mean))];
+                delta = obj.options.robustLCPcost_coeff;% coefficient
+                f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
+                df = delta*(mean_dev + var_dev) ...
+                    + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
                 
-                f_numeric = f;
-                df_numeric = df;
-                X0 = y;
-%                 [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
-%                 valuecheck(df,df_numeric,1e-5);
-%                 valuecheck(f,f_numeric,1e-5);
+                if isempty(f_accumulate)
+                    f_accumulate = f;
+                    number_of_call = 1;
+                elseif (number_of_call == obj.N-2)
+                    fprintf('ERM cost: %4.4f\n',f);
+                    f_accumulate = [];
+                    number_of_call = 0;
+                else
+                    f_accumulate = f_accumulate + f;
+                    number_of_call = number_of_call + 1;
+                end
+                
+                % f_numeric = f;
+                % df_numeric = df;
+                % X0 = [x;gamma;lambda];
+                % [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
+                % valuecheck(df,df_numeric,1e-5);
+                % valuecheck(f,f_numeric,1e-5);
                 
                 function [f,df] = ERMcost_check(X0)
                     x = X0(1:28);
                     gamma = X0(28+1:28+12);
                     lambda = X0(40+1:end);
                     y = X0;
-                    obj.plant.uncertainty_source = 'object_initial_position';%'friction_coeff+object_initial_position';%
-                    ff_stack = [];
+                    
                     if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                        w_mu = load('friction_coeff_noise.dat');
+                        w_mu = obj.plant.uncertain_mu_set;
                         sample_num = length(w_mu);
                         for i=1:sample_num
                             obj.plant.uncertain_mu = w_mu(i);
@@ -310,54 +335,62 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             dff_stack(:,:,i) = dff;
                         end
                     elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                        w_mu = load('friction_coeff_noise.dat');
-                        w_phi = load('initial_position_noise.dat');
+                        w_mu = obj.plant.uncertain_mu_set;
+                        w_phi = obj.plant.uncertain_position_set;
                         sample_num = length(w_mu);
                         for i=1:sample_num
                             obj.plant.uncertain_mu = w_mu(i);
                             obj.plant.uncertain_phi = w_phi(:,i);
+                            y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                             [ff,dff] = ERM_nonlincompl_fun(obj,y);
                             ff_stack(:,i) = ff;
                             dff_stack(:,:,i) = dff;
                         end
                     elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                        w_phi = load('initial_position_noise.dat');
+                        w_phi = obj.plant.uncertain_position_set;
                         sample_num = length(w_phi);
                         for i=1:sample_num
                             obj.plant.uncertain_phi = w_phi(:,i);
+                            y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                             [ff,dff] = ERM_nonlincompl_fun(obj,y);
                             ff_stack(:,i) = ff;
                             dff_stack(:,:,i) = dff;
                         end
                     elseif isempty(obj.plant.uncertainty_source)%non-robust version
+                        sample_num = 1;
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
-                        ff_stack(:,i) = ff;
-                        dff_stack(:,:,i) = dff;
+                        ff_stack = ff;
+                        dff_stack = dff;
                     else
                         w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
                         save -ascii friction_coeff_noise.dat w_mu
-                        %x = (1-2*rand(1,58))*sqrt(0.01);
-                        %y = (1-2*rand(1,58))*sqrt(0.01);
-                        %w_phi = [x;y];%height noise
-                        %save -ascii initial_position_noise.dat w_phi
                     end
                     
-                    ff_mean = sum(ff_stack,2);
-                    dff_mean = sum(dff_stack,3);
+                    ff_mean = sum(ff_stack,2)/sample_num;
+                    ff_mean_vec = repmat(ff_mean,1,sample_num);
+                    dff_mean = sum(dff_stack,3)/sample_num;
+                    mean_dev = zeros(1,length(y));
+                    var_dev = zeros(1,length(y));
+                    for i=1:sample_num
+                        mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
+                        var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
+                    end
                     
-                    delta = 10^7;% coefficient
-                    f = delta/2 * (norm(lambda.*ff)^2 + norm(lambda.*ff - lambda.*ff_mean)^2);
-                    df = delta*((lambda.*ff)'*diag(lambda)*dff + (lambda.*(ff - ff_mean))'*(diag(lambda)*dff - diag(lambda)*dff_mean)) ...
-                        + [zeros(1,nX+obj.nC), delta*((lambda.*ff)'*diag(ff) + (lambda.*(ff - ff_mean))'*diag(ff - ff_mean))];
+                    delta = obj.options.robustLCPcost_coeff;% coefficient
+                    f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
+                    df = delta*(mean_dev + var_dev) ... 
+                        + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
                 end
             end
             
-            % nonlinear complementarity constraints:
+            % nonlinear complementarity constraints for ERM formulation
+            % the only difference here is that the first input is obj since we
+            % we have to use obj membership parameters for uncertainty expression:
             %   lambda_N /perp phi(q)
             %   lambda_fi /perp gamma + Di*psi(q,v)
             % x = [q;v;gamma]
             % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
-            function [f,df] = ERM_nonlincompl_fun(obj,y)                
+            function [f,df] = ERM_nonlincompl_fun(obj,y)
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
                 x = y(1:nq+nv+obj.nC);
@@ -365,11 +398,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 gamma = x(nq+nv+1:end);
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
-                
-%                 if ~isempty(uncertain_mu)
-%                     obj.plant.uncertainty_source = 'friction_coeff';
-%                     obj.plant.uncertain_mu = uncertain_mu;
-%                 end
                 
                 [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints_manual(q,false,obj.options.active_collision_options);
                 
@@ -420,7 +448,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             %   lambda_fi /perp gamma + Di*psi(q,v)
             % x = [q;v;gamma]
             % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
-            function [f,df] = nonlincompl_fun(y)                
+            function [f,df] = nonlincompl_fun(y)
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
                 x = y(1:nq+nv+obj.nC);
@@ -525,7 +553,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 w_mu = ones(1,n_sig_point);
                 w_phi = zeros(1,n_sig_point);
-                obj.plant.uncertainty_source = 'object_initial_position';%'object_initial_position';%'friction_coeff+object_initial_position'
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
                     w_mu = load('friction_coeff_noise.dat');
                 elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
@@ -534,7 +561,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     w_mu = load('friction_coeff_noise.dat');
                     w_phi = load('initial_position_noise.dat');
                 elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
-                    w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
+                    w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);
                     save -ascii friction_coeff_noise.dat w_mu
                     %x = (1-2*rand(1,n_sig_point))*sqrt(Pw(1,1));
                     %y = (1-2*rand(1,n_sig_point))*sqrt(Pw(2,2));
@@ -1098,7 +1125,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     w_mu = ones(1,n_sig_point);
                     w_phi = zeros(1,n_sig_point);
-                    obj.plant.uncertainty_source = 'friction_coeff';%'object_initial_position';%'friction_coeff+object_initial_position'
                     if strcmp(obj.plant.uncertainty_source,'friction_coeff')
                         w_mu = load('friction_coeff_noise.dat');
                     elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
@@ -2821,10 +2847,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 X0 = [h; x0; x1; u; lambda; gamma];
                 
-%                 delta = 10^7;% coefficient
-%                 f = delta/2 * (norm(E_Phi)^2);% - slack_var*ones(zdim,1);
-%                 df = delta*(E_Phi'*dE_Phi');
-%                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];                 
+                %                 delta = 10^7;% coefficient
+                %                 f = delta/2 * (norm(E_Phi)^2);% - slack_var*ones(zdim,1);
+                %                 df = delta*(E_Phi'*dE_Phi');
+                %                 %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
                 
                 f_numeric = f;
                 df_numeric = df;
@@ -3409,13 +3435,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     f = delta/2 * (norm(E_Phi)^2 + norm(V_Phi)^2);% - slack_var*ones(zdim,1);
                     df = delta*(E_Phi'*dE_Phi' + V_Phi'*dV_Phi');
                     %df = delta*(gamma.*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]];
-                
-%                     persistent sliding_LCP_ERM_NCP_residual
-%                     sliding_LCP_ERM_NCP_residual = [sliding_LCP_ERM_NCP_residual, f/(delta/2)];
-%                     if length(sliding_LCP_ERM_NCP_residual) == obj.N-1
-%                         sliding_LCP_ERM_NCP_residual
-%                         sliding_LCP_ERM_NCP_residual = [];
-%                     end
+                    
+                    %                     persistent sliding_LCP_ERM_NCP_residual
+                    %                     sliding_LCP_ERM_NCP_residual = [sliding_LCP_ERM_NCP_residual, f/(delta/2)];
+                    %                     if length(sliding_LCP_ERM_NCP_residual) == obj.N-1
+                    %                         sliding_LCP_ERM_NCP_residual
+                    %                         sliding_LCP_ERM_NCP_residual = [];
+                    %                     end
                     
                     % obj.verbose_print = 1;
                     % if obj.verbose_print == 1
@@ -3794,6 +3820,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             q1 = x1(1:nq);
             v1 = x1(nq+1:nq+nv);
             
+            %designed specifically for grasping problem
+            if strcmp(obj.plant.uncertainty_source, 'object_initial_position') || strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                if norm(q0(9:14)-q1(9:14))<1e-10 % if the object is still
+                    q0(9:10) = q0(9:10) + r.uncertain_position_mean; %x and y position uncertainty
+                    q1(9:10) = q1(9:10) + r.uncertain_position_mean;
+                end
+            end
+            
             switch obj.options.integration_method
                 case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics((q0+q1)/2,(v0+v1)/2);
@@ -3861,8 +3895,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             if nl>0
                 [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints_manual(q1,false,obj.options.active_collision_options);
                 
-                % construct J and dJ from n,D,dn, and dD so they relate to the
-                % lambda vector
+                % construct J and dJ from n,D,dn, and dD so they relate to the lambda vector
                 J = zeros(nl,nq);
                 J(1:2+obj.nD:end,:) = n;
                 dJ = zeros(nl*nq,nq);
@@ -3963,6 +3996,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 v0 = x0(nq+1:nq+nv);
                 q1 = x1(1:nq);
                 v1 = x1(nq+1:nq+nv);
+                
+                %designed specifically for grasping problem
+                if strcmp(obj.plant.uncertainty_source, 'object_initial_position') || strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                    if norm(q0(9:14)-q1(9:14))<1e-10 % if the object is still
+                        q0(9:10) = q0(9:10) + r.uncertain_position_mean; %x and y position uncertainty
+                        q1(9:10) = q1(9:10) + r.uncertain_position_mean;
+                    end
+                end
                 
                 switch obj.options.integration_method
                     case RobustContactImplicitTrajectoryOptimization_Kuka.MIDPOINT
@@ -4175,10 +4216,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         
         function obj = setupVariables(obj,N)
             obj = setupVariables@DirectTrajectoryOptimization(obj,N);
+            
+            %no need to consider uncertainty, only dimension of normal and d is used
             [~,normal,d] = obj.plant.contactConstraints_manual(getZeroConfiguration(obj.plant), false, obj.options.active_collision_options);
             obj.nC = size(normal, 2);
             obj.nD = 2*length(d);
-            
+
             nContactForces = obj.nC*(2 + obj.nD);
             
             obj.l_inds = reshape(obj.num_vars + (1:N * nContactForces),nContactForces,N);

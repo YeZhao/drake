@@ -19,9 +19,6 @@ nq_object = nq - nq_arm;
 
 v=r.constructVisualizer;
 
-global iteration_num
-%global robustLCPcost_coeff
-
 %% forward simulation
 %trial 1, initial gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
@@ -90,9 +87,21 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 10;
-N1 = 5;%7;%phase 1: pick
+N = 20;
+N1 = 10;%phase 1: pick
 N2 = N - N1;%phase 2: place
+
+r.uncertainty_source = 'friction_coeff';%'friction_coeff+object_initial_position';%'object_initial_position'
+if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
+    w_mu = load('friction_coeff_noise.dat');
+    r.uncertain_mu_set = w_mu;
+    r.uncertain_mu_mean = mean(r.uncertain_mu_set);
+end
+if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
+    w_phi = load('initial_position_noise.dat');
+    r.uncertain_position_set = w_phi;
+    r.uncertain_position_mean = mean(w_phi,2);
+end
 
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
@@ -225,10 +234,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step

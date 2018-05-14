@@ -211,13 +211,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
-            elseif nargout > 10
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
-            else
-                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
-            end
+            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol,obj.multiple_contacts);
             
             % reconstruct perturbed mu
             if ~isempty(obj.uncertain_mu)
@@ -242,11 +236,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
-                [normal,d,mu] = obj.contactConstraints_manual_v2(kinsol);
-            elseif nargout > 10
-                [normal,d,mu] = obj.contactConstraints_manual_v2(kinsol);
-            end
+            [normal,d,mu] = obj.contactConstraints_manual_v2(kinsol);
             
             % reconstruct perturbed mu
             if ~isempty(obj.uncertain_mu)
@@ -737,7 +727,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 result = gurobi(model,gurobi_options);
                 result_qp = result.x;
             catch
-                display('gurobi solve failure');
+                %display('gurobi solve failure');
                 %keyboard
                 xdn = x_previous;
                 df = df_previous;
@@ -1539,11 +1529,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     if has_contacts
                         if (nargout>4)
-                            if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'object_initial_position') || strcmp(obj.uncertainty_source, 'friction_coeff+object_initial_position')
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
-                            else
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
-                            end
+                            [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
                         else
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.contactConstraints_manual(kinsol, obj.multiple_contacts);
                         end
