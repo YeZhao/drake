@@ -61,8 +61,17 @@ if nC == 0
   return;
 end
 
+global uncertain_mu;
 % For now, all coefficients of friction are 1
-mu = ones(nC,1);
+if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+terrain_height')
+    if isempty(obj.uncertain_mu) && isempty(uncertain_mu)
+        mu = obj.uncertain_mu_mean*ones(nC,1);
+    else
+        mu = uncertain_mu*ones(nC,1);
+    end
+else
+    mu = ones(nC,1);
+end
 
 d = obj.surfaceTangents(normal);
 

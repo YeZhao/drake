@@ -120,7 +120,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             if strcmp(obj.plant.uncertainty_source, 'friction_coeff') || strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                 mu = mean(obj.plant.uncertain_mu_set)*ones(obj.nC,1);
             else
-                mu = ones(obj.nC,1);%trivial value
+                mu = ones(obj.nC,1);%nominal value
             end
             
             for i=1:obj.N-1,
@@ -137,10 +137,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     obj.lambda_inds(:,i) = lambda_inds;
                     
                     %  sliding + normal LCP constraints
-                    obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+%                     obj.options.nlcc_mode = 5;% robust mode
+%                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+%                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
+%                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % only normal LCP constraint
                     % obj.options.nlcc_mode = 6;% robust mode
@@ -173,8 +173,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         obj.verbose_print = 0;
                     end
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+%                     lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+%                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     %obj = obj.addCost(FunctionHandleObjective(nX+obj.nC+obj.nC*(1+obj.nD),@(x1,gamma,lambda)deterministic_cost_slidingVelocity(obj,x1,gamma,lambda),1), ...
                     %      {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
@@ -231,9 +231,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
-            if (obj.nC > 0)
-                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
-            end
+%             if (obj.nC > 0)
+%                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+%             end
             
             function [f,df] = ERMcost(obj,x,gamma,lambda)
                 y = [x;gamma;lambda];
@@ -241,31 +241,27 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 global number_of_call;
                 
                 if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                    w_mu = load('friction_coeff_noise.dat');
-                    sample_num = length(w_mu);
+                    sample_num = length(obj.plant.uncertain_mu_set);
                     for i=1:sample_num
-                        obj.plant.uncertain_mu = w_mu(i);
-                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
-                        ff_stack(:,i) = ff;
-                        dff_stack(:,:,i) = dff;
-                    end
-                elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                    w_mu = load('friction_coeff_noise.dat');
-                    w_phi = load('initial_position_noise.dat');
-                    sample_num = length(w_mu);
-                    for i=1:sample_num
-                        obj.plant.uncertain_mu = w_mu(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
-                        obj.plant.uncertain_phi = w_phi(:,i);
-                        y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
+                        obj.plant.uncertain_mu = obj.plant.uncertain_mu_set(i);
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
                         ff_stack(:,i) = ff;
                         dff_stack(:,:,i) = dff;
                     end
                 elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                    w_phi = load('initial_position_noise.dat');
-                    sample_num = length(w_phi);
+                    sample_num = length(obj.plant.uncertain_position_set);
                     for i=1:sample_num
-                        obj.plant.uncertain_phi = w_phi(:,i);
+                        obj.plant.uncertain_phi = obj.plant.uncertain_position_set(:,i);
+                        y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack(:,i) = ff;
+                        dff_stack(:,:,i) = dff;
+                    end
+                elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                    sample_num = length(obj.plant.uncertain_mu_set);
+                    for i=1:sample_num
+                        obj.plant.uncertain_mu = obj.plant.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
+                        obj.plant.uncertain_phi = obj.plant.uncertain_position_set(:,i);
                         y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
                         ff_stack(:,i) = ff;
@@ -311,46 +307,42 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     f_accumulate = f_accumulate + f;
                     number_of_call = number_of_call + 1;
                 end
-                
-                % f_numeric = f;
-                % df_numeric = df;
-                % X0 = [x;gamma;lambda];
+                    
+                f_numeric = f;
+                df_numeric = df;
+                X0 = [x;gamma;lambda];
                 % [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
                 % valuecheck(df,df_numeric,1e-5);
                 % valuecheck(f,f_numeric,1e-5);
                 
                 function [f,df] = ERMcost_check(X0)
-                    x = X0(1:28);
-                    gamma = X0(28+1:28+12);
-                    lambda = X0(40+1:end);
+                    x = X0(1:obj.nx);
+                    gamma = X0(obj.nx+1:obj.nx+obj.nC);
+                    lambda = X0(obj.nx+obj.nC+1:end);
                     y = X0;
                     
                     if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                        w_mu = obj.plant.uncertain_mu_set;
-                        sample_num = length(w_mu);
+                        sample_num = length(obj.plant.uncertain_mu_set);
                         for i=1:sample_num
-                            obj.plant.uncertain_mu = w_mu(i);
-                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
-                            ff_stack(:,i) = ff;
-                            dff_stack(:,:,i) = dff;
-                        end
-                    elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                        w_mu = obj.plant.uncertain_mu_set;
-                        w_phi = obj.plant.uncertain_position_set;
-                        sample_num = length(w_mu);
-                        for i=1:sample_num
-                            obj.plant.uncertain_mu = w_mu(i);
-                            obj.plant.uncertain_phi = w_phi(:,i);
-                            y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
+                            obj.plant.uncertain_mu = obj.plant.uncertain_mu_set(i);
                             [ff,dff] = ERM_nonlincompl_fun(obj,y);
                             ff_stack(:,i) = ff;
                             dff_stack(:,:,i) = dff;
                         end
                     elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                        w_phi = obj.plant.uncertain_position_set;
-                        sample_num = length(w_phi);
+                        sample_num = length(obj.plant.uncertain_position_set);
                         for i=1:sample_num
-                            obj.plant.uncertain_phi = w_phi(:,i);
+                            obj.plant.uncertain_phi = obj.plant.uncertain_position_set(:,i);
+                            y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
+                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                            ff_stack(:,i) = ff;
+                            dff_stack(:,:,i) = dff;
+                        end
+                    elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                        sample_num = length(obj.plant.uncertain_mu_set);
+                        for i=1:sample_num
+                            obj.plant.uncertain_mu = obj.plant.uncertain_mu_set(i);
+                            obj.plant.uncertain_phi = obj.plant.uncertain_position_set(:,i);
                             y(9:10) = y(9:10) + obj.plant.uncertain_phi;% x and y position uncertainty
                             [ff,dff] = ERM_nonlincompl_fun(obj,y);
                             ff_stack(:,i) = ff;

@@ -117,7 +117,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
             
-            [~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
+            %[~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
+            manip = obj.plant.getManipulator();
+            if strcmp(manip.uncertainty_source, 'friction_coeff') || strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                mu = mean(manip.uncertain_mu_set)*ones(obj.nC,1);
+            else
+                mu = ones(obj.nC,1);%nominal value
+            end
             
             external_force_max = 10;% random chosen value
             external_force_cnstr = BoundingBoxConstraint([-external_force_max,-external_force_max],[external_force_max,external_force_max]);
@@ -140,10 +146,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     obj.lambda_inds(:,i) = lambda_inds;
                     
-                    obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+%                     obj.options.nlcc_mode = 5;% robust mode
+%                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+%                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
+%                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -164,8 +170,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.r = r;
                     obj.M = M;
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+%                     lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+%                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    
+                    assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
+                    assert(size(gamma_inds,1) == obj.nC);
+                    
+                    obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
+                       {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
                     % add ERM cost for sliding velocity constraint uncertainty
                     %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -192,7 +204,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             % a hacky way to obtain updated timestep (no cost is added, just want to get time step h)
             obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
-            
+             
             % robust variance cost with state feedback control
             x_inds_stack = reshape(obj.x_inds,obj.N*nX,[]);
             u_inds_stack = reshape(obj.u_inds,obj.N*nU,[]);
@@ -202,8 +214,221 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
-            if (obj.nC > 0)
-                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+%             if (obj.nC > 0)
+%                 obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+%             end
+            
+            global uncertain_mu;
+            global terrain_index;
+            function [f,df] = ERMcost(obj,x,gamma,lambda)
+                y = [x;gamma;lambda];
+                global f_accumulate;
+                global number_of_call;
+                                
+                if strcmp(manip.uncertainty_source, 'friction_coeff')
+                    sample_num = length(manip.uncertain_mu_set);
+                    for i=1:sample_num
+                        manip.uncertain_mu = manip.uncertain_mu_set(i);
+                        uncertain_mu = manip.uncertain_mu_set(i);
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack(:,i) = ff;
+                        dff_stack(:,:,i) = dff;
+                    end
+                elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                    sample_num = length(manip.uncertain_position_set);
+                    for i=1:sample_num
+                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        terrain_index = i;
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack(:,i) = ff;
+                        dff_stack(:,:,i) = dff;
+                    end
+                elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                    sample_num = length(manip.uncertain_mu_set);
+                    for i=1:sample_num
+                        manip.uncertain_mu = manip.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
+                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        uncertain_mu = manip.uncertain_mu_set(i);
+                        terrain_index = i;
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack(:,i) = ff;
+                        dff_stack(:,:,i) = dff;
+                    end
+                elseif isempty(manip.uncertainty_source)%non-robust version
+                    sample_num = 1;
+                    [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                    ff_stack = ff;
+                    dff_stack = dff;
+                else
+                    w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
+                    save -ascii friction_coeff_noise.dat w_mu
+                    %x = (1-2*rand(1,58))*sqrt(0.01);
+                    %y = (1-2*rand(1,58))*sqrt(0.01);
+                    %w_phi = [x;y];%height noise
+                    %save -ascii initial_position_noise.dat w_phi
+                end
+                
+                ff_mean = sum(ff_stack,2)/sample_num;
+                ff_mean_vec = repmat(ff_mean,1,sample_num);
+                dff_mean = sum(dff_stack,3)/sample_num;
+                mean_dev = zeros(1,length(y));
+                var_dev = zeros(1,length(y));
+                for i=1:sample_num
+                    mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
+                    var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
+                end
+                
+                delta = obj.options.robustLCPcost_coeff;% coefficient
+                f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
+                df = delta*(mean_dev + var_dev) ...
+                    + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
+                
+                if isempty(f_accumulate)
+                    f_accumulate = f;
+                    number_of_call = 1;
+                elseif (number_of_call == obj.N-2)
+                    fprintf('ERM cost: %4.4f\n',f);
+                    f_accumulate = [];
+                    number_of_call = 0;
+                else
+                    f_accumulate = f_accumulate + f;
+                    number_of_call = number_of_call + 1;
+                end
+                    
+                %f_numeric = f;
+                %df_numeric = df;
+                %X0 = [x;gamma;lambda];
+                
+                % [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
+                % valuecheck(df,df_numeric,1e-5);
+                % valuecheck(f,f_numeric,1e-5);
+                
+                function [f,df] = ERMcost_check(X0)
+                    x = X0(1:obj.nx);
+                    gamma = X0(obj.nx+1:obj.nx+obj.nC);
+                    lambda = X0(obj.nx+obj.nC+1:end);
+                    y = X0;
+                    if strcmp(manip.uncertainty_source, 'friction_coeff')
+                        sample_num = length(manip.plant.uncertain_mu_set);
+                        for i=1:sample_num
+                            manip.uncertain_mu = manip.uncertain_mu_set(i);
+                            uncertain_mu = manip.uncertain_mu_set(i);
+                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                            ff_stack(:,i) = ff;
+                            dff_stack(:,:,i) = dff;
+                        end
+                    elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                        sample_num = length(manip.uncertain_position_set);
+                        for i=1:sample_num
+                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                            terrain_index = i;
+                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                            ff_stack(:,i) = ff;
+                            dff_stack(:,:,i) = dff;
+                        end
+                    elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                        sample_num = length(manip.uncertain_mu_set);
+                        for i=1:sample_num
+                            manip.uncertain_mu = manip.uncertain_mu_set(i);
+                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                            uncertain_mu = manip.uncertain_mu_set(i);
+                            terrain_index = i;
+                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                            ff_stack(:,i) = ff;
+                            dff_stack(:,:,i) = dff;
+                        end
+                    elseif isempty(manip.uncertainty_source)%non-robust version
+                        sample_num = 1;
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack = ff;
+                        dff_stack = dff;
+                    else
+                        w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
+                        save -ascii friction_coeff_noise.dat w_mu
+                    end
+                    
+                    ff_mean = sum(ff_stack,2)/sample_num;
+                    ff_mean_vec = repmat(ff_mean,1,sample_num);
+                    dff_mean = sum(dff_stack,3)/sample_num;
+                    mean_dev = zeros(1,length(y));
+                    var_dev = zeros(1,length(y));
+                    for i=1:sample_num
+                        mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
+                        var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
+                    end
+                    
+                    delta = obj.options.robustLCPcost_coeff;% coefficient
+                    f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
+                    df = delta*(mean_dev + var_dev) ... 
+                        + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
+                end
+            end
+            
+            % nonlinear complementarity constraints for ERM formulation
+            % the only difference here is that the first input is obj since we
+            % we have to use obj membership parameters for uncertainty expression:
+            %   lambda_N /perp phi(q)
+            %   lambda_fi /perp gamma + Di*psi(q,v)
+            % x = [q;v;gamma]
+            % z = [lambda_N;lambda_F1;lambda_f2] (each contact sequentially)
+            function [f,df] = ERM_nonlincompl_fun(obj,y)
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                x = y(1:nq+nv+obj.nC);
+                z = y(nq+nv+obj.nC+1:end);
+                gamma = x(nq+nv+1:end);
+                q = x(1:nq);
+                v = x(nq+1:nq+nv);
+
+                if strcmp(manip.uncertainty_source, 'friction_coeff')
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                    mu = uncertain_mu*ones(obj.nC,1);
+                end
+                
+                %% debugging
+                % a test of using q0 to derive v1, instead of using v1
+                % x0 = zeros(12,1);
+                % q0 = x0(1:nq);%zeros(12,1);
+                % v0 = x0(nq+1:nq+nv);
+                % h = 0.01;
+                % u = zeros(3,1);
+                % [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                %
+                % [M,C,B,dM,dC,dB] = obj.plant.manipulatorDynamics(q,v);
+                % Minv = inv(M);
+                %
+                %v1_est = v0 + Minv*(B*u - C + D{1}'*[z(2);z(5)] + D{2}'*[z(3);z(6)] + n'*[z(1);z(4)])*h;
+                %% end debugging
+                
+                f = zeros(obj.nC*(1+obj.nD),1);
+                df = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                
+                f(1:1+obj.nD:end) = phi;
+                df(1:1+obj.nD:end,1:nq) = n;
+                for j=1:obj.nD
+                    f(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                    df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                    df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                    df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                end
+                
+                persistent LCP_non_robust_NCP_residual
+                if obj.verbose_print == 1
+                    NCP_residual = f.*z;
+                    % compute the sum of tangential components
+                    NCP_residual_tangential = sum(NCP_residual(2:3));
+                    NCP_residual_tangential = NCP_residual_tangential + sum(NCP_residual(5:6));
+                    %disp('non-robust NCP residual square');
+                    LCP_non_robust_NCP_residual = [LCP_non_robust_NCP_residual NCP_residual_tangential^2];
+                    if length(LCP_non_robust_NCP_residual) == obj.N-1
+                        %LCP_non_robust_NCP_residual
+                        LCP_non_robust_NCP_residual = [];
+                    end
+                end
             end
             
             % nonlinear complementarity constraints:
@@ -221,7 +446,75 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 q = x(1:nq);
                 v = x(nq+1:nq+nv);
                 
-                [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                if strcmp(manip.uncertainty_source, 'friction_coeff')
+                    uncertain_mu = [];%reset mu, make it average
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                    sample_num = length(manip.uncertain_position_set);
+                    for i=1:sample_num
+                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        terrain_index = i;
+                        [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                        phi_stack(:,i) = phi;
+                        n_stack(:,:,i) = n;
+                        dn_stack(:,:,i) = dn;
+                        D_stack1(:,:,i) = D{1};
+                        D_stack2(:,:,i) = D{2};
+                        D_stack3(:,:,i) = D{3};
+                        D_stack4(:,:,i) = D{4};
+                        dD_stack1(:,:,i) = dD{1};
+                        dD_stack2(:,:,i) = dD{2};
+                        dD_stack3(:,:,i) = dD{3};
+                        dD_stack4(:,:,i) = dD{4};
+                    end
+                    phi = sum(phi_stack,2)/sample_num;
+                    n = sum(n_stack,3)/sample_num;
+                    dn = sum(dn_stack,3)/sample_num;
+                    D{1} = sum(D_stack1,3)/sample_num;
+                    D{2} = sum(D_stack2,3)/sample_num;
+                    D{3} = sum(D_stack3,3)/sample_num;
+                    D{4} = sum(D_stack4,3)/sample_num;
+                    dD{1} = sum(dD_stack1,3)/sample_num;
+                    dD{2} = sum(dD_stack2,3)/sample_num;
+                    dD{3} = sum(dD_stack3,3)/sample_num;
+                    dD{4} = sum(dD_stack4,3)/sample_num;
+                elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                    sample_num = length(manip.uncertain_mu_set);
+                    for i=1:sample_num
+                        manip.uncertain_mu = manip.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
+                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        uncertain_mu = manip.uncertain_mu_set(i);
+                        terrain_index = i;
+                        [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                        phi_stack(:,i) = phi;
+                        n_stack(:,:,i) = n;
+                        dn_stack(:,:,i) = dn;
+                        D_stack1(:,:,i) = D{1};
+                        D_stack2(:,:,i) = D{2};
+                        D_stack3(:,:,i) = D{3};
+                        D_stack4(:,:,i) = D{4};
+                        dD_stack1(:,:,i) = dD{1};
+                        dD_stack2(:,:,i) = dD{2};
+                        dD_stack3(:,:,i) = dD{3};
+                        dD_stack4(:,:,i) = dD{4};
+                    end
+                    phi = sum(phi_stack,2)/sample_num;
+                    n = sum(n_stack,3)/sample_num;
+                    dn = sum(dn_stack,3)/sample_num;
+                    D{1} = sum(D_stack1,3)/sample_num;
+                    D{2} = sum(D_stack2,3)/sample_num;
+                    D{3} = sum(D_stack3,3)/sample_num;
+                    D{4} = sum(D_stack4,3)/sample_num;
+                    dD{1} = sum(dD_stack1,3)/sample_num;
+                    dD{2} = sum(dD_stack2,3)/sample_num;
+                    dD{3} = sum(dD_stack3,3)/sample_num;
+                    dD{4} = sum(dD_stack4,3)/sample_num;
+                elseif isempty(manip.uncertainty_source)%non-robust version
+                    [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                else
+                    w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
+                    save -ascii friction_coeff_noise.dat w_mu
+                end
                 
                 f = zeros(obj.nC*(1+obj.nD),1);
                 df = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
@@ -235,19 +528,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                 end
                 
-                f_numeric = f;
-                df_numeric = df;
-                %disp('check gradient')
+                %f_numeric = f;
+                %df_numeric = df;
                 
-                % if(f > 1e-3 || max(any(df > 1e-3)) == 1)
-                %     disp('come here')
-                % end
-                % 
                 % [f_numeric,df_numeric] = geval(@(y) nonlincompl_fun_check(y),y,struct('grad_method','numerical'));
-                % valuecheck(df,df_numeric,1e-3);
-                % valuecheck(f,f_numeric,1e-3);
+                % valuecheck(df,df_numeric,1e-5);
+                % valuecheck(f,f_numeric,1e-5);
                 
-                function [f_num,df_num] = nonlincompl_fun_check(y)
+                function [f,df] = nonlincompl_fun_check(y)
                     nq = obj.plant.getNumPositions;
                     nv = obj.plant.getNumVelocities;
                     x = y(1:nq+nv+obj.nC);
@@ -257,18 +545,85 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     q = x(1:nq);
                     v = x(nq+1:nq+nv);
                     
-                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    if strcmp(manip.uncertainty_source, 'friction_coeff')
+                        uncertain_mu = [];%reset mu, make it average
+                        [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                        sample_num = length(manip.uncertain_position_set);
+                        for i=1:sample_num
+                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                            terrain_index = i;
+                            [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                            phi_stack(:,i) = phi;
+                            n_stack(:,:,i) = n;
+                            dn_stack(:,:,i) = dn;
+                            D_stack1(:,:,i) = D{1};
+                            D_stack2(:,:,i) = D{2};
+                            D_stack3(:,:,i) = D{3};
+                            D_stack4(:,:,i) = D{4};
+                            dD_stack1(:,:,i) = dD{1};
+                            dD_stack2(:,:,i) = dD{2};
+                            dD_stack3(:,:,i) = dD{3};
+                            dD_stack4(:,:,i) = dD{4};
+                        end
+                        phi = sum(phi_stack,2)/sample_num;
+                        n = sum(n_stack,3)/sample_num;
+                        dn = sum(dn_stack,3)/sample_num;
+                        D{1} = sum(D_stack1,3)/sample_num;
+                        D{2} = sum(D_stack2,3)/sample_num;
+                        D{3} = sum(D_stack3,3)/sample_num;
+                        D{4} = sum(D_stack4,3)/sample_num;
+                        dD{1} = sum(dD_stack1,3)/sample_num;
+                        dD{2} = sum(dD_stack2,3)/sample_num;
+                        dD{3} = sum(dD_stack3,3)/sample_num;
+                        dD{4} = sum(dD_stack4,3)/sample_num;
+                    elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                        sample_num = length(manip.uncertain_mu_set);
+                        for i=1:sample_num
+                            manip.uncertain_mu = manip.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
+                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                            uncertain_mu = manip.uncertain_mu_set(i);
+                            terrain_index = i;
+                            [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                            phi_stack(:,i) = phi;
+                            n_stack(:,:,i) = n;
+                            D_stack1(:,:,i) = D{1};
+                            D_stack2(:,:,i) = D{2};
+                            D_stack3(:,:,i) = D{3};
+                            D_stack4(:,:,i) = D{4};
+                            dD_stack1(:,:,i) = dD{1};
+                            dD_stack2(:,:,i) = dD{2};
+                            dD_stack3(:,:,i) = dD{3};
+                            dD_stack4(:,:,i) = dD{4};
+                        end
+                        phi = sum(phi_stack,2)/sample_num;
+                        n = sum(n_stack,3)/sample_num;
+                        dn = sum(dn_stack,3)/sample_num;
+                        D{1} = sum(D_stack1,3)/sample_num;
+                        D{2} = sum(D_stack2,3)/sample_num;
+                        D{3} = sum(D_stack3,3)/sample_num;
+                        D{4} = sum(D_stack4,3)/sample_num;
+                        dD{1} = sum(dD_stack1,3)/sample_num;
+                        dD{2} = sum(dD_stack2,3)/sample_num;
+                        dD{3} = sum(dD_stack3,3)/sample_num;
+                        dD{4} = sum(dD_stack4,3)/sample_num;
+                    elseif isempty(manip.uncertainty_source)%non-robust version
+                        [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    else
+                        w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%friction coefficient noise
+                        save -ascii friction_coeff_noise.dat w_mu
+                    end
                     
-                    f_num = zeros(obj.nC*(1+obj.nD),1);
-                    df_num = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                    f = zeros(obj.nC*(1+obj.nD),1);
+                    df = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
                     
-                    f_num(1:1+obj.nD:end) = phi;
-                    df_num(1:1+obj.nD:end,1:nq) = n;
+                    f(1:1+obj.nD:end) = phi;
+                    df(1:1+obj.nD:end,1:nq) = n;
                     for j=1:obj.nD,
-                        f_num(1+j:1+obj.nD:end) = gamma+D{j}*v;
-                        df_num(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
-                        df_num(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
-                        df_num(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                        f(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                        df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                        df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                        df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
                     end
                 end
             end
@@ -2109,7 +2464,75 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,2+nu+nl+njl)];
             
             if nl>0
-                [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                manip = obj.plant.getManipulator();
+                if strcmp(manip.uncertainty_source, 'friction_coeff')
+                    uncertain_mu = [];%reset mu, make it average
+                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                    sample_num = length(manip.uncertain_position_set);
+                    for ii=1:sample_num
+                        manip.uncertain_phi = manip.uncertain_position_set(:,ii);
+                        terrain_index = ii;
+                        [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q1,false,obj.options.active_collision_options);
+                        phi_stack(:,ii) = phi;
+                        n_stack(:,:,ii) = n;
+                        dn_stack(:,:,ii) = dn;
+                        D_stack1(:,:,ii) = D{1};
+                        D_stack2(:,:,ii) = D{2};
+                        D_stack3(:,:,ii) = D{3};
+                        D_stack4(:,:,ii) = D{4};
+                        dD_stack1(:,:,ii) = dD{1};
+                        dD_stack2(:,:,ii) = dD{2};
+                        dD_stack3(:,:,ii) = dD{3};
+                        dD_stack4(:,:,ii) = dD{4};
+                    end
+                    phi = sum(phi_stack,2)/sample_num;
+                    n = sum(n_stack,3)/sample_num;
+                    dn = sum(dn_stack,3)/sample_num;
+                    D{1} = sum(D_stack1,3)/sample_num;
+                    D{2} = sum(D_stack2,3)/sample_num;
+                    D{3} = sum(D_stack3,3)/sample_num;
+                    D{4} = sum(D_stack4,3)/sample_num;
+                    dD{1} = sum(dD_stack1,3)/sample_num;
+                    dD{2} = sum(dD_stack2,3)/sample_num;
+                    dD{3} = sum(dD_stack3,3)/sample_num;
+                    dD{4} = sum(dD_stack4,3)/sample_num;
+                elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                    sample_num = length(manip.uncertain_mu_set);
+                    for ii=1:sample_num
+                        manip.uncertain_mu = manip.uncertain_mu_set(ii);% uncertainy in mu is streamed down into the contactConstraint_manual function
+                        manip.uncertain_phi = manip.uncertain_position_set(:,ii);
+                        uncertain_mu = manip.uncertain_mu_set(ii);
+                        terrain_index = ii;
+                        [phi,~,~,~,~,~,~,~,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q1,false,obj.options.active_collision_options);
+                        phi_stack(:,ii) = phi;
+                        n_stack(:,:,ii) = n;
+                        dn_stack(:,:,ii) = dn;
+                        D_stack1(:,:,ii) = D{1};
+                        D_stack2(:,:,ii) = D{2};
+                        D_stack3(:,:,ii) = D{3};
+                        D_stack4(:,:,ii) = D{4};
+                        dD_stack1(:,:,ii) = dD{1};
+                        dD_stack2(:,:,ii) = dD{2};
+                        dD_stack3(:,:,ii) = dD{3};
+                        dD_stack4(:,:,ii) = dD{4};
+                    end
+                    phi = sum(phi_stack,2)/sample_num;
+                    n = sum(n_stack,3)/sample_num;
+                    dn = sum(dn_stack,3)/sample_num;
+                    D{1} = sum(D_stack1,3)/sample_num;
+                    D{2} = sum(D_stack2,3)/sample_num;
+                    D{3} = sum(D_stack3,3)/sample_num;
+                    D{4} = sum(D_stack4,3)/sample_num;
+                    dD{1} = sum(dD_stack1,3)/sample_num;
+                    dD{2} = sum(dD_stack2,3)/sample_num;
+                    dD{3} = sum(dD_stack3,3)/sample_num;
+                    dD{4} = sum(dD_stack4,3)/sample_num;
+                elseif isempty(manip.uncertainty_source)%non-robust version
+                    [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                end
+                %[phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                
                 % construct J and dJ from n,D,dn, and dD so they relate to the
                 % lambda vector
                 J = zeros(nl,nq);
@@ -2228,7 +2651,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     [zeros(nv,1) matGradMult(dH0,v1-v0)-h*dBuminusC0 matGradMult(dH1,v1-v0)-h*dBuminusC1 zeros(nv,2+nu+nl+njl)];
                 
                 if nl>0
-                    [phi,normal,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
+                    [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
                     % construct J and dJ from n,D,dn, and dD so they relate to the
                     % lambda vector
                     J = zeros(nl,nq);

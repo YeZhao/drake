@@ -15,6 +15,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         uncertain_mu_mean
         uncertain_mu_set
         uncertain_phi
+        uncertain_position_mean
         uncertain_position_set
     end
     

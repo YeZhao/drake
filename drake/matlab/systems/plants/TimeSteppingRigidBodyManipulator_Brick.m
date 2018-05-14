@@ -33,6 +33,14 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         friction_coeff
         terrain_index
         uncertainty_source
+        object_initial_position
+        time_step
+        uncertain_mu
+        uncertain_mu_mean
+        uncertain_mu_set
+        uncertain_phi
+        uncertain_position_mean
+        uncertain_position_set
     end
     
     methods
@@ -1682,9 +1690,9 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     % end more debugging
                     
                     %z_vec = [z_vec,z];
-                    if t >= (4-0.07)
-                        keyboard
-                    end
+                    %if t >= (4-0.07)
+                    %    keyboard
+                    %end
                     if any(phiC < -0.00002)
                         disp('penetration')
                     end

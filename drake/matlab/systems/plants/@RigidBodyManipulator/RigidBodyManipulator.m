@@ -51,6 +51,22 @@ classdef RigidBodyManipulator < Manipulator
     plant_sample;
   end
 
+  properties (SetAccess=public)
+      % robust set-up for terrain uncertainty
+      %terrain_height
+      friction_coeff
+      terrain_index
+      uncertainty_source
+      object_initial_position
+      time_step
+      uncertain_mu
+      uncertain_mu_mean
+      uncertain_mu_set
+      uncertain_phi
+      uncertain_position_mean
+      uncertain_position_set
+  end
+    
   methods
     function obj = RigidBodyManipulator(filename,options)
       % Construct a new rigid body manipulator object with a single (empty)

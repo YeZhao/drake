@@ -5,7 +5,7 @@ function RobustcontactImplicitBrick(visualize,xtraj,utraj,ltraj,ljltraj)%positio
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
-
+ 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
@@ -13,22 +13,34 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 
 %N=500; tf=1;
-N=30; tf=2;
+N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-w_phi = load('terrain_height_noise5.dat');
+plant.uncertainty_source = 'friction_coeff';%'friction_coeff+terrain_height';%'terrain_height'
+if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
+    w_mu = load('friction_coeff_noise1.dat');
+    plant.uncertain_mu_set = w_mu;
+    plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
+end
+if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
+    w_phi = load('terrain_height_noise5.dat');
+    plant.uncertain_position_set = w_phi;
+    plant.uncertain_position_mean = mean(w_phi);
+    
+    n_sig_point = length(w_phi);
+    for i=1:n_sig_point
+        sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+        sample_options.floating = true;
+        w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+        plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+        warning(w);
+        plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+    end
+end
+%w_phi = load('terrain_height_noise5.dat');
 %w_phi = load('terrain_height_noise_long.dat');%more data
 %w_phi = normrnd(zeros(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);%height noise
 %save -ascii terrain_height_noise5.dat w_phi
-n_sig_point = 28;
-for i=1:n_sig_point
-    sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
-    sample_options.floating = true;
-    w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-    plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
-    warning(w);
-    plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
-end
 
 %% previous setting(August-22-17)
 % x0 = [0;0;2.0;0;0;0;0.5;zeros(5,1)];
@@ -148,7 +160,7 @@ prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
 prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
-prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
+prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 %prog = prog.setCheckGrad(true);
 
 %snprint('snopt.out');
