@@ -178,7 +178,7 @@ classdef NonlinearProgram
       obj.constraint_err_tol = 1e-4;
       obj.check_grad = false;
     end
- 
+
     function [obj,cnstr_id] = addCompositeConstraints(obj,cnstr,xind,data_ind)
       % add a CompositeConstraint to the object, change the constraint evalation of the
       % program. 

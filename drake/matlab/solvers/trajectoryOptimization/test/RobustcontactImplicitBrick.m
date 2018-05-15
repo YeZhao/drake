@@ -16,12 +16,12 @@ warning(w);
 N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = '';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise1.dat');
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
-end
+end 
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
     plant.uncertain_position_set = w_phi;
@@ -160,10 +160,10 @@ prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
 prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 %prog = prog.setCheckGrad(true);
 
-%snprint('snopt.out');
+%snprint('snopt.out'); 
  
 % initial conditions constraint
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);

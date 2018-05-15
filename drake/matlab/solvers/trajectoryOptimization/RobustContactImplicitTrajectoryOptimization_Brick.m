@@ -116,7 +116,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             n_vars = 2*nX + nU + 1 + obj.nC*(2+obj.nD) + obj.nJL + obj.nFext;
             cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.dynamics_constraint_fun);
             q0 = getZeroConfiguration(obj.plant);
-            
+             
             %[~,~,~,~,~,~,~,mu] = obj.plant.contactConstraints(q0,false,obj.options.active_collision_options);
             manip = obj.plant.getManipulator();
             if strcmp(manip.uncertainty_source, 'friction_coeff') || strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
@@ -146,10 +146,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     obj.lambda_inds(:,i) = lambda_inds;
                     
-                    obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.nlcc_mode = 5;% robust mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -170,14 +170,26 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.r = r;
                     obj.M = M;
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
+                    % ERM formulation
                     assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
                     assert(size(gamma_inds,1) == obj.nC);
                     
-%                     obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
-%                        {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
+                    % nonlinear LCP non-negative constraint
+                    obj.options.nlcc_mode = 7;% lambda non-negative mode
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds]);
+                    
+                    % linear LCP non-negative constraint
+                    obj.options.lincc_mode = 4;% tangential velocity non-negative mode
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+
+                    %inner product residual minimization
+                    obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
+                       {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
                     % add ERM cost for sliding velocity constraint uncertainty
                     %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -214,9 +226,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
-            if (obj.nC > 0)
-                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
-            end
+            %if (obj.nC > 0)
+            %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+            %end
             
             global uncertain_mu;
             global terrain_index;
@@ -244,16 +256,24 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dff_stack(:,:,i) = dff;
                     end
                 elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
-                    sample_num = length(manip.uncertain_mu_set);
-                    for i=1:sample_num
+                    sample_mu_num = length(manip.uncertain_mu_set);
+                    for i=1:sample_mu_num
                         manip.uncertain_mu = manip.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
-                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
                         uncertain_mu = manip.uncertain_mu_set(i);
-                        terrain_index = i;
+                        terrain_index = [];
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
                         ff_stack(:,i) = ff;
                         dff_stack(:,:,i) = dff;
                     end
+                    sample_position_num = length(manip.uncertain_position_set);
+                    for i=1:sample_position_num
+                        manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        terrain_index = i;
+                        [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                        ff_stack(:,i+sample_mu_num) = ff;
+                        dff_stack(:,:,i+sample_mu_num) = dff;
+                    end
+                    sample_num = sample_mu_num + sample_position_num;
                 elseif isempty(manip.uncertainty_source)%non-robust version
                     sample_num = 1;
                     [ff,dff] = ERM_nonlincompl_fun(obj,y);
@@ -273,15 +293,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dff_mean = sum(dff_stack,3)/sample_num;
                 mean_dev = zeros(1,length(y));
                 var_dev = zeros(1,length(y));
-                for i=1:sample_num
-                    mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
-                    var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
-                end
                 
+                decesion_vec = [gamma;lambda];
+                
+                for i=1:sample_num
+                    mean_dev = mean_dev + decesion_vec'*ff_stack(:,i)*decesion_vec'*dff_stack(:,:,i);
+                    var_dev = var_dev + (decesion_vec'*(ff_stack(:,i) - ff_mean))'*(decesion_vec'*dff_stack(:,:,i) - decesion_vec'*dff_mean);
+                end
+                                
                 delta = obj.options.robustLCPcost_coeff;% coefficient
-                f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
+                f = delta/2 * (norm(decesion_vec'*ff_stack)^2 + norm(decesion_vec'*ff_stack - decesion_vec'*ff_mean_vec)^2);
                 df = delta*(mean_dev + var_dev) ...
-                    + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
+                    + [zeros(1,nX), delta*((decesion_vec'*ff_stack)*ff_stack' + (decesion_vec'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
                 
                 if isempty(f_accumulate)
                     f_accumulate = f;
@@ -295,9 +318,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     number_of_call = number_of_call + 1;
                 end
                     
-                %f_numeric = f;
-                %df_numeric = df;
-                %X0 = [x;gamma;lambda];
+                f_numeric = f;
+                df_numeric = df;
+                X0 = [x;gamma;lambda];
                 
                 % [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
                 % valuecheck(df,df_numeric,1e-5);
@@ -327,16 +350,24 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             dff_stack(:,:,i) = dff;
                         end
                     elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
-                        sample_num = length(manip.uncertain_mu_set);
-                        for i=1:sample_num
-                            manip.uncertain_mu = manip.uncertain_mu_set(i);
-                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                        sample_mu_num = length(manip.uncertain_mu_set);
+                        for i=1:sample_mu_num
+                            manip.uncertain_mu = manip.uncertain_mu_set(i);% uncertainy in mu is streamed down into the contactConstraint_manual function
                             uncertain_mu = manip.uncertain_mu_set(i);
-                            terrain_index = i;
+                            terrain_index = [];
                             [ff,dff] = ERM_nonlincompl_fun(obj,y);
                             ff_stack(:,i) = ff;
                             dff_stack(:,:,i) = dff;
                         end
+                        sample_position_num = length(manip.uncertain_position_set);
+                        for i=1:sample_position_num
+                            manip.uncertain_phi = manip.uncertain_position_set(:,i);
+                            terrain_index = i;
+                            [ff,dff] = ERM_nonlincompl_fun(obj,y);
+                            ff_stack(:,i+sample_mu_num) = ff;
+                            dff_stack(:,:,i+sample_mu_num) = dff;
+                        end
+                        sample_num = sample_mu_num + sample_position_num;
                     elseif isempty(manip.uncertainty_source)%non-robust version
                         sample_num = 1;
                         [ff,dff] = ERM_nonlincompl_fun(obj,y);
@@ -352,15 +383,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dff_mean = sum(dff_stack,3)/sample_num;
                     mean_dev = zeros(1,length(y));
                     var_dev = zeros(1,length(y));
+
+                    decesion_vec = [gamma;lambda];
+
                     for i=1:sample_num
-                        mean_dev = mean_dev + lambda'*ff_stack(:,i)*lambda'*dff_stack(:,:,i);
-                        var_dev = var_dev + (lambda'*(ff_stack(:,i) - ff_mean))'*(lambda'*dff_stack(:,:,i) - lambda'*dff_mean);
+                        mean_dev = mean_dev + decesion_vec'*ff_stack(:,i)*decesion_vec'*dff_stack(:,:,i);
+                        var_dev = var_dev + (decesion_vec'*(ff_stack(:,i) - ff_mean))'*(decesion_vec'*dff_stack(:,:,i) - decesion_vec'*dff_mean);
                     end
                     
                     delta = obj.options.robustLCPcost_coeff;% coefficient
-                    f = delta/2 * (norm(lambda'*ff_stack)^2 + norm(lambda'*ff_stack - lambda'*ff_mean_vec)^2);
-                    df = delta*(mean_dev + var_dev) ... 
-                        + [zeros(1,nX+obj.nC), delta*((lambda'*ff_stack)*ff_stack' + (lambda'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
+                    f = delta/2 * (norm(decesion_vec'*ff_stack)^2 + norm(decesion_vec'*ff_stack - decesion_vec'*ff_mean_vec)^2);
+                    df = delta*(mean_dev + var_dev) ...
+                        + [zeros(1,nX), delta*((decesion_vec'*ff_stack)*ff_stack' + (decesion_vec'*(ff_stack - ff_mean_vec))*(ff_stack - ff_mean_vec)')];
                 end
             end
             
@@ -385,8 +419,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 elseif strcmp(manip.uncertainty_source, 'terrain_height')
                     [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
                 elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
-                    [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
-                    mu = uncertain_mu*ones(obj.nC,1);
+                    if isempty(terrain_index)
+                        [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
+                    else
+                        [phi,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(q,false,obj.options.active_collision_options);
+                        mu = ones(obj.nC,1);
+                    end
                 end
                 
                 %% debugging
@@ -404,18 +442,31 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 %v1_est = v0 + Minv*(B*u - C + D{1}'*[z(2);z(5)] + D{2}'*[z(3);z(6)] + n'*[z(1);z(4)])*h;
                 %% end debugging
                 
-                f = zeros(obj.nC*(1+obj.nD),1);
-                df = zeros(obj.nC*(1+obj.nD),nq+nv+obj.nC*(2+obj.nD));
+                f = zeros(obj.nC*(2+obj.nD),1);
+                df = zeros(obj.nC*(2+obj.nD),nq+nv+obj.nC*(2+obj.nD));
                 
-                f(1:1+obj.nD:end) = phi;
-                df(1:1+obj.nD:end,1:nq) = n;
-                for j=1:obj.nD
-                    f(1+j:1+obj.nD:end) = gamma+D{j}*v;
-                    df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
-                    df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
-                    df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                %add linear complementarity constraint for friction cone
+                for j=1:obj.nC
+                    f(j) = mu(j)*z(1+(1+obj.nD)*(j-1)) - ones(1,obj.nD)*z((2:5)+(1+obj.nD)*(j-1));
+                    df(j,nq+nv+obj.nC+1+(1+obj.nD)*(j-1)) = mu(j);
+                    df(j,nq+nv+obj.nC+(2:5)+(1+obj.nD)*(j-1)) = -ones(1,obj.nD);
                 end
                 
+                f((1+obj.nC):1+obj.nD:end) = phi;
+                df(1+obj.nC:1+obj.nD:end,1:nq) = n;
+                for j=1:obj.nD
+                    f(1+obj.nC+j:1+obj.nD:end) = gamma+D{j}*v;
+                    df(1+obj.nC+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                    df(1+obj.nC+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                    df(1+obj.nC+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                end
+                
+%                 for j=1:obj.nC
+%                     f(j*(2+obj.nD)) = mu(j)*z(1+(1+obj.nD)*(j-1)) - ones(1,obj.nD)*z((2:5)+(1+obj.nD)*(j-1));
+%                     df(j*(2+obj.nD),nq+nv+obj.nC+1+(1+obj.nD)*(j-1)) = mu(j);
+%                     df(j*(2+obj.nD),nq+nv+obj.nC+(2:5)+(1+obj.nD)*(j-1)) = -ones(1,obj.nD);
+%                 end
+
                 persistent LCP_non_robust_NCP_residual
                 if obj.verbose_print == 1
                     NCP_residual = f.*z;
@@ -2530,7 +2581,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dD{4} = sum(dD_stack4,3)/sample_num;
                 elseif isempty(manip.uncertainty_source)%non-robust version
                     [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
-                end
+                end 
                 %[phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q1,false,obj.options.active_collision_options);
                 
                 % construct J and dJ from n,D,dn, and dD so they relate to the

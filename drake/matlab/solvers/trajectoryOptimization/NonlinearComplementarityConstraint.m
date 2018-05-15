@@ -61,6 +61,8 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     constraints{2} = FunctionHandleConstraint(zeros(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackeq_normal);%[the last element is about slack variable but not used]%[diff slack var]
                     constraints{3} = FunctionHandleConstraint(-inf(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackprod_normal);%[diff slack var]
                     n = 2;
+                case 7%non-negative lambda values
+                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1)],inf(zdim+xdim,1));
             end
             
             function [f,df] = prodfun(y)
@@ -184,6 +186,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     obj.slack_fun = fun;
                 case 6
                     obj.slack_fun = fun;
+                case 7
             end
         end
     end
