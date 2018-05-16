@@ -521,8 +521,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 global df_previous
                 
                 tic
-                x_full = x_full + randn(size(x_full))*0.1;
-                u_full = u_full + randn(size(u_full))*0.1;
                 
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
@@ -605,7 +603,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         end
                         
                         for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                            Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                             % add terrain height uncertainty sample to each sigma point
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
@@ -673,7 +671,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             df_previous = df_previous_full(:,:,j);
                         end
                         
-                        [xdn(:,j),df(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u(:,k) - K*(Sig(1:nx,j,k) - x(:,k)));
+                        [xdn(:,j),df(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u_fdb_k);
                         %toc
                         
                         % %numerical diff
@@ -3845,10 +3843,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     dC1 = zeros(nq,2*nq);
                     dB1 = zeros(nq*nu,2*nq);
             end
-            
-            %if any(abs(C(9:10)) > 0.02) || any(abs(C(12:14)) > 0.02)
-            %    disp('here')
-            %end
             
             BuminusC = B*u-C;
             if nu>0

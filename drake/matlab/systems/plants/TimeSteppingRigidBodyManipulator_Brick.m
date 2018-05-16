@@ -1173,6 +1173,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             global timestep_updated
             global sigmapoint_index
             global phi_penetration_pair
+            global terrain_index
             
             %obj = setSampleTime(obj,[timestep_updated;0]);
             
@@ -1330,27 +1331,27 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     
                     has_contacts = (nContactPairs > 0);
                     
-                    if isempty(has_contacts)
-                        disp('no contact')
-                    else
-                        disp('contact occur')
-                    end
+%                     if isempty(has_contacts)
+%                         disp('no contact')
+%                     else
+%                         disp('contact occur')
+%                     end
                     
+                    manip = obj.getManipulator();
                     if has_contacts
                         if (nargout>4)
-                            if strcmp(obj.uncertainty_source, 'friction_coeff')
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
-                            elseif strcmp(obj.uncertainty_source, 'terrain_height')
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{obj.terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                            if strcmp(manip.uncertainty_source, 'friction_coeff')
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.contactConstraints(kinsol, obj.multiple_contacts);
+                            elseif strcmp(manip.uncertainty_source, 'terrain_height')
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                            elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
+                            else
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);    
                             end
                         else
                             [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D] = obj.manip.contactConstraints(kinsol, obj.multiple_contacts);
                         end
-                        % reconstruct perturbed mu
-                        if ~isempty(obj.friction_coeff)
-                            mu = obj.friction_coeff*ones(length(mu),1);
-                        end
-                        % [double make sure that mu is not interweaving contactConstraints]
                         
                         if ~isempty(phiC)
                             if isempty(possible_contact_indices)
@@ -1693,15 +1694,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     %if t >= (4-0.07)
                     %    keyboard
                     %end
-                    if any(phiC < -0.00002)
-                        disp('penetration')
-                    end
                     
-                    if any(phiC < 0)
-                        disp('penetration')
-                        pene_pair = [sigmapoint_index;min(phiC);max(z(1:nC))/h];% the last element is force, converted from impulse
-                        phi_penetration_pair = [phi_penetration_pair,pene_pair];
-                    end
+%                     if any(phiC < 0)
+%                         disp('penetration')
+%                         pene_pair = [sigmapoint_index;min(phiC);max(z(1:nC))/h];% the last element is force, converted from impulse
+%                         phi_penetration_pair = [phi_penetration_pair,pene_pair];
+%                     end
                     
 %                     z_x_sum = 0;
 %                     z_y_sum = 0;

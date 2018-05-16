@@ -16,9 +16,9 @@ warning(w);
 N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = '';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
-    w_mu = load('friction_coeff_noise1.dat');
+    w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
 end 
@@ -137,6 +137,9 @@ if visualize
     % plot(xdn_LCP_vec(9,27:end),'b-');
 end
 
+nq = 6;
+nv = 6;
+
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
@@ -148,6 +151,8 @@ options.Kx_gain = 5;
 options.Kxd_gain = 5;
 options.Kz_gain = 5;
 options.Kzd_gain = 5;
+options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
+                zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
 
 persistent sum_running_cost
