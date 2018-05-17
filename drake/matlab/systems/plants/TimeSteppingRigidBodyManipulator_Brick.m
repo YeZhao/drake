@@ -696,10 +696,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 %     [phiC_next,normal_next,V_next,n_next,D_next,xA_next,xB_next,idxA_next,idxB_next,mu_next] = getContactTerms(obj,qn,kinsol_next);
                 % end
                 
-                if t > 0.5518 && t < 0.625
-                    next_time_step_state = [next_time_step_state,qn];
-                end
-                
                 %v = A*f + c
                 %v2 = Ain*result.x - bin + v_min
                 

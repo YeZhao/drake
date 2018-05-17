@@ -61,8 +61,11 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                     constraints{2} = FunctionHandleConstraint(zeros(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackeq_normal);%[the last element is about slack variable but not used]%[diff slack var]
                     constraints{3} = FunctionHandleConstraint(-inf(2,1),zeros(2,1),xdim+zdim+2+1,@robustslackprod_normal);%[diff slack var]
                     n = 2;
-                case 7%non-negative lambda values
-                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1)],inf(zdim+xdim,1));
+                case 7%non-negative values i.e., z >= 0, f(x,z) >= 0
+                    constraints{1} = BoundingBoxConstraint([-inf(xdim,1);1e-10*ones(zdim,1);1e-8;1e-10*ones(zdim,1)],[inf(zdim+xdim,1);1;inf(zdim,1)]);%[diff slack var]
+                    %constraints{1} = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1)],inf(zdim+xdim,1));
+                    constraints{2} = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),xdim+2*zdim+1,@robustslackeq);%[the last element is about slack variable but not used]%[diff slack var]
+                    n = zdim;
             end
             
             function [f,df] = prodfun(y)
@@ -93,11 +96,9 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
             function [f,df] = robustslackeq(y)
                 x = y(1:xdim);
                 z = y(xdim+1:xdim+zdim);
-                %gamma = y(xdim+zdim+3:end);%[diff slack var]
                 gamma = y(xdim+zdim+2:end);%[single slack var]
                 [f,df] = fun([x;z]);
                 f = f - gamma;
-                %df = [df zeros(zdim, zdim+2)] - [zeros(zdim,zdim+xdim) zeros(zdim,2) eye(zdim)];%[diff slack var]
                 df = [df zeros(zdim, zdim+1)] - [zeros(zdim,zdim+xdim) zeros(zdim,1) eye(zdim)];%[single slack var]
             end
             
@@ -187,6 +188,7 @@ classdef NonlinearComplementarityConstraint < CompositeConstraint
                 case 6
                     obj.slack_fun = fun;
                 case 7
+                    obj.slack_fun = fun;
             end
         end
     end

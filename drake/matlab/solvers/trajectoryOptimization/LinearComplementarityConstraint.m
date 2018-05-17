@@ -45,7 +45,9 @@ classdef LinearComplementarityConstraint < CompositeConstraint
           case 3
               constraints = FunctionHandleConstraint(zeros(zdim,1),zeros(zdim,1),zdim,@fbfun);
           case 4
-              constraints = BoundingBoxConstraint([-inf(xdim,1);zeros(zdim,1);1e-8],[inf(zdim+xdim,1);1]);
+              bcon = BoundingBoxConstraint([-inf(xdim,1);1e-10*ones(zdim,1);1e-8],[inf(zdim+xdim,1);1]);
+              lincon = LinearConstraint(-q,inf(zdim,1),[M W zeros(zdim,1)]);
+              constraints = {bcon;lincon};
       end
       function [f,df] = prodfun_slack(y)
         x = y(1:xdim);
