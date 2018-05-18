@@ -274,6 +274,31 @@ end
             pause(h(1)/5);
         end
         
+        global iteration_index
+        global NCP_slack_param
+        
+        if isempty(iteration_index)
+            iteration_index = 1;
+        else
+            iteration_index = iteration_index + 1;
+        end
+        
+        if iteration_index < 20
+            NCP_slack_param = 1e-2;
+        elseif iteration_index < 40
+            NCP_slack_param = 1e-4;
+        elseif iteration_index < 80
+            NCP_slack_param = 1e-6;
+        elseif iteration_index < 120
+            NCP_slack_param = 1e-8;
+        elseif iteration_index < 180
+            NCP_slack_param = 1e-10;
+        elseif iteration_index < 240
+            NCP_slack_param = 1e-12;
+        else
+            NCP_slack_param = 1e-14;
+        end
+        
         LCP_slack = LCP_slack';
         LCP_slack = [LCP_slack, LCP_slack(:,end)];
         nominal_linewidth = 2.5;
