@@ -5,23 +5,25 @@ function RobustcontactImplicitBrick(visualize,xtraj,utraj,ltraj,ljltraj)%positio
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
+global example_name;
+example_name = 'falling brick';
 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
- 
+
 %N=500; tf=1;
-N=20; tf=2;
+N=10; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = 'friction_coeff';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = 'terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
-end 
+end
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
     plant.uncertain_position_set = w_phi;
@@ -137,8 +139,8 @@ if visualize
     % plot(xdn_LCP_vec(9,27:end),'b-');
 end
 
-nq = 6;
-nv = 6;
+nq = plant.num_positions;
+nv = plant.num_velocities;
 
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
@@ -146,7 +148,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 
 options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 100; %10000
+options.Px_coeff = 0.09;
 options.Kx_gain = 5;
 options.Kxd_gain = 5;
 options.Kz_gain = 5;
@@ -163,8 +165,8 @@ prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
-prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
-prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
+prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 %prog = prog.setCheckGrad(true);
 
@@ -175,7 +177,7 @@ prog = addStateConstraint(prog,ConstantConstraint(x0),1);
 prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
 prog = prog.addRunningCost(@running_cost_fun);
-
+ 
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
@@ -187,7 +189,7 @@ if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
-    
+     
     ts = getBreaks(xtraj);
     h = tf/(N-1);
     F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
@@ -273,7 +275,7 @@ end
             xlim([-1.5, 6])
             pause(h(1)/5);
         end
-        
+         
         global iteration_index
         global NCP_slack_param
         
@@ -282,6 +284,11 @@ end
         else
             iteration_index = iteration_index + 1;
         end
+        fprintf('iteration index: %4d\n',iteration_index);
+        
+%         if mod(iteration_index,100) == 0
+%             keyboard
+%         end
         
         if iteration_index < 20
             NCP_slack_param = 1e-2;

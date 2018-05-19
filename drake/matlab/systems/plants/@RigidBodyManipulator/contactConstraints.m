@@ -62,12 +62,28 @@ if nC == 0
 end
 
 global uncertain_mu;
-% For now, all coefficients of friction are 1
-if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+terrain_height')
-    if isempty(obj.uncertain_mu) && isempty(uncertain_mu)
-        mu = obj.uncertain_mu_mean*ones(nC,1);
+global example_name;
+
+if strcmp(example_name, 'falling brick')
+    global uncertainty_source;
+    if strcmp(uncertainty_source, 'friction_coeff') || strcmp(uncertainty_source, 'friction_coeff+terrain_height')
+        if isempty(obj.uncertain_mu) && isempty(uncertain_mu)
+            mu = obj.uncertain_mu_mean*ones(nC,1);
+        else
+            mu = uncertain_mu*ones(nC,1);
+        end
     else
-        mu = uncertain_mu*ones(nC,1);
+        mu = ones(nC,1);
+    end
+elseif strcmp(example_name, 'kuka_arm')
+    if strcmp(obj.uncertainty_source, 'friction_coeff') || strcmp(obj.uncertainty_source, 'friction_coeff+terrain_height')
+        if isempty(obj.uncertain_mu) && isempty(uncertain_mu)
+            mu = obj.uncertain_mu_mean*ones(nC,1);
+        else
+            mu = uncertain_mu*ones(nC,1);
+        end
+    else
+        mu = ones(nC,1);
     end
 else
     mu = ones(nC,1);
@@ -96,6 +112,4 @@ else %MATLAB implementation
     end
   end
 end
-
 end
-

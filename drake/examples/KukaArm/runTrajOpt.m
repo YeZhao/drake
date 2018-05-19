@@ -6,6 +6,9 @@ options.ignore_self_collisions = true;
 options.multiple_contacts = false;
 options.active_collision_options.terrain_only = true;
 
+global example_name;
+example_name = 'kuka_arm';
+
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
 r = KukaArm(options);
