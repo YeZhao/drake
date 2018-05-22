@@ -15,7 +15,7 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 
 %N=500; tf=1;
-N=10; tf=2;
+N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
 plant.uncertainty_source = 'terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
@@ -184,7 +184,7 @@ traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
 
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-
+ 
 if visualize
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
