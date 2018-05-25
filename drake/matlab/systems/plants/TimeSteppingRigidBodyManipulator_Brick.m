@@ -1508,7 +1508,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
 %                         disp('contact occur')
 %                     end
                     
-                    global phi_previous
+                    %global phi_previous
                     manip = obj.getManipulator();
                     if has_contacts
                         if (nargout>4)
@@ -1516,11 +1516,11 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.contactConstraints(kinsol, obj.multiple_contacts);
                             elseif strcmp(manip.uncertainty_source, 'terrain_height')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
-                                disp('--------LCP--------')
-                                kinsol.q(3) - manip.plant_sample{terrain_index}.terrain.z
-                                terrain_index
-                                kinsol.q(3)
-                                phiC(1)
+%                                 disp('--------LCP--------')
+%                                 kinsol.q(3) - manip.plant_sample{terrain_index}.terrain.z
+%                                 terrain_index
+%                                 kinsol.q(3)
+%                                 phiC(1)
 %                                 if abs(phiC(1) - phi_previous) < 1e-5
 %                                     keyboard
 %                                 end
@@ -1530,7 +1530,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
 %                                 if kinsol.q(3) < 0.8
 %                                     keyboard
 %                                 end
-                                phi_previous = phiC(1); 
+%                                 phi_previous = phiC(1); 
                                 
                             elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);

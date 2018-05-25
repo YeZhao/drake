@@ -7,7 +7,7 @@ if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
 global example_name;
 example_name = 'falling brick';
-
+ 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
@@ -15,7 +15,7 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 
 %N=500; tf=1;
-N=20; tf=2;
+N=4; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
 plant.uncertainty_source = 'terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
@@ -150,9 +150,9 @@ options.contact_robust_cost_coeff = 0.0001;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.09;
 options.Kx_gain = 5;
-options.Kxd_gain = 5;
+options.Kxd_gain = 3;
 options.Kz_gain = 5;
-options.Kzd_gain = 5;
+options.Kzd_gain = 3;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
