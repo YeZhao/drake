@@ -15,7 +15,7 @@ plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','
 warning(w);
 
 %N=500; tf=1;
-N=4; tf=2;
+N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
 plant.uncertainty_source = 'terrain_height';%'friction_coeff+terrain_height';%'terrain_height'

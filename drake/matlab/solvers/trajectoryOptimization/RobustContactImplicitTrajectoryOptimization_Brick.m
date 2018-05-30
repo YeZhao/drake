@@ -158,10 +158,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     obj.lambda_inds(:,i) = lambda_inds;
                     
-                    %                     obj.options.nlcc_mode = 5;% robust mode
-                    %                     obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    %                     obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    %                     obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.nlcc_mode = 5;% robust mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -182,33 +182,33 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.r = r;
                     obj.M = M;
                     
-                    %                     lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    %                     obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % ERM formulation
                     assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
                     assert(size(gamma_inds,1) == obj.nC);
                     
                     % more direct way to implement lambda and gamma nonnegativity
-                    %                     contact_force_bounding_constraints{i} = contact_force_cnstr.setName(sprintf('contactForceConstraint[%d]',i));
-                    %                     obj = obj.addConstraint(contact_force_bounding_constraints{i}, [lambda_inds]);
+                    % contact_force_bounding_constraints{i} = contact_force_cnstr.setName(sprintf('contactForceConstraint[%d]',i));
+                    % obj = obj.addConstraint(contact_force_bounding_constraints{i}, [lambda_inds]);
                     %
-                    %                     sliding_velocity_bounding_constraints{i} = sliding_velocity_cnstr.setName(sprintf('slidingVelocityConstraint[%d]',i));
-                    %                     obj = obj.addConstraint(sliding_velocity_bounding_constraints{i}, [gamma_inds]);
+                    % sliding_velocity_bounding_constraints{i} = sliding_velocity_cnstr.setName(sprintf('slidingVelocityConstraint[%d]',i));
+                    % obj = obj.addConstraint(sliding_velocity_bounding_constraints{i}, [gamma_inds]);
                     
-                    % nonlinear LCP non-negative constraint
-                    obj.options.nlcc_mode = 7;% lambda non-negative mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                    
-                    % linear LCP non-negative constraint
-                    obj.options.lincc_mode = 4;% tangential velocity non-negative mode
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
-                    
-                    %inner product residual minimization
-                    obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
-                        {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
+                    % % nonlinear LCP non-negative constraint
+                    % obj.options.nlcc_mode = 7;% lambda non-negative mode
+                    % obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    % obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    %
+                    % % linear LCP non-negative constraint
+                    % obj.options.lincc_mode = 4;% tangential velocity non-negative mode
+                    % lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    % obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %
+                    % %inner product residual minimization
+                    % obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
+                    %     {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
                     % add ERM cost for sliding velocity constraint uncertainty
                     %obj = obj.addCost(FunctionHandleObjective(2*nX+nU+6+2+1,@(h,x0,x1,u,lambda,gamma,verbose_print)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -245,9 +245,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost_ML(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
-            %             if (obj.nC > 0)
-            %                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
-            %             end
+            %if (obj.nC > 0)
+            %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+            %end
             
             global uncertain_mu;
             global terrain_index;
@@ -1170,7 +1170,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % accumulate returned cost
                 %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*inv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                 % % debugging
                 % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                 % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
@@ -1608,7 +1608,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*inv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                     % % debugging
                     % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                     % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
@@ -2022,7 +2022,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % accumulate returned cost
                 %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*inv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                 % % debugging
                 % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                 % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
@@ -2635,7 +2635,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*inv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                     % % debugging
                     % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                     % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
