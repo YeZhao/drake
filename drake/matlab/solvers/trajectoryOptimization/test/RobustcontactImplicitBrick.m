@@ -18,7 +18,7 @@ warning(w);
 N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = 'terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = '';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
@@ -165,8 +165,8 @@ prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
-prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
+prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 %prog = prog.setCheckGrad(true);
 
@@ -187,9 +187,9 @@ slack_sum_vec = [];% vector storing the slack variable sum
  
 if visualize
     v.playback(xtraj,struct('slider',true));
-    % Create an animation movie
+    % Create an animation movie c
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
-     
+    
     ts = getBreaks(xtraj);
     h = tf/(N-1);
     F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
@@ -235,6 +235,40 @@ if visualize
     title('Force Profile','fontsize',22)
     legend('horizontal force','vertical force')
     ylim([-10.5,10.5])
+    
+    % % simulate with LQR gains
+    % ToDo: need to handle control input in this case
+    % % LQR Cost Matrices
+    Q = diag(10*ones(1,prog.nx));
+    R = .1*eye(2);
+    Qf = 100*eye(prog.nx);
+    
+    ltvsys = tvlqr(plant_ts,xtraj,F_exttraj,Q,R,Qf);
+    sys=feedback(plant_ts,ltvsys);
+    xtraj_new = simulate(sys,xtraj.tspan, x0);
+    v.playback(xtraj_new,struct('slider',true));
+    
+    %% pd-control LTI trial
+    kp = 100;
+    kd = sqrt(kp)*1.5;
+    
+    K = [kp*eye(prog.nx),kd*eye(prog.nx)];
+    
+    ltisys = LinearSystem([],[],[],[],[],-K);
+    ltisys = setInputFrame(ltisys,CoordinateFrame([plant_ts.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),plant_ts.getStateFrame.prefix));
+    plant_ts.getStateFrame.addTransform(AffineTransform(plant_ts.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
+    ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,plant_ts.getStateFrame,eye(length(x0)),+x0));
+    ltisys = setOutputFrame(ltisys,plant_ts.getInputFrame);
+    
+    sys = feedback(plant_ts,ltisys);
+    % Forward simulate dynamics with visulazation, then playback at realtime
+    S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
+    output_select(1).system=1;
+    output_select(1).output=1;
+    %sys = mimoCascade(sys,v,[],[],output_select);
+    warning(S);
+    xtraj_new = simulate(sys,xtraj.tspan,x0);
+    playback(v,xtraj_new,struct('slider',true));
 end
     function [f,df] = running_cost_fun(h,x,force)
         cost_coeff = 1;

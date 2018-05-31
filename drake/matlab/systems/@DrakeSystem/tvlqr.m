@@ -32,7 +32,8 @@ if (nargin<7), options=struct(); end
 if isfield(options,'tspan') 
   typecheck(options.tspan,'double');
 else  
-  options.tspan = utraj.getBreaks(); 
+  %options.tspan = utraj.getBreaks(); 
+  options.tspan = xtraj.getBreaks(); 
 end
 if ~isfield(options,'sqrtmethod'), options.sqrtmethod = true; end
 

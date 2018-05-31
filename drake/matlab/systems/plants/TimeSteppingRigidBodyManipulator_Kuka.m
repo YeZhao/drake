@@ -1128,8 +1128,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %not make sense), overall, the analytical gradient are more
             %reliable.
         end
-        
-        function [xdn,df] = update(obj,index,x,u)
+         
+        function [xdn,df] = update(obj,index,x,u) 
             X0 = [index;x;u];%note that the first input is sigma point index
             [xdn,df] = solveQP(obj,X0);
             %set the gradient w.r.t index to be zero.

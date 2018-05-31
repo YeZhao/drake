@@ -655,6 +655,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         %keyboard
                         xdn = x_previous;
                         df = df_previous;
+                        return
                     end;
                 end
                 f = S_weighting*V*result_qp;% each 3x1 block is for one contact point, x, y, and z direction are all negative values, since it points from B to A.
@@ -678,9 +679,9 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 end
                 
                 f_normal_bottom = [f(6);f(12);f(18);f(24)]/h;% force, converted from force
-                
+                 
                 if any(phiC_bottom < 0)
-                    disp('penetration')
+                    %disp('penetration')
                     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
                     phi_penetration_pair = [phi_penetration_pair,pene_pair];
                 end
