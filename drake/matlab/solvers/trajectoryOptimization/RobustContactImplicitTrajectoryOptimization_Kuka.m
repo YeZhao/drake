@@ -182,18 +182,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
                     assert(size(gamma_inds,1) == obj.nC);
                     
-                    % nonlinear LCP non-negative constraint
-                    %obj.options.nlcc_mode = 7;% lambda non-negative mode
-                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                     
-                    % linear LCP non-negative constraint
-                    %obj.options.lincc_mode = 4;% tangential velocity non-negative mode
-                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
-                    
                     %obj = obj.addCost(FunctionHandleObjective(nX + obj.nC+obj.nC*(1+obj.nD),@(x,gamma,lambda)ERMcost(obj,x,gamma,lambda),1), ...
                     %    {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
+                    
+                    % nonlinear LCP non-negative constraint
+                    obj.options.nlcc_mode = 7;% lambda non-negative mode
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                     
+                    % linear LCP non-negative constraint
+                    obj.options.lincc_mode = 4;% tangential velocity non-negative mode
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % % add ERM cost for sliding velocity constraint uncertainty
                     % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -659,7 +659,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             x_previous = xdn_previous_full(:,j);
                             df_previous = df_previous_full(:,:,j);
                         end
-                         
+                        
                         % estimate whether current state is close to contact
                         [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
                         % %numerical diff

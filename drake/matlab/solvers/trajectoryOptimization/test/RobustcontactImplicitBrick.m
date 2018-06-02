@@ -236,6 +236,79 @@ if visualize
     legend('horizontal force','vertical force')
     ylim([-10.5,10.5])
     
+    kp = 150;
+    kd = sqrt(kp)*1.5;
+    
+    % 4 contact points at the bottom surface
+    % x positive
+    lambda_xp_data = ltraj_data(2:nD+2:end,:)/h;
+    lambda_xp_data = lambda_xp_data(2:2:end,:);
+    % y positive
+    lambda_yp_data = ltraj_data(3:nD+2:end,:)/h;
+    lambda_yp_data = lambda_yp_data(2:2:end,:);
+    % x negative
+    lambda_xn_data = ltraj_data(4:nD+2:end,:)/h;
+    lambda_xn_data = lambda_xn_data(2:2:end,:);
+    % y negative
+    lambda_yn_data = ltraj_data(5:nD+2:end,:)/h;
+    lambda_yn_data = lambda_yn_data(2:2:end,:);
+    % z 
+    lambda_n_data = lambda_n_data(2:2:end,:);
+    m = 1;
+    g = 9.81;
+    
+    x_real(1) = xtraj_data(1,1);
+    z_real(1) = xtraj_data(3,1);
+    xdot_real(1) = xtraj_data(7,1);
+    zdot_real(1) = xtraj_data(9,1);
+    xddot_real(1) = 0;
+    zddot_real(1) = 0;
+    x_real_full(:,1) = xtraj_data(:,1);
+    plant_ts_sample = TimeSteppingRigidBodyManipulator_Brick(plant_sample{7},tf/(N-1));
+    
+    for i=1:N-1
+        %feedback ctrl in x and z position
+        F_fb(1,i) = kp*(xtraj_data(1,i) - x_real(i)) + kd*(xtraj_data(7,i) - xdot_real(i));%position
+        F_fb(2,i) = kp*(xtraj_data(3,i) - z_real(i)) + kd*(xtraj_data(9,i) - zdot_real(i));%velocity
+        %feedforward
+        F_ff(:,i) = F_exttraj_data(:,i);
+        F_net(1,i) = F_fb(1,i) + F_ff(1,i) + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
+        F_net(2,i) = F_fb(2,i) + F_ff(2,i) + sum(lambda_n_data(:,i));
+                
+        %xddot_real(i+1) = F_net(1,i)/m;
+        %zddot_real(i+1) = (F_net(2,i)-m*g)/m;
+        
+        %numerical integration
+        %xdot_real(i+1) = xdot_real(i) + xddot_real(i+1)*h;
+        %zdot_real(i+1) = zdot_real(i) + zddot_real(i+1)*h;
+        %x_real(i+1) = x_real(i) + xdot_real(i+1)*h + 0.5*xddot_real(i+1)*h^2;
+        %z_real(i+1) = z_real(i) + zdot_real(i+1)*h + 0.5*zddot_real(i+1)*h^2;
+        
+        
+        [xdn,df] = plant_ts_sample.update(1,x_real_full(:,i),F_net(:,i));
+        
+        x_real_full(:,i+1) = xdn;
+        x_real(i+1) = x_real_full(1,i+1);
+        z_real(i+1) = x_real_full(3,i+1);
+        xdot_real(i+1) = x_real_full(7,i+1);
+        zdot_real(i+1) = x_real_full(9,i+1);
+    end
+    
+    x_simulated = x_real_full;
+    xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+    xtraj_simulated = xtraj_simulated.setOutputFrame(plant_ts.getStateFrame);
+    %v.playback(xtraj_simulated,struct('slider',true));
+    
+    figure(4)
+    hold on;
+    plot(x_real_full(1,:), x_real_full(3,:),'b-');
+    hold on;
+    plot(xtraj_data(1,:), xtraj_data(3,:),'r-');
+    xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+    title('2D Cartesian CoM trajectory','fontsize',22)
+    legend('passive case','robust case')
+    ylim([0,2.1])
+    
     % % simulate with LQR gains
     % ToDo: need to handle control input in this case
     % % LQR Cost Matrices

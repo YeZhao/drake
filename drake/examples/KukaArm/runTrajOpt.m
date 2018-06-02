@@ -109,7 +109,7 @@ end
 options.robustLCPcost_coeff = 1e6;
 options.Px_coeff = 0.1;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
-options.contact_robust_cost_coeff = 1e-5;%1e-10;
+options.contact_robust_cost_coeff = 1e-8;%1e-10;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -237,10 +237,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
@@ -248,7 +248,7 @@ time_step = T0/(N-1);
 
 persistent sum_running_cost
 persistent cost_index
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
