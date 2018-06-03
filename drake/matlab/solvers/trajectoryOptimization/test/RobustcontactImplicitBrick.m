@@ -18,7 +18,7 @@ warning(w);
 N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = '';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
@@ -274,16 +274,6 @@ if visualize
         F_ff(:,i) = F_exttraj_data(:,i);
         F_net(1,i) = F_fb(1,i) + F_ff(1,i) + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
         F_net(2,i) = F_fb(2,i) + F_ff(2,i) + sum(lambda_n_data(:,i));
-                
-        %xddot_real(i+1) = F_net(1,i)/m;
-        %zddot_real(i+1) = (F_net(2,i)-m*g)/m;
-        
-        %numerical integration
-        %xdot_real(i+1) = xdot_real(i) + xddot_real(i+1)*h;
-        %zdot_real(i+1) = zdot_real(i) + zddot_real(i+1)*h;
-        %x_real(i+1) = x_real(i) + xdot_real(i+1)*h + 0.5*xddot_real(i+1)*h^2;
-        %z_real(i+1) = z_real(i) + zdot_real(i+1)*h + 0.5*zddot_real(i+1)*h^2;
-        
         
         [xdn,df] = plant_ts_sample.update(1,x_real_full(:,i),F_net(:,i));
         

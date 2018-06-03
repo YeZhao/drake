@@ -158,10 +158,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     obj.lambda_inds(:,i) = lambda_inds;
                     
-                    obj.options.nlcc_mode = 5;% robust mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.nlcc_mode = 5;% robust mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack;
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
@@ -182,8 +182,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     obj.r = r;
                     obj.M = M;
                     
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % ERM formulation
                     assert(size(lambda_inds,1) == obj.nC*(1+obj.nD));
@@ -243,11 +243,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost_ML(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost_ML(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
-            if (obj.nC > 0)
-                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
-            end
+            %if (obj.nC > 0)
+            %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+            %nd
             
             global uncertain_mu;
             global terrain_index;
@@ -1065,32 +1065,32 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     else
                         [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
                         
-                        %numerical diff
-                        dt = diag(sqrt(eps(t)));
-                        dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
-                        du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
-                        
-                        [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                        
-                        N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        for m = 1:N_finite_diff_x
-                            [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                            df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        end
-                        
-                        N_finite_diff_u = length(u_fdb_k);
-                        for m = 1:N_finite_diff_u
-                            [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                            [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                            df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        end
-                        
-                        if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
-                            keyboard
-                        end
+                        % %numerical diff
+                        % dt = diag(sqrt(eps(t)));
+                        % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
+                        % du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
+                        %
+                        % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                        % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                        %
+                        % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+                        % for m = 1:N_finite_diff_x
+                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        % end
+                        %
+                        % N_finite_diff_u = length(u_fdb_k);
+                        % for m = 1:N_finite_diff_u
+                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        % end
+                        %
+                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
+                        %     keyboard
+                        % end
                         
                         xdn = xdn_analytical;
                         df(:,:,j) = df_analytical(:,:,j);

@@ -10,7 +10,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
     end
     
     properties (SetAccess=protected)
-        timestep
+        timestep 
         twoD=false
         position_control=false;
         LCP_cache;

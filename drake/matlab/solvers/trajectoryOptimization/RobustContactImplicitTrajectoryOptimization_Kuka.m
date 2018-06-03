@@ -137,10 +137,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     obj.lambda_inds(:,i) = lambda_inds;
                     
                     %sliding + normal LCP constraints
-                    %obj.options.nlcc_mode = 5;% robust mode
-                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    %obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
-                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    obj.options.nlcc_mode = 5;% robust mode
+                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
+                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % only normal LCP constraint
                     % obj.options.nlcc_mode = 6;% robust mode
@@ -173,8 +173,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         obj.verbose_print = 0;
                     end
                     
-                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     %obj = obj.addCost(FunctionHandleObjective(nX+obj.nC+obj.nC*(1+obj.nD),@(x1,gamma,lambda)deterministic_cost_slidingVelocity(obj,x1,gamma,lambda),1), ...
                     %      {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
@@ -186,14 +186,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %    {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
                     % nonlinear LCP non-negative constraint
-                    obj.options.nlcc_mode = 7;% lambda non-negative mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                     
+                    %obj.options.nlcc_mode = 7;% lambda non-negative mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    
                     % linear LCP non-negative constraint
-                    obj.options.lincc_mode = 4;% tangential velocity non-negative mode
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.lincc_mode = 4;% tangential velocity non-negative mode
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % % add ERM cost for sliding velocity constraint uncertainty
                     % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -239,11 +239,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
-            %if (obj.nC > 0)
-            %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
-            %end
+            if (obj.nC > 0)
+                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
+            end
             
             function [f,df] = ERMcost(obj,x,gamma,lambda)
                 y = [x;gamma;lambda];
@@ -3625,7 +3625,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 %[f_numeric,df_numeric] = geval(@(X0) ERMcost_slidingVelocity_check(obj,X0),X0,struct('grad_method','numerical'));
                 %valuecheck(df,df_numeric,1e-5);
                 %valuecheck(f,f_numeric,1e-5);
-                disp('here')
                 
                 function [f,df] = ERMcost_slidingVelocity_check(obj, X0)
                     h = X0(1);
