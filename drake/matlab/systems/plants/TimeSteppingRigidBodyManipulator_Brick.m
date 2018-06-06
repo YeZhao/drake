@@ -1167,12 +1167,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             persistent xdn_QP_vec;
             persistent xdn_LCP_vec;
             
-            %tStart = tic;
+            %tStart = tic; 
             %[xdn,df] = solveQP(obj,X0);
             %tElapsed = toc(tStart);
 
             %xdn_QP_vec = [xdn_QP_vec,xdn];
-            
+             
             %return;
             %disp('finish solveQP')
             

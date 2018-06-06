@@ -26,6 +26,7 @@ if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertaint
 end
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
+    w_phi = w_phi/3;%scale down
     plant.uncertain_position_set = w_phi;
     plant.uncertain_position_mean = mean(w_phi);
     
@@ -53,9 +54,9 @@ end
 
 %new setting(August-22-17)
 x0 = [0;0;2;0;0;0;10;zeros(5,1)];
-xf = [6.256;0;0.5;0;0;0;zeros(6,1)];
-xf_min = [6.256;0;0.5;0;0;0;zeros(6,1)];
-xf_max = [6.256;0;0.5;0;0;0;zeros(6,1)];
+xf = [10;0;0.5;0;0;0;zeros(6,1)];
+xf_min = [10;0;0.5;0;0;0;zeros(6,1)];
+xf_max = [10;0;0.5;0;0;0;zeros(6,1)];
 
 plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingQP');
@@ -146,9 +147,11 @@ options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-options.contact_robust_cost_coeff = 0.0001;
+options.contact_robust_cost_coeff = 100;%0.0001;%1e-13;
+options.ERMcost_coeff = 10;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.09;
+options.Px_regularizer_coeff = 1;
 options.Kx_gain = 5;
 options.Kxd_gain = 3;
 options.Kz_gain = 5;
@@ -156,7 +159,7 @@ options.Kzd_gain = 3;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
-
+ 
 persistent sum_running_cost
 persistent cost_index
 
@@ -165,8 +168,8 @@ prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
 prog = prog.setSolverOptions('snopt','IterationsLimit',2000000);
 prog = prog.setSolverOptions('snopt','SuperbasicsLimit',10000);
-prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
-prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
+prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
+prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 %prog = prog.setCheckGrad(true);
 
@@ -182,12 +185,14 @@ traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
-
-[xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
  
+tic
+[xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
+toc
+
 if visualize
     v.playback(xtraj,struct('slider',true));
-    % Create an animation movie c
+    % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
     
     ts = getBreaks(xtraj);
@@ -264,7 +269,7 @@ if visualize
     xddot_real(1) = 0;
     zddot_real(1) = 0;
     x_real_full(:,1) = xtraj_data(:,1);
-    plant_ts_sample = TimeSteppingRigidBodyManipulator_Brick(plant_sample{7},tf/(N-1));
+    %plant_ts_sample = TimeSteppingRigidBodyManipulator_Brick(plant_sample{7},tf/(N-1));
     
     for i=1:N-1
         %feedback ctrl in x and z position
@@ -275,7 +280,8 @@ if visualize
         F_net(1,i) = F_fb(1,i) + F_ff(1,i) + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
         F_net(2,i) = F_fb(2,i) + F_ff(2,i) + sum(lambda_n_data(:,i));
         
-        [xdn,df] = plant_ts_sample.update(1,x_real_full(:,i),F_net(:,i));
+        %[xdn,df] = plant_ts_sample.update(1,x_real_full(:,i),F_net(:,i));
+        [xdn,df] = plant_ts.update(1,x_real_full(:,i),F_net(:,i));
         
         x_real_full(:,i+1) = xdn;
         x_real(i+1) = x_real_full(1,i+1);
@@ -345,7 +351,7 @@ end
         % [f_numeric,df_numeric] = geval(@(h,x,force) running_cost_fun_check(h,x,force),h,x,force,struct('grad_method','numerical'));
         % valuecheck(df,df_numeric,1e-3);
         % valuecheck(f,f_numeric,1e-3);
-        
+         
         if isempty(cost_index)
             cost_index = 1;
             sum_running_cost = f;
@@ -382,10 +388,6 @@ end
             iteration_index = iteration_index + 1;
         end
         fprintf('iteration index: %4d\n',iteration_index);
-        
-%         if mod(iteration_index,100) == 0
-%             keyboard
-%         end
         
         if iteration_index < 20
             NCP_slack_param = 1e-2;

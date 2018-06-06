@@ -94,7 +94,7 @@ N = 25;
 N1 = 7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
-r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source = 'friction_coeff';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -248,12 +248,12 @@ time_step = T0/(N-1);
 
 persistent sum_running_cost
 persistent cost_index
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
- 
+
 % % simulate with LQR gains
 % % LQR Cost Matrices
 Q = diag(10*ones(1,nx));
@@ -333,9 +333,9 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        %if any(LCP_slack_var < 0)
-        %    disp('here')
-        %end
+        if any(LCP_slack_var < 0)
+            disp('here')
+        end
         
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff

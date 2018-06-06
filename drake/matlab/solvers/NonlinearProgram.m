@@ -167,7 +167,7 @@ classdef NonlinearProgram
       obj.solver_options.snopt.VerifyLevel = 0;  
       obj.solver_options.snopt.DerivativeOption = 1;
       obj.solver_options.snopt.print = ''; 
-      obj.solver_options.snopt.ScaleOption = 2;
+      obj.solver_options.snopt.ScaleOption = 0;
       obj.solver_options.snopt.NewBasisFile = 0;
       obj.solver_options.snopt.OldBasisFile = 0;
       obj.solver_options.snopt.BackupBasisFile = 0;
@@ -566,13 +566,13 @@ classdef NonlinearProgram
       for i = 1:length(obj.cost)
         args = [getArgumentArray(obj,x,obj.cost_xind_cell{i});shared_data(obj.cost_dataind{i})];
         if(nargout>1)
-          [fi,dfi] = obj.cost{i}.eval(args{:});
+            [fi,dfi] = obj.cost{i}.eval(args{:});
         else
-          fi = obj.cost{i}.eval(args{:});
+            fi = obj.cost{i}.eval(args{:});
         end
         f(1) = f(1)+fi;
         if(nargout>1)
-          G(1,obj.cost_xind_stacked{i}) = G(1,obj.cost_xind_stacked{i})+dfi;
+            G(1,obj.cost_xind_stacked{i}) = G(1,obj.cost_xind_stacked{i})+dfi;
         end
       end
       f_count = 1;

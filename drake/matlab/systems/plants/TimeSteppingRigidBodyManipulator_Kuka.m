@@ -1131,10 +1131,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
          
         function [xdn,df] = update(obj,index,x,u) 
             X0 = [index;x;u];%note that the first input is sigma point index
-            [xdn,df] = solveQP(obj,X0);
+            %[xdn,df] = solveQP(obj,X0);
             %set the gradient w.r.t index to be zero.
-            df(:,1) = zeros(size(df,1),1);
-            return;
+            %df(:,1) = zeros(size(df,1),1);
+            %return;
             
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)
