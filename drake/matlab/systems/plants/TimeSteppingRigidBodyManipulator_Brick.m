@@ -1172,7 +1172,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             %tElapsed = toc(tStart);
 
             %xdn_QP_vec = [xdn_QP_vec,xdn];
-             
+            
             %return;
             %disp('finish solveQP')
             
@@ -1516,23 +1516,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                             if strcmp(manip.uncertainty_source, 'friction_coeff')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.contactConstraints(kinsol, obj.multiple_contacts);
                             elseif strcmp(manip.uncertainty_source, 'terrain_height')
-                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
-%                                 disp('--------LCP--------')
-%                                 kinsol.q(3) - manip.plant_sample{terrain_index}.terrain.z
-%                                 terrain_index
-%                                 kinsol.q(3)
-%                                 phiC(1)
-%                                 if abs(phiC(1) - phi_previous) < 1e-5
-%                                     keyboard
-%                                 end
-%                                 if phiC(1) < 1.4
-%                                     keyboard
-%                                 end
-%                                 if kinsol.q(3) < 0.8
-%                                     keyboard
-%                                 end
-%                                 phi_previous = phiC(1); 
-                                
+                                [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);                                
                             elseif strcmp(manip.uncertainty_source, 'friction_coeff+terrain_height')
                                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
                             else

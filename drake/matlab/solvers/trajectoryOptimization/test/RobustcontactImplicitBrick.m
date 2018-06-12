@@ -24,9 +24,10 @@ if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertaint
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
 end
+terrain_height_scale_factor = 7;
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
-    w_phi = w_phi/3;%scale down
+    w_phi = w_phi/terrain_height_scale_factor;%scale down
     plant.uncertain_position_set = w_phi;
     plant.uncertain_position_mean = mean(w_phi);
     
@@ -147,15 +148,15 @@ options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 %options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-options.contact_robust_cost_coeff = 100;%0.0001;%1e-13;
+options.contact_robust_cost_coeff = 100;%0.1;%0.0001;%1e-13;
 options.ERMcost_coeff = 10;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.09;
-options.Px_regularizer_coeff = 1;
+options.Px_regularizer_coeff = 1e-1;
 options.Kx_gain = 5;
-options.Kxd_gain = 3;
-options.Kz_gain = 5;
-options.Kzd_gain = 3;
+options.Kxd_gain = sqrt(options.Kx_gain)*1.5; 
+options.Kz_gain = 15;
+options.Kzd_gain = sqrt(options.Kz_gain)*1.5;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
@@ -185,12 +186,12 @@ traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
- 
+
 tic
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
 toc
 
-if visualize
+if 1
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
@@ -241,8 +242,10 @@ if visualize
     legend('horizontal force','vertical force')
     ylim([-10.5,10.5])
     
-    kp = 150;
-    kd = sqrt(kp)*1.5;
+    kp_x = 5;
+    kd_x = sqrt(kp_x)*1.5;
+    kp_z = 25;
+    kd_z = sqrt(kp_z)*1.5;
     
     % 4 contact points at the bottom surface
     % x positive
@@ -269,46 +272,111 @@ if visualize
     xddot_real(1) = 0;
     zddot_real(1) = 0;
     x_real_full(:,1) = xtraj_data(:,1);
-    %plant_ts_sample = TimeSteppingRigidBodyManipulator_Brick(plant_sample{7},tf/(N-1));
     
-    for i=1:N-1
-        %feedback ctrl in x and z position
-        F_fb(1,i) = kp*(xtraj_data(1,i) - x_real(i)) + kd*(xtraj_data(7,i) - xdot_real(i));%position
-        F_fb(2,i) = kp*(xtraj_data(3,i) - z_real(i)) + kd*(xtraj_data(9,i) - zdot_real(i));%velocity
-        %feedforward
-        F_ff(:,i) = F_exttraj_data(:,i);
-        F_net(1,i) = F_fb(1,i) + F_ff(1,i) + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
-        F_net(2,i) = F_fb(2,i) + F_ff(2,i) + sum(lambda_n_data(:,i));
-        
-        %[xdn,df] = plant_ts_sample.update(1,x_real_full(:,i),F_net(:,i));
-        [xdn,df] = plant_ts.update(1,x_real_full(:,i),F_net(:,i));
-        
-        x_real_full(:,i+1) = xdn;
-        x_real(i+1) = x_real_full(1,i+1);
-        z_real(i+1) = x_real_full(3,i+1);
-        xdot_real(i+1) = x_real_full(7,i+1);
-        zdot_real(i+1) = x_real_full(9,i+1);
+    stabilitation_scenario = 'friction_coeff+terrain_height';
+    global uncertainty_source;
+    
+    if strcmp(stabilitation_scenario, 'friction_coeff') 
+        w_mu = load('friction_coeff_noise.dat');
+        sample_length = length(w_mu);
+        global uncertain_mu;
+        uncertainty_source = 'friction_coeff';
     end
     
-    x_simulated = x_real_full;
-    xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
-    xtraj_simulated = xtraj_simulated.setOutputFrame(plant_ts.getStateFrame);
-    %v.playback(xtraj_simulated,struct('slider',true));
+    if strcmp(stabilitation_scenario, 'terrain_height')
+        w_phi = load('terrain_height_noise5.dat');
+        w_phi = w_phi/terrain_height_scale_factor;
+        plant.uncertain_position_set = w_phi;
+        plant.uncertain_position_mean = mean(w_phi);
+        sample_length = length(w_phi);
+        for i=1:sample_length
+            sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+            sample_options.floating = true;
+            w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+            plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+            warning(w);
+            plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+        end
+        global terrain_index;
+        uncertainty_source = 'terrain_height';
+    end
     
-    figure(4)
-    hold on;
-    plot(x_real_full(1,:), x_real_full(3,:),'b-');
-    hold on;
-    plot(xtraj_data(1,:), xtraj_data(3,:),'r-');
-    xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
-    title('2D Cartesian CoM trajectory','fontsize',22)
-    legend('passive case','robust case')
-    ylim([0,2.1])
+    if strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
+        w_mu = load('friction_coeff_noise.dat');
+        w_phi = load('terrain_height_noise5.dat');
+        w_phi = w_phi/terrain_height_scale_factor;
+        plant.uncertain_position_set = w_phi;
+        plant.uncertain_position_mean = mean(w_phi);
+        sample_length = length(w_phi);
+        for i=1:sample_length
+            sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+            sample_options.floating = true;
+            w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+            plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+            warning(w);
+            plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+        end
+        global uncertain_mu;
+        global terrain_index;
+        uncertainty_source = 'friction_coeff+terrain_height';
+    end
+    
+    for m=1:sample_length
+        m
+        if strcmp(stabilitation_scenario, 'friction_coeff')
+            uncertain_mu = w_mu(m);
+            plant.uncertainty_source = 'friction_coeff';
+            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+        elseif strcmp(stabilitation_scenario, 'terrain_height')
+            plant.uncertainty_source = 'terrain_height';
+            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+            terrain_index = m;
+        elseif strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
+            uncertain_mu = w_mu(m);
+            plant.uncertainty_source = 'friction_coeff+terrain_height';
+            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+            terrain_index = m;
+        end
+        
+        for i=1:N-1
+            %feedback ctrl in x and z position
+            F_fb(1,i) = kp_x*(xtraj_data(1,i) - x_real(i)) + kd_x*(xtraj_data(7,i) - xdot_real(i));%x direction
+            F_fb(2,i) = kp_z*(xtraj_data(3,i) - z_real(i)) + kd_z*(xtraj_data(9,i) - zdot_real(i));%z direction
+            %feedforward
+            F_ff(:,i) = F_exttraj_data(:,i);
+            F_net(1,i) = F_fb(1,i) + F_ff(1,i);% + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
+            F_net(2,i) = F_fb(2,i) + F_ff(2,i);% + sum(lambda_n_data(:,i));
+            
+            [xdn,df] = plant_ts.update(1,x_real_full(:,i),F_net(:,i));
+            x_real_full(:,i+1) = xdn;
+            x_real(i+1) = x_real_full(1,i+1);
+            z_real(i+1) = x_real_full(3,i+1);
+            xdot_real(i+1) = x_real_full(7,i+1);
+            zdot_real(i+1) = x_real_full(9,i+1);
+        end
+        
+        x_simulated = x_real_full;
+        xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+        xtraj_simulated = xtraj_simulated.setOutputFrame(plant_ts.getStateFrame);
+        %v.playback(xtraj_simulated,struct('slider',true));
+        
+        figure(4)
+        hold on;
+        plot(x_real_full(1,:), x_real_full(3,:),'r-');
+        hold on;
+        plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+        xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+        title('2D Cartesian CoM trajectory','fontsize',22)
+        legend('passive case','robust case')
+        ylim([0,2.1])
+        
+        x_final_dev(m) = x_real_full(1,end) - xtraj_data(1,end);
+    end
     
     % % simulate with LQR gains
     % ToDo: need to handle control input in this case
     % % LQR Cost Matrices
-    Q = diag(10*ones(1,prog.nx));
+    Q = diag(10*ones(1,prog.nx)); 
     R = .1*eye(2);
     Qf = 100*eye(prog.nx);
     
@@ -340,10 +408,16 @@ if visualize
     playback(v,xtraj_new,struct('slider',true));
 end
     function [f,df] = running_cost_fun(h,x,force)
-        cost_coeff = 1;
+
+        Q = blkdiag(1,0,20,0.001*eye(3),1,0,20,0.001*eye(3));
+        R = blkdiag(1,1);
         
-        f = cost_coeff*h*force'*force;
-        df = [cost_coeff*force'*force zeros(1,12) 2*cost_coeff*h*force'];
+        %g = (1/2)*(x-xf)'*Q*(x-xf) + (1/2)*force'*R*force;
+        %f = h*g;
+        %df = [g, h*(x-xf)'*Q, h*force'*R];
+        g = (1/2)*force'*R*force;
+        f = h*g;
+        df = [g, zeros(1,12), h*force'*R];
         
         f_numeric = f;
         df_numeric = df;
@@ -366,8 +440,12 @@ end
         end
         
         function [f,df] = running_cost_fun_check(h,x,force)
-            f = h*force'*force;
-            df = [force'*force zeros(1,12) 2*h*force'];
+            Q = blkdiag(1,0,10,0.001*eye(3),1,0,10,0.001*eye(3));
+            R = 1e-5*blkdiag(1,1);
+            
+            g = (1/2)*(x-xf)'*Q*(x-xf) + (1/2)*force'*R*force;
+            f = h*g;
+            df = [g, h*(x-xf)'*Q, h*force'*R];
         end
     end
 
