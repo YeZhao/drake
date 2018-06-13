@@ -1135,6 +1135,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %set the gradient w.r.t index to be zero.
             %df(:,1) = zeros(size(df,1),1);
             %return;
+            t = index;
             
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)

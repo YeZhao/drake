@@ -920,7 +920,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             global terrain_index
             global uncertain_mu
             manip = obj.plant.getManipulator();
-             
+            
             x = reshape(x_full, obj.nx, obj.N);
             u = reshape(Fext_full, obj.nFext, obj.N);% note that, in this bricking example, we treat external force as control input
             nq = obj.plant.getNumPositions;
@@ -928,7 +928,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             nx = nq+nv;
             nu = obj.nFext;%obj.plant.getNumInputs;
             obj.nu = nu;
-            u
+            
             % sigma points
             Px = zeros(obj.nx,obj.nx,obj.N);
             Px_init = obj.cached_Px(:,:,1);
@@ -988,6 +988,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %obj.plant.time_step = time_step;
             df_previous_full = [];
             xdn_previous_full = [];
+            noise_sample_type = 2;
             
             for k = 1:obj.N-1%[Ye: double check the index]
                 %Propagate sigma points through nonlinear dynamics
@@ -1047,60 +1048,54 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         df_previous = df_previous_full(:,:,j);
                     end
                     
-                    % estimate whether current state is close to contact
-                    [phi_current,~,~,~,~,~,~,~,~,~,~,~] = obj.plant.contactConstraints(Sig_init(1:obj.nx/2,j,k),false,obj.options.active_collision_options);
-                    phi_bottom = phi_current(2:2:end);
-                    active_threshold = 0.5;
-                    if 0 %any(phi_bottom<active_threshold)
-                        for kk = 1:size_terrain_sample
-                            if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                                obj.plant.friction_coeff = w_mu(kk);
-                            elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
-                                obj.plant.terrain_index = kk;
-                            end
-                            [xdn_sample(:,kk),df_sample(:,:,kk)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-                        end
-                        xdn_mean = sum(xdn_sample,2)/size_terrain_sample;
-                        Sig(1:obj.nx/2,j,k+1) = xdn_mean(1:obj.nx/2);
-                        Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn_mean(obj.nx/2+1:obj.nx);
-                    else
+                    if noise_sample_type == 1
                         [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
-                        
-                        % %numerical diff
-                        % dt = diag(sqrt(eps(t)));
-                        % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
-                        % du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
-                        %
-                        % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                        %
-                        % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        % for m = 1:N_finite_diff_x
-                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        % end
-                        %
-                        % N_finite_diff_u = length(u_fdb_k);
-                        % for m = 1:N_finite_diff_u
-                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        % end
-                        %
-                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
-                        %     keyboard
-                        % end
-                        
-                        xdn = xdn_analytical;
-                        df(:,:,j) = df_analytical(:,:,j);
-                        
-                        Sig(1:nx,j,k+1) = xdn(1:nx,j);
-                        dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
-                        dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
-                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+                    elseif noise_sample_type == 2
+                        xdn_analytical(:,j) = zeros(nx,1);
+                        df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                        for kk=1:length(w_noise)
+                            [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                            xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                            df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                        end
+                        xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                        df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                     end
+                    
+                    % %numerical diff
+                    % dt = diag(sqrt(eps(t)));
+                    % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
+                    % du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
+                    %
+                    % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                    % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                    % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                    %
+                    % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+                    % for m = 1:N_finite_diff_x
+                    %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                    %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                    %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                    % end
+                    %
+                    % N_finite_diff_u = length(u_fdb_k);
+                    % for m = 1:N_finite_diff_u
+                    %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                    %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                    %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                    % end
+                    %
+                    % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
+                    %     keyboard
+                    % end
+                    
+                    xdn = xdn_analytical;
+                    df(:,:,j) = df_analytical(:,:,j);
+                    
+                    Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                    dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                    dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
+                    dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                 end
                 xdn_previous_full = xdn;
                 df_previous_full = df;
@@ -1158,7 +1153,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
                 dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
                 
-                tic
                 % gradient w.r.t state x
                 dSig_m_kplus1_dx_sum = zeros(obj.nx);
                 % gradient w.r.t control u
@@ -1374,10 +1368,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 c = 0;
-                c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(12)));
-                %c = kappa*trace(Px(:,:,1));
-                %c_quadratic = 0;
-                %c_variance = 0;
+                %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(12)));
+                c = kappa*trace(obj.cached_Px(:,:,1));
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                 
                 % initialize gradient of Tr(V) w.r.t state vector x
@@ -1395,6 +1387,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 %obj.plant.time_step = time_step;
                 df_previous_full = [];
                 xdn_previous_full = [];
+                noise_sample_type = 2;
                 
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
@@ -1453,61 +1446,54 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             df_previous = df_previous_full(:,:,j);
                         end
                         
-                        % estimate whether current state is close to contact
-                        [phi_current,~,~,~,~,~,~,~,~,~,~,~] = obj.plant.contactConstraints(Sig_init(1:obj.nx/2,j,k),false,obj.options.active_collision_options);
-                        phi_bottom = phi_current(2:2:end);
-                        active_threshold = 0.5;
-                        if 0 %any(phi_bottom<active_threshold)
-                            for kk = 1:size_terrain_sample
-                                if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                                    obj.plant.friction_coeff = w_mu(kk);
-                                elseif strcmp(obj.plant.uncertainty_source, 'terrain_height')
-                                    obj.plant.terrain_index = kk;
-                                end
-                                [xdn_sample(:,kk),df_sample(:,:,kk)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
-                            end
-                            xdn_mean = sum(xdn_sample,2)/size_terrain_sample;
-                            Sig(1:obj.nx/2,j,k+1) = xdn_mean(1:obj.nx/2);
-                            Sig(obj.nx/2+1:obj.nx,j,k+1) = xdn_mean(obj.nx/2+1:obj.nx);
-                            
-                        else
+                        if noise_sample_type == 1
                             [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
-                            
-                            % %numerical diff
-                            % dt = diag(sqrt(eps(t)));
-                            % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-3*ones(obj.nx,1)));
-                            % du = diag(max(sqrt(eps(u_fdb_k)), 1e-3*ones(nu,1)));
-                            %
-                            % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                            % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                            % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                            %
-                            % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                            % for m = 1:N_finite_diff_x
-                            %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                            %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                            % end
-                            %
-                            % N_finite_diff_u = length(u_fdb_k);
-                            % for m = 1:N_finite_diff_u
-                            %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                            %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                            %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                            % end
-                            %
-                            % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
-                            %     keyboard
-                            % end
-                            
-                            xdn = xdn_analytical;
-                            df(:,:,j) = df_analytical(:,:,j);
-                            
-                            Sig(1:nx,j,k+1) = xdn(1:nx,j);
-                            dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
-                            dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
-                            dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
+                        elseif noise_sample_type == 2
+                            xdn_analytical(:,j) = zeros(nx,1);
+                            df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                            for kk=1:length(w_noise)
+                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                                xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                            end
+                            xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                            df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
+                        
+                        % %numerical diff
+                        % dt = diag(sqrt(eps(t)));
+                        % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-3*ones(obj.nx,1)));
+                        % du = diag(max(sqrt(eps(u_fdb_k)), 1e-3*ones(nu,1)));
+                        %
+                        % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                        % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                        %
+                        % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+                        % for m = 1:N_finite_diff_x
+                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        % end
+                        %
+                        % N_finite_diff_u = length(u_fdb_k);
+                        % for m = 1:N_finite_diff_u
+                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        % end
+                        %
+                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
+                        %     keyboard
+                        % end
+                        
+                        xdn = xdn_analytical;
+                        df(:,:,j) = df_analytical(:,:,j);
+                        
+                        Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                        dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                        dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
+                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                     end
                     xdn_previous_full = xdn;
                     df_previous_full = df;
@@ -1571,8 +1557,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
-                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
+                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                     % % debugging
                     % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
                     % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
@@ -1662,12 +1648,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             end
                         end
                         dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdx(:,:,pp));
-                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdx(:,:,pp));
-                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
+                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdx(:,:,pp));
+                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
                         if pp <= nu
                             dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdu(:,:,pp));
-                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdu(:,:,pp));
-                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
+                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*dCovdu(:,:,pp));
+                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
                         end
                     end
                 end

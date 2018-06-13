@@ -106,7 +106,7 @@ if visualize
     %     plot(f_vec(i*3,:)/h,'r-');
     %     hold on;
     % end
-    %     
+    %
     %figure(6)
     %for i=1:8
     %    plot(f_vec(i*3,:)/h,'r-');

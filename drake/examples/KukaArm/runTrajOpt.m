@@ -94,7 +94,7 @@ N = 25;
 N1 = 7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
-r.uncertainty_source = 'friction_coeff';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source = 'friction_coeff+object_initial_position';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -108,7 +108,8 @@ end
  
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.1;
-options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
+options.Px_regularizer_coeff = 1e-1;
+options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.contact_robust_cost_coeff = 1e-8;%1e-10;
 
 % ikoptions = IKoptions(r);

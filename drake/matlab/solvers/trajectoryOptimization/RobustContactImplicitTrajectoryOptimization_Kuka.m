@@ -529,8 +529,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 global time_step
                 global x_previous
                 global df_previous
-                global terrain_index
-                global uncertain_mu
                 
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
@@ -582,14 +580,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 c = 0;
-                %c = kappa*trace(Px(:,:,1));
-                %c_quadratic = 0;
-                %c_variance = 0;
+                c = trace(Px_init);
+                %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(12)));
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                
-                % initialize gradient of Tr(V) w.r.t state vector x
-                %dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
-                %dTrVdu(:,:,1) = zeros(obj.N-1,nu);
                 
                 % time counter
                 tStart = tic;
@@ -602,10 +595,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 obj.plant.time_step = time_step;
                 df_previous_full = [];
                 xdn_previous_full = [];
+                noise_sample_type = 1;
                 
                 for k = 1:obj.N-1%[Ye: double check the index]
                     %Propagate sigma points through nonlinear dynamics
-                    Px_init = obj.cached_Px(:,:,1);%Always assume constant covariance matrix
+                    Px_init = obj.cached_Px(:,:,1);%Always assume constant initial covariance matrix
                     [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
                     if d
                         diverge = k;
@@ -660,8 +654,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             df_previous = df_previous_full(:,:,j);
                         end
                         
-                        % estimate whether current state is close to contact
-                        [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
+                        if noise_sample_type == 1
+                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
+                        elseif noise_sample_type == 2
+                            xdn_analytical(:,j) = zeros(nx,1);
+                            df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                            for kk=1:length(w_noise)
+                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                                xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                            end
+                            xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                            df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
+                        end
                         % %numerical diff
                         % dt = diag(sqrt(eps(t)));
                         % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
@@ -737,7 +742,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     for jj = 1:n_sig_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     end
-                    %c = c + kappa*trace(Px(:,:,k+1));
+                    %c = c + trace(Px(:,:,k+1));
                     
                     % for jj = 1:n_sig_point
                     % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
@@ -760,14 +765,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
+                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
                     dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
                     dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
                     
-                    tic
                     % gradient w.r.t state x
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
@@ -799,17 +804,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dSig_i_kplus1_du = dfdu(:,:,i,k+1);
                         
                         dSig_i_kplus1_dx_set(:,:,i) = dSig_i_kplus1_dx;
-                        dSig_i_kplus1_du_set(:,:,i) = dSig_i_kplus1_du;
-                        
-                        %dTrVdx(k,:,k+1) = dTrVdx(k,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                        %dTrVdu(k,:,k+1) = dTrVdu(k,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                        dSig_i_kplus1_du_set(:,:,i) = dSig_i_kplus1_du;    
                     end
                     
                     % gradient of mean residual w.r.t state x and control u, assume norm 2
                     %dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
                     %dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
-                    dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-                    dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                    dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                    dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                     
                     dCovdx = zeros(nx,nx,nx);
                     dCovdu = zeros(nx,nx,nu);
@@ -837,10 +839,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                         end
                         dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
-                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
+                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
+                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
                         if pp <= nu
                             dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
-                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
+                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
+                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
                         end
                     end
                 end
@@ -853,7 +857,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
                     else
                         %dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
-                        dmeanR_sum_dx_k = (pinv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                        dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                     end
                     
                     if jj < obj.N
@@ -953,12 +957,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
                         w_phi = obj.plant.uncertain_position_set;
                         w_noise = [w_phi];
-                        Pw = diag([0.016]);
+                        Pw = diag([0.0032,0.0037]);
                     elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
                         w_mu = obj.plant.uncertain_mu_set;
                         w_phi = obj.plant.uncertain_position_set;
                         w_noise = [w_mu;w_phi];
-                        Pw = diag([0.01, 0.016]);
+                        Pw = diag([0.01, 0.0032,0.0037]);
                     elseif isempty(obj.plant.uncertainty_source)
                         Pw = [];
                         w_noise = [];
@@ -985,14 +989,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     x_mean = zeros(obj.nx, obj.N);
                     % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                     c = 0;
-                    %c = kappa*trace(Px(:,:,1));
-                    %c_quadratic = 0;
-                    %c_variance = 0;
+                    c = trace(Px_init);
+                    %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(12)));
                     dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                    
-                    % initialize gradient of Tr(V) w.r.t state vector x
-                    %dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
-                    %dTrVdu(:,:,1) = zeros(obj.N-1,nu);
                     
                     % time counter
                     tStart = tic;
@@ -1005,10 +1004,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     obj.plant.time_step = time_step;
                     df_previous_full = [];
                     xdn_previous_full = [];
+                    noise_sample_type = 1;
                     
                     for k = 1:obj.N-1%[Ye: double check the index]
                         %Propagate sigma points through nonlinear dynamics
-                        Px_init = obj.cached_Px(:,:,1);%Always assume constant covariance matrix
+                        Px_init = obj.cached_Px(:,:,1);%Always assume constant initial covariance matrix
                         [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
                         if d
                             diverge = k;
@@ -1063,11 +1063,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                 df_previous = df_previous_full(:,:,j);
                             end
                             
-                            % estimate whether current state is close to contact
-                            tic
-                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
-                            toc
-                            
+                            if noise_sample_type == 1
+                                [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
+                            elseif noise_sample_type == 2
+                                xdn_analytical(:,j) = zeros(nx,1);
+                                df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                                for kk=1:length(w_noise)
+                                    [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                                    xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                    df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                                end
+                                xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                                df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
+                            end
                             % %numerical diff
                             % dt = diag(sqrt(eps(t)));
                             % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
@@ -1143,7 +1151,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         for jj = 1:n_sig_point
                             Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                         end
-                        %c = c + kappa*trace(Px(:,:,k+1));
+                        %c = c + trace(Px(:,:,k+1));
                         
                         % for jj = 1:n_sig_point
                         % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
@@ -1166,14 +1174,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                         % accumulate returned cost
                         %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                        c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                        %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
+                        c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                         
                         % derivative of variance matrix
                         % gradient of Tr(V) w.r.t state vector x
                         dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
                         dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
                         
-                        tic
                         % gradient w.r.t state x
                         dSig_m_kplus1_dx_sum = zeros(obj.nx);
                         % gradient w.r.t control u
@@ -1206,16 +1214,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             
                             dSig_i_kplus1_dx_set(:,:,i) = dSig_i_kplus1_dx;
                             dSig_i_kplus1_du_set(:,:,i) = dSig_i_kplus1_du;
-                            
-                            %dTrVdx(k,:,k+1) = dTrVdx(k,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                            %dTrVdu(k,:,k+1) = dTrVdu(k,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                         end
                         
                         % gradient of mean residual w.r.t state x and control u, assume norm 2
                         %dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
                         %dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
-                        dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-                        dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                        dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                        dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                         
                         dCovdx = zeros(nx,nx,nx);
                         dCovdu = zeros(nx,nx,nu);
@@ -1243,10 +1248,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                 end
                             end
                             dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
-                            dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
+                            %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
+                            dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
                             if pp <= nu
                                 dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
-                                dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
+                                %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdu(:,:,pp));
+                                dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
                             end
                         end
                     end
@@ -1259,7 +1266,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
                         else
                             %dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
-                            dmeanR_sum_dx_k = (pinv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                            dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                         end
                         
                         if jj < obj.N
