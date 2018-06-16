@@ -16,9 +16,9 @@ warning(w);
 
 %N=500; tf=1;
 N=20; tf=2;
-
+ 
 %% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
+plant.uncertainty_source = 'friction_coeff';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
@@ -186,11 +186,11 @@ traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
 slack_sum_vec = [];% vector storing the slack variable sum
-
+ 
 tic
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
 toc
-
+ 
 if 1
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie

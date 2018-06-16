@@ -88,13 +88,13 @@ um = r.findTrim(qm);
 um(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
-
+ 
 T0 = 2;
-N = 25;
-N1 = 7;%phase 1: pick
+N = 10;%10;
+N1 = 4;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
-r.uncertainty_source = 'friction_coeff+object_initial_position';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -105,13 +105,14 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_set = w_phi;
     r.uncertain_position_mean = mean(w_phi,2);
 end
- 
-options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 0.1;
-options.Px_regularizer_coeff = 1e-1;
-options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
-options.contact_robust_cost_coeff = 1e-8;%1e-10;
 
+options.contact_robust_cost_coeff = 100;%important, if it is 0.1, can not solve successfully.
+options.Px_coeff = 0.09;
+options.Px_regularizer_coeff = 1e-1;
+options.robustLCPcost_coeff = 1000;
+options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
+options.N1 = N1;
+ 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
@@ -129,7 +130,7 @@ end
 %     x_init1(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
 %     x_init1(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
 % end
-
+ 
 u_init1 = zeros(length(u0),N1);
 for i=1:length(u0)
     u_init1(i,:) = linspace(u0(i,:),um(i,:),N1);
@@ -238,14 +239,14 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);%5e-5
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-3);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
-time_step = T0/(N-1);
+time_step = T0/(N-1); 
 
 persistent sum_running_cost
 persistent cost_index
@@ -337,7 +338,7 @@ global phi_cache_full
         if any(LCP_slack_var < 0)
             disp('here')
         end
-        
+         
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
         % if isempty(iteration_num)
@@ -352,5 +353,4 @@ global phi_cache_full
         % end
         % iteration_num = iteration_num + 1;
     end
-
 end

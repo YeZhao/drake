@@ -485,17 +485,17 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             cylinder_height_half = 0.09;
             R_world_to_obj = rpy2rotmat(obj_ori);
             
-            %             xA_ground = [cylinder_radius, -cylinder_radius, 0, 0;
-            %                              0, 0, cylinder_radius, -cylinder_radius;
-            %                              -cylinder_height_half, -cylinder_height_half, -cylinder_height_half, -cylinder_height_half];
+            % xA_ground = [cylinder_radius, -cylinder_radius, 0, 0;
+            %     0, 0, cylinder_radius, -cylinder_radius;
+            %     -cylinder_height_half, -cylinder_height_half, -cylinder_height_half, -cylinder_height_half];
             
             xB_ground(:,1) = obj_pos + R_world_to_obj*[cylinder_radius;0;-cylinder_height_half];
             xB_ground(:,2) = obj_pos + R_world_to_obj*[-cylinder_radius;0;-cylinder_height_half];
             xB_ground(:,3) = obj_pos + R_world_to_obj*[0;cylinder_radius;-cylinder_height_half];
             xB_ground(:,4) = obj_pos + R_world_to_obj*[0;-cylinder_radius;-cylinder_height_half];
             
-            %             phi_ground = xB_ground(3,:)';
-            %             xB_ground(3,:) = zeros(1,4);
+            % phi_ground = xB_ground(3,:)';
+            % xB_ground(3,:) = zeros(1,4);
             
             %% pieces of code above compute the ground contact constraint manually
             % terrain_options=struct();
@@ -505,15 +505,15 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             
             n_ground_contact_point = 4;
             % note that, here A and B are inverted
-            %             phi_ground = phi_ground(1:n_ground_contact_point);
-            %             normal_ground = -normal_ground(:,1:n_ground_contact_point);
-            %             d_ground{1} = -d_ground{1}(:,1:n_ground_contact_point);
-            %             d_ground{2} = -d_ground{2}(:,1:n_ground_contact_point);
-            %             xA_ground = xA_ground(:,1:n_ground_contact_point);
-            %             xB_ground = xB_ground(:,1:n_ground_contact_point);
-            %             xB_ground_tmp = xB_ground;
-            %             xB_ground = xA_ground;
-            %             xA_ground = xB_ground_tmp;
+            % phi_ground = phi_ground(1:n_ground_contact_point);
+            % normal_ground = -normal_ground(:,1:n_ground_contact_point);
+            % d_ground{1} = -d_ground{1}(:,1:n_ground_contact_point);
+            % d_ground{2} = -d_ground{2}(:,1:n_ground_contact_point);
+            % xA_ground = xA_ground(:,1:n_ground_contact_point);
+            % xB_ground = xB_ground(:,1:n_ground_contact_point);
+            % xB_ground_tmp = xB_ground;
+            % xB_ground = xA_ground;
+            % xA_ground = xB_ground_tmp;
             %
             % modified object and four contact points on each finger stick
             finger_contact_delta = 0.01;
@@ -593,37 +593,37 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 left_normal3, left_normal4];
             
             d = cell(1,2);
-            %             Tr11 = cross(right_normal1,[0;0;1]);
-            %             Tr11 = Tr11/norm(Tr11);
-            %             Tr12 = cross(right_normal1,Tr11);
+            % Tr11 = cross(right_normal1,[0;0;1]);
+            % Tr11 = Tr11/norm(Tr11);
+            % Tr12 = cross(right_normal1,Tr11);
             %
-            %             Tr21 = cross(right_normal2,[0;0;1]);
-            %             Tr21 = Tr21/norm(Tr21);
-            %             Tr22 = cross(right_normal2,Tr21);
+            % Tr21 = cross(right_normal2,[0;0;1]);
+            % Tr21 = Tr21/norm(Tr21);
+            % Tr22 = cross(right_normal2,Tr21);
             %
-            %             Tr31 = cross(right_normal3,[0;0;1]);
-            %             Tr31 = Tr31/norm(Tr31);
-            %             Tr32 = cross(right_normal3,Tr31);
+            % Tr31 = cross(right_normal3,[0;0;1]);
+            % Tr31 = Tr31/norm(Tr31);
+            % Tr32 = cross(right_normal3,Tr31);
             %
-            %             Tr41 = cross(right_normal4,[0;0;1]);
-            %             Tr41 = Tr41/norm(Tr41);
-            %             Tr42 = cross(right_normal4,Tr41);
+            % Tr41 = cross(right_normal4,[0;0;1]);
+            % Tr41 = Tr41/norm(Tr41);
+            % Tr42 = cross(right_normal4,Tr41);
             %
-            %             Tl11 = cross(left_normal1,[0;0;1]);
-            %             Tl11 = Tl11/norm(Tl11);
-            %             Tl12 = cross(left_normal1,Tl11);
+            % Tl11 = cross(left_normal1,[0;0;1]);
+            % Tl11 = Tl11/norm(Tl11);
+            % Tl12 = cross(left_normal1,Tl11);
             %
-            %             Tl21 = cross(left_normal2,[0;0;1]);
-            %             Tl21 = Tl21/norm(Tl21);
-            %             Tl22 = cross(left_normal2,Tl21);
+            % Tl21 = cross(left_normal2,[0;0;1]);
+            % Tl21 = Tl21/norm(Tl21);
+            % Tl22 = cross(left_normal2,Tl21);
             %
-            %             Tl31 = cross(left_normal3,[0;0;1]);
-            %             Tl31 = Tl31/norm(Tl31);
-            %             Tl32 = cross(left_normal3,Tl31);
+            % Tl31 = cross(left_normal3,[0;0;1]);
+            % Tl31 = Tl31/norm(Tl31);
+            % Tl32 = cross(left_normal3,Tl31);
             %
-            %             Tl41 = cross(left_normal4,[0;0;1]);
-            %             Tl41 = Tl41/norm(Tl41);
-            %             Tl42 = cross(left_normal4,Tl41);
+            % Tl41 = cross(left_normal4,[0;0;1]);
+            % Tl41 = Tl41/norm(Tl41);
+            % Tl42 = cross(left_normal4,Tl41);
             
             Tr11 = [right_normal1(2), -right_normal1(1) ,0]'/sqrt(right_normal1(1)^2 + right_normal1(2)^2);
             Tr12 = [0,0,-1]';
@@ -655,31 +655,27 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             d{1} = R_world_to_B*d{1};
             d{2} = R_world_to_B*d{2};
             
-            %             if ((abs(sum(sum(d_test{1} - d{1}))) > 1e-7) | (abs(sum(sum(d_test{2} - d{2}))) > 1e-7))
-            %                 keyboard
-            %             end
-            
-            %             xA = [xA_ground, finger_contact_right1, finger_contact_right2, ...
-            %                 finger_contact_right3, finger_contact_right4, ...
-            %                 finger_contact_left1, finger_contact_left2, ...
-            %                 finger_contact_left3, finger_contact_left4];
+            % xA = [xA_ground, finger_contact_right1, finger_contact_right2, ...
+            %     finger_contact_right3, finger_contact_right4, ...
+            %     finger_contact_left1, finger_contact_left2, ...
+            %     finger_contact_left3, finger_contact_left4];
             %
-            %             %define horizontal 2D position on the cylinder surface
-            %             xB = cylinder_radius*normal;
-            %             %define vertical heights of closest point on the cylinder w.r.t cylinder coordinate
-            %             %cylinder_local = R_world_to_B'*[0;0;cylinder_height/2];
-            %             %xB(3,1) = - cylinder_local(3);
-            %             xB(:,1:n_ground_contact_point) = xB_ground;
-            %             % x and y direction is not accurate, currently assume the central point. It should be a point on the edge
-            %             xB(3,n_ground_contact_point+1) = fr1(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+2) = fr2(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+3) = fr3(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+4) = fr4(3) - b_local(3);
+            % %define horizontal 2D position on the cylinder surface
+            % xB = cylinder_radius*normal;
+            % %define vertical heights of closest point on the cylinder w.r.t cylinder coordinate
+            % %cylinder_local = R_world_to_B'*[0;0;cylinder_height/2];
+            % %xB(3,1) = - cylinder_local(3);
+            % xB(:,1:n_ground_contact_point) = xB_ground;
+            % % x and y direction is not accurate, currently assume the central point. It should be a point on the edge
+            % xB(3,n_ground_contact_point+1) = fr1(3) - b_local(3);
+            % xB(3,n_ground_contact_point+2) = fr2(3) - b_local(3);
+            % xB(3,n_ground_contact_point+3) = fr3(3) - b_local(3);
+            % xB(3,n_ground_contact_point+4) = fr4(3) - b_local(3);
             %
-            %             xB(3,n_ground_contact_point+5) = fl1(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+6) = fl2(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+7) = fl3(3) - b_local(3);
-            %             xB(3,n_ground_contact_point+8) = fl4(3) - b_local(3);
+            % xB(3,n_ground_contact_point+5) = fl1(3) - b_local(3);
+            % xB(3,n_ground_contact_point+6) = fl2(3) - b_local(3);
+            % xB(3,n_ground_contact_point+7) = fl3(3) - b_local(3);
+            % xB(3,n_ground_contact_point+8) = fl4(3) - b_local(3);
             
             normal = R_world_to_B*normal;
             
@@ -894,7 +890,6 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                 % treat input as contactPositions(obj,q)
                 kinsol = doKinematics(obj, kinsol, []);
             end
-            
             [normal,d,mu] = worldContactConstraints_v2(obj,kinsol);
         end
     end

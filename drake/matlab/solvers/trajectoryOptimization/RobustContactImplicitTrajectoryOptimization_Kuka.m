@@ -49,6 +49,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         timeStep
         %debugging var
         verbose_print
+        N1
     end
     
     properties (Constant)
@@ -126,7 +127,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             for i=1:obj.N-1,
                 dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.l_inds(:,i);obj.ljl_inds(:,i)};
                 constraints{i} = cnstr;
-                obj = obj.addConstraint(constraints{i}, dyn_inds{i});
+                %obj = obj.addConstraint(constraints{i}, dyn_inds{i});
                 
                 if obj.nC > 0
                     % indices for (i) gamma
@@ -143,11 +144,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % only normal LCP constraint
-                    % obj.options.nlcc_mode = 6;% robust mode
-                    % obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_normal_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    % obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
-                    % obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
-                    
+                    %obj.options.nlcc_mode = 6;% robust mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_normal_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj.nonlincompl_slack_inds{i} = obj.num_vars+1:obj.num_vars + obj.nonlincompl_constraints{i}.n_slack; % index the six slack variables: gamma in NonlinearComplementarityConstraint
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                     
                     % linear complementarity constraint
                     %   gamma /perp mu*lambda_N - sum(lambda_fi)
                     %
@@ -186,14 +187,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %    {obj.x_inds(:,i+1);gamma_inds;lambda_inds});
                     
                     % nonlinear LCP non-negative constraint
-                    obj.options.nlcc_mode = 7;% lambda non-negative mode
-                    obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
-                    obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.nlcc_mode = 7;% lambda non-negative mode
+                    %obj.nonlincompl_constraints{i} = NonlinearComplementarityConstraint(@nonlincompl_fun,nX + obj.nC,obj.nC*(1+obj.nD),obj.options.nlcc_mode);
+                    %obj = obj.addConstraint(obj.nonlincompl_constraints{i},[obj.x_inds(:,i+1);gamma_inds;lambda_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % linear LCP non-negative constraint
-                    obj.options.lincc_mode = 4;% tangential velocity non-negative mode
-                    lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
-                    obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
+                    %obj.options.lincc_mode = 4;% tangential velocity non-negative mode
+                    %lincompl_constraints{i} = LinearComplementarityConstraint(W,r,M,obj.options.lincc_mode);
+                    %obj = obj.addConstraint(lincompl_constraints{i},[lambda_inds;gamma_inds;obj.LCP_slack_inds(:,i)]);
                     
                     % % add ERM cost for sliding velocity constraint uncertainty
                     % obj = obj.addCost(FunctionHandleObjective(2*nX+nU+obj.nC*(1+obj.nD)+obj.nC+1,@(h,x0,x1,u,lambda,gamma)ERMcost_slidingVelocity(obj,h,x0,x1,u,lambda,gamma),1), ...
@@ -218,7 +219,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
             end
-             
+            
             % if obj.nC > 0
             %     if obj.options.add_ccost
             %         dim_lambda_unit = length(obj.l_inds(:,1))/obj.nC;
@@ -523,12 +524,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 df = delta*(diag(gamma)*g)'*[diag(gamma)*dg + [zeros(zdim,xdim) diag(g)]] ...
                     + delta*mu_cov'*[2*sigma^2*lambda(1),zeros(1,7);zeros(1,3), 2*sigma^2*lambda(4), zeros(1,4)];
             end
-            
+             
             function [c,dc] = robustVariancecost_ML(obj, x_full, u_full)
                 global timestep_updated
                 global time_step
                 global x_previous
                 global df_previous
+                
+                %x_full = x_full + randn(size(x_full))*0.1;
+                %u_full = u_full + randn(size(u_full))*0.1;
                 
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
@@ -560,19 +564,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
                     w_mu = normrnd(ones(1,n_sig_point),sqrt(Pw(1,1)),1,n_sig_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sig_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sig_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sig_point))*sqrt(Pw(2,2));
+                    %y = (1-2*rand(1,n_sig_point))*sqrt(Pw(3,3));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
                     w_noise = [w_mu];
                 end
-                
+                 
                 % disturbance variance
                 % currently only consider terrain height and/or friction coefficient
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                n_sig_point = 2*(obj.nx+nw);
+                n_sig_point = 1;%2*(obj.nx+nw);
                 w_avg = 1/n_sig_point;
                 K = obj.options.K;
                 
@@ -628,32 +632,36 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %c = c + norm(x(:,k)-x_mean(:,k))^2;
                     end
                     
+                    Sig_init(1:obj.nx,1,k) = x(:,k);
+                    
                     %Propagate sigma points through nonlinear dynamics
                     for j = 1:n_sig_point
                         noise_index = j;
+                         
+                        if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                            obj.plant.uncertain_mu = w_mu(j);
+                        elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                            obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                            obj.plant.uncertain_mu = w_mu(j);
+                            obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        end
                         
                         % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
                         
-                        if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                            obj.plant.uncertain_mu = w_mu(j);
-                        elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                            obj.plant.uncertain_phi = w_phi(j);
-                        elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                            obj.plant.uncertain_mu = w_mu(j);
-                            obj.plant.uncertain_phi = w_phi(j);
-                        end
-                        
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig_init(1:obj.nx,j,k) - x(:,k));
-                        
+                         
                         if k > 1
                             x_previous = xdn_previous_full(:,j);
                             df_previous = df_previous_full(:,:,j);
                         end
-                        
+                         
                         if noise_sample_type == 1
                             [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
                         elseif noise_sample_type == 2
@@ -667,45 +675,71 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
                             df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
-                        % %numerical diff
-                        % dt = diag(sqrt(eps(t)));
-                        % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
-                        % du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
-                        %
-                        % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                        %
-                        % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        % for m = 1:N_finite_diff_x
-                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                        
+                        % dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
+                        % num_diff_index_set = [8,9,10,11,12,13];
+                        % for m = 1:length(num_diff_index_set)
+                        %     index = num_diff_index_set(m);
+                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
+                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
                         %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        %     df_analytical(:,m+1,j) = df_numeric(:,m+1);
                         % end
+                         
+%                         dx = diag(sqrt(eps(Sig_init(1:obj.nx,j,k))));
+%                         num_diff_index_set = [8,11,12,13,14];
+%                         for m = 1:length(num_diff_index_set)
+%                             index = num_diff_index_set(m);
+%                             [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
+%                             [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
+%                             df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
+%                         end
+                        
+                        % % %numerical diff
+                        dt = diag(sqrt(eps(t)));
+                        dx = diag(sqrt(eps(Sig_init(1:obj.nx,j,k))));
+                        du = diag(sqrt(eps(u_fdb_k)));
+                        
+                        [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                        [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                        df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                        
+                        N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
+                        for m = 1:N_finite_diff_x
+                            [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                            [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                            df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        end
+                        
+                        N_finite_diff_u = length(u_fdb_k);
+                        for m = 1:N_finite_diff_u
+                           [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                           [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                           df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        end
                         %
-                        % N_finite_diff_u = length(u_fdb_k);
-                        % for m = 1:N_finite_diff_u
-                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        % end
-                        %
-                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
+                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
                         %     keyboard
                         % end
+                        % for iii=1:size(df_numeric,2)
+                        %     if (sum(sum(abs(df_analytical(:,iii,j) - df_numeric(:,iii)))) > 1e-3)
+                        %         keyboard
+                        %     end
+                        % end
                         
-                        xdn = xdn_analytical;
-                        df(:,:,j) = df_analytical(:,:,j);
+                        xdn(:,j) = xdn_analytical(:,j);
+                        
+                        %df(:,:,j) = df_analytical(:,:,j);
+                        df(:,:,j) = df_numeric(:,j);
                         
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
                         dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
-                        
                     end
                     xdn_previous_full = xdn;
                     df_previous_full = df;
-                    
+                     
                     %calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sig_point
@@ -766,7 +800,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
-                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
@@ -883,6 +917,41 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % scale this robust cost
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
+                
+                % dx = diag(sqrt(eps(x_full)));
+                % for i=1:obj.N
+                %     base_initial_index = (i-1)*nx;
+                %     if i <= obj.options.N1+1
+                %         num_diff_index_set = [8];%[8,11,12,13,14];%[8,9,10,11];
+                %     else
+                %         num_diff_index_set = [8];%[8,11,12,13,14];%[8,9,10,11,12,13,14];%after contact happens
+                %     end
+                %     for m = 1:length(num_diff_index_set)
+                %         index = num_diff_index_set(m);
+                %         index_full = base_initial_index + index;
+                %         x_full_p = x_full;
+                %         x_full_m = x_full;
+                %         x_full_p(index_full) = x_full(index_full) + dx(index_full,index_full);
+                %         x_full_m(index_full) = x_full(index_full) - dx(index_full,index_full);
+                %         X0_p = [x_full_p; u_full];
+                %         X0_m = [x_full_m; u_full];
+                %         [cp,~] = robustVariancecost_ML_check(obj, X0_p);
+                %         [cm,~] = robustVariancecost_ML_check(obj, X0_m);
+                %         dc(:,index_full) = (cp-cm)/(2*dx(index_full,index_full));
+                %     end
+                % end
+                
+                % du = diag(sqrt(eps(u_fdb_k)));
+                % i = 6;
+                % u_full_p = u_full;
+                % u_full_m = u_full;
+                % u_full_p((obj.N-1)*8+i) = u_full((obj.N-1)*8+i) + du(i,i);
+                % u_full_m((obj.N-1)*8+i) = u_full((obj.N-1)*8+i) - du(i,i);
+                % X0_p = [x_full; u_full_p];
+                % X0_m = [x_full; u_full_m];
+                % [cp,~] = robustVariancecost_ML_check(obj, X0_p);
+                % [cm,~] = robustVariancecost_ML_check(obj, X0_m);
+                
                 tElapsed = toc(tStart);
                 fprintf('ML robust cost: %4.4f\n',c);
                 
@@ -899,7 +968,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % disp('finish')
                 c_numeric = c;
                 dc_numeric = dc;
-                
+                 
                 % [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_ML_check(obj,X0),X0,struct('grad_method','numerical'));
                 %
                 % [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
@@ -981,7 +1050,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     scale = .01;% [to be tuned]
                     w = 0.5/scale^2;
                     nw = size(Pw,1);
-                    n_sig_point = 2*(obj.nx+nw);
+                    n_sig_point = 1;%2*(obj.nx+nw);
                     w_avg = 1/n_sig_point;
                     K = obj.options.K;
                     
@@ -1036,23 +1105,27 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                             %c = c + norm(x(:,k)-x_mean(:,k))^2;
                         end
+                                       
+                        Sig_init(1:obj.nx,1,k) = x(:,k);
                         
                         %Propagate sigma points through nonlinear dynamics
                         for j = 1:n_sig_point
                             noise_index = j;
                             
-                            % a hacky way to implement the control input
-                            [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
-                            Hinv(:,:,j,k) = inv(H);
-                            
                             if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                                 obj.plant.uncertain_mu = w_mu(j);
                             elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                                obj.plant.uncertain_phi = w_phi(j);
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                             elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                                 obj.plant.uncertain_mu = w_mu(j);
-                                obj.plant.uncertain_phi = w_phi(j);
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                             end
+                            
+                            % a hacky way to implement the control input
+                            [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
+                            Hinv(:,:,j,k) = inv(H);
                             
                             % add feedback control
                             t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
@@ -1175,7 +1248,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % accumulate returned cost
                         %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
                         %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
-                        c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
+                        c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                         
                         % derivative of variance matrix
                         % gradient of Tr(V) w.r.t state vector x
@@ -1300,6 +1373,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 global time_step
                 global x_previous
                 global df_previous
+                
+                x_full = x_full + randn(size(x_full))*0.1;
+                u_full = u_full + randn(size(u_full))*0.1;
                 
                 tic
                 x = reshape(x_full, obj.nx, obj.N);
@@ -1434,55 +1510,53 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                             obj.plant.uncertain_mu = w_mu(j);
                         elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                            obj.plant.uncertain_phi = w_phi(j);
+                            obj.plant.uncertain_phi = w_phi(:,j);
                         elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                             obj.plant.uncertain_mu = w_mu(j);
-                            obj.plant.uncertain_phi = w_phi(j);
+                            obj.plant.uncertain_phi = w_phi(:,j);
                         end
                         
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                         u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
                         
-                        %tic
-                        %[xdn(:,j),df(:,:,j)] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k,w_mu(j));
                         if k > 1
                             x_previous = xdn_previous_full(:,j);
                             df_previous = df_previous_full(:,:,j);
                         end
                         
-                        [xdn(:,j),df(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u_fdb_k);
+                        [xdn(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig(1:nx,j,k),u_fdb_k);
                         %toc
                         
-                        % %numerical diff
-                        % dt = diag(sqrt(eps(t)));
-                        % dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-                        % du = diag(sqrt(eps(u_fdb_k)));
-                        %
-                        % [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        % df(:,1) = (xdnp-xdnm)/(2*dt);
-                        %
-                        % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        % tic
-                        % for m = 1:N_finite_diff_x
-                        %     [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                        %     [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                        %     df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        % end
-                        %
-                        % N_finite_diff_u = length(u_fdb_k);
-                        %
-                        % for m = 1:N_finite_diff_u
-                        %     [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                        %     [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                        %     df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        % end
-                        % % only columns 9,12,13,14 occasionally have value differences.
-                        %
-                        % if (sum(sum(abs(df(:,:,j) - df_numerical))) > 1e-2)
-                        %     keyboard
-                        % end
+                        %numerical diff
+                        dt = diag(sqrt(eps(t)));
+                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
+                        du = diag(sqrt(eps(u_fdb_k)));
+                        
+                        [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
+                        [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
+                        df(:,1) = (xdnp-xdnm)/(2*dt);
+                        
+                        N_finite_diff_x = length(Sig(1:obj.nx,j,k));
+                        tic
+                        for m = 1:N_finite_diff_x
+                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                            df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        end
+                        
+                        N_finite_diff_u = length(u_fdb_k);
+                        
+                        for m = 1:N_finite_diff_u
+                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                            df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        end
+                        % only columns 9,12,13,14 occasionally have value differences.
+                        
+                        if (sum(sum(abs(df(:,:,j) - df_numerical))) > 1e-2)
+                            keyboard
+                        end
                         
                         Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx,j);
                         

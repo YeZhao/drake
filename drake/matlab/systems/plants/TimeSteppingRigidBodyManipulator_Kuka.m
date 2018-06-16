@@ -8,7 +8,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
         dirty=true;
     end
-    
+     
     properties (SetAccess=protected)
         timestep 
         twoD=false
@@ -1088,8 +1088,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
             
-            % expand one more dimension at the end for friction coeff w_mu
-            df = [df,zeros(size(df,1),1)];
+            %xdn = reshape(Mvn,[],1);
+            %df = dMvn;
+            %xdn = lambda;
+            %df = dlambda;
+            %xdn = wvn;%correct
+            %df = dwvn;%correct
             
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
@@ -1131,18 +1135,20 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
          
         function [xdn,df] = update(obj,index,x,u) 
             X0 = [index;x;u];%note that the first input is sigma point index
-            %[xdn,df] = solveQP(obj,X0);
+            [xdn,df] = solveQP(obj,X0);
             %set the gradient w.r.t index to be zero.
             %df(:,1) = zeros(size(df,1),1);
-            %return;
-            t = index;
             
+            %xdn_numeric = xdn;
+            %df_numeric = df;
+            return; 
+            %t = index;
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)
             %
             % [xdn,df] = solveQP(obj,X0);
             %
-            % [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
+            [xdn_numeric,df_numeric] = geval(@(X0) solveQP(obj,X0),X0,struct('grad_method','numerical'));
             % valuecheck(xdn,xdn_numeric,1e-5);
             % valuecheck(df,df_numeric,1e-5);
             % [xdn_QP,df_QP] = solveQP(obj,X0);
@@ -1390,11 +1396,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         end
         
         function [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u)
-            %       if (nargout<5 && obj.gurobi_present && obj.manip.only_loops && obj.manip.mex_model_ptr~=0 && ~obj.position_control)
-            %         [obj,z,Mvn,wvn] = solveMexLCP(obj,t,x,u);
-            %         return;
-            %       end
-            
+            % if (nargout<5 && obj.gurobi_present && obj.manip.only_loops && obj.manip.mex_model_ptr~=0 && ~obj.position_control)
+            %     [obj,z,Mvn,wvn] = solveMexLCP(obj,t,x,u);
+            %     return;
+            % end
+             
             %gravity compensation for Kuka arm
             Nq = obj.getNumPositions();
             Nq_arm = 8;
@@ -1821,7 +1827,20 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     
                     if QP_FAILED
                         % then the active set has changed, call pathlcp
-                        z = pathlcp(M,w,lb,ub);
+                        try
+                            z = pathlcp(M,w,lb,ub);
+                        catch
+                            %z = obj.LCP_cache.data.z;
+                            %Mvn = obj.LCP_cache.data.Mqdn;
+                            %wvn = obj.LCP_cache.data.wqdn;
+                            %dz = obj.LCP_cache.data.dz;
+                            %dMvn = obj.LCP_cache.data.dMqdn;
+                            %dwvn = obj.LCP_cache.data.dwqdn;
+                            disp('use previous iteration solution');
+                            keyboard
+                            return
+                        end
+                         
                         obj.LCP_cache.data.fastqp_active_set = [];
                     end
                     % for debugging
@@ -1904,14 +1923,19 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                         obj.LCP_cache.data.dMqdn = [];
                         obj.LCP_cache.data.dwqdn = [];
                     end
-                    
+                     
                     penetration = phi_check + h*J_check*vToqdot*(Mvn*z + wvn) < 0;
                     if any(penetration)
                         % then add the constraint and run the entire loop again!
-                        limits = sum(~possible_limit_indices);
-                        possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
-                        possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
-                        obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator_Kuka:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
+                        try
+                            limits = sum(~possible_limit_indices);
+                            possible_limit_indices(~possible_limit_indices) = penetration(1:limits);
+                            possible_contact_indices(~possible_contact_indices) = penetration(limits+1:end);
+                            obj.warning_manager.warnOnce('Drake:TimeSteppingRigidBodyManipulator_Kuka:ResolvingLCP','This timestep violated our assumptions about which contacts could possibly become active in one timestep.  Consider reducing your dt.  If it seems to happen a lot, then please let us know about it.');
+                        catch
+                            disp('penetration')
+                            break;
+                        end
                     else
                         break;
                     end

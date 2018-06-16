@@ -242,7 +242,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be modified]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost_ML(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,Fext_inds)robustVariancecost(obj,x_inds,Fext_inds),1),{x_inds_stack;Fext_inds_stack});
             
             %if (obj.nC > 0)
             %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -2513,7 +2513,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             x_mean = zeros(obj.nx, obj.N);
             % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
             c = 0;
-            %c = kappa*trace(Px(:,:,1));
+            c = kappa*trace(obj.cached_Px(:,:,1));
             %c_quadratic = 0;
             %c_variance = 0;
             dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -2705,7 +2705,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 for jj = 1:n_sig_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 end
-                %c = c + kappa*trace(Px(:,:,k+1));
+                c = c + kappa*trace(Px(:,:,k+1));
                 
                 % for jj = 1:n_sig_point
                 % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
@@ -2919,8 +2919,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
                     dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
                 end
-                %dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
-                dc = [dc, dmeanR_sum_dx_k];
+                dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
+                %dc = [dc, dmeanR_sum_dx_k];
                 %dc = [dc, kappa*dTrV_sum_dx_k];
             end
             
@@ -2932,8 +2932,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
                     dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                 end
-                %dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
-                dc = [dc, dmeanR_sum_du_k];
+                dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
+                %dc = [dc, dmeanR_sum_du_k];
                 %dc = [dc, kappa*dTrV_sum_du_k];
             end
             
@@ -3020,7 +3020,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % disp('finish')
             c_numeric = c;
             dc_numeric = dc;
-            
+             
             % [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
             %
             % [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
@@ -3125,8 +3125,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 kappa = obj.options.kappa;
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                %c = 0;
-                c = kappa*trace(Px(:,:,1));
+                c = 0;
+                c = kappa*trace(obj.cached_Px(:,:,1));
                 %c_quadratic = 0;
                 %c_variance = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
@@ -3155,6 +3155,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             diverge = k;
                             return;
                         end
+                        %S = zeros(length(Px(:,:,k)));
+                        
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         if isempty(w_noise)
@@ -3170,7 +3172,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         for j = 1:n_sig_point
                             x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                         end
-                        %c = c + norm(x(:,k)-x_mean(:,k))^2;
+                        c = c + norm(x(:,k)-x_mean(:,k))^2;
                         
                         % % debugging
                         % c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
@@ -3243,15 +3245,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             
                             % %numerical diff
                             % dt = diag(sqrt(eps(t)));
-                            % dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-                            % du = diag(sqrt(eps(u_fdb_k)));
+                            % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-3*ones(obj.nx,1)));
+                            % du = diag(max(sqrt(eps(u_fdb_k)), 1e-3*ones(nu,1)));
                             %
                             % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
                             % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
                             % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
                             %
                             % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                            % tic
                             % for m = 1:N_finite_diff_x
                             %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
                             %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
@@ -3259,17 +3260,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             % end
                             %
                             % N_finite_diff_u = length(u_fdb_k);
-                            %
                             % for m = 1:N_finite_diff_u
                             %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
                             %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
                             %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
                             % end
                             %
-                            % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 10)
+                            % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-2)
                             %     keyboard
                             % end
-                            %
+                            
                             xdn = xdn_analytical;
                             df(:,:,j) = df_analytical(:,:,j);
                             
@@ -3340,7 +3340,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     % accumulate returned cost
-                    %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                    c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                     % % debugging
                     % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
@@ -3372,30 +3372,44 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         
                         for i=1:n_sig_point
                             if i == 1
-                                for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                for m = 1:n_sig_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                     % gradient of Tr(V_{k+1}) w.r.t control x and u
                                     dSig_m_kplus1_dx = zeros(obj.nx);
                                     dSig_m_kplus1_du = zeros(obj.nx,1);
                                     
                                     chain_rule_indx = k-j;
                                     if j ~= 1
-                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                        %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
                                     else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,2) + dfdSig(:,:,m,2);
                                     end
                                     dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
                                     
                                     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
                                         dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
                                         dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;
-
                                         chain_rule_indx = chain_rule_indx - 1;
                                     end
-%                                     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-%                                         dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_dx;
-%                                         dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_du;
-%                                         chain_rule_indx = chain_rule_indx - 1;
-%                                     end
+                                    
+                                    % while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                    %     dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_dx;
+                                    %     dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_du;
+                                    %     chain_rule_indx = chain_rule_indx - 1;
+                                    % end
+                                    %
+                                    % if (chain_rule_indx > 0)
+                                    %     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                    %         chain_rule_grad = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*chain_rule_grad;
+                                    %         chain_rule_indx = chain_rule_indx - 1;
+                                    %     end
+                                    % else
+                                    %     chain_rule_grad = eye(12);
+                                    % end
+                                    %
+                                    % dSig_m_kplus1_dx = chain_rule_grad*(1-w_avg)*dSig_m_kplus1_dx;
+                                    % dSig_m_kplus1_du = chain_rule_grad*(1-w_avg)*dSig_m_kplus1_du;
+                                    
                                     dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
                                     dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
                                 end
@@ -3407,9 +3421,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             dSig_i_kplus1_du = zeros(obj.nx,nu);
                             chain_rule_indx = k-j;
                             if j ~= 1
-                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1);% + dfdSig(:,:,i,j+1);
+                                %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
                             else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2)*eye(obj.nx);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,2) + dfdSig(:,:,i,2)*eye(obj.nx);
                             end
                             dSig_i_kplus1_du = dfdu(:,:,i,j+1);
                             
@@ -3419,26 +3434,46 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                 chain_rule_indx = chain_rule_indx - 1;
                             end
                             
+                            % while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                            %     dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_dx;
+                            %     dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_du;
+                            %     chain_rule_indx = chain_rule_indx - 1;
+                            % end
+                            %
+                            % if (chain_rule_indx > 0)
+                            %     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                            %         chain_rule_grad = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*chain_rule_grad;
+                            %         chain_rule_indx = chain_rule_indx - 1;
+                            %     end
+                            % else
+                            %     chain_rule_grad = eye(obj.nx);
+                            % end
+                            %
+                            % dSig_i_kplus1_dx = chain_rule_grad*(1-w_avg)*dSig_i_kplus1_dx;
+                            % dSig_i_kplus1_du = chain_rule_grad*(1-w_avg)*dSig_i_kplus1_du;
+                            
                             dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
                             dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                             
-%                             % new sigma point due to resampling mechanism
-%                             dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-%                             dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                            % % new sigma point due to resampling mechanism
+                            % dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            % dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                         end
                         
-%                         dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
-%                         dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
-%                         
-%                         for i =1:n_sig_point
-%                             dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
-%                             dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
-%                         end
-%                         
-%                         for i =1:n_sig_point
-%                             dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
-%                             dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
-%                         end
+                        % %% resample scheme
+                        % dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
+                        % dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
+                        %
+                        % for i =1:n_sig_point
+                        %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                        %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                        % end
+                        %
+                        % for i =1:n_sig_point
+                        %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                        %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                        % end
+                        % %% resample scheme
                         
                         % gradient of mean residual w.r.t state x and control u, assume norm 2
                         dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
@@ -3489,17 +3524,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     if (jj == 1)
                         dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
                     else
-                        dmeanR_sum_dx_k = 2*(x(:,k)-x_mean(:,k))';%i.i.d mean deviation version
+                        dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
                         %dmeanR_sum_dx_k = (inv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                     end
+                    
                     for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
                         dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
                         dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
                     end
-                    %dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
+                    dc = [dc, dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
                     %dc = [dc, dmeanR_sum_dx_k];
-                    dc = [dc, kappa*dTrV_sum_dx_k];
-                    
+                    %dc = [dc, kappa*dTrV_sum_dx_k];
                 end
                 
                 % cost gradient w.r.t u at first time step is zero, since
@@ -3510,9 +3545,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
                         dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                     end
-                    %dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
+                    dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
                     %dc = [dc, dmeanR_sum_du_k];
-                    dc = [dc, kappa*dTrV_sum_du_k];
+                    %dc = [dc, kappa*dTrV_sum_du_k];
                 end
                 
                 % scale this robust cost
