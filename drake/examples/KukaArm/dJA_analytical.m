@@ -1537,6 +1537,4 @@ switch state_dimension
                     0
                     0];
         end
-%     case 9
-%         dJA_finger = [];
 end

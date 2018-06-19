@@ -773,7 +773,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             fr4 = R_world_to_B'*fr4;
             
             b_local = R_world_to_B'*b(1:3);
-            cylinder_normal = R_world_to_B'*[zeros(2,n_ground_contact_point);-ones(1,n_ground_contact_point)];%cylinder normal expressed in cylinder coordinate
+            %cylinder_normal = R_world_to_B'*[zeros(2,n_ground_contact_point);-ones(1,n_ground_contact_point)];%cylinder normal expressed in cylinder coordinate
             right_normal1 = [fr1(1:2) - b_local(1:2);0];
             right_normal1 = right_normal1./sqrt(right_normal1'*right_normal1);
             right_normal2 = [fr2(1:2) - b_local(1:2);0];
@@ -790,7 +790,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             left_normal3 = left_normal3./sqrt(left_normal3'*left_normal3);
             left_normal4 = [fl4(1:2) - b_local(1:2);0];
             left_normal4 = left_normal4./sqrt(left_normal4'*left_normal4);
-            normal = [cylinder_normal, right_normal1, right_normal2, ...
+            normal = [zeros(3,n_ground_contact_point), right_normal1, right_normal2, ...
                 right_normal3, right_normal4, left_normal1, left_normal2, ...
                 left_normal3, left_normal4];
             

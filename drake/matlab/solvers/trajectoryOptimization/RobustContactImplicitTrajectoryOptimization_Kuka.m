@@ -325,7 +325,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % [f_numeric,df_numeric] = geval(@(X0) ERMcost_check(X0),X0,struct('grad_method','numerical'));
                 % valuecheck(df,df_numeric,1e-5);
                 % valuecheck(f,f_numeric,1e-5);
-                
+                 
                 function [f,df] = ERMcost_check(X0)
                     x = X0(1:obj.nx);
                     gamma = X0(obj.nx+1:obj.nx+obj.nC);
@@ -527,9 +527,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
              
             function [c,dc] = robustVariancecost_ML(obj, x_full, u_full)
                 global timestep_updated
-                global time_step
                 global x_previous
                 global df_previous
+                global noise_index
                 
                 %x_full = x_full + randn(size(x_full))*0.1;
                 %u_full = u_full + randn(size(u_full))*0.1;
@@ -587,7 +587,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 c = trace(Px_init);
                 %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(12)));
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                
+                 
                 % time counter
                 tStart = tic;
                 
@@ -596,7 +596,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 plant_update = @objPlantUpdate;
-                obj.plant.time_step = time_step;
+                obj.plant.time_step = timestep_updated;
                 df_previous_full = [];
                 xdn_previous_full = [];
                 noise_sample_type = 1;
@@ -661,76 +661,66 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             x_previous = xdn_previous_full(:,j);
                             df_previous = df_previous_full(:,:,j);
                         end
-                         
+                        
                         if noise_sample_type == 1
-                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
+                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
                         elseif noise_sample_type == 2
                             xdn_analytical(:,j) = zeros(nx,1);
                             df_analytical(:,:,j) = zeros(nx,1+nx+nu);
                             for kk=1:length(w_noise)
-                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
                                 xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
                                 df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
                             end
                             xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
                             df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
-                        
-                        % dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-                        % num_diff_index_set = [8,9,10,11,12,13];
-                        % for m = 1:length(num_diff_index_set)
-                        %     index = num_diff_index_set(m);
-                        %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
-                        %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
-                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        %     df_analytical(:,m+1,j) = df_numeric(:,m+1);
-                        % end
                          
-%                         dx = diag(sqrt(eps(Sig_init(1:obj.nx,j,k))));
+%                         dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
 %                         num_diff_index_set = [8,11,12,13,14];
 %                         for m = 1:length(num_diff_index_set)
 %                             index = num_diff_index_set(m);
-%                             [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
-%                             [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
+%                             [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
+%                             [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
 %                             df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
 %                         end
                         
                         % % %numerical diff
-                        dt = diag(sqrt(eps(t)));
-                        dx = diag(sqrt(eps(Sig_init(1:obj.nx,j,k))));
-                        du = diag(sqrt(eps(u_fdb_k)));
+                        dt = diag(sqrt(eps(timestep_updated)));
+                        dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+                        du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
                         
-                        [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k);
-                        [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                        [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                        [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
                         df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
                         
                         N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
                         for m = 1:N_finite_diff_x
-                            [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                            [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                            [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
                             df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
                         end
                         
                         N_finite_diff_u = length(u_fdb_k);
                         for m = 1:N_finite_diff_u
-                           [xdnp,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                           [xdnm,~] = feval(plant_update,noise_index,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                           [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                           [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
                            df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
                         end
-                        %
-                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
-                        %     keyboard
-                        % end
-                        % for iii=1:size(df_numeric,2)
-                        %     if (sum(sum(abs(df_analytical(:,iii,j) - df_numeric(:,iii)))) > 1e-3)
-                        %         keyboard
-                        %     end
-                        % end
                         
+%                         if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
+%                             keyboard
+%                         end
+%                         for iii=1:size(df_numeric,2)
+%                             if (sum(sum(abs(df_analytical(:,iii,j) - df_numeric(:,iii)))) > 1e-3)
+%                                 keyboard
+%                             end
+%                         end
+                         
                         xdn(:,j) = xdn_analytical(:,j);
                         
                         %df(:,:,j) = df_analytical(:,:,j);
-                        df(:,:,j) = df_numeric(:,j);
+                        df(:,:,j) = df_numeric;
                         
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
@@ -796,7 +786,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % V_comp_zd = (Sig(9,j,k+1)-x_mean(9,k+1))*(Sig(9,j,k+1)-x_mean(9,k+1))';
                     % c_variance_zd(j,k+1) = kappa*trace(w*V_comp_zd);
                     % end
-                    
+                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(12)));%ML mean deviation version
@@ -849,7 +839,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     dCovdx = zeros(nx,nx,nx);
                     dCovdu = zeros(nx,nx,nu);
-                    
+                     
                     for pp=1:nx
                         for i=1:n_sig_point
                             dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
@@ -1070,7 +1060,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     end
                     
                     plant_update = @objPlantUpdate;
-                    obj.plant.time_step = time_step;
+                    obj.plant.time_step = timestep_updated;
                     df_previous_full = [];
                     xdn_previous_full = [];
                     noise_sample_type = 1;
@@ -1137,12 +1127,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             end
                             
                             if noise_sample_type == 1
-                                [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,noise_index,Sig_init(1:nx,j,k),u_fdb_k);
+                                [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
                             elseif noise_sample_type == 2
                                 xdn_analytical(:,j) = zeros(nx,1);
                                 df_analytical(:,:,j) = zeros(nx,1+nx+nu);
                                 for kk=1:length(w_noise)
-                                    [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,kk,Sig_init(1:nx,j,k),u_fdb_k);
+                                    [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
                                     xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
                                     df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
                                 end
@@ -1154,21 +1144,21 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             % dx = diag(max(sqrt(eps(Sig(1:obj.nx,j,k))), 1e-7*ones(obj.nx,1)));
                             % du = diag(max(sqrt(eps(u_fdb_k)), 1e-7*ones(nu,1)));
                             %
-                            % [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
-                            % [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k);
+                            % [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k),u_fdb_k);
+                            % [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k),u_fdb_k);
                             % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
                             %
                             % N_finite_diff_x = length(Sig(1:obj.nx,j,k));
                             % for m = 1:N_finite_diff_x
-                            %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
                             %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
                             % end
                             %
                             % N_finite_diff_u = length(u_fdb_k);
                             % for m = 1:N_finite_diff_u
-                            %     [xdnp,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                            %     [xdnm,~] = feval(plant_update,noise_index,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
                             %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
                             % end
                             %
@@ -1370,7 +1360,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             
             function [c,dc] = robustVariancecost(obj, x_full, u_full)
                 global timestep_updated
-                global time_step
                 global x_previous
                 global df_previous
                 
@@ -1438,7 +1427,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 plant_update = @objPlantUpdate;
-                obj.plant.time_step = time_step;
+                obj.plant.time_step = timestep_updated;
                 df_previous_full = [];
                 xdn_previous_full = [];
                 
