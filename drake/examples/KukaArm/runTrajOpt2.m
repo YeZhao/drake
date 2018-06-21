@@ -88,9 +88,9 @@ um = r.findTrim(qm);
 um(8) = -5;
 %u1 = r.findTrim(q1);
 %u1(8) = -5;
- 
+
 T0 = 1;
-N = 5;%phase 1: pick
+N = 10;%phase 1: pick
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
@@ -235,6 +235,7 @@ tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
+keyboard
 
 % % simulate with LQR gains
 % % LQR Cost Matrices
@@ -310,15 +311,15 @@ global phi_cache_full
         ts = [0;cumsum(h)];
         for i=1:length(ts)
             v.drawWrapper(0,x(:,i));
-            pause(h(1)/3);
-        end
+            pause(h(1)/3); 
+        end 
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
         if any(LCP_slack_var < 0)
             disp('here')
         end
-         
+          
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
         % if isempty(iteration_num)

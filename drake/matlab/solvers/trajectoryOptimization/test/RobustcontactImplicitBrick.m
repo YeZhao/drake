@@ -2,6 +2,10 @@ function RobustcontactImplicitBrick(visualize,xtraj,utraj,ltraj,ljltraj)%positio
 % tests that the contact implicit trajectory optimization can reproduce a
 % simulation of the falling brick
 % rng(0)
+global iteration_index
+global NCP_slack_param        
+iteration_index = 0;
+
 if nargin < 1, visualize = false; end
 if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
@@ -14,20 +18,19 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-%N=500; tf=1;
-N=20; tf=2;
- 
-%% instantiate RigidBodyTerrain with different heights
-plant.uncertainty_source = 'friction_coeff';%'friction_coeff+terrain_height';%'terrain_height'
+N=10; tf=2;
+
+%% instantiate RigidBodyTerrain with different heights and friction coeff
+plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
-end
+end 
 terrain_height_scale_factor = 7;
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
-    w_phi = w_phi/terrain_height_scale_factor;%scale down
+    w_phi = w_phi/terrain_height_scale_factor;%scale down the height variation manually
     plant.uncertain_position_set = w_phi;
     plant.uncertain_position_mean = mean(w_phi);
     
@@ -53,7 +56,6 @@ end
 % xf_min = [1;0;-inf;0;0;0;zeros(6,1)];
 % xf_max = [1;0;inf;0;0;0;zeros(6,1)];
 
-%new setting(August-22-17)
 x0 = [0;0;2;0;0;0;10;zeros(5,1)];
 xf = [10;0;0.5;0;0;0;zeros(6,1)];
 xf_min = [10;0;0.5;0;0;0;zeros(6,1)];
@@ -62,97 +64,21 @@ xf_max = [10;0;0.5;0;0;0;zeros(6,1)];
 plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
 w = warning('off','Drake:TimeSteppingRigidBodyManipulator_Brick:ResolvingQP');
 % xtraj_ts = simulate(plant_ts,[0 4],x0);
-% x0 = xtraj_ts.eval(0);
 warning(w);
 visualize = 0;
 v = constructVisualizer(plant_ts);
-if visualize
-    v = constructVisualizer(plant_ts);
-    v.playback(xtraj_ts,struct('slider',true));
-    
-    ts = getBreaks(xtraj_ts);
-    xtraj_ts_data = xtraj_ts.eval(ts);
-    
-    %ltraj_data.
-    figure(1)
-    %subplot(2,1,1)
-    plot(ts, xtraj_ts_data(3,:),'b--');
-    hold on;
-    plot(ts, xtraj_ts_data(1,:),'k--');
-    xlabel('t [s]','fontsize',15);ylabel('position [m]','fontsize',15);
-    title('CoM positions','fontsize',18);
-
-    figure(2)
-    plot(xtraj_ts_data(1,:), xtraj_ts_data(3,:),'b--');
-    xlabel('x [m]');ylabel('z [m]');
-    
-    figure(3)
-    hold on;
-    plot(ts, xtraj_ts_data(3,:),'b--');
-    xlabel('t [s]');ylabel('z [m]');
-    hold on;
-    plot(ts, xtraj_ts_data(3,:),'r--');
-    ylim([-0.2,2])
-
-    % figure(4)
-    % %plot(ts, xtraj_ts_data(5,:),'b--');
-    % plot(phi_1,'b-');
-    % %ylim([-0.2,2])
-    % 
-    % for i=1:8
-    %     figure(i+5)
-    %     plot(f_vec(i*2,:)/h,'b-');
-    %     hold on;
-    %     plot(f_vec(i*3,:)/h,'r-');
-    %     hold on;
-    % end
-    %
-    %figure(6)
-    %for i=1:8
-    %    plot(f_vec(i*3,:)/h,'r-');
-    %    hold on;
-    %end
-    % %
-    % for i=1:4
-    %     figure(i+5)
-    %     plot(z_vec(i,:)/h,'b-');
-    %     hold on;
-    % end
-    % 
-    % figure(10)
-    % plot(xdn_LCP_vec(1,:),'b-');
-    % hold on;
-    % plot(xdn_QP_vec(1,:),'r-');
-    % hold on;
-    % 
-    % figure(11)
-    % plot(xdn_LCP_vec(3,27:end),'b-');
-    % hold on;
-    % plot(xdn_QP_vec(3,:),'r-');
-    % hold on;
-    % 
-    % figure(12)
-    % plot(f_vec_sum(3,:)/h,'b-');
-    % 
-    % figure(13)
-    % plot(z_vec_sum(3,:)/h,'b-');
-    % 
-    % figure(14)
-    % plot(xdn_LCP_vec(9,27:end),'b-');
-end
 
 nq = plant.num_positions;
 nv = plant.num_velocities;
 
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
-%options.integration_method = ContactImplicitTrajectoryOptimization.MIXED;
 
-options.contact_robust_cost_coeff = 100;%0.1;%0.0001;%1e-13;
+options.contact_robust_cost_coeff = 1;%100;%0.1;%0.0001;%1e-13;
 options.ERMcost_coeff = 10;
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 0.09;
-options.Px_regularizer_coeff = 1e-1;
+options.Px_coeff = 0.01;
+options.Px_regularizer_coeff = 1e-2;
 options.Kx_gain = 5;
 options.Kxd_gain = sqrt(options.Kx_gain)*1.5; 
 options.Kz_gain = 15;
@@ -163,6 +89,7 @@ options.kappa = 1;
  
 persistent sum_running_cost
 persistent cost_index
+slack_sum_vec = [];% vector storing the slack variable sum
 
 prog = RobustContactImplicitTrajectoryOptimization_Brick(plant_ts,N,tf,options);
 prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
@@ -173,7 +100,6 @@ prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 %prog = prog.setCheckGrad(true);
-
 %snprint('snopt.out');
  
 % initial conditions constraint
@@ -185,17 +111,18 @@ prog = prog.addRunningCost(@running_cost_fun);
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
-slack_sum_vec = [];% vector storing the slack variable sum
  
 tic
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
-toc
+toc 
  
 if 1
     v.playback(xtraj,struct('slider',true));
     % Create an animation movie
     %v.playbackAVI(xtraj, 'throwingBrick.avi');
+    keyboard
     
+    %% data analysis
     ts = getBreaks(xtraj);
     h = tf/(N-1);
     F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
@@ -204,7 +131,7 @@ if 1
     nD = 4;
     nC = 8;
     lambda_n_data = ltraj_data(1:nD+2:end,:)/h;
-    
+     
     %ltraj_data.
     figure(1)
     colorset={'r','b','g','k'};
@@ -213,7 +140,7 @@ if 1
     plot(ts, xtraj_data(3,:),'b-');
     hold on;
     plot(ts, xtraj_data(1,:),'k-');
-    hold on;
+    hold on; 
     legend('passive case z position','passive case x position','robust case z position','robust case x position');
     subplot(2,1,2)
     for i=1:nC/2
@@ -241,6 +168,8 @@ if 1
     title('Force Profile','fontsize',22)
     legend('horizontal force','vertical force')
     ylim([-10.5,10.5])
+    
+    keyboard
     
     kp_x = 5;
     kd_x = sqrt(kp_x)*1.5;
@@ -372,6 +301,7 @@ if 1
         
         x_final_dev(m) = x_real_full(1,end) - xtraj_data(1,end);
     end
+    keyboard
     
     % % simulate with LQR gains
     % ToDo: need to handle control input in this case
@@ -456,10 +386,7 @@ end
             xlim([-1.5, 6])
             pause(h(1)/5);
         end
-         
-        global iteration_index
-        global NCP_slack_param
-        
+                
         if isempty(iteration_index)
             iteration_index = 1;
         else

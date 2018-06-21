@@ -237,22 +237,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
             elseif strcmp(obj.manip.uncertainty_source, 'terrain_height')
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
-%                 disp('--------QP--------')
-%                 kinsol.q(3) - obj.manip.plant_sample{terrain_index}.terrain.z
-%                 terrain_index
-%                 kinsol.q(3)
-%                 phiC(1)
-%                 if abs(phiC(1) - phi_previous) < 1e-5
-%                    keyboard
-%                 end
-%                 if phiC(1) < 1.1
-%                     keyboard
-%                 end
-%                 if kinsol.q(3) < 0.8
-%                     keyboard
-%                 end
-                %phi_previous = phiC(1);
-                                
             elseif strcmp(obj.manip.uncertainty_source, 'friction_coeff+terrain_height')
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.plant_sample{terrain_index}.contactConstraints(kinsol, obj.multiple_contacts);
             else
@@ -294,7 +278,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         end
         
         function [xdn,df] = solveQP(obj,X0)
-            t = X0(1);
+            timestep = X0(1);
             x = X0(2:13);
             u = X0(14:15);
             global timestep_updated
@@ -325,11 +309,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 num_d = 4;
             end
             dim = 3;
-            if isempty(timestep_updated)    
-                h = obj.timestep;
-            else
-                h = timestep_updated;
-            end
+            h = timestep;
+            %if isempty(timestep_updated)    
+            %    h = obj.timestep;
+            %else
+            %    h = timestep_updated;
+            %end
             
             num_q = obj.manip.getNumPositions;
             q=x(1:num_q);
@@ -364,19 +349,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             
             phiC = phiC(active);
             normal = normal(:,active);
-            
-            %persistent phi_1
-            %persistent phi_2
-            %persistent phi_3
-            %persistent phi_4
-            %persistent f_vec
-            %persistent f_vec_sum
-            %if ~isempty(phiC)
-            %    phi_1 = [phi_1,phiC(2)];
-            %    phi_2 = [phi_2,phiC(4)];
-            %    phi_3 = [phi_3,phiC(6)];
-            %    phi_4 = [phi_4,phiC(8)];
-            %end
             
             Apts = xA(:,active);
             Bpts = xB(:,active);
@@ -495,12 +467,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 tau = -C + [u(1);0;u(2);zeros(3,1)];
                 dtaudu = [1,0;zeros(1,2);0,1;zeros(3,2)];
                 dtau = [zeros(num_v,1), -dC, dtaudu];
-                
-                %%[Ye: hacky way to implement an external force]
-                %obj.num_Fext = 0;
-                %num_u = obj.num_Fext;
-                %tau = -C;
-                %dtau = [zeros(num_v,1), -dC];
             end
             Hinv = inv(H);
             
@@ -685,18 +651,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     pene_pair = [sigmapoint_index;min(phiC_bottom);max(-f_normal_bottom)];
                     phi_penetration_pair = [phi_penetration_pair,pene_pair];
                 end
-                %
-                % if t > 0.5517 && t < 0.5518
-                %     pene_pair = [phiC_bottom(1);-f(6)/h];
-                %     phi_penetration_pair = [phi_penetration_pair,pene_pair];
-                % end
-
-                % if t > 0.5517 && t < 0.5518
-                %     %disp('here');
-                % elseif t > 0.5518 && t < 0.625
-                %   pene_pair = [phiC_bottom(1);-f(4)/h;-f(5)/h;-f(6)/h;-f(10)/h;-f(11)/h;-f(12)/h];
-                %   phi_penetration_pair = [phi_penetration_pair,pene_pair];
-                % end
                     
                 %f_vec = [f_vec,f];
                 % f_x_sum = 0;
@@ -1004,7 +958,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
                         db_tildedv_joint(j,:,i) = dcdv(idx,i);
                     end
-                    
+                     
                     if ~isempty(dynamicsConstraint_active_set) && isempty(jointConstraint_active_set)
                         dA_tildedq(:,:,i) = [dA_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, num_params)];
                         db_tildedq(:,:,i) = [db_tildedq_dyn(:,:,i);zeros(num_boundingConstraint_active_set, 1)];
@@ -1143,8 +1097,15 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 else
                     dqdn = matGradMult(dMvn,lambda) + Mvn*dlambda + dwvn;
                 end
-                df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
+                df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix, ignorable since vToqdot is indentity matrix]
             end
+            
+            %xdn = wvn;
+            %df = dwvn;
+            %xdn = reshape(Mvn,[],1);
+            %df = dMvn;
+            %xdn = lambda;
+            %df = dlambda;
             
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
@@ -1160,24 +1121,15 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 end
             end
         end
-        
-        function [xdn,df] = update(obj,t,x,u)
-            X0 = [t;x;u];
-            global timestep_updated
-            persistent xdn_QP_vec;
-            persistent xdn_LCP_vec;
-            
-            %tStart = tic; 
+         
+        function [xdn,df] = update(obj,timestep,x,u)
+            X0 = [timestep;x;u];             
             %[xdn,df] = solveQP(obj,X0);
-            %tElapsed = toc(tStart);
-
-            %xdn_QP_vec = [xdn_QP_vec,xdn];
-            
             %return;
             %disp('finish solveQP')
+            t = timestep;
             
             %% add gradient check
-            %
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)
             %
@@ -1245,11 +1197,12 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             num_q = obj.manip.num_positions;
             q=x(1:num_q); v=x((num_q+1):end);
             
-            if isempty(timestep_updated)
-                h = obj.timestep;
-            else
-                h = timestep_updated;
-            end
+            h = timestep;
+            %if isempty(timestep_updated)
+            %    h = obj.timestep;
+            %else
+            %    h = timestep_updated;
+            %end
             
             if isempty(z)
                 vn = wvn;
@@ -1273,16 +1226,14 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 end
             end
             xdn = [qn;vn];
-            
-            xdn_LCP_vec = [xdn_LCP_vec,xdn];
-                       
+                                   
             if (nargout>1)  % compute gradients
                 if isempty(z)
                     dqdn = dwvn;
                 else
                     dqdn = matGradMult(dMvn,z) + Mvn*dz + dwvn;
                 end
-                df = [ [zeros(num_q,1), eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
+                df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_Fext)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
             
             for i=1:length(obj.sensor)

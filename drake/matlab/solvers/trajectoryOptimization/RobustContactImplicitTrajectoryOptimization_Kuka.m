@@ -685,28 +685,28 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
 %                             df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
 %                         end
                         
-                        % % %numerical diff
-                        dt = diag(sqrt(eps(timestep_updated)));
-                        dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-                        du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
-                        
+%                         % % %numerical diff
+                        dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+%                         dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+%                         du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+%                         
                         [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
                         [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
                         df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                        
-                        N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
-                        for m = 1:N_finite_diff_x
-                            [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                            df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                        end
-                        
-                        N_finite_diff_u = length(u_fdb_k);
-                        for m = 1:N_finite_diff_u
-                           [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                           [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                           df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        end
+%                         
+%                         N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
+%                         for m = 1:N_finite_diff_x
+%                             [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+%                             [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+%                             df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+%                         end
+%                         
+%                         N_finite_diff_u = length(u_fdb_k);
+%                         for m = 1:N_finite_diff_u
+%                            [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
+%                            [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
+%                            df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+%                         end
                         
 %                         if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
 %                             keyboard
@@ -716,11 +716,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
 %                                 keyboard
 %                             end
 %                         end
-                         
+%                         for jjj=1:37
+%                             jjj
+%                             [df_analytical(:,jjj,j),df_numeric(:,jjj)]'
+%                         end
+
                         xdn(:,j) = xdn_analytical(:,j);
-                        
-                        %df(:,:,j) = df_analytical(:,:,j);
-                        df(:,:,j) = df_numeric;
+                        df(:,:,j) = df_analytical(:,:,j);
+                        %df(:,:,j) = df_numeric;
                         
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
@@ -896,7 +899,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 for jj=1:obj.N % index for u_k
                     %dTrV_sum_du_k = zeros(1, nu);
                     dmeanR_sum_du_k = zeros(1, nu);
-                    if jj < obj.N
+                    if jj < obj.N 
                         %dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jj+1);
                         dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jj+1);
                     end

@@ -89,9 +89,9 @@ um(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
  
-T0 = 3;
-N = 30;%10;
-N1 = 10;%phase 1: pick
+T0 = 1;
+N = 20;%10;
+N1 = 7;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
@@ -175,7 +175,7 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
-T_span = [3 T0];
+T_span = T0;%[3 T0];
 % v.playback(traj_init.x,struct('slider',true));
 
 % x0_ub = [q0;inf*ones(14,1)];
@@ -187,11 +187,11 @@ T_span = [3 T0];
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
 % xm_lb = xm - 0.05*ones(length(xm),1);
 % xm_ub = xm + 0.05*ones(length(xm),1);
-
+ 
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
-traj_opt = traj_opt.addFinalCost(@final_cost_fun2);
+%traj_opt = traj_opt.addFinalCost(@final_cost_fun2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
@@ -244,16 +244,17 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);%
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-3);
- 
+
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
 persistent sum_running_cost
 persistent cost_index
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
+keyboard
 
 % % simulate with LQR gains
 % % LQR Cost Matrices
@@ -344,9 +345,9 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        if any(LCP_slack_var < 0)
-            disp('here')
-        end
+        %if any(LCP_slack_var < 0)
+        %    disp('here')
+        %end
          
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
