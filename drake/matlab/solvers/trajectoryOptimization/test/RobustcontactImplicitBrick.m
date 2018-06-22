@@ -11,7 +11,7 @@ if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
 global example_name;
 example_name = 'falling brick';
- 
+
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
@@ -26,7 +26,7 @@ if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertaint
     w_mu = load('friction_coeff_noise.dat');
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
-end 
+end
 terrain_height_scale_factor = 7;
 if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_phi = load('terrain_height_noise5.dat');
@@ -116,43 +116,181 @@ tic
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
 toc 
  
-if 1
-    v.playback(xtraj,struct('slider',true));
-    % Create an animation movie
-    %v.playbackAVI(xtraj, 'throwingBrick.avi');
-    keyboard
-    
-    %% data analysis
-    ts = getBreaks(xtraj);
-    h = tf/(N-1);
-    F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
-    xtraj_data = xtraj.eval(ts);
-    ltraj_data = ltraj.eval(ts);
-    nD = 4;
-    nC = 8;
-    lambda_n_data = ltraj_data(1:nD+2:end,:)/h;
-     
-    %ltraj_data.
-    figure(1)
-    colorset={'r','b','g','k'};
-    subplot(2,1,1)
+v.playback(xtraj,struct('slider',true));
+% Create an animation movie
+%v.playbackAVI(xtraj, 'throwingBrick.avi');
+keyboard
+
+%% data analysis
+ts = getBreaks(xtraj);
+h = tf/(N-1);
+F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
+xtraj_data = xtraj.eval(ts);
+ltraj_data = ltraj.eval(ts);
+nD = 4;
+nC = 8;
+lambda_n_data = ltraj_data(1:nD+2:end,:)/h;
+
+%ltraj_data.
+figure(1)
+colorset={'r','b','g','k'};
+subplot(2,1,1)
+hold on;
+plot(ts, xtraj_data(3,:),'b-');
+hold on;
+plot(ts, xtraj_data(1,:),'k-');
+hold on;
+legend('passive case z position','passive case x position','robust case z position','robust case x position');
+subplot(2,1,2)
+for i=1:nC/2
+    plot(ts, lambda_n_data(2*i,:),colorset{i});
     hold on;
-    plot(ts, xtraj_data(3,:),'b-');
-    hold on;
-    plot(ts, xtraj_data(1,:),'k-');
-    hold on; 
-    legend('passive case z position','passive case x position','robust case z position','robust case x position');
-    subplot(2,1,2)
-    for i=1:nC/2
-        plot(ts, lambda_n_data(2*i,:),colorset{i});
-        hold on;
+end
+legend('contact point 1','contact point 2','contact point 3','contact point 4');
+title('Normal contact forces in robust case','fontsize',18);
+xlabel('t [s]','fontsize',15);ylabel('force [N]','fontsize',15);
+%print -depsc brick_throwing_time_profile
+
+figure(2)
+hold on;
+plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+title('2D Cartesian CoM trajectory','fontsize',22)
+legend('passive case','robust case')
+ylim([0,2.1])
+
+figure(3)
+plot(ts, F_exttraj_data(1,:),'b-');
+hold on;
+plot(ts, F_exttraj_data(2,:),'r-');
+xlabel('t [s]','fontsize',20);ylabel('force [N]','fontsize',20);
+title('Force Profile','fontsize',22)
+legend('horizontal force','vertical force')
+ylim([-10.5,10.5])
+
+keyboard
+
+kp_x = 5;
+kd_x = sqrt(kp_x)*1.5;
+kp_z = 25;
+kd_z = sqrt(kp_z)*1.5;
+
+% 4 contact points at the bottom surface
+% x positive
+lambda_xp_data = ltraj_data(2:nD+2:end,:)/h;
+lambda_xp_data = lambda_xp_data(2:2:end,:);
+% y positive
+lambda_yp_data = ltraj_data(3:nD+2:end,:)/h;
+lambda_yp_data = lambda_yp_data(2:2:end,:);
+% x negative
+lambda_xn_data = ltraj_data(4:nD+2:end,:)/h;
+lambda_xn_data = lambda_xn_data(2:2:end,:);
+% y negative
+lambda_yn_data = ltraj_data(5:nD+2:end,:)/h;
+lambda_yn_data = lambda_yn_data(2:2:end,:);
+% z
+lambda_n_data = lambda_n_data(2:2:end,:);
+m = 1;
+g = 9.81;
+
+x_real(1) = xtraj_data(1,1);
+z_real(1) = xtraj_data(3,1);
+xdot_real(1) = xtraj_data(7,1);
+zdot_real(1) = xtraj_data(9,1);
+xddot_real(1) = 0;
+zddot_real(1) = 0;
+x_real_full(:,1) = xtraj_data(:,1);
+
+stabilitation_scenario = 'friction_coeff+terrain_height';
+global uncertainty_source;
+
+if strcmp(stabilitation_scenario, 'friction_coeff')
+    w_mu = load('friction_coeff_noise.dat');
+    sample_length = length(w_mu);
+    global uncertain_mu;
+    uncertainty_source = 'friction_coeff';
+end
+
+if strcmp(stabilitation_scenario, 'terrain_height')
+    w_phi = load('terrain_height_noise5.dat');
+    w_phi = w_phi/terrain_height_scale_factor;
+    plant.uncertain_position_set = w_phi;
+    plant.uncertain_position_mean = mean(w_phi);
+    sample_length = length(w_phi);
+    for i=1:sample_length
+        sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+        sample_options.floating = true;
+        w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+        plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+        warning(w);
+        plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
     end
-    legend('contact point 1','contact point 2','contact point 3','contact point 4');
-    title('Normal contact forces in robust case','fontsize',18);
-    xlabel('t [s]','fontsize',15);ylabel('force [N]','fontsize',15);
-    %print -depsc brick_throwing_time_profile
+    global terrain_index;
+    uncertainty_source = 'terrain_height';
+end
+
+if strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
+    w_mu = load('friction_coeff_noise.dat');
+    w_phi = load('terrain_height_noise5.dat');
+    w_phi = w_phi/terrain_height_scale_factor;
+    plant.uncertain_position_set = w_phi;
+    plant.uncertain_position_mean = mean(w_phi);
+    sample_length = length(w_phi);
+    for i=1:sample_length
+        sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+        sample_options.floating = true;
+        w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
+        plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
+        warning(w);
+        plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
+    end
+    global uncertain_mu;
+    global terrain_index;
+    uncertainty_source = 'friction_coeff+terrain_height';
+end
+
+for m=1:sample_length
+    m
+    if strcmp(stabilitation_scenario, 'friction_coeff')
+        uncertain_mu = w_mu(m);
+        plant.uncertainty_source = 'friction_coeff';
+        plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+    elseif strcmp(stabilitation_scenario, 'terrain_height')
+        plant.uncertainty_source = 'terrain_height';
+        plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+        terrain_index = m;
+    elseif strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
+        uncertain_mu = w_mu(m);
+        plant.uncertainty_source = 'friction_coeff+terrain_height';
+        plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
+        terrain_index = m;
+    end
     
-    figure(2)
+    for i=1:N-1
+        %feedback ctrl in x and z position
+        F_fb(1,i) = kp_x*(xtraj_data(1,i) - x_real(i)) + kd_x*(xtraj_data(7,i) - xdot_real(i));%x direction
+        F_fb(2,i) = kp_z*(xtraj_data(3,i) - z_real(i)) + kd_z*(xtraj_data(9,i) - zdot_real(i));%z direction
+        %feedforward
+        F_ff(:,i) = F_exttraj_data(:,i);
+        F_net(1,i) = F_fb(1,i) + F_ff(1,i);% + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
+        F_net(2,i) = F_fb(2,i) + F_ff(2,i);% + sum(lambda_n_data(:,i));
+        
+        [xdn,df] = plant_ts.update(1,x_real_full(:,i),F_net(:,i));
+        x_real_full(:,i+1) = xdn;
+        x_real(i+1) = x_real_full(1,i+1);
+        z_real(i+1) = x_real_full(3,i+1);
+        xdot_real(i+1) = x_real_full(7,i+1);
+        zdot_real(i+1) = x_real_full(9,i+1);
+    end
+    
+    x_simulated = x_real_full;
+    xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+    xtraj_simulated = xtraj_simulated.setOutputFrame(plant_ts.getStateFrame);
+    %v.playback(xtraj_simulated,struct('slider',true));
+    
+    figure(4)
+    hold on;
+    plot(x_real_full(1,:), x_real_full(3,:),'r-');
     hold on;
     plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
     xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
@@ -160,185 +298,46 @@ if 1
     legend('passive case','robust case')
     ylim([0,2.1])
     
-    figure(3)
-    plot(ts, F_exttraj_data(1,:),'b-');
-    hold on;
-    plot(ts, F_exttraj_data(2,:),'r-');
-    xlabel('t [s]','fontsize',20);ylabel('force [N]','fontsize',20);
-    title('Force Profile','fontsize',22)
-    legend('horizontal force','vertical force')
-    ylim([-10.5,10.5])
-    
-    keyboard
-    
-    kp_x = 5;
-    kd_x = sqrt(kp_x)*1.5;
-    kp_z = 25;
-    kd_z = sqrt(kp_z)*1.5;
-    
-    % 4 contact points at the bottom surface
-    % x positive
-    lambda_xp_data = ltraj_data(2:nD+2:end,:)/h;
-    lambda_xp_data = lambda_xp_data(2:2:end,:);
-    % y positive
-    lambda_yp_data = ltraj_data(3:nD+2:end,:)/h;
-    lambda_yp_data = lambda_yp_data(2:2:end,:);
-    % x negative
-    lambda_xn_data = ltraj_data(4:nD+2:end,:)/h;
-    lambda_xn_data = lambda_xn_data(2:2:end,:);
-    % y negative
-    lambda_yn_data = ltraj_data(5:nD+2:end,:)/h;
-    lambda_yn_data = lambda_yn_data(2:2:end,:);
-    % z 
-    lambda_n_data = lambda_n_data(2:2:end,:);
-    m = 1;
-    g = 9.81;
-    
-    x_real(1) = xtraj_data(1,1);
-    z_real(1) = xtraj_data(3,1);
-    xdot_real(1) = xtraj_data(7,1);
-    zdot_real(1) = xtraj_data(9,1);
-    xddot_real(1) = 0;
-    zddot_real(1) = 0;
-    x_real_full(:,1) = xtraj_data(:,1);
-    
-    stabilitation_scenario = 'friction_coeff+terrain_height';
-    global uncertainty_source;
-    
-    if strcmp(stabilitation_scenario, 'friction_coeff') 
-        w_mu = load('friction_coeff_noise.dat');
-        sample_length = length(w_mu);
-        global uncertain_mu;
-        uncertainty_source = 'friction_coeff';
-    end
-    
-    if strcmp(stabilitation_scenario, 'terrain_height')
-        w_phi = load('terrain_height_noise5.dat');
-        w_phi = w_phi/terrain_height_scale_factor;
-        plant.uncertain_position_set = w_phi;
-        plant.uncertain_position_mean = mean(w_phi);
-        sample_length = length(w_phi);
-        for i=1:sample_length
-            sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
-            sample_options.floating = true;
-            w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-            plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
-            warning(w);
-            plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
-        end
-        global terrain_index;
-        uncertainty_source = 'terrain_height';
-    end
-    
-    if strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
-        w_mu = load('friction_coeff_noise.dat');
-        w_phi = load('terrain_height_noise5.dat');
-        w_phi = w_phi/terrain_height_scale_factor;
-        plant.uncertain_position_set = w_phi;
-        plant.uncertain_position_mean = mean(w_phi);
-        sample_length = length(w_phi);
-        for i=1:sample_length
-            sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
-            sample_options.floating = true;
-            w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
-            plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
-            warning(w);
-            plant.plant_sample{i} = plant_sample{i};% add multiple RigidBodyManipulators with Sampled Terrain Height into the normal RigidBodyManipulator
-        end
-        global uncertain_mu;
-        global terrain_index;
-        uncertainty_source = 'friction_coeff+terrain_height';
-    end
-    
-    for m=1:sample_length
-        m
-        if strcmp(stabilitation_scenario, 'friction_coeff')
-            uncertain_mu = w_mu(m);
-            plant.uncertainty_source = 'friction_coeff';
-            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
-        elseif strcmp(stabilitation_scenario, 'terrain_height')
-            plant.uncertainty_source = 'terrain_height';
-            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
-            terrain_index = m;
-        elseif strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
-            uncertain_mu = w_mu(m);
-            plant.uncertainty_source = 'friction_coeff+terrain_height';
-            plant_ts = TimeSteppingRigidBodyManipulator_Brick(plant,tf/(N-1));
-            terrain_index = m;
-        end
-        
-        for i=1:N-1
-            %feedback ctrl in x and z position
-            F_fb(1,i) = kp_x*(xtraj_data(1,i) - x_real(i)) + kd_x*(xtraj_data(7,i) - xdot_real(i));%x direction
-            F_fb(2,i) = kp_z*(xtraj_data(3,i) - z_real(i)) + kd_z*(xtraj_data(9,i) - zdot_real(i));%z direction
-            %feedforward
-            F_ff(:,i) = F_exttraj_data(:,i);
-            F_net(1,i) = F_fb(1,i) + F_ff(1,i);% + sum(lambda_xp_data(:,i)) - sum(lambda_xn_data(:,i));
-            F_net(2,i) = F_fb(2,i) + F_ff(2,i);% + sum(lambda_n_data(:,i));
-            
-            [xdn,df] = plant_ts.update(1,x_real_full(:,i),F_net(:,i));
-            x_real_full(:,i+1) = xdn;
-            x_real(i+1) = x_real_full(1,i+1);
-            z_real(i+1) = x_real_full(3,i+1);
-            xdot_real(i+1) = x_real_full(7,i+1);
-            zdot_real(i+1) = x_real_full(9,i+1);
-        end
-        
-        x_simulated = x_real_full;
-        xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
-        xtraj_simulated = xtraj_simulated.setOutputFrame(plant_ts.getStateFrame);
-        %v.playback(xtraj_simulated,struct('slider',true));
-        
-        figure(4)
-        hold on;
-        plot(x_real_full(1,:), x_real_full(3,:),'r-');
-        hold on;
-        plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
-        xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
-        title('2D Cartesian CoM trajectory','fontsize',22)
-        legend('passive case','robust case')
-        ylim([0,2.1])
-        
-        x_final_dev(m) = x_real_full(1,end) - xtraj_data(1,end);
-    end
-    keyboard
-    
-    % % simulate with LQR gains
-    % ToDo: need to handle control input in this case
-    % % LQR Cost Matrices
-    Q = diag(10*ones(1,prog.nx)); 
-    R = .1*eye(2);
-    Qf = 100*eye(prog.nx);
-    
-    ltvsys = tvlqr(plant_ts,xtraj,F_exttraj,Q,R,Qf);
-    sys=feedback(plant_ts,ltvsys);
-    xtraj_new = simulate(sys,xtraj.tspan, x0);
-    v.playback(xtraj_new,struct('slider',true));
-    
-    %% pd-control LTI trial
-    kp = 100;
-    kd = sqrt(kp)*1.5;
-    
-    K = [kp*eye(prog.nx),kd*eye(prog.nx)];
-    
-    ltisys = LinearSystem([],[],[],[],[],-K);
-    ltisys = setInputFrame(ltisys,CoordinateFrame([plant_ts.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),plant_ts.getStateFrame.prefix));
-    plant_ts.getStateFrame.addTransform(AffineTransform(plant_ts.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
-    ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,plant_ts.getStateFrame,eye(length(x0)),+x0));
-    ltisys = setOutputFrame(ltisys,plant_ts.getInputFrame);
-    
-    sys = feedback(plant_ts,ltisys);
-    % Forward simulate dynamics with visulazation, then playback at realtime
-    S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
-    output_select(1).system=1;
-    output_select(1).output=1;
-    %sys = mimoCascade(sys,v,[],[],output_select);
-    warning(S);
-    xtraj_new = simulate(sys,xtraj.tspan,x0);
-    playback(v,xtraj_new,struct('slider',true));
+    x_final_dev(m) = x_real_full(1,end) - xtraj_data(1,end);
 end
-    function [f,df] = running_cost_fun(h,x,force)
+keyboard
 
+% % simulate with LQR gains
+% ToDo: need to handle control input in this case
+% % LQR Cost Matrices
+Q = diag(10*ones(1,prog.nx));
+R = .1*eye(2);
+Qf = 100*eye(prog.nx);
+
+ltvsys = tvlqr(plant_ts,xtraj,F_exttraj,Q,R,Qf);
+sys=feedback(plant_ts,ltvsys);
+xtraj_new = simulate(sys,xtraj.tspan, x0);
+v.playback(xtraj_new,struct('slider',true));
+
+%% pd-control LTI trial
+kp = 100;
+kd = sqrt(kp)*1.5;
+
+K = [kp*eye(prog.nx),kd*eye(prog.nx)];
+
+ltisys = LinearSystem([],[],[],[],[],-K);
+ltisys = setInputFrame(ltisys,CoordinateFrame([plant_ts.getStateFrame.name,' - ', mat2str(x0,3)],length(x0),plant_ts.getStateFrame.prefix));
+plant_ts.getStateFrame.addTransform(AffineTransform(plant_ts.getStateFrame,ltisys.getInputFrame,eye(length(x0)),-x0));
+ltisys.getInputFrame.addTransform(AffineTransform(ltisys.getInputFrame,plant_ts.getStateFrame,eye(length(x0)),+x0));
+ltisys = setOutputFrame(ltisys,plant_ts.getInputFrame);
+
+sys = feedback(plant_ts,ltisys);
+% Forward simulate dynamics with visulazation, then playback at realtime
+S=warning('off','Drake:DrakeSystem:UnsupportedSampleTime');
+output_select(1).system=1;
+output_select(1).output=1;
+%sys = mimoCascade(sys,v,[],[],output_select);
+warning(S);
+xtraj_new = simulate(sys,xtraj.tspan,x0);
+playback(v,xtraj_new,struct('slider',true));
+
+    function [f,df] = running_cost_fun(h,x,force)
+        
         Q = blkdiag(1,0,20,0.001*eye(3),1,0,20,0.001*eye(3));
         R = blkdiag(1,1);
         
@@ -355,7 +354,7 @@ end
         % [f_numeric,df_numeric] = geval(@(h,x,force) running_cost_fun_check(h,x,force),h,x,force,struct('grad_method','numerical'));
         % valuecheck(df,df_numeric,1e-3);
         % valuecheck(f,f_numeric,1e-3);
-         
+        
         if isempty(cost_index)
             cost_index = 1;
             sum_running_cost = f;
@@ -386,7 +385,7 @@ end
             xlim([-1.5, 6])
             pause(h(1)/5);
         end
-                
+        
         if isempty(iteration_index)
             iteration_index = 1;
         else
@@ -430,11 +429,7 @@ end
         fprintf('sum of external x force along traj: %4.4f\n',sum(abs(force(1,:))));
         fprintf('sum of external z force along traj: %4.4f\n',sum(abs(force(2,:))));
         
-        slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];
-        
-        global phi_penetration_pair
-%         figure(34)
-%         plot(phi_penetration_pair(1,:),phi_penetration_pair(3,:),'o'); 
+        slack_sum_vec = [slack_sum_vec sum(LCP_slack,2)];        
     end
 
 % check if the two simulations did the same thing:
