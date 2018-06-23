@@ -8,7 +8,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
         dirty=true;
     end
-    
+     
     properties (SetAccess=protected)
         timestep
         twoD=false
@@ -232,7 +232,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 kinsol = doKinematics(obj, q, [], kinematics_options);
             end
             
-            global phi_previous
             if strcmp(obj.manip.uncertainty_source, 'friction_coeff')
                 [phiC,normal,d,xA,xB,idxA,idxB,mu,n,D,dn,dD] = obj.manip.contactConstraints(kinsol,obj.multiple_contacts);
             elseif strcmp(obj.manip.uncertainty_source, 'terrain_height')
@@ -281,10 +280,8 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             timestep = X0(1);
             x = X0(2:13);
             u = X0(14:15);
-            global timestep_updated
             global sigmapoint_index
             persistent phi_vec
-            %persistent phi_full_vec
             persistent x_vec
             global phi_penetration_pair
             %global next_time_step_state
@@ -520,14 +517,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 
                 % Todorov's function
                 %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
-                %scale r of upper four uncontact points same as that of
-                %lower contact point.
-                % if phi(2) < obj.phi_max && length(r) > 0
-                %     r(1) = r(2);
-                %     r(3) = r(4);
-                %     r(5) = r(6);
-                %     r(7) = r(8);
-                % end
                 r = repmat(r,1,dim)';
                 R = diag(r(:));
                 
@@ -555,7 +544,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 W = diag(w(:));
                 
                 R = blkdiag(R,W);
-                
+                 
                 num_params = num_beta+nL;
                 % lambda_ub = zeros(num_params,1);
                 % scale_fact = 1e3;
@@ -617,7 +606,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         result = gurobi(model,gurobi_options);
                         result_qp = result.x;
                     catch
-                        %display('gurobi solve failure');
+                        display('gurobi solve failure and use previous iteraction state');
                         %keyboard
                         xdn = x_previous;
                         df = df_previous;
@@ -1121,11 +1110,11 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 end
             end
         end
-         
+        
         function [xdn,df] = update(obj,timestep,x,u)
             X0 = [timestep;x;u];             
-            %[xdn,df] = solveQP(obj,X0);
-            %return;
+            [xdn,df] = solveQP(obj,X0);
+            return;
             %disp('finish solveQP')
             t = timestep;
             
@@ -1460,7 +1449,6 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
 %                         disp('contact occur')
 %                     end
                     
-                    %global phi_previous
                     manip = obj.getManipulator();
                     if has_contacts
                         if (nargout>4)

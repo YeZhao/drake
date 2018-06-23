@@ -86,10 +86,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             end
             if ~isfield(options,'integration_method')
                 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIDPOINT;
-            end
-            
+            end            
             obj = obj@DirectTrajectoryOptimization_Brick(plant,N,duration,options);
-            
         end
         
         function obj = addDynamicConstraints(obj)
@@ -291,7 +289,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     ff_stack = ff;
                     dff_stack = dff;
                 else
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                     save -ascii friction_coeff_noise.dat w_mu
                     %x = (1-2*rand(1,58))*sqrt(0.01);
                     %y = (1-2*rand(1,58))*sqrt(0.01);
@@ -377,7 +375,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         ff_stack = ff;
                         dff_stack = dff;
                     else
-                        w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                         save -ascii friction_coeff_noise.dat w_mu
                     end
                     
@@ -442,7 +440,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     ff_stack = ff;
                     dff_stack = dff;
                 else
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                     save -ascii friction_coeff_noise.dat w_mu
                     %x = (1-2*rand(1,58))*sqrt(0.01);
                     %y = (1-2*rand(1,58))*sqrt(0.01);
@@ -536,7 +534,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         ff_stack = ff;
                         dff_stack = dff;
                     else
-                        w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                         save -ascii friction_coeff_noise.dat w_mu
                         %x = (1-2*rand(1,58))*sqrt(0.01);
                         %y = (1-2*rand(1,58))*sqrt(0.01);
@@ -796,7 +794,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 elseif isempty(manip.uncertainty_source)%non-robust version
                     [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
                 else
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                     save -ascii friction_coeff_noise.dat w_mu
                 end
                 
@@ -894,7 +892,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     elseif isempty(manip.uncertainty_source)%non-robust version
                         [phi,~,~,~,~,~,~,~,n,D,dn,dD] = obj.plant.contactConstraints(q,false,obj.options.active_collision_options);
                     else
-                        w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);%friction coefficient noise
+                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
                         save -ascii friction_coeff_noise.dat w_mu
                     end
                     
@@ -950,10 +948,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 Pw = [];
                 w_noise = [];
             elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                 save -ascii friction_coeff_noise.dat w_mu
-                %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                 %w_phi = [x;y];%height noise
                 %save -ascii initial_position_noise.dat w_phi
                 w_noise = [w_mu];
@@ -964,8 +962,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
             nw = size(Pw,1);
-            n_sigma_point = 2*(obj.nx+nw);
-            w_avg = 1/n_sigma_point;
+            sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+            if sampling_method == 1
+                n_sampling_point = 2*(obj.nx+nw);
+            elseif sampling_method == 2
+                n_sampling_point = 15;
+                w_state = load('state_noise.dat');
+                %w_state = 0.001*randn(12,50);
+                %save -ascii state_noise.dat w_state
+            end
+            
+            w_avg = 1/n_sampling_point;
             K = obj.options.K;%controller gain
             
             %initialize cost c and dc
@@ -991,49 +998,55 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             noise_sample_type = 1;
             df_previous_full = [];
             xdn_previous_full = [];
-            
+             
             for k = 1:obj.N-1
-                %covariance matrix set-up
-                %always assume constant covariance matrix, there is another 
-                %cost version, i.e., robustVariancecost() uses the
-                %covariance computed from previous time step. But more
-                %chain rule components have to be added.
-                Px_init = obj.cached_Px(:,:,1);
-                [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
-
-                if d
-                    diverge = k;
-                    return;
-                end
-                S = scale*S;
-                Sig_init(:,:,k) = [S -S];
-                if k == 1%customize for ML formulation
-                    Sig(:,:,k) = Sig_init(:,:,k);
-                end
-                
-                %state dimensionality of sigma point depends on the number of uncertainties.
-                %Our case w_noise has 0, 1, or 2 dimensions
-                if isempty(w_noise) 
-                    for j = 1:n_sigma_point
-                        Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                if sampling_method == 1
+                    %covariance matrix set-up
+                    %always assume constant covariance matrix, there is another
+                    %cost version, i.e., robustVariancecost() uses the
+                    %covariance computed from previous time step. But more
+                    %chain rule components have to be added.
+                    Px_init = obj.cached_Px(:,:,1);
+                    [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
+                    
+                    if d
+                        diverge = k;
+                        return;
                     end
-                else
-                    for j = 1:n_sigma_point
-                        Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                    S = scale*S;
+                    Sig_init(:,:,k) = [S -S];
+                    if k == 1%customize for ML formulation
+                        Sig(:,:,k) = Sig_init(:,:,k);
+                    end
+                    
+                    %state dimensionality of sigma point depends on the number of uncertainties.
+                    %Our case w_noise has 0, 1, or 2 dimensions
+                    if isempty(w_noise)
+                        for j = 1:n_sampling_point
+                            Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                        end
+                    else
+                        for j = 1:n_sampling_point
+                            Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                        end
+                    end
+                    
+                    % double check that the mean of sigma points at the first step is zero
+                    if k == 1
+                        x_mean(:,k) = zeros(obj.nx,1);
+                        for j = 1:n_sampling_point
+                            x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
+                        end
+                        %c = c + norm(x(:,k)-x_mean(:,k))^2;% this mean is zero for the first time step
+                    end
+                elseif sampling_method == 2
+                    for j = 1:n_sampling_point
+                        Sig_init(:,j,k) = x(:,k) + w_state(:,j);
                     end
                 end
-                
-                % double check that the mean of sigma points at the first step is zero
-                if k == 1
-                    x_mean(:,k) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
-                        x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
-                    end
-                    %c = c + norm(x(:,k)-x_mean(:,k))^2;% this mean is zero for the first time step
-                end
-                
+                 
                 %Propagate sigma points through nonlinear dynamics
-                for j = 1:n_sigma_point                    
+                for j = 1:n_sampling_point                    
                     [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
                     Hinv(:,:,j,k) = inv(H);
                     
@@ -1117,12 +1130,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %% calculate mean and variance w.r.t. [x_k] from sigma points
                 x_mean(:,k+1) = zeros(obj.nx,1);
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 end
                 
                 %% shift sigma point
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                 %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                 %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -1131,13 +1144,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 %
                 % % scale Sigma point deviation by eta
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                 % end
                 %
                 % % recalculate mean and variance w.r.t. [x_k] from sigma points
                 % x_mean(:,k+1) = zeros(obj.nx,1);
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 % end
                 %
@@ -1148,7 +1161,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 
                 Px(:,:,k+1) = zeros(obj.nx);
-                for jj = 1:n_sigma_point
+                for jj = 1:n_sampling_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 end
                  
@@ -1167,14 +1180,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dSig_m_kplus1_dx_sum = zeros(obj.nx);
                 % sum of sigma mean gradient w.r.t control u
                 dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sigma_point);
-                dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sigma_point);
+                dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sampling_point);
+                dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sampling_point);
                 
-                for i=1:n_sigma_point
+                for i=1:n_sampling_point
                     if i == 1
                         % this for-loop is for sigma mean \mu{x_tilde}_{k+1}, 
                         % and only needs to go through once since the mean remains the same for different sigma points
-                        for m = 1:n_sigma_point
+                        for m = 1:n_sampling_point
                             % sum of sigma gradient w.r.t control x and u
                             dSig_m_kplus1_dx = zeros(obj.nx);
                             dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -1187,7 +1200,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         end
                     end
                     
-                    % run n_sigma_point times in total to obtain gradient w.r.t sigma points
+                    % run n_sampling_point times in total to obtain gradient w.r.t sigma points
                     dSig_i_kplus1_dx = zeros(obj.nx);
                     dSig_i_kplus1_du = zeros(obj.nx,nu);
                     
@@ -1209,7 +1222,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dCovdu = zeros(nx,nx,nu);
                 
                 for pp=1:nx
-                    for i=1:n_sigma_point
+                    for i=1:n_sampling_point
                         dCovdmeandev = zeros(nx,obj.nx,nx);%d_covariance /d_(sigma mean deviation from nominal state)
                         for nn=1:nx
                             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -1350,10 +1363,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     Pw = [];
                     w_noise = [];
                 elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
                     w_noise = [w_mu];
@@ -1364,8 +1377,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                n_sigma_point = 2*(obj.nx+nw);
-                w_avg = 1/n_sigma_point;
+                sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+                if sampling_method == 1
+                    n_sampling_point = 2*(obj.nx+nw);
+                elseif sampling_method == 2
+                    n_sampling_point = 6;
+                end
+                
+                w_avg = 1/n_sampling_point;
                 K = obj.options.K;%controller gain
                 
                 %initialize cost c and dc
@@ -1393,47 +1412,53 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 xdn_previous_full = [];
                 
                 for k = 1:obj.N-1
-                    %covariance matrix set-up
-                    %always assume constant covariance matrix, there is another
-                    %cost version, i.e., robustVariancecost() uses the
-                    %covariance computed from previous time step. But more
-                    %chain rule components have to be added.
-                    Px_init = obj.cached_Px(:,:,1);
-                    [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
-                    
-                    if d
-                        diverge = k;
-                        return;
-                    end
-                    S = scale*S;
-                    Sig_init(:,:,k) = [S -S];
-                    if k == 1%customize for ML formulation
-                        Sig(:,:,k) = Sig_init(:,:,k);
-                    end
-                    
-                    %state dimensionality of sigma point depends on the number of uncertainties.
-                    %Our case w_noise has 0, 1, or 2 dimensions
-                    if isempty(w_noise)
-                        for j = 1:n_sigma_point
-                            Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                    if sampling_method == 1
+                        %covariance matrix set-up
+                        %always assume constant covariance matrix, there is another
+                        %cost version, i.e., robustVariancecost() uses the
+                        %covariance computed from previous time step. But more
+                        %chain rule components have to be added.
+                        Px_init = obj.cached_Px(:,:,1);
+                        [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
+                        
+                        if d
+                            diverge = k;
+                            return;
                         end
-                    else
-                        for j = 1:n_sigma_point
-                            Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                        S = scale*S;
+                        Sig_init(:,:,k) = [S -S];
+                        if k == 1%customize for ML formulation
+                            Sig(:,:,k) = Sig_init(:,:,k);
                         end
-                    end
-                    
-                    % double check that the mean of sigma points at the first step is zero
-                    if k == 1
-                        x_mean(:,k) = zeros(obj.nx,1);
-                        for j = 1:n_sigma_point
-                            x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
+                        
+                        %state dimensionality of sigma point depends on the number of uncertainties.
+                        %Our case w_noise has 0, 1, or 2 dimensions
+                        if isempty(w_noise)
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                            end
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                            end
                         end
-                        %c = c + norm(x(:,k)-x_mean(:,k))^2;% this mean is zero for the first time step
+                        
+                        % double check that the mean of sigma points at the first step is zero
+                        if k == 1
+                            x_mean(:,k) = zeros(obj.nx,1);
+                            for j = 1:n_sampling_point
+                                x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
+                            end
+                            %c = c + norm(x(:,k)-x_mean(:,k))^2;% this mean is zero for the first time step
+                        end
+                    elseif sampling_method == 2
+                        for j = 1:n_sampling_point
+                            Sig_init(:,j,k) = x(:,k);% + 0.001*randn(nx,1);
+                        end
                     end
                     
                     %Propagate sigma points through nonlinear dynamics
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
                         
@@ -1517,12 +1542,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     %% calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     %% shift sigma point
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                     %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                     %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -1531,13 +1556,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     %
                     % % scale Sigma point deviation by eta
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                     % end
                     %
                     % % recalculate mean and variance w.r.t. [x_k] from sigma points
                     % x_mean(:,k+1) = zeros(obj.nx,1);
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     % end
                     %
@@ -1548,7 +1573,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     Px(:,:,k+1) = zeros(obj.nx);
-                    for jj = 1:n_sigma_point
+                    for jj = 1:n_sampling_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     end
                     
@@ -1567,14 +1592,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % sum of sigma mean gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                    dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sigma_point);
-                    dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sigma_point);
+                    dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sampling_point);
+                    dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sampling_point);
                     
-                    for i=1:n_sigma_point
+                    for i=1:n_sampling_point
                         if i == 1
                             % this for-loop is for sigma mean \mu{x_tilde}_{k+1},
                             % and only needs to go through once since the mean remains the same for different sigma points
-                            for m = 1:n_sigma_point
+                            for m = 1:n_sampling_point
                                 % sum of sigma gradient w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -1587,7 +1612,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             end
                         end
                         
-                        % run n_sigma_point times in total to obtain gradient w.r.t sigma points
+                        % run n_sampling_point times in total to obtain gradient w.r.t sigma points
                         dSig_i_kplus1_dx = zeros(obj.nx);
                         dSig_i_kplus1_du = zeros(obj.nx,nu);
                         
@@ -1609,7 +1634,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dCovdu = zeros(nx,nx,nu);
                     
                     for pp=1:nx
-                        for i=1:n_sigma_point
+                        for i=1:n_sampling_point
                             dCovdmeandev = zeros(nx,obj.nx,nx);%d_covariance /d_(sigma mean deviation from nominal state)
                             for nn=1:nx
                                 dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -1715,10 +1740,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 Pw = [];
                 w_noise = [];
             elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                 save -ascii friction_coeff_noise.dat w_mu
-                %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                 %w_phi = [x;y];%height noise
                 %save -ascii initial_position_noise.dat w_phi
                 w_noise = [w_mu];
@@ -1729,8 +1754,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
             nw = size(Pw,1);
-            n_sigma_point = 1;%2*(obj.nx+nw);
-            w_avg = 1/n_sigma_point;
+            n_sampling_point = 1;%2*(obj.nx+nw);
+            w_avg = 1/n_sampling_point;
             K = obj.options.K;
             
             %initialize c and dc
@@ -1769,11 +1794,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 %                 end
 %                 
 %                 if isempty(w_noise)
-%                     for j = 1:n_sigma_point
+%                     for j = 1:n_sampling_point
 %                         Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
 %                     end
 %                 else
-%                     for j = 1:n_sigma_point
+%                     for j = 1:n_sampling_point
 %                         Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
 %                     end
 %                 end
@@ -1782,14 +1807,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 if k == 1
                     x_mean(:,k) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
                     end
                     %c = c + norm(x(:,k)-x_mean(:,k))^2;
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     noise_index = j;
                     
                     % a hacky way to implement the control input
@@ -1874,12 +1899,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %calculate mean and variance w.r.t. [x_k] from sigma points
                 x_mean(:,k+1) = zeros(obj.nx,1);
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 end
                 
                 % % shift sigma point
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                 %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                 %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -1888,13 +1913,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 %
                 % % scale Sigma point deviation by eta
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                 % end
                 %
                 % % recalculate mean and variance w.r.t. [x_k] from sigma points
                 % x_mean(:,k+1) = zeros(obj.nx,1);
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 % end
                 %
@@ -1905,12 +1930,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 
                 Px(:,:,k+1) = zeros(obj.nx);
-                for jj = 1:n_sigma_point
+                for jj = 1:n_sampling_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 end
                 %c = c + kappa*trace(Px(:,:,k+1));
                 
-                % for jj = 1:n_sigma_point
+                % for jj = 1:n_sampling_point
                 % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 % c = c + kappa*trace(w*V_comp(:,:,k+1));
                 % V_covariance(:,:,k+1) = V_covariance(:,:,k+1) + w*V_comp(:,:,k+1);
@@ -1930,12 +1955,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dSig_m_kplus1_dx_sum = zeros(obj.nx);
                 % gradient w.r.t control u
                 dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sigma_point);
-                dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sigma_point);
+                dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sampling_point);
+                dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sampling_point);
                 
-                for i=1:n_sigma_point
+                for i=1:n_sampling_point
                     if i == 1
-                        for m = 1:n_sigma_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                        for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                             % gradient of Tr(V_{k+1}) w.r.t control x and u
                             dSig_m_kplus1_dx = zeros(obj.nx);
                             dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -1968,7 +1993,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 dCovdu = zeros(nx,nx,nu);
                 
 %                 for pp=1:nx
-%                     for i=1:n_sigma_point
+%                     for i=1:n_sampling_point
 %                         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
 %                         for nn=1:nx
 %                             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -2115,10 +2140,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     Pw = [];
                     w_noise = [];
                 elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
                     w_noise = [w_mu];
@@ -2129,8 +2154,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                n_sigma_point = 1;%2*(obj.nx+nw);
-                w_avg = 1/n_sigma_point;
+                n_sampling_point = 1;%2*(obj.nx+nw);
+                w_avg = 1/n_sampling_point;
                 K = obj.options.K;
                 
                 %initialize c and dc
@@ -2169,11 +2194,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     %                 end
                     %
                     %                 if isempty(w_noise)
-                    %                     for j = 1:n_sigma_point
+                    %                     for j = 1:n_sampling_point
                     %                         Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
                     %                     end
                     %                 else
-                    %                     for j = 1:n_sigma_point
+                    %                     for j = 1:n_sampling_point
                     %                         Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
                     %                     end
                     %                 end
@@ -2182,14 +2207,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     if k == 1
                         x_mean(:,k) = zeros(obj.nx,1);
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             x_mean(:,k) = x_mean(:,k) + w_avg*Sig_init(1:obj.nx,j,k);
                         end
                         %c = c + norm(x(:,k)-x_mean(:,k))^2;
                     end
                     
                     %Propagate sigma points through nonlinear dynamics
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         noise_index = j;
                         
                         % a hacky way to implement the control input
@@ -2274,12 +2299,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     %calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     % % shift sigma point
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                     %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                     %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -2288,13 +2313,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     %
                     % % scale Sigma point deviation by eta
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                     % end
                     %
                     % % recalculate mean and variance w.r.t. [x_k] from sigma points
                     % x_mean(:,k+1) = zeros(obj.nx,1);
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     % end
                     %
@@ -2305,12 +2330,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     Px(:,:,k+1) = zeros(obj.nx);
-                    for jj = 1:n_sigma_point
+                    for jj = 1:n_sampling_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     end
                     %c = c + kappa*trace(Px(:,:,k+1));
                     
-                    % for jj = 1:n_sigma_point
+                    % for jj = 1:n_sampling_point
                     % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     % c = c + kappa*trace(w*V_comp(:,:,k+1));
                     % V_covariance(:,:,k+1) = V_covariance(:,:,k+1) + w*V_comp(:,:,k+1);
@@ -2330,12 +2355,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                    dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sigma_point);
-                    dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sigma_point);
+                    dSig_i_kplus1_dx_set = zeros(obj.nx, obj.nx, n_sampling_point);
+                    dSig_i_kplus1_du_set = zeros(obj.nx, nu, n_sampling_point);
                     
-                    for i=1:n_sigma_point
+                    for i=1:n_sampling_point
                         if i == 1
-                            for m = 1:n_sigma_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                            for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                 % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -2368,7 +2393,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dCovdu = zeros(nx,nx,nu);
                     
                     %                 for pp=1:nx
-                    %                     for i=1:n_sigma_point
+                    %                     for i=1:n_sampling_point
                     %                         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
                     %                         for nn=1:nx
                     %                             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -2470,10 +2495,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 Pw = [];
                 w_noise = [];
             elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                 save -ascii friction_coeff_noise.dat w_mu
-                %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                 %w_phi = [x;y];%height noise
                 %save -ascii initial_position_noise.dat w_phi
                 w_noise = [w_mu];
@@ -2484,8 +2509,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
             nw = size(Pw,1);
-            n_sigma_point = 2*(obj.nx+nw);
-            w_avg = 1/n_sigma_point;
+            n_sampling_point = 2*(obj.nx+nw);
+            w_avg = 1/n_sampling_point;
             
             K = obj.options.K;
             eta_final = ones(obj.N,1);
@@ -2529,16 +2554,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     S = scale*S;
                     Sig(:,:,k) = [S -S];
                     if isempty(w_noise)
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             Sig(:,j,k) = Sig(:,j,k) + [x(:,k)];
                         end
                     else
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                         end
                     end
                     x_mean(:,k) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                     end
                     c = c + norm(x(:,k)-x_mean(:,k))^2;
@@ -2549,7 +2574,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
                     % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
                     % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
                     %     c_variance(j,k) = kappa*trace(w*V_comp);
                     %
@@ -2567,7 +2592,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     noise_index = j;
                     
                     % a hacky way to implement the control input
@@ -2653,12 +2678,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %calculate mean and variance w.r.t. [x_k] from sigma points
                 x_mean(:,k+1) = zeros(obj.nx,1);
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 end
                 
                 % % shift sigma point
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                 %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                 %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -2667,13 +2692,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 %
                 % % scale Sigma point deviation by eta
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                 % end
                 %
                 % % recalculate mean and variance w.r.t. [x_k] from sigma points
                 % x_mean(:,k+1) = zeros(obj.nx,1);
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 % end
                 %
@@ -2684,12 +2709,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 
                 Px(:,:,k+1) = zeros(obj.nx);
-                for jj = 1:n_sigma_point
+                for jj = 1:n_sampling_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 end
                 c = c + kappa*trace(Px(:,:,k+1));
                 
-                % for jj = 1:n_sigma_point
+                % for jj = 1:n_sampling_point
                 % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 % c = c + kappa*trace(w*V_comp(:,:,k+1));
                 % V_covariance(:,:,k+1) = V_covariance(:,:,k+1) + w*V_comp(:,:,k+1);
@@ -2736,12 +2761,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                    dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sigma_point);
-                    dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sigma_point);
+                    dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
+                    dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
                     
-                    for i=1:n_sigma_point
+                    for i=1:n_sampling_point
                         if i == 1
-                            for m = 1:n_sigma_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                            for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                 % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -2833,12 +2858,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
                     % dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
                     %
-                    % for i =1:n_sigma_point
+                    % for i =1:n_sampling_point
                     %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
                     %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
                     % end
                     %
-                    % for i =1:n_sigma_point
+                    % for i =1:n_sampling_point
                     %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
                     %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
                     % end
@@ -2856,7 +2881,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     %
                     % tic
                     % for pp=1:nx
-                    %     for i=1:n_sigma_point
+                    %     for i=1:n_sampling_point
                     %         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
                     %         for nn=1:nx
                     %             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -2938,7 +2963,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % figure(15)
             % clf
             % Sig_permute = permute(Sig,[1,3,2]);
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(1,:,j),'r-')
             %     hold on;
             % end
@@ -2948,7 +2973,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(16)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(7,:,j),'r-')
             %     hold on;
             % end
@@ -2958,7 +2983,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(17)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(3,:,j),'r-')
             %     hold on;
             % end
@@ -2968,7 +2993,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(18)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(9,:,j),'r-')
             %     hold on;
             % end
@@ -2978,7 +3003,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(19)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(5,:,j),'r-')
             %     hold on;
             % end
@@ -3083,10 +3108,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     Pw = [];
                     w_noise = [];
                 elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
                     w_noise = [w_mu];
@@ -3097,8 +3122,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                n_sigma_point = 2*(obj.nx+nw);
-                w_avg = 1/n_sigma_point;
+                n_sampling_point = 2*(obj.nx+nw);
+                w_avg = 1/n_sampling_point;
                 
                 K = obj.options.K;
                 eta_final = ones(obj.N,1);
@@ -3142,16 +3167,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         if isempty(w_noise)
-                            for j = 1:n_sigma_point
+                            for j = 1:n_sampling_point
                                 Sig(:,j,k) = Sig(:,j,k) + [x(:,k)];
                             end
                         else
-                            for j = 1:n_sigma_point
+                            for j = 1:n_sampling_point
                                 Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                             end
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                         end
                         c = c + norm(x(:,k)-x_mean(:,k))^2;
@@ -3162,7 +3187,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
                         % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
                         % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                        % for j = 1:n_sigma_point
+                        % for j = 1:n_sampling_point
                         %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
                         %     c_variance(j,k) = kappa*trace(w*V_comp);
                         %
@@ -3180,7 +3205,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     end
                     
                     %Propagate sigma points through nonlinear dynamics
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         noise_index = j;
                         
                         % a hacky way to implement the control input
@@ -3266,12 +3291,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     %calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     % % shift sigma point
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                     %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                     %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -3280,13 +3305,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     %
                     % % scale Sigma point deviation by eta
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                     % end
                     %
                     % % recalculate mean and variance w.r.t. [x_k] from sigma points
                     % x_mean(:,k+1) = zeros(obj.nx,1);
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     % end
                     %
@@ -3297,12 +3322,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     Px(:,:,k+1) = zeros(obj.nx);
-                    for jj = 1:n_sigma_point
+                    for jj = 1:n_sampling_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     end
                     c = c + kappa*trace(Px(:,:,k+1));
                     
-                    % for jj = 1:n_sigma_point
+                    % for jj = 1:n_sampling_point
                     % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     % c = c + kappa*trace(w*V_comp(:,:,k+1));
                     % V_covariance(:,:,k+1) = V_covariance(:,:,k+1) + w*V_comp(:,:,k+1);
@@ -3349,12 +3374,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dSig_m_kplus1_dx_sum = zeros(obj.nx);
                         % gradient w.r.t control u
                         dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                        dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sigma_point);
-                        dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sigma_point);
+                        dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
+                        dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
                         
-                        for i=1:n_sigma_point
+                        for i=1:n_sampling_point
                             if i == 1
-                                for m = 1:n_sigma_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                     % gradient of Tr(V_{k+1}) w.r.t control x and u
                                     dSig_m_kplus1_dx = zeros(obj.nx);
                                     dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -3446,12 +3471,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         % dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
                         % dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
                         %
-                        % for i =1:n_sigma_point
+                        % for i =1:n_sampling_point
                         %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
                         %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
                         % end
                         %
-                        % for i =1:n_sigma_point
+                        % for i =1:n_sampling_point
                         %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
                         %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
                         % end
@@ -3469,7 +3494,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         %
                         % tic
                         % for pp=1:nx
-                        %     for i=1:n_sigma_point
+                        %     for i=1:n_sampling_point
                         %         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
                         %         for nn=1:nx
                         %             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -3610,10 +3635,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 Pw = [];
                 w_noise = [];
             elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                 save -ascii friction_coeff_noise.dat w_mu
-                %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                 %w_phi = [x;y];%height noise
                 %save -ascii initial_position_noise.dat w_phi
                 w_noise = [w_mu];
@@ -3624,8 +3649,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             scale = .01;% [to be tuned]
             w = 0.5/scale^2;
             nw = size(Pw,1);
-            n_sigma_point = 2*(obj.nx+nw);
-            w_avg = 1/n_sigma_point;
+            n_sampling_point = 2*(obj.nx+nw);
+            w_avg = 1/n_sampling_point;
             
             K = obj.options.K;
             eta_final = ones(obj.N,1);
@@ -3668,16 +3693,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     S = scale*S;
                     Sig(:,:,k) = [S -S];
                     if isempty(w_noise)
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             Sig(:,j,k) = Sig(:,j,k) + [x(:,k)];
                         end
                     else
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                         end
                     end
                     x_mean(:,k) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                     end
                     %c = c + norm(x(:,k)-x_mean(:,k))^2;
@@ -3685,7 +3710,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 end
                 
                 %Propagate sigma points through nonlinear dynamics
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     noise_index = j;
                     
                     % a hacky way to implement the control input
@@ -3771,12 +3796,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 %calculate mean and variance w.r.t. [x_k] from sigma points
                 x_mean(:,k+1) = zeros(obj.nx,1);
-                for j = 1:n_sigma_point
+                for j = 1:n_sampling_point
                     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 end
                 
                 % % shift sigma point
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                 %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                 %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -3785,13 +3810,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 %
                 % % scale Sigma point deviation by eta
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                 % end
                 %
                 % % recalculate mean and variance w.r.t. [x_k] from sigma points
                 % x_mean(:,k+1) = zeros(obj.nx,1);
-                % for j = 1:n_sigma_point
+                % for j = 1:n_sampling_point
                 %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                 % end
                 %
@@ -3802,7 +3827,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 % end
                 
                 Px(:,:,k+1) = zeros(obj.nx);
-                for jj = 1:n_sigma_point
+                for jj = 1:n_sampling_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                 end
                 %c = c + kappa*trace(Px(:,:,k+1));
@@ -3829,12 +3854,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     dSig_m_kplus1_dx_sum = zeros(obj.nx);
                     % gradient w.r.t control u
                     dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                    dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sigma_point);
-                    dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sigma_point);
+                    dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
+                    dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
                     
-                    for i=1:n_sigma_point
+                    for i=1:n_sampling_point
                         if i == 1
-                            for m = 1:n_sigma_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                            for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                 % gradient of Tr(V_{k+1}) w.r.t control x and u
                                 dSig_m_kplus1_dx = zeros(obj.nx);
                                 dSig_m_kplus1_du = zeros(obj.nx,1);
@@ -3926,12 +3951,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
                     % dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
                     %
-                    % for i =1:n_sigma_point
+                    % for i =1:n_sampling_point
                     %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
                     %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
                     % end
                     %
-                    % for i =1:n_sigma_point
+                    % for i =1:n_sampling_point
                     %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
                     %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
                     % end
@@ -3949,7 +3974,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     %
                     % tic
                     % for pp=1:nx
-                    %     for i=1:n_sigma_point
+                    %     for i=1:n_sampling_point
                     %         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
                     %         for nn=1:nx
                     %             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
@@ -4031,7 +4056,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % figure(15)
             % clf
             % Sig_permute = permute(Sig,[1,3,2]);
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(1,:,j),'r-')
             %     hold on;
             % end
@@ -4041,7 +4066,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(16)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(7,:,j),'r-')
             %     hold on;
             % end
@@ -4051,7 +4076,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(17)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(3,:,j),'r-')
             %     hold on;
             % end
@@ -4061,7 +4086,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(18)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(9,:,j),'r-')
             %     hold on;
             % end
@@ -4071,7 +4096,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             %
             % figure(19)
             % clf
-            % for j = 1:n_sigma_point
+            % for j = 1:n_sampling_point
             %     plot(Sig_permute(5,:,j),'r-')
             %     hold on;
             % end
@@ -4166,10 +4191,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     Pw = [];
                     w_noise = [];
                 elseif strcmp(manip.uncertainty_source,'generate_new_noise_set')
-                    w_mu = normrnd(ones(1,n_sigma_point),sqrt(Pw(1,1)),1,n_sigma_point);
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sigma_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sigma_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
                     w_noise = [w_mu];
@@ -4180,8 +4205,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                n_sigma_point = 2*(obj.nx+nw);
-                w_avg = 1/n_sigma_point;
+                n_sampling_point = 2*(obj.nx+nw);
+                w_avg = 1/n_sampling_point;
                 
                 K = obj.options.K;
                 eta_final = ones(obj.N,1);
@@ -4223,16 +4248,16 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         S = scale*S;
                         Sig(:,:,k) = [S -S];
                         if isempty(w_noise)
-                            for j = 1:n_sigma_point
+                            for j = 1:n_sampling_point
                                 Sig(:,j,k) = Sig(:,j,k) + [x(:,k)];
                             end
                         else
-                            for j = 1:n_sigma_point
+                            for j = 1:n_sampling_point
                                 Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
                             end
                         end
                         x_mean(:,k) = zeros(obj.nx,1);
-                        for j = 1:n_sigma_point
+                        for j = 1:n_sampling_point
                             x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
                         end
                         %c = c + norm(x(:,k)-x_mean(:,k))^2;
@@ -4243,7 +4268,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
                         % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
                         % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                        % for j = 1:n_sigma_point
+                        % for j = 1:n_sampling_point
                         %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
                         %     c_variance(j,k) = kappa*trace(w*V_comp);
                         %
@@ -4261,7 +4286,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     end
                     
                     %Propagate sigma points through nonlinear dynamics
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         noise_index = j;
                         
                         % a hacky way to implement the control input
@@ -4349,12 +4374,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     
                     %calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
-                    for j = 1:n_sigma_point
+                    for j = 1:n_sampling_point
                         x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     end
                     
                     % % shift sigma point
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
                     %     eta_optimal = 1;%etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
                     %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
@@ -4363,13 +4388,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     %
                     % % scale Sigma point deviation by eta
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
                     % end
                     %
                     % % recalculate mean and variance w.r.t. [x_k] from sigma points
                     % x_mean(:,k+1) = zeros(obj.nx,1);
-                    % for j = 1:n_sigma_point
+                    % for j = 1:n_sampling_point
                     %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
                     % end
                     %
@@ -4380,12 +4405,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     % end
                     
                     Px(:,:,k+1) = zeros(obj.nx);
-                    for jj = 1:n_sigma_point
+                    for jj = 1:n_sampling_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     end
                     c = c + kappa*trace(Px(:,:,k+1));
                     
-                    % for jj = 1:n_sigma_point
+                    % for jj = 1:n_sampling_point
                     % V_comp(:,:,k+1) = (Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,jj,k+1)-x_mean(:,k+1))';
                     % c = c + kappa*trace(w*V_comp(:,:,k+1));
                     % V_covariance(:,:,k+1) = V_covariance(:,:,k+1) + w*V_comp(:,:,k+1);
@@ -4432,10 +4457,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dSig_m_kplus1_dx_sum = zeros(obj.nx);
                         % gradient w.r.t control u
                         dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                        dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sigma_point);
-                        dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sigma_point);
+                        dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
+                        dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
                         
-                        for i=1:n_sigma_point
+                        for i=1:n_sampling_point
                             if i == 1
                                 for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                     % gradient of Tr(V_{k+1}) w.r.t control x and u
@@ -4495,12 +4520,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
 %                         dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
 %                         dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
 %                         
-%                         for i =1:n_sigma_point
+%                         for i =1:n_sampling_point
 %                             dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
 %                             dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
 %                         end
 %                         
-%                         for i =1:n_sigma_point
+%                         for i =1:n_sampling_point
 %                             dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
 %                             dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
 %                         end
@@ -4517,7 +4542,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         %
                         % tic
                         % for pp=1:nx
-                        %     for i=1:n_sigma_point
+                        %     for i=1:n_sampling_point
                         %         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
                         %         for nn=1:nx
                         %             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));

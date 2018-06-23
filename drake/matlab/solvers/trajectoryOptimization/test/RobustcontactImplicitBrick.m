@@ -3,7 +3,8 @@ function RobustcontactImplicitBrick(visualize,xtraj,utraj,ltraj,ljltraj)%positio
 % simulation of the falling brick
 % rng(0)
 global iteration_index
-global NCP_slack_param        
+global NCP_slack_param
+global uncertainty_source
 iteration_index = 0;
 
 if nargin < 1, visualize = false; end
@@ -22,8 +23,10 @@ N=10; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights and friction coeff
 plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
+uncertainty_source = plant.uncertainty_source;
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
+    w_mu = ones(1,length(w_mu))-(ones(1,length(w_mu)) - w_mu)./15;%scale down
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
 end
@@ -77,7 +80,7 @@ options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.M
 options.contact_robust_cost_coeff = 1;%100;%0.1;%0.0001;%1e-13;
 options.ERMcost_coeff = 10;
 options.robustLCPcost_coeff = 1000;
-options.Px_coeff = 0.01;
+options.Px_coeff = 0.0000001;
 options.Px_regularizer_coeff = 1e-2;
 options.Kx_gain = 5;
 options.Kxd_gain = sqrt(options.Kx_gain)*1.5; 
@@ -86,7 +89,7 @@ options.Kzd_gain = sqrt(options.Kz_gain)*1.5;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
- 
+
 persistent sum_running_cost
 persistent cost_index
 slack_sum_vec = [];% vector storing the slack variable sum
@@ -202,7 +205,6 @@ zddot_real(1) = 0;
 x_real_full(:,1) = xtraj_data(:,1);
 
 stabilitation_scenario = 'friction_coeff+terrain_height';
-global uncertainty_source;
 
 if strcmp(stabilitation_scenario, 'friction_coeff')
     w_mu = load('friction_coeff_noise.dat');
