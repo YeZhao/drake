@@ -6,6 +6,8 @@ options.ignore_self_collisions = true;
 options.multiple_contacts = false;
 options.active_collision_options.terrain_only = true;
 
+global iteration_index
+iteration_index = 0;
 global example_name;
 example_name = 'kuka_arm';
 
@@ -103,14 +105,14 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_set = w_phi;
     r.uncertain_position_mean = mean(w_phi,2);
 end
-
+ 
 options.contact_robust_cost_coeff = 100;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N = N;
- 
+
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
@@ -223,7 +225,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);%
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-3);
- 
+
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
 time_step = T0/(N-1); 
@@ -276,7 +278,6 @@ x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal);
 c_nominal = ctraj.eval(t_nominal);
 c_normal_nominal = c_nominal(1:6:end,:);
-global phi_cache_full
 
     function [f,df] = running_cost_fun(h,x,u)
         R = 1e-6*eye(nu);
@@ -313,6 +314,13 @@ global phi_cache_full
             v.drawWrapper(0,x(:,i));
             pause(h(1)/3); 
         end 
+        
+        if isempty(iteration_index)
+            iteration_index = 1;
+        else
+            iteration_index = iteration_index + 1;
+        end
+        fprintf('iteration index: %4d\n',iteration_index);
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];

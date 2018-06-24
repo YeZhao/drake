@@ -6,6 +6,8 @@ options.ignore_self_collisions = true;
 options.multiple_contacts = false;
 options.active_collision_options.terrain_only = true;
 
+global iteration_index
+iteration_index = 0;
 global example_name;
 example_name = 'kuka_arm';
 
@@ -345,10 +347,14 @@ global phi_cache_full
         
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
-        %if any(LCP_slack_var < 0)
-        %    disp('here')
-        %end
-         
+        
+        if isempty(iteration_index)
+            iteration_index = 1;
+        else
+            iteration_index = iteration_index + 1;
+        end
+        fprintf('iteration index: %4d\n',iteration_index);
+        
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
         % if isempty(iteration_num)

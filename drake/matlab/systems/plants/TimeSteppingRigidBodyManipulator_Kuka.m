@@ -605,7 +605,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB(:,i) = reshape(dJB_ground_finger,[],1);
                 
                 dJ(:,i) = dJA(:,i) - dJB(:,i);   
-                %run permute(reshape(reshape(dJ(:,1),42,12),3,14,12),[2,1,3]) to see
+                %run permute(reshape(dJ(:,1),3,14,12),[2,1,3]) to see
                 % [p1q1x p1q1y p1q1z             [p2q1x p2q1y p2q1z        [p12q1x p12q1y p12q1z
                 %  p1q2x p1q2y p1q2z       ....   p2q2x p2q2y p2q2z         p12q2x p12q2y p12q2z
                 %  ...   ...   ...                ...   ...   ...           ...   ...   ...
@@ -1144,7 +1144,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
                 df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
-            
+             
+            %xdn = reshape(J',[],1);
+            %df = [zeros(length(xdn),1), dJtranspose_qp, zeros(length(xdn),14+8)];
             %xdn = reshape(Mvn,[],1);
             %df = dMvn;
             %xdn = lambda;
@@ -1197,13 +1199,14 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         function [xdn,df] = update(obj,t,x,u) 
             X0 = [t;x;u];%note that the first input is sigma point index
             [xdn,df] = solveQP(obj,X0);
+            return;
+            
+            %t = index;
+            
             %set the gradient w.r.t index to be zero.
             %df(:,1) = zeros(size(df,1),1);
-            
             %xdn_numeric = xdn;
             %df_numeric = df;
-            return; 
-            %t = index;
             % fun = @(X0) solveQP(obj,X0);
             % DerivCheck(fun, X0)
             %
