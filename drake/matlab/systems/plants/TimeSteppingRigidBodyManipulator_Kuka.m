@@ -230,7 +230,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
         end
         
-        function [V] = getV(obj,noise_index,q,kinsol)
+        function [V] = getV(obj,q,kinsol)
             if nargin<3
                 kinematics_options.compute_gradients = 1;
                 kinsol = doKinematics(obj, q, [], kinematics_options);
@@ -409,7 +409,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             world_pts = [];
             for i=1:length(Aidx)
                 [pp,J_,dJ_] = forwardKin(obj.manip,kinsol,Aidx(i),Apts(:,i));%[Ye: reshaping of dJ is commented out in forwardKin() ]
-                JA = [JA; J_(index,:)];
+                JA = [JA; J_];
                 JAx = [JAx;J_(1,:)]; JAy = [JAy;J_(2,:)]; JAz = [JAz;J_(3,:)];
                 dJA = [dJA;dJ_];
                 world_pts = [world_pts, pp];
@@ -419,7 +419,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             dJB = []; dJBx = []; dJBy = []; dJBz = [];
             for i=1:length(Bidx)
                 [~,J_,dJ_] = forwardKin(obj.manip,kinsol,Bidx(i),Bpts(:,i));
-                JB = [JB; J_(index,:)];
+                JB = [JB; J_];
                 JBx = [JBx;J_(1,:)]; JBy = [JBy;J_(2,:)]; JBz = [JBz;J_(3,:)];
                 dJB = [dJB;dJ_];
             end
@@ -501,9 +501,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
                      
                 if obj.num_u > 0
-                    [V_num] = getV(obj,noise_index,q_num,kinsol_num);
+                    [V_num] = getV(obj,q_num,kinsol_num);
                 else
-                    [V_num] = getV(obj,noise_index,q_num,kinsol_num);
+                    [V_num] = getV(obj,q_num,kinsol_num);
                 end
                 
                 V_num = horzcat(V_num{:});
@@ -531,7 +531,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 for k=1:groundcontact_num
                     JB_ground_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,k),xB_num(2,k),xB_num(3,k));
                     J_B_num_new = [zeros(3,8),eye(3),JB_ground_obj_ori];
-                    J_A_num_new = J_B_num_new;
+                    J_A_num_new = zeros(3,length(J_B_num_new(3,:)));%J_B_num_new;%
                     J_A_num_new(3,:) = zeros(1,length(J_A_num_new(3,:)));% set it to zero, since point A is always on the ground
                     JB_num(:,k) = reshape(J_B_num_new,[],1);
                     %as a by-product, we can derive JA_ground_num
@@ -604,7 +604,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJB_ground_finger = (JB_ground_finger_num_p - JB_ground_finger_num_m)/rr(i+1);
                 dJB(:,i) = reshape(dJB_ground_finger,[],1);
                 
-                dJ(:,i) = dJA(:,i) - dJB(:,i);   
+                dJ(:,i) = dJA(:,i) - dJB(:,i); 
+                
                 %run permute(reshape(dJ(:,1),3,14,12),[2,1,3]) to see
                 % [p1q1x p1q1y p1q1z             [p2q1x p2q1y p2q1z        [p12q1x p12q1y p12q1z
                 %  p1q2x p1q2y p1q2z       ....   p2q2x p2q2y p2q2z         p12q2x p12q2y p12q2z
@@ -910,7 +911,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             b = V'*S_weighting*c;
             %A = J*vToqdot*Hinv*vToqdot'*J';
             %c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
-            
+                        
             %% partial derivative of A, b w.r.t. h, q, v and u
             dcdh = J*vToqdot*Hinv*tau;
             dbdh = V'*S_weighting*dcdh;
@@ -1002,6 +1003,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             db_tildedq_joint = zeros(num_jointConstraint_active_set,1,num_q);
             db_tildedv_joint = zeros(num_jointConstraint_active_set,1,num_q);
             dA_tildedq = zeros(num_constraint_active_set,num_params,num_q);
+            dA_tildedv = zeros(num_constraint_active_set,num_params,num_q);
             db_tildedq = zeros(num_constraint_active_set,1,num_q);
             db_tildedv = zeros(num_constraint_active_set,1,num_q);
             for i=1:num_q % assume num_q == num_v
@@ -1145,12 +1147,53 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 df = [ [qdn, eye(num_q), zeros(num_q,num_q+obj.num_u)]+h*dqdn; dqdn ];%[Ye: +h*dqdn part miss a vToqdot matrix]
             end
              
-            %xdn = reshape(J',[],1);
-            %df = [zeros(length(xdn),1), dJtranspose_qp, zeros(length(xdn),14+8)];
             %xdn = reshape(Mvn,[],1);
             %df = dMvn;
-            %xdn = lambda;
-            %df = dlambda;
+            %xdn = reshape(H,[],1);%correct
+            %df = [zeros(size(dH,1),1), dH, zeros(size(dH,1),8)];%correct
+            %xdn = reshape(Hinv,[],1);%correct
+            %df = [zeros(numel(Hinv),1),reshape(Hinv*reshape(- matGradMult(dH(:,1:num_q),Hinv),num_q,[]),numel(Hinv),[]),zeros(numel(Hinv),num_v+obj.num_u)];%correct
+            %xdn = reshape(J',[],1);%roughly correct
+            %df = [zeros(numel(J),1), dJtranspose_qp, zeros(numel(J),num_v+obj.num_u)];%roughly correct
+
+            %A_length = size(A,1)*size(A,2);%roughly correct
+            %xdn = reshape(A, A_length,1);%roughly correct
+            %df = [zeros(A_length,1), reshape(dAdq_tmp,A_length,14), zeros(A_length,14), zeros(A_length,8)];%roughly correct
+
+            %A_length = size(V'*A*V,1)*size(V'*A*V,2);%roughly correct
+            %xdn = reshape(V'*A*V, A_length,1);%roughly correct
+            %df = [zeros(A_length,1), reshape(dAdq,A_length,14), zeros(A_length,14), zeros(A_length,8)];%roughly correct
+            
+            %reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
+
+            %xdn = reshape(J',[],1);
+            %df = [zeros(length(xdn),1), dJtranspose_qp, zeros(length(xdn),14+8)];
+            
+            %xdn = lambda;%roughly correct with a medium-level difference
+            %df = dlambda;%roughly correct with a medium-level difference
+            %xdn = b;% roughly correct, minor difference at 1e-3 level
+            %df = [dbdh, dbdq, dbdv, dbdu];% roughly correct, minor difference at 1e-3 level
+            
+            %Ain_length = size(Ain_fqp_active,1)*size(Ain_fqp_active,2);%correct
+            %xdn = reshape(Ain_fqp_active,Ain_length,[]);%correct
+            %df = [zeros(Ain_length,1), reshape(dA_tildedq,Ain_length,14), reshape(dA_tildedv,Ain_length,14), zeros(Ain_length,8)];%correct
+            
+            %E_length = size(E,1)*size(E,2);
+            %xdn = reshape(E,E_length,[]);
+            %df = [zeros(E_length,1), reshape(dEdq,E_length,14), zeros(E_length,14), zeros(E_length,8)];
+            
+            %F_length = size(F,1)*size(F,2);
+            %xdn = reshape(F,F_length,[]);
+            %df = [zeros(F_length,1), reshape(dFdq,F_length,14), zeros(F_length,14), zeros(F_length,8)];
+            
+            %G_length = size(G,1)*size(G,2);
+            %xdn = reshape(G,G_length,[]);
+            %df = [zeros(G_length,1), reshape(dGdq,G_length,14), zeros(G_length,14), zeros(G_length,8)];
+            
+            %V_length = size(V,1)*size(V,2);%correct
+            %xdn = reshape(V, V_length,1);%correct
+            %df = [zeros(V_length,1), reshape(dV,V_length,14), zeros(V_length,14), zeros(V_length,8)];%correct
+            
             %xdn = wvn;%correct
             %df = dwvn;%correct
             %xdn = tau; 

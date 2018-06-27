@@ -501,7 +501,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     v_min(i) = -phi(i)/h;
                 end
                 V = blkdiag(V_cell{:},eye(nL));
-                      
+
                 A = J*vToqdot*Hinv*vToqdot'*J';
                 c = J*vToqdot*v + J*vToqdot*Hinv*tau*h;
                                 
@@ -1095,6 +1095,15 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             %df = dMvn;
             %xdn = lambda;
             %df = dlambda;
+            
+            %G_length = size(G,1)*size(G,2);
+            %xdn = reshape(G,G_length,[]);
+            %df = [zeros(G_length,1), reshape(dGdq,G_length,6), zeros(G_length,6), zeros(G_length,2)];
+            
+            %E_length = size(E,1)*size(E,2);
+            %xdn = reshape(E,E_length,[]);
+            %df = [zeros(E_length,1), reshape(dEdq,E_length,6), zeros(E_length,6), zeros(E_length,2)];
+            
             
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')
