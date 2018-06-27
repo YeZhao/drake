@@ -91,9 +91,9 @@ um(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
  
-T0 = 1;
-N = 20;%10;
-N1 = 7;%phase 1: pick
+T0 = 2;
+N = 30;%10;
+N1 = 10;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'

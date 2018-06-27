@@ -645,8 +645,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             Sig_init(:,j,k) = x(:,k) + w_state(:,j);
                         end
                     end
-                     
-                    %Sig_init(1:obj.nx,1,k) = x(:,k);
+                    
+                    Sig_init(1:obj.nx,1,k) = x(:,k);
                     
                     %Propagate sigma points through nonlinear dynamics
                     for j = 1:n_sampling_point                         
@@ -687,54 +687,58 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
                             df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
-                         
-                        dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-                        num_diff_index_set = [8,9,10,11,12,13,14];
-                        for m = 1:length(num_diff_index_set)
-                            index = num_diff_index_set(m);
-                            [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
-                            [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
-                            df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
+                        
+                        if k <= 7
+                            dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+                            num_diff_index_set = [8,9,10,11,12,13,14];
+                            for m = 1:length(num_diff_index_set)
+                                index = num_diff_index_set(m);
+                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
+                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
+                                df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
+                            end
+                            df(:,:,j) = df_analytical(:,:,j);
+                        else
+                            % % %numerical diff
+                            dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+                            dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+                            du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                            
+                            [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                            [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
+                            df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                            
+                            N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
+                            for m = 1:N_finite_diff_x
+                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+                                df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                            end
+                            
+                            N_finite_diff_u = length(u_fdb_k);
+                            for m = 1:N_finite_diff_u
+                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
+                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
+                                df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                            end
+                            df(:,:,j) = df_numeric;
                         end
                         
-%                         % % %numerical diff
-%                         dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
-%                         dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-%                         du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
-% 
-%                         [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
-%                         [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
-%                         df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-%                         
-%                         N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
-%                         for m = 1:N_finite_diff_x
-%                             [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-%                             [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-%                             df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-%                         end
-%                         
-%                         N_finite_diff_u = length(u_fdb_k);
-%                         for m = 1:N_finite_diff_u
-%                            [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
-%                            [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
-%                            df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-%                         end
-                        
-%                         if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
-%                             keyboard
-%                         end
-%                         for iii=1:size(df_numeric,2)
-%                             if (sum(sum(abs(df_analytical(:,iii,j) - df_numeric(:,iii)))) > 1e-3)
-%                                 keyboard
-%                             end
-%                         end
-%                         for jjj=1:37
-%                             jjj
-%                             [df_analytical(:,jjj,j),df_numeric(:,jjj)]'
-%                         end
+                        % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
+                        %     keyboard
+                        % end
+                        % for iii=1:size(df_numeric,2)
+                        %     if (sum(sum(abs(df_analytical(:,iii,j) - df_numeric(:,iii)))) > 1e-3)
+                        %         keyboard
+                        %     end
+                        % end
+                        % for jjj=1:37
+                        %     jjj
+                        %     [df_analytical(:,jjj,j),df_numeric(:,jjj)]'
+                        % end
 
                         xdn(:,j) = xdn_analytical(:,j);
-                        df(:,:,j) = df_analytical(:,:,j);
+                        %df(:,:,j) = df_analytical(:,:,j);
                         %df(:,:,j) = df_numeric;
                         
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
@@ -5250,12 +5254,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 f(1:1+obj.nD:end) = phi;
                 df(1:1+obj.nD:end,1:nq) = n;
-                %                 for j=1:obj.nD,
-                %                     f(1+j:1+obj.nD:end) = gamma+D{j}*v;
-                %                     df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
-                %                     df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
-                %                     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
-                %                 end
+                % for j=1:obj.nD,
+                %     f(1+j:1+obj.nD:end) = gamma+D{j}*v;
+                %     df(1+j:1+obj.nD:end,nq+nv+(1:obj.nC)) = eye(size(D{j},1));  %d/dgamma
+                %     df(1+j:1+obj.nD:end,nq+(1:nv)) = D{j};%d/dv
+                %     df(1+j:1+obj.nD:end,1:nq) = matGradMult(dD{j},v);%d/dq
+                % end
                 f = f./SampleNum;
                 df = df./SampleNum;
             end
