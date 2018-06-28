@@ -10,7 +10,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         nlambda
         lambda_inds
         cached_Px
-         
+        
         l_inds % orderered [lambda_N;lambda_f1;lambda_f2;...;gamma] for each contact sequentially
         lfi_inds % nD x nC indexes into lambda for each time step
         LCP_slack_inds % slack variable for LCP component <z,f(x,z) = LCP_slack > = 0
@@ -575,11 +575,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 scale = .01;% [to be tuned]
                 w = 0.5/scale^2;
                 nw = size(Pw,1);
-                sampling_method = 1;%option 1: unscented transform, option 2: random sampling with a smaller number
+                sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
                 if sampling_method == 1
                     n_sampling_point = 1;%2*(obj.nx+nw);
                 elseif sampling_method == 2
-                    n_sampling_point = 4;
+                    n_sampling_point = 1;
                     w_state = load('state_noise_small.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
@@ -642,11 +642,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                     elseif sampling_method == 2
                         for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = x(:,k) + w_state(:,j);
+                            Sig_init(:,j,k) = x(:,k);% + w_state(:,j);
                         end
                     end
                     
-                    Sig_init(1:obj.nx,1,k) = x(:,k);
+                    %Sig_init(1:obj.nx,1,k) = x(:,k);
                     
                     %Propagate sigma points through nonlinear dynamics
                     for j = 1:n_sampling_point                         
@@ -690,7 +690,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                         if k <= 7
                             dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-                            num_diff_index_set = [8,9,10,11,12,13,14];
+                            num_diff_index_set = [8,9,10,11,12,13,14,23];
                             for m = 1:length(num_diff_index_set)
                                 index = num_diff_index_set(m);
                                 [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
@@ -736,11 +736,11 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         %     jjj
                         %     [df_analytical(:,jjj,j),df_numeric(:,jjj)]'
                         % end
-
+ 
                         xdn(:,j) = xdn_analytical(:,j);
                         %df(:,:,j) = df_analytical(:,:,j);
                         %df(:,:,j) = df_numeric;
-                        
+                         
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
                         dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;

@@ -671,7 +671,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             % contact smoothing matrix
             R_min = 1e-3;
-            R_max = 1e-1;
+            R_max = 1e-1; 
             r = zeros(num_active,1);
             r(phiC>=obj.phi_max) = R_max;
             r(phiC<=obj.contact_threshold) = R_min;
@@ -706,7 +706,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             W = diag(w(:));
              
             R = blkdiag(R,W);
-            
+             
             num_params = num_beta+nL;
             % lambda_ub = zeros(num_params,1);
             % scale_fact = 1e3;

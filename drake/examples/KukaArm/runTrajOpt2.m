@@ -94,7 +94,7 @@ um(8) = -5;
 T0 = 1;
 N = 10;%phase 1: pick
 
-r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source = '';%'+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -106,7 +106,7 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_mean = mean(w_phi,2);
 end
  
-options.contact_robust_cost_coeff = 100;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
