@@ -92,7 +92,7 @@ um(8) = -5;
 %u1(8) = -5;
 
 T0 = 1;
-N = 10;%phase 1: pick
+N = 6;%phase 1: pick
 
 r.uncertainty_source = '';%'+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')

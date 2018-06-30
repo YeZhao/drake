@@ -264,10 +264,11 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             global df_previous
             %global timestep_updated
             global noise_index
-                        
+               
             h = X0(1);
             x = X0(2:29);
             u = X0(30:37);
+            
             % try
             %     if (nargout>1)
             %         [obj,z,Mvn,wvn,dz,dMvn,dwvn] = solveLCP(obj,t,x,u);
@@ -545,19 +546,140 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 end
             end
             
+            function [JA_ground_num, JB_num] = AB_gradient_numerical_new(X0)
+                x_num = X0(2:29);
+                q_num=x_num(1:num_q);
+                
+                kinematics_options.compute_gradients = 1;
+                kinsol_num = doKinematics(obj, q_num, [], kinematics_options);
+                
+                xB_num = obj.computexB(kinsol_num);
+                
+                for k=1:groundcontact_num
+                    %JB_ground_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,k),xB_num(2,k),xB_num(3,k));
+                    %J_B_num_new = [zeros(3,8),eye(3),JB_ground_obj_ori];
+                    [~,J_B_num_new,~] = forwardKin(obj.manip,kinsol_num,Bidx(k),xB_num(:,k));
+%                     if sum(sum(abs(J_B_num_new - J_B_num_new2))) ~= 0
+%                         keyboard
+%                     end
+                    J_A_num_new = zeros(3,length(J_B_num_new(3,:)));%J_B_num_new;%
+                    J_A_num_new(3,:) = zeros(1,length(J_A_num_new(3,:)));% set it to zero, since point A is always on the ground
+                    JB_num(:,k) = reshape(J_B_num_new,[],1);
+                    %as a by-product, we can derive JA_ground_num
+                    JA_ground_num(:,k) = reshape(J_A_num_new,[],1);
+                end
+                
+                for k=1:fingercontact_num
+                    %JB_finger_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,groundcontact_num+k),xB_num(2,groundcontact_num+k),xB_num(3,groundcontact_num+k));
+                    %J_B_num_new = [zeros(3,8),eye(3),JB_finger_obj_ori];
+                    [~,J_B_num_new,~] = forwardKin(obj.manip,kinsol_num,Bidx(groundcontact_num+k),xB_num(:,groundcontact_num+k));
+%                     if sum(sum(abs(J_B_num_new - J_B_num_new2))) ~= 0
+%                         keyboard
+%                     end
+                    
+                    JB_num(:,k+groundcontact_num) = reshape(J_B_num_new,[],1);
+                end
+            end
+            
             fcn = @object_gradient_numerical;
-            fcnAB = @AB_gradient_numerical;
+            %fcnAB = @AB_gradient_numerical;
+            fcnAB = @AB_gradient_numerical_new;
             fcnV = @V_gradient_numerical;
             
             %tic
             dV = zeros(num_full_dim,(num_d*num_c+nL),num_q);
+%             for i=1:num_q
+%                 rr = max(sqrt(eps(X0)),1e-7);
+%                 rr(1:i) = 0;%corresponding to time step h
+%                 m = i+2;% only q component affects Jacobian J
+%                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
+%                 X0_p = X0 + rr;
+%                 X0_m = X0 - rr;
+%                 
+%                 % % old approach for comparison
+%                 % [J_object_p,V_num_p] = feval(fcn,X0_p);
+%                 % [J_object_m,V_num_m] = feval(fcn,X0_m);
+%                 %
+%                 % dJ_ori(:,i) = (J_object_p - J_object_m)/rr(i+1);
+%                 % dV_ori(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
+%                 
+%                 %% new approach, 4 times faster
+%                 
+%                 [V_num_p] = feval(fcnV,X0_p);
+%                 [V_num_m] = feval(fcnV,X0_m);
+%                 dV(:,:,i) = (V_num_p - V_num_m)/(2*rr(i+1));
+%                 
+%                 q = X0(2:15);
+%                 arm_dim = 8;
+%                 obj_dim = 6;
+%                 groundcontact_num = 4;
+%                 fingercontact_num = 8;
+% 
+%                 %for this part, we only compute 4 ground contact points for
+%                 %JA, and full contact points (4 ground contact points + 8
+%                 %finger contact points) for JB
+%                 [JA_ground_num_p, JB_ground_finger_num_p] = feval(fcnAB,X0_p);
+%                 [JA_ground_num_m, JB_ground_finger_num_m] = feval(fcnAB,X0_m);
+% 
+%                 kinematics_options.compute_gradients = 1;
+%                 kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+%                 kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+%                 kinsol = doKinematics(obj, q, [], kinematics_options);
+%                 
+%                 [~,~,~,~,~,xA_p,xB_p,~,~] = getContactTerms(obj,noise_index,X0_p(2:15),kinsol_p);
+%                 [~,~,~,~,~,xA_m,xB_m,~,~] = getContactTerms(obj,noise_index,X0_m(2:15),kinsol_m);
+%                 
+%                 if i <= arm_dim
+%                     dJA_ground = zeros(groundcontact_num*3*length(q),1);
+%                     dJA_finger = [];
+%                     for fingercontactIndx = 1:fingercontact_num
+%                         dJA_single_finger = [dJA_analytical(q,fingercontactIndx,i);zeros(obj_dim*3,1)];
+%                         
+%                         [~,JA_single_finger_p,~] = forwardKin(obj.manip,kinsol_p,Aidx(groundcontact_num+fingercontactIndx),xA_p(:,groundcontact_num+fingercontactIndx));
+%                         [~,JA_single_finger_m,~] = forwardKin(obj.manip,kinsol_m,Aidx(groundcontact_num+fingercontactIndx),xA_m(:,groundcontact_num+fingercontactIndx));
+%                         dJA_single_finger_new = (JA_single_finger_p - JA_single_finger_m)/(2*rr(i+1));
+%                         dJA_single_finger_new = [reshape(dJA_single_finger_new,[],1)];
+%                         
+%                         %[~,JA_single_finger,dJA_single_finger] = forwardKin(obj.manip,kinsol,Aidx(groundcontact_num+fingercontactIndx),xA(:,groundcontact_num+fingercontactIndx));
+%                         %dJA_single_finger_new = [reshape(JA_single_finger,[],1)];
+% 
+%                         dJA_finger = [dJA_finger;dJA_single_finger_new];
+%                     end
+%                     dJA(:,i) = [dJA_ground;dJA_finger];
+%                 elseif i <= arm_dim+obj_dim/2
+%                     dJA(:,i) = zeros((groundcontact_num+fingercontact_num)*3*length(q),1);
+%                 else
+%                     %dJA_ground only becomes non-zero for 3-DOF object orientation pertubation
+%                     dJA_ground = (JA_ground_num_p - JA_ground_num_m)/(2*rr(i+1));
+%                     dJA_ground = reshape(dJA_ground,[],1);
+%                     dJA(:,i) = [dJA_ground;zeros(fingercontact_num*3*length(q),1)];
+%                 end
+%                 
+%                 dJB_ground_finger = (JB_ground_finger_num_p - JB_ground_finger_num_m)/(2*rr(i+1));
+%                 dJB(:,i) = reshape(dJB_ground_finger,[],1);
+%                 
+%                 dJ(:,i) = dJA(:,i) - dJB(:,i); 
+%                 %run permute(reshape(dJ(:,1),3,14,12),[2,1,3]) to see
+%                 % [p1q1x p1q1y p1q1z             [p2q1x p2q1y p2q1z        [p12q1x p12q1y p12q1z
+%                 %  p1q2x p1q2y p1q2z       ....   p2q2x p2q2y p2q2z         p12q2x p12q2y p12q2z
+%                 %  ...   ...   ...                ...   ...   ...           ...   ...   ...
+%                 %  p1q14x p1q14y p1q14z]          p2q14x p2q14y p2q14z]    p12q14x p12q14y p12q14z]
+%                 
+%                 
+%                 JB_p_new = permute(reshape(JB_ground_finger_num_p,3,14,12),[1,3,2]);
+%                 JB_p_new = reshape(JB_p_new,[],14);
+%                 JB_m_new = permute(reshape(JB_ground_finger_num_m,3,14,12),[1,3,2]);
+%                 JB_m_new = reshape(JB_m_new,[],14);
+%                 
+%             end
+            
             for i=1:num_q
                 rr = max(sqrt(eps(X0)),1e-7);
                 rr(1:i) = 0;%corresponding to time step h
                 m = i+2;% only q component affects Jacobian J
                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
-                X0_p = X0 + rr/2;
-                X0_m = X0 - rr/2;
+                X0_p = X0 + rr;
+                X0_m = X0 - rr;
                 
                 % % old approach for comparison
                 % [J_object_p,V_num_p] = feval(fcn,X0_p);
@@ -570,7 +692,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 
                 [V_num_p] = feval(fcnV,X0_p);
                 [V_num_m] = feval(fcnV,X0_m);
-                dV(:,:,i) = (V_num_p - V_num_m)/rr(i+1);
+                dV(:,:,i) = (V_num_p - V_num_m)/(2*rr(i+1));
                 
                 q = X0(2:15);
                 arm_dim = 8;
@@ -581,37 +703,118 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %for this part, we only compute 4 ground contact points for
                 %JA, and full contact points (4 ground contact points + 8
                 %finger contact points) for JB
-                [JA_ground_num_p, JB_ground_finger_num_p] = feval(fcnAB,X0_p);
-                [JA_ground_num_m, JB_ground_finger_num_m] = feval(fcnAB,X0_m);
+                %[JA_ground_num_p, JB_ground_finger_num_p] = feval(fcnAB,X0_p);
+                %[JA_ground_num_m, JB_ground_finger_num_m] = feval(fcnAB,X0_m);
 
-                if i <= arm_dim
-                    dJA_ground = zeros(groundcontact_num*3*length(q),1);
-                    dJA_finger = [];
-                    for fingercontactIndx = 1:fingercontact_num
-                        dJA_single_finger = [dJA_analytical(q,fingercontactIndx,i);zeros(obj_dim*3,1)];
-                        dJA_finger = [dJA_finger;dJA_single_finger];
-                    end
-                    dJA(:,i) = [dJA_ground;dJA_finger];
-                elseif i <= arm_dim+obj_dim/2
-                    dJA(:,i) = zeros((groundcontact_num+fingercontact_num)*3*length(q),1);
-                else
-                    %dJA_ground only becomes non-zero for 3-DOF object orientation pertubation
-                    dJA_ground = (JA_ground_num_p - JA_ground_num_m)/rr(i+1);
-                    dJA_ground = reshape(dJA_ground,[],1);
-                    dJA(:,i) = [dJA_ground;zeros(fingercontact_num*3*length(q),1)];
+                kinematics_options.compute_gradients = 1;
+                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+                kinsol = doKinematics(obj, q, [], kinematics_options);
+                
+                [~,~,~,~,~,xA_p,xB_p,~,~] = getContactTerms(obj,noise_index,X0_p(2:15),kinsol_p);
+                [~,~,~,~,~,xA_m,xB_m,~,~] = getContactTerms(obj,noise_index,X0_m(2:15),kinsol_m);
+                
+                J_B_p_num = []; J_B_m_num = []; J_A_p_num = []; J_A_m_num = [];
+                world_pts_B_p = []; world_pts_B_m = []; world_pts_A_p = []; world_pts_A_m = [];
+                
+                kinematics_options.compute_gradients = 1;
+                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+                
+                for k=1:groundcontact_num+fingercontact_num
+                    [pp,J_B_p_num_new,dJ_] = forwardKin(obj.manip,kinsol_p,Bidx(k),xB_p(:,k));
+                    J_B_p_num = [J_B_p_num;J_B_p_num_new];
+                    world_pts_B_p = [world_pts_B_p, pp];
                 end
                 
-                dJB_ground_finger = (JB_ground_finger_num_p - JB_ground_finger_num_m)/rr(i+1);
-                dJB(:,i) = reshape(dJB_ground_finger,[],1);
+                kinematics_options.compute_gradients = 1;
+                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
                 
-                dJ(:,i) = dJA(:,i) - dJB(:,i); 
+                for k=1:groundcontact_num+fingercontact_num
+                    [pp,J_B_m_num_new,dJ_] = forwardKin(obj.manip,kinsol_m,Bidx(k),xB_m(:,k));
+                    J_B_m_num = [J_B_m_num;J_B_m_num_new];
+                    world_pts_B_m = [world_pts_B_m, pp];
+                end
                 
+                kinematics_options.compute_gradients = 1;
+                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+                
+                for k=1:groundcontact_num+fingercontact_num
+                    [pp,J_A_p_num_new,dJ_] = forwardKin(obj.manip,kinsol_p,Aidx(k),xA_p(:,k));
+                    J_A_p_num = [J_A_p_num;J_A_p_num_new];
+                    world_pts_A_p = [world_pts_A_p, pp];
+                end
+                
+                kinematics_options.compute_gradients = 1;
+                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+                
+                for k=1:groundcontact_num+fingercontact_num
+                    [pp,J_A_m_num_new,dJ_] = forwardKin(obj.manip,kinsol_m,Aidx(k),xA_m(:,k));
+                    J_A_m_num = [J_A_m_num;J_A_m_num_new];
+                    world_pts_A_m = [world_pts_A_m, pp];
+                end
+                
+                
+%                 % debugging
+%                 
+%                 kinematics_options.compute_gradients = 1;
+%                 kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+%                 [phiC,normal,V,~,~,xA,xB,idxA,idxB] = getContactTerms(obj,noise_index,X0_p(2:15),kinsol_p);
+% %                 Apts = xA(:,active);
+% %                 Bpts = xB(:,active);
+% %                 Aidx = idxA(active);
+% %                 Bidx = idxB(active);
+%             
+%                 J_A_m_num2 = []; world_pts_A = [];
+%                 for k=1:groundcontact_num+fingercontact_num
+%                     [pp,J_A_m_num_new2,dJ_] = forwardKin(obj.manip,kinsol_p,Aidx(k),xA_m(:,k));
+%                     J_A_m_num2 = [J_A_m_num2;J_A_m_num_new2];
+%                     world_pts_A = [world_pts_A, pp];
+%                 end
+                
+                dJA_num = (J_A_p_num - J_A_m_num)/(2*rr(i+1));
+                dJB_num = (J_B_p_num - J_B_m_num)/(2*rr(i+1));
+                
+                dJ_original2 = dJA_num - dJB_num; 
+                
+%                 if i <= arm_dim
+%                     dJA_ground = zeros(groundcontact_num*3*length(q),1);
+%                     dJA_finger = [];
+%                     for fingercontactIndx = 1:fingercontact_num
+%                         dJA_single_finger = [dJA_analytical(q,fingercontactIndx,i);zeros(obj_dim*3,1)];
+%                         
+%                         [~,JA_single_finger_p,~] = forwardKin(obj.manip,kinsol_p,Aidx(groundcontact_num+fingercontactIndx),xA_p(:,groundcontact_num+fingercontactIndx));
+%                         [~,JA_single_finger_m,~] = forwardKin(obj.manip,kinsol_m,Aidx(groundcontact_num+fingercontactIndx),xA_m(:,groundcontact_num+fingercontactIndx));
+%                         dJA_single_finger_new = (JA_single_finger_p - JA_single_finger_m)/(2*rr(i+1));
+%                         dJA_single_finger_new = [reshape(dJA_single_finger_new,[],1)];
+%                         
+%                         %[~,JA_single_finger,dJA_single_finger] = forwardKin(obj.manip,kinsol,Aidx(groundcontact_num+fingercontactIndx),xA(:,groundcontact_num+fingercontactIndx));
+%                         %dJA_single_finger_new = [reshape(JA_single_finger,[],1)];
+% 
+%                         dJA_finger = [dJA_finger;dJA_single_finger_new];
+%                     end
+%                     dJA(:,i) = [dJA_ground;dJA_finger];
+%                 elseif i <= arm_dim+obj_dim/2
+%                     dJA(:,i) = zeros((groundcontact_num+fingercontact_num)*3*length(q),1);
+%                 else
+%                     %dJA_ground only becomes non-zero for 3-DOF object orientation pertubation
+%                     dJA_ground = (JA_ground_num_p - JA_ground_num_m)/(2*rr(i+1));
+%                     dJA_ground = reshape(dJA_ground,[],1);
+%                     dJA(:,i) = [dJA_ground;zeros(fingercontact_num*3*length(q),1)];
+%                 end
+%                 
+%                 dJB_ground_finger = (JB_ground_finger_num_p - JB_ground_finger_num_m)/(2*rr(i+1));
+%                 dJB(:,i) = reshape(dJB_ground_finger,[],1);
+                
+                %dJ(:,i) = dJA(:,i) - dJB(:,i); 
+                dJ(:,i) = reshape(permute(reshape(dJ_original2,3,12,14),[1,3,2]),[],1);
                 %run permute(reshape(dJ(:,1),3,14,12),[2,1,3]) to see
                 % [p1q1x p1q1y p1q1z             [p2q1x p2q1y p2q1z        [p12q1x p12q1y p12q1z
                 %  p1q2x p1q2y p1q2z       ....   p2q2x p2q2y p2q2z         p12q2x p12q2y p12q2z
                 %  ...   ...   ...                ...   ...   ...           ...   ...   ...
                 %  p1q14x p1q14y p1q14z]          p2q14x p2q14y p2q14z]    p12q14x p12q14y p12q14z]
+                
             end
+            
             %% end of numerical Jacobian gradient for dJ and dV
             
             % dJ new sequence, stack Aidx first and then num_q
@@ -639,6 +842,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             dJD_new{2} = dJy_new;%[3D]
             
             %joint limit
+            J_contact = J;
             J = [J;JL];
             phiL = phiL(possible_limit_indices);
             phi = [phiC;phiL];
@@ -703,10 +907,12 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             ind = (phiL > obj.contact_threshold) & (phiL < obj.phiL_max);
             y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
             w(ind) = W_min + W_max./(1+exp(-10*y));
+            % Todorov's function
+            %w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
             W = diag(w(:));
              
-            R = blkdiag(R,W);
-             
+            R = 1e-3*eye(52);%blkdiag(R,W);
+            
             num_params = num_beta+nL;
             % lambda_ub = zeros(num_params,1);
             % scale_fact = 1e3;
@@ -727,7 +933,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
             
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-7*eye(num_params);
+            %Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-7*eye(num_params);
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-2*eye(num_params);
             
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
@@ -1080,7 +1287,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             dFdq = zeros(num_constraint_active_set,num_constraint_active_set,num_q);
             for i=1:num_q
                 % partial dervative w.r.t q
-                M = Qinv*dAdq(:,:,i)*Qinv;
+                M = Qinv*dAdq(:,:,i)*Qinv;%Qinv*reshape(- matGradMult(reshape(dAdq(:,:,i),[],1),Qinv),size(Qinv,1),[])
+                dQinvdq(:,:,i) = -M;
                 N = pinv(Ain_fqp_active*Qinv*Ain_fqp_active');
                 dGdq(:,:,i) = -M + M*Ain_fqp_active'*N*Ain_fqp_active*Qinv + Qinv*Ain_fqp_active'*N*Ain_fqp_active*M ...
                     -Qinv*Ain_fqp_active'*N*Ain_fqp_active*M*Ain_fqp_active'*N*Ain_fqp_active*Qinv ...
@@ -1153,40 +1361,54 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %df = [zeros(size(dH,1),1), dH, zeros(size(dH,1),8)];%correct
             %xdn = reshape(Hinv,[],1);%correct
             %df = [zeros(numel(Hinv),1),reshape(Hinv*reshape(- matGradMult(dH(:,1:num_q),Hinv),num_q,[]),numel(Hinv),[]),zeros(numel(Hinv),num_v+obj.num_u)];%correct
-            %xdn = reshape(J',[],1);%roughly correct
-            %df = [zeros(numel(J),1), dJtranspose_qp, zeros(numel(J),num_v+obj.num_u)];%roughly correct
+            %xdn = reshape(J_contact,[],1);
+            %xdn = reshape(J',[],1);%correct
+            %df = [zeros(numel(J),1), dJtranspose_qp, zeros(numel(J),num_v+obj.num_u)];%correct
 
-            %A_length = size(A,1)*size(A,2);%roughly correct
-            %xdn = reshape(A, A_length,1);%roughly correct
-            %df = [zeros(A_length,1), reshape(dAdq_tmp,A_length,14), zeros(A_length,14), zeros(A_length,8)];%roughly correct
-
-            %A_length = size(V'*A*V,1)*size(V'*A*V,2);%roughly correct
-            %xdn = reshape(V'*A*V, A_length,1);%roughly correct
-            %df = [zeros(A_length,1), reshape(dAdq,A_length,14), zeros(A_length,14), zeros(A_length,8)];%roughly correct
+            %A_length = size(A,1)*size(A,2);%correct
+            %xdn = reshape(A, A_length,1);%correct
+            %df = [zeros(A_length,1), reshape(dAdq_tmp,A_length,14), zeros(A_length,14), zeros(A_length,8)];%correct
+ 
+            %A_length = size(V'*A*V,1)*size(V'*A*V,2);%correct
+            %xdn = reshape(V'*A*V, A_length,1);%correct
+            %df = [zeros(A_length,1), reshape(dAdq,A_length,14), zeros(A_length,14), zeros(A_length,8)];%correct
             
             %reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
 
             %xdn = reshape(J',[],1);
             %df = [zeros(length(xdn),1), dJtranspose_qp, zeros(length(xdn),14+8)];
             
-            %xdn = lambda;%roughly correct with a medium-level difference
-            %df = dlambda;%roughly correct with a medium-level difference
-            %xdn = b;% roughly correct, minor difference at 1e-3 level
-            %df = [dbdh, dbdq, dbdv, dbdu];% roughly correct, minor difference at 1e-3 level
+            %xdn = lambda;%correct with a medium-level difference
+            %df = dlambda;%correct with a medium-level difference
+            %xdn = b;% correct
+            %df = [dbdh, dbdq, dbdv, dbdu];% correct
             
             %Ain_length = size(Ain_fqp_active,1)*size(Ain_fqp_active,2);%correct
             %xdn = reshape(Ain_fqp_active,Ain_length,[]);%correct
             %df = [zeros(Ain_length,1), reshape(dA_tildedq,Ain_length,14), reshape(dA_tildedv,Ain_length,14), zeros(Ain_length,8)];%correct
+                        
+            %bin_length = size(bin_fqp_active,1);%correct, only a few elements have large deviations.
+            %xdn = bin_fqp_active;%correct, only a few elements have large deviations.
+            %df = [db_tildedh, reshape(db_tildedq,bin_length,num_q), reshape(db_tildedv,bin_length,num_q), reshape(db_tildedu,bin_length,obj.num_u)];%correct
             
-            %E_length = size(E,1)*size(E,2);
+            %Q_length = size(Q,1)*size(Q,2);%correct with constant R value, sensitive to nonlinear R
+            %xdn = reshape(Q,[],1);
+            %df = [zeros(Q_length,1), reshape(0.5*dAdq,Q_length,14), zeros(Q_length,14), zeros(Q_length,8)];
+            
+            %Qinv_length = size(Qinv,1)*size(Qinv,2);
+            %xdn = reshape(Qinv,[],1);
+            %df = [zeros(Qinv_length,1), reshape(dQinvdq,Qinv_length,14), zeros(Qinv_length,14), zeros(Qinv_length,8)];
+            %df = [zeros(numel(Qinv),1),reshape(Qinv*reshape(- matGradMult(reshape(dAdq(:,:,:),[],num_q),Qinv),size(Qinv,1),[]),numel(Qinv),[]),zeros(numel(Qinv),num_v+obj.num_u)];%correct
+
+            %E_length = size(E,1)*size(E,2);%accuracy depends on constant term in Q matrix
             %xdn = reshape(E,E_length,[]);
             %df = [zeros(E_length,1), reshape(dEdq,E_length,14), zeros(E_length,14), zeros(E_length,8)];
             
-            %F_length = size(F,1)*size(F,2);
+            %F_length = size(F,1)*size(F,2);%accuracy depends on constant term in Q matrix
             %xdn = reshape(F,F_length,[]);
             %df = [zeros(F_length,1), reshape(dFdq,F_length,14), zeros(F_length,14), zeros(F_length,8)];
             
-            %G_length = size(G,1)*size(G,2);
+            %G_length = size(G,1)*size(G,2);%accuracy depends on constant term in Q matrix
             %xdn = reshape(G,G_length,[]);
             %df = [zeros(G_length,1), reshape(dGdq,G_length,14), zeros(G_length,14), zeros(G_length,8)];
             

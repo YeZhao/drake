@@ -642,10 +642,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                     elseif sampling_method == 2
                         for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = x(:,k);% + w_state(:,j);
+                            Sig_init(:,j,k) = x(:,k);% + w_state(:,j)/5;
                         end
                     end
-                    
+                     
                     %Sig_init(1:obj.nx,1,k) = x(:,k);
                     
                     %Propagate sigma points through nonlinear dynamics
@@ -688,41 +688,41 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
                         
-                        if k <= 7
-                            dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-                            num_diff_index_set = [8,9,10,11,12,13,14,23];
-                            for m = 1:length(num_diff_index_set)
-                                index = num_diff_index_set(m);
-                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
-                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
-                                df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
-                            end
-                            df(:,:,j) = df_analytical(:,:,j);
-                        else
-                            % % %numerical diff
-                            dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
-                            dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
-                            du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
-                            
-                            [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
-                            [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
-                            df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                            
-                            N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
-                            for m = 1:N_finite_diff_x
-                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                                df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                            end
-                            
-                            N_finite_diff_u = length(u_fdb_k);
-                            for m = 1:N_finite_diff_u
-                                [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                                [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                                df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                            end
-                            df(:,:,j) = df_numeric;
-                        end
+%                         if k <= 7
+%                             dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+%                             num_diff_index_set = [8,9,10,11,12,13,14,23];
+%                             for m = 1:length(num_diff_index_set)
+%                                 index = num_diff_index_set(m);
+%                                 [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,index),u_fdb_k);
+%                                 [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,index),u_fdb_k);
+%                                 df_analytical(:,index+1) = (xdnp-xdnm)/(2*dx(index,index));
+%                             end
+%                             df(:,:,j) = df_analytical(:,:,j);
+%                         else
+%                             % %numerical diff
+%                             dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+%                             dx = diag(max(sqrt(eps(Sig_init(1:obj.nx,j,k))), 1e-7));
+%                             du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+%                              
+%                             [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
+%                             [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig_init(1:obj.nx,j,k),u_fdb_k);
+%                             df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+%                             
+%                             N_finite_diff_x = length(Sig_init(1:obj.nx,j,k));
+%                             for m = 1:N_finite_diff_x
+%                                 [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
+%                                 [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
+%                                 df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+%                             end
+%                             
+%                             N_finite_diff_u = length(u_fdb_k);
+%                             for m = 1:N_finite_diff_u
+%                                 [xdnp,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k+du(:,m));
+%                                 [xdnm,~] = feval(plant_update,timestep_updated,Sig_init(1:obj.nx,j,k),u_fdb_k-du(:,m));
+%                                 df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+%                             end
+%                             df(:,:,j) = df_numeric;
+%                         end
                         
                         % if (sum(sum(abs(df_analytical(:,:,j) - df_numeric))) > 1e-4)
                         %     keyboard
@@ -738,9 +738,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         % end
  
                         xdn(:,j) = xdn_analytical(:,j);
-                        %df(:,:,j) = df_analytical(:,:,j);
+                        df(:,:,j) = df_analytical(:,:,j);
                         %df(:,:,j) = df_numeric;
                          
+                        %xdn(:,j) = [xdn_analytical(:,j);zeros(14,1)];
+                        %df(:,:,j) = [df_numeric;zeros(14,37)];
+                        
                         Sig(1:nx,j,k+1) = xdn(1:nx,j);
                         dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
                         dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
@@ -748,7 +751,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     end
                     xdn_previous_full = xdn;
                     df_previous_full = df;
-                     
+                       
                     %calculate mean and variance w.r.t. [x_k] from sigma points
                     x_mean(:,k+1) = zeros(obj.nx,1);
                     for j = 1:n_sampling_point
@@ -880,7 +883,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     dCovdu(:,:,pp) = dCovdu(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_du_set(nn,pp,i) - w_avg*dSig_m_kplus1_du_sum(nn,pp));
                                 end
                             end
-                        end
+                        end 
                         dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
                         %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1))*dCovdx(:,:,pp));
                         dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));

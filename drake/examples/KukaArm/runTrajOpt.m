@@ -90,10 +90,10 @@ um = r.findTrim(qm);
 um(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
- 
-T0 = 2;
-N = 30;%10;
-N1 = 10;%phase 1: pick
+
+T0 = 3;
+N = 20;%10;
+N1 = 8;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
@@ -108,7 +108,7 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_mean = mean(w_phi,2);
 end
 
-options.contact_robust_cost_coeff = 100;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
@@ -197,7 +197,7 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
 % traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
@@ -251,7 +251,7 @@ traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
 persistent sum_running_cost
 persistent cost_index
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -297,7 +297,6 @@ x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal);
 c_nominal = ctraj.eval(t_nominal);
 c_normal_nominal = c_nominal(1:6:end,:);
-global phi_cache_full
 
     function [f,df] = running_cost_fun(h,x,u)
         R = 1e-6*eye(nu);
