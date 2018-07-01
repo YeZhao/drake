@@ -92,8 +92,8 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 3;
-N = 20;%10;
-N1 = 8;%phase 1: pick
+N = 12;%10;
+N1 = 6;%phase 1: pick
 N2 = N - N1;%phase 2: place
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
@@ -108,7 +108,7 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_mean = mean(w_phi,2);
 end
 
-options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
