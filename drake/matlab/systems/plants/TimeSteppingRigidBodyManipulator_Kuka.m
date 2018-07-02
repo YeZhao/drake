@@ -366,9 +366,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             if obj.num_u > 0
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol);
+                [phiC,normal,V,n,D,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol);
             else
-                [phiC,normal,V,~,~,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol);
+                [phiC,normal,V,n,D,xA,xB,idxA,idxB] = getContactTerms(obj,q,kinsol);
             end
             
             num_c = length(phiC);
@@ -794,7 +794,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     idx_beta = active(i):num_c:num_c*num_d;
                     V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
                 end
-                v_min(i) = -0.05/h;%phi(i)
+                v_min(i) = -phi(i)/h;
             end
             V = blkdiag(V_cell{:},eye(nL));
             
@@ -803,7 +803,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             % contact smoothing matrix
             R_min = 1e-3;
-            R_max = 1e-1; 
+            R_max = 1e-1;
             r = zeros(num_active,1);
             r(phiC>=obj.phi_max) = R_max;
             r(phiC<=obj.contact_threshold) = R_min;
@@ -815,6 +815,18 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             r = repmat(r,1,dim)';
             %R = diag([r(:)',r(:)']);
             R = diag(r(:));
+            
+            for i=1:num_q
+                for j=1:length(ind)
+                    if ind(j) == 0
+                        drdq(j,i) = 0;
+                    else
+                        drdq(j,i) = (R_max - R_min)*n(j,i)./(obj.phi_max - obj.contact_threshold);
+                    end
+                end
+                dRdq_tmp = repmat(drdq(:,i),1,dim)';
+                dRsubdq(:,:,i) = diag(reshape(dRdq_tmp,[],1));
+            end
             
             if any(ind > 0)
                 S_weighting_unit = diag(ones(3,1));%[3D]
@@ -838,8 +850,23 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             % Todorov's function
             w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
             W = diag(w(:));
-             
-            R = 1e-3*eye(52);%blkdiag(R,W);%
+            
+            for i=1:num_q
+                for j=1:length(ind)
+                    if ind(j) == 0
+                        dwdq(j,i) = 0;
+                    else
+                        dwdq(j,i) = (W_max - W_min)*JL(j,i)./(obj.phi_max - obj.contact_threshold);
+                    end
+                end
+                dWdq(:,:,i) = diag(dwdq(:,i));
+            end
+            
+            R = blkdiag(R,W);%1e-3*eye(52);%
+            
+            for i=1:num_q
+                dRdq(:,:,i) = blkdiag(dRsubdq(:,:,i),dWdq(:,:,i));
+            end
             
             num_params = num_beta+nL;
             % lambda_ub = zeros(num_params,1);
@@ -860,9 +887,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 S_weighting_array{num_active+i} = 1;
             end
             S_weighting = blkdiag(S_weighting_array{:});
-             
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-6*eye(num_params);
-             
+            
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-5*eye(num_params);
+            
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
             bin = zeros(num_active+nL,1);
@@ -1071,7 +1098,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJdq(:,:,i) = [dJdq_tmp;zeros(nL,num_q)];%[3D]
                 dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                     +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
+                
+                dAdq(:,:,i) = V'*S_weighting*(dAdq_tmp(:,:,i)+dRdq(:,:,i))*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
                     + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
                 
                 dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
@@ -1108,7 +1136,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             for j=1:num_dynamicsConstraint_active_set
                 row = active_set(j);
                 idx = (row-1)*dim + (1:dim);
-                db_tildedh_dyn(j) = -(0.05/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                 % the first componint of bin_fqp is -bin, the sign is flipped
             end
             %handle joint constraints
@@ -1116,7 +1144,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             for j=1:num_jointConstraint_active_set
                 row = active_set(j+num_dynamicsConstraint_active_set);
                 idx = num_active*dim+(row-num_active);
-                db_tildedh_joint(j) = -(0.05/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                db_tildedh_joint(j) = -(phi(row)/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                 % the first componint of bin_fqp is -bin, the sign is flipped
             end
             
@@ -1147,7 +1175,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     row = active_set(j);
                     idx = (row-1)*dim + (1:dim);
                     dA_tildedq_dyn(j,:,i) = -normal(:,row)'*(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                    db_tildedq_dyn(j,:,i) = normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
+                    db_tildedq_dyn(j,:,i) = n(row,i)/h + normal(:,row)'*dcdq(idx,i);% switch the sign to correct one 
                     db_tildedv_dyn(j,:,i) = normal(:,row)'*dcdv(idx,i);
                 end
                 %handle joint constraints
@@ -1155,7 +1183,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     row = active_set(j+num_dynamicsConstraint_active_set);
                     idx = num_active*dim+(row-num_active);
                     dA_tildedq_joint(j,:,i) = -(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                    db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
+                    db_tildedq_joint(j,:,i) = JL(row-num_active,i)/h + dcdq(idx,i);% switch the sign to correct one
                     db_tildedv_joint(j,:,i) = dcdv(idx,i);
                 end
                 
