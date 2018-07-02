@@ -455,7 +455,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 else
                     [~,~,V_num,~,~,xA_num,xB_num,idxA_num,idxB_num] = getContactTerms(obj,q_num,kinsol_num);
                 end
-                            
+                
                 V_num = horzcat(V_num{:});
                 I = eye(num_c*num_d);
                 V_cell_num = cell(1,num_active);
@@ -558,9 +558,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     %JB_ground_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,k),xB_num(2,k),xB_num(3,k));
                     %J_B_num_new = [zeros(3,8),eye(3),JB_ground_obj_ori];
                     [~,J_B_num_new,~] = forwardKin(obj.manip,kinsol_num,Bidx(k),xB_num(:,k));
-%                     if sum(sum(abs(J_B_num_new - J_B_num_new2))) ~= 0
-%                         keyboard
-%                     end
                     J_A_num_new = zeros(3,length(J_B_num_new(3,:)));%J_B_num_new;%
                     J_A_num_new(3,:) = zeros(1,length(J_A_num_new(3,:)));% set it to zero, since point A is always on the ground
                     JB_num(:,k) = reshape(J_B_num_new,[],1);
@@ -572,10 +569,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     %JB_finger_obj_ori = dJB_finger_obj_ori_analytical(q_num,xB_num(1,groundcontact_num+k),xB_num(2,groundcontact_num+k),xB_num(3,groundcontact_num+k));
                     %J_B_num_new = [zeros(3,8),eye(3),JB_finger_obj_ori];
                     [~,J_B_num_new,~] = forwardKin(obj.manip,kinsol_num,Bidx(groundcontact_num+k),xB_num(:,groundcontact_num+k));
-%                     if sum(sum(abs(J_B_num_new - J_B_num_new2))) ~= 0
-%                         keyboard
-%                     end
-                    
                     JB_num(:,k+groundcontact_num) = reshape(J_B_num_new,[],1);
                 end
             end
@@ -815,10 +808,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             r(phiC>=obj.phi_max) = R_max;
             r(phiC<=obj.contact_threshold) = R_min;
             ind = (phiC > obj.contact_threshold) & (phiC < obj.phi_max);
-            y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-            r(ind) = R_min + R_max./(1+exp(-10*y));
+            %y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+            %r(ind) = R_min + R_max./(1+exp(-10*y));
             % Todorov's function
-            %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
+            r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
             r = repmat(r,1,dim)';
             %R = diag([r(:)',r(:)']);
             R = diag(r(:));
@@ -840,13 +833,13 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             w(phiL>=obj.phiL_max) = W_max; 
             w(phiL<=obj.contact_threshold) = W_min;
             ind = (phiL > obj.contact_threshold) & (phiL < obj.phiL_max);
-            y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-            w(ind) = W_min + W_max./(1+exp(-10*y));
+            %y = (phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+            %w(ind) = W_min + W_max./(1+exp(-10*y));
             % Todorov's function
-            %w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
+            w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
             W = diag(w(:));
              
-            R = blkdiag(R,W);%1e-3*eye(52);%
+            R = 1e-3*eye(52);%blkdiag(R,W);%
             
             num_params = num_beta+nL;
             % lambda_ub = zeros(num_params,1);
@@ -868,8 +861,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
              
-            %Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-7*eye(num_params);
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-5*eye(num_params);
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-6*eye(num_params);
              
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
