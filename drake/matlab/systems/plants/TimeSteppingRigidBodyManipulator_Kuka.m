@@ -801,7 +801,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                     idx_beta = active(i):num_c:num_c*num_d;
                     V_cell{i} = V*I(idx_beta,:)'; % basis vectors for ith contact
                 end
-                v_min(i) = -phi(i)/h;
+                v_min(i) = -0.05/h;%phi(i)
             end
             V = blkdiag(V_cell{:},eye(nL));
             
@@ -846,7 +846,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
             W = diag(w(:));
              
-            R = 1e-3*eye(52);%blkdiag(R,W);
+            R = blkdiag(R,W);%1e-3*eye(52);%
             
             num_params = num_beta+nL;
             % lambda_ub = zeros(num_params,1);
@@ -867,10 +867,10 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 S_weighting_array{num_active+i} = 1;
             end
             S_weighting = blkdiag(S_weighting_array{:});
-            
+             
             %Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-7*eye(num_params);
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-2*eye(num_params);
-            
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-5*eye(num_params);
+             
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
             bin = zeros(num_active+nL,1);
@@ -1116,7 +1116,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             for j=1:num_dynamicsConstraint_active_set
                 row = active_set(j);
                 idx = (row-1)*dim + (1:dim);
-                db_tildedh_dyn(j) = -(phi(row)/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                db_tildedh_dyn(j) = -(0.05/h^2-normal(:,row)'*dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                 % the first componint of bin_fqp is -bin, the sign is flipped
             end
             %handle joint constraints
@@ -1124,7 +1124,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             for j=1:num_jointConstraint_active_set
                 row = active_set(j+num_dynamicsConstraint_active_set);
                 idx = num_active*dim+(row-num_active);
-                db_tildedh_joint(j) = -(phi(row)/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
+                db_tildedh_joint(j) = -(0.05/h^2 - dcdh(idx));%phi(row)/h^2 shows up because of v_min, it has a negative sign because
                 % the first componint of bin_fqp is -bin, the sign is flipped
             end
             
