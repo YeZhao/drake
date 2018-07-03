@@ -888,7 +888,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
             
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-5*eye(num_params);
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-6*eye(num_params);
             
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);

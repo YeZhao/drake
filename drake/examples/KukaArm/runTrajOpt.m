@@ -92,8 +92,8 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 3;
-N = 20;%10;
-N1 = 8;%phase 1: pick
+N = 12;%20;%10;
+N1 = 6;%8;%phase 1: pick
 N2 = N - N1;%phase 2: place
  
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
@@ -198,7 +198,7 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
 % traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);

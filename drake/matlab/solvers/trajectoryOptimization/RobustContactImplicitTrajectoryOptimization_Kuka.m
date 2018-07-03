@@ -579,7 +579,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 if sampling_method == 1
                     n_sampling_point = 1;%2*(obj.nx+nw);
                 elseif sampling_method == 2
-                    n_sampling_point = 1;
+                    n_sampling_point = 5;
                     w_state = load('state_noise_small.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
@@ -642,10 +642,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         
                     elseif sampling_method == 2
                         for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = x(:,k);% + w_state(:,j)/5;
+                            Sig_init(:,j,k) = x(:,k) + w_state(:,j)/5;
                         end
                     end
-                     
+                    
                     %Sig_init(1:obj.nx,1,k) = x(:,k);
                     
                     %Propagate sigma points through nonlinear dynamics
