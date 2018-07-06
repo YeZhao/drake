@@ -1,4 +1,4 @@
-function runTrajOpt
+function runTrajOpt_vertical_throwing_new
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -73,6 +73,7 @@ q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6)
 %q1(8) = q1(8) - 0.015;
 %q1(11) = q1(11) + 0.03;% lift the height
 x1 = [q1;zeros(nv,1)];
+x1(11) = x1(11) - 0.05;
 v.draw(0,x1);
 
 qm_object = q1(9:14);
@@ -85,7 +86,7 @@ u0(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
 
-T0 = 2;
+T0 = 1;
 N = 20;%20;%10;
 Nm = 8;%phase 1: pick
 N1 = Nm;
@@ -103,7 +104,7 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_mean = mean(w_phi,2);
 end
 
-options.contact_robust_cost_coeff = 1;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 30;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
@@ -170,8 +171,8 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(0.07),Nm,8);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qm_object),Nm,9:14);% constraint the object position and pose in the air during the middle phase
+%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(0.07),Nm,8);
 % traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
@@ -210,7 +211,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
-
+ 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
@@ -218,10 +219,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-2);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 persistent sum_running_cost
 persistent cost_index
  
