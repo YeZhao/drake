@@ -92,7 +92,7 @@ Nm = 8;%phase 1: pick
 N1 = Nm;
 N2 = N - Nm;%phase 2: place
  
-r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source = 'friction_coeff';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -104,7 +104,7 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_mean = mean(w_phi,2);
 end
 
-options.contact_robust_cost_coeff = 1;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 10;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
@@ -219,13 +219,13 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-1);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
 persistent sum_running_cost
 persistent cost_index
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -336,7 +336,7 @@ ltvsys = tvlqr(r,xtraj,utraj,Q,R,Qf);
 sys=feedback(r,ltvsys);
 xtraj_new = simulate(sys,xtraj.tspan, x0);
 v.playback(xtraj_new,struct('slider',true));
- 
+
 %% pd-control LTI trial
 kp = 100;
 kd = sqrt(kp)*1.5;

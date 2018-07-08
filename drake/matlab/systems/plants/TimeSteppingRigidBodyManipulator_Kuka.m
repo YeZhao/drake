@@ -8,7 +8,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
         dirty=true;
     end
-     
+    
     properties (SetAccess=protected)
         timestep 
         twoD=false
@@ -902,7 +902,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             % phiL_pos(phiL<0)=0;
             % lambda_ub(num_beta+(1:nL)) = max(0.01, scale_fact*(obj.phi_max./phiL_pos - 1.0));
             lambda_ub = inf*ones(num_params,1);% disable this unnecessary bounding constraint
-             
+            
             % define weighting parameters
             for i=1:num_active
                 S_weighting_array{i} = S_weighting_unit;
@@ -912,8 +912,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
             
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-6*eye(num_params);
-
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-4*eye(num_params);
+             
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
             bin = zeros(num_active+nL,1);
