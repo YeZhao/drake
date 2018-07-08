@@ -1,4 +1,4 @@
-function runTrajOpt_vertical_throwing_new
+function runTrajOpt_vertical_throwing_new%new
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -103,8 +103,8 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_set = w_phi;
     r.uncertain_position_mean = mean(w_phi,2);
 end
-
-options.contact_robust_cost_coeff = 10;%important, if it is 0.1, can not solve successfully.
+ 
+options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
@@ -179,7 +179,7 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
-
+ 
 [q_lb, q_ub] = getJointLimits(r);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
@@ -205,7 +205,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % state_cost.base_yaw = 1;
 % state_cost = double(state_cost);
 % Q = diag(state_cost);
-
+ 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
@@ -220,110 +220,16 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-1);
-
+ 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
 persistent sum_running_cost
 persistent cost_index
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
-keyboard
-
-%% stabilization
-ts = getBreaks(xtraj);
-h = T0/(N-1);
-utraj_data = utraj.eval(ts);
-xtraj_data = xtraj.eval(ts);
-ctraj_data = ctraj.eval(ts);
-nD = 4;
-nC = 12;
-lambda_n_data = ctraj_data(1:nD+2:end,:)/h;
-
-kp = 1000;
-kd = sqrt(kp)*1.5;
-
-K = [kp*eye(nq_arm),kp*eye(nq_arm,nq_object),kd*eye(nq_arm),kd*eye(nq_arm,nq_object)];
-
-g = 9.81;
-
-q_real(:,1) = xtraj_data(1:nq,1);
-qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
-x_real_full(:,1) = xtraj_data(:,1);
-
-stabilitation_scenario = 'friction_coeff';
-
-if isempty(stabilitation_scenario)
-    sample_length = 1;
-end
-
-if strcmp(stabilitation_scenario, 'friction_coeff')
-    w_mu = load('friction_coeff_noise.dat');
-    sample_length = length(w_mu);
-end
-
-if strcmp(stabilitation_scenario, 'object_initial_position')
-    w_phi = load('initial_position_noise.dat');
-    %w_phi = w_phi/terrain_height_scale_factor;
-    r.uncertain_position_set = w_phi;
-    r.uncertain_position_mean = mean(w_phi,2);
-    sample_length = length(w_phi);
-end
-
-if strcmp(stabilitation_scenario, 'friction_coeff+object_initial_position')
-    w_mu = load('friction_coeff_noise.dat');
-    w_phi = load('initial_position_noise.dat');
-    %w_phi = w_phi/terrain_height_scale_factor;
-    r.uncertain_position_set = w_phi;
-    r.uncertain_position_mean = mean(w_phi);
-    sample_length = length(w_phi);
-end
-
-for m=1:sample_length
-    m
-    if strcmp(stabilitation_scenario, 'friction_coeff')
-        r.uncertainty_source = 'friction_coeff';
-        r.uncertain_mu = w_mu(m);
-    elseif strcmp(stabilitation_scenario, 'object_initial_position')
-        r.uncertainty_source = 'object_initial_position';
-        r.uncertain_phi = w_phi(m,:);
-    elseif strcmp(stabilitation_scenario, 'friction_coeff+object_initial_position')
-        r.uncertainty_source = 'friction_coeff+object_initial_position';
-        r.uncertain_phi = w_phi(m,:);
-    end
-    
-    for i=1:N-1
-        %feedback ctrl in q position
-        F_fb(:,i) = K(:,1:nq)*(xtraj_data(1:nq,i) - q_real(:,i)) + K(:,nq+1:nq+nv)*(xtraj_data(1+nq:nq+nv,i) - qdot_real(:,i));
-        %feedforward
-        F_ff(:,i) = utraj_data(:,i);
-        F_net(:,i) = F_fb(:,i) + F_ff(:,i);
-        
-        [xdn,df] = r.update(T0/(N-1),x_real_full(:,i),F_net(:,i));
-        x_real_full(:,i+1) = xdn;
-        q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
-        qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
-    end
-     
-    x_simulated = x_real_full;
-    xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
-    xtraj_simulated = xtraj_simulated.setOutputFrame(r.getStateFrame);
-    v.playback(xtraj_simulated,struct('slider',true));
-    
-    figure(4)
-    hold on;
-    plot(x_real_full(1,:), x_real_full(3,:),'r-');
-    hold on;
-    plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
-    xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
-    title('joint trajectory','fontsize',22)
-    %legend('passive case','robust case')
-    ylim([0,2.1])
-    
-    x_final_dev(:,m) = x_real_full(:,end) - xtraj_data(:,end);
-end
 keyboard
 
 % % simulate with LQR gains
@@ -336,7 +242,7 @@ ltvsys = tvlqr(r,xtraj,utraj,Q,R,Qf);
 sys=feedback(r,ltvsys);
 xtraj_new = simulate(sys,xtraj.tspan, x0);
 v.playback(xtraj_new,struct('slider',true));
-
+ 
 %% pd-control LTI trial
 kp = 100;
 kd = sqrt(kp)*1.5;
@@ -421,7 +327,7 @@ c_normal_nominal = c_nominal(1:6:end,:);
             iteration_index = iteration_index + 1;
         end
         fprintf('iteration index: %4d\n',iteration_index);
-        
+         
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
         % if isempty(iteration_num)
