@@ -104,7 +104,7 @@ if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source
 end
 if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_phi = load('initial_position_noise.dat');
-    phi_scaling = 1;
+    phi_scaling = 2;
     r.uncertain_position_set = w_phi/phi_scaling;
     r.uncertain_position_mean = mean(w_phi/phi_scaling,2);
 end
@@ -115,7 +115,6 @@ options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
-options.test_name = 'pick_and_place_motion';
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -239,14 +238,14 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
- 
+
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-2);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-2);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
@@ -258,9 +257,6 @@ tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
-
-keyboard
-
 h_nominal = z(traj_opt.h_inds);
 t_nominal = [0; cumsum(h_nominal)];
 x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
@@ -270,6 +266,7 @@ c_normal_nominal = c_nominal(1:6:end,:);
 figure(1)
 plot(t_nominal,x_nominal(8,:));
 title('gripper position')
+keyboard
 
 %% stabilization
 ts = getBreaks(xtraj);

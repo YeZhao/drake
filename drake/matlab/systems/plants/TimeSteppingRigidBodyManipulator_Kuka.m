@@ -8,7 +8,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
         dirty=true;
     end
-    
+     
     properties (SetAccess=protected)
         timestep 
         twoD=false
