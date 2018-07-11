@@ -112,6 +112,7 @@ options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N = N;
+options.test_name = 'grasping';
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);

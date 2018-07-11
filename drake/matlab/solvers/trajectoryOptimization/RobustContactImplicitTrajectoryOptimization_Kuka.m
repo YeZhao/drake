@@ -240,8 +240,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             lambda_inds_stack = reshape(obj.lambda_inds,(obj.N-1)*nL,[]);
             obj.cached_Px = zeros(obj.nx,obj.nx,obj.N);
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
-            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-            
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_scaled(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+             
             %if (obj.nC > 0)
             %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             %end
@@ -541,7 +543,9 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 Px = zeros(obj.nx,obj.nx,obj.N);
                 Px_init = obj.cached_Px(:,:,1);
                 
-                obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                end
                 
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
                     w_mu = obj.plant.uncertain_mu_set;
@@ -582,16 +586,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     w_state = load('state_noise_small.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
-                end 
+                end
                 w_avg = 1/n_sampling_point; 
                 K = obj.options.K;
-                 
+                
                 %initialize c and dc
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 %c = 0;
-                %c = trace(Px_init);
-                c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+                c = trace(Px_init);
+                c_mean = 0;
+                c_quad = trace(Px_init);
+                %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                 
                 % time counter
@@ -639,13 +645,22 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             %c = c + norm(x(:,k)-x_mean(:,k))^2;
                         end
                     elseif sampling_method == 2
-                        for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = x(:,k) + w_state(:,j);
+                        if k == 1
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = x(:,k) + w_state(:,j);
+                            end
+                            Sig(:,:,k) = Sig_init(:,:,k);
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = x(:,k);
+                            end
                         end
                     end
                     
-                    if k > obj.options.N1
-                        obj.plant.uncertainty_source = 'friction_coeff';
+                    if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                        if k > obj.options.N1%don't apply object position uncertainty after contact happens
+                            obj.plant.uncertainty_source = 'friction_coeff';
+                        end
                     end
                     
                     %Propagate sigma points through nonlinear dynamics
@@ -661,7 +676,6 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                         end
                         
-                        % a hacky way to implement the control input
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:obj.nx/2,j,k),Sig_init(obj.nx/2+1:obj.nx,j,k));
                         Hinv(:,:,j,k) = inv(H);
                         
@@ -785,10 +799,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     
                     % accumulate returned cost
                     %c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
-                        + nx/2*log(2*pi);%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                    %    + nx/2*log(2*pi);%ML mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
-                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    c_mean = c_mean + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1));
+                    c_quad = c_quad + trace(Px(:,:,k+1));
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
@@ -830,15 +846,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     end
                     
                     % gradient of mean residual w.r.t state x and control u, assume norm 2
-                    dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-                    dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                    %dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                    %dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                     
-                    %dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-                    %dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                    dmeanRdx(k,:,k+1) = dmeanRdx(k,:,k+1) + (x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                    dmeanRdu(k,:,k+1) = dmeanRdu(k,:,k+1) + (x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                     
                     dCovdx = zeros(nx,nx,nx);
                     dCovdu = zeros(nx,nx,nu);
-                     
+                    
                     for pp=1:nx
                         for i=1:n_sampling_point
                             dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
@@ -861,13 +877,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                 end
                             end
                         end 
-                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
-                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
-                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
+                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
+                        %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
+                        dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
                         if pp <= nu
-                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
-                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
-                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
+                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
+                            %dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
+                            dmeanRdu(k,pp,k+1) = dmeanRdu(k,pp,k+1) + trace(dCovdu(:,:,pp));
                         end
                     end
                 end
@@ -879,8 +895,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     if (jj == 1)
                         dmeanR_sum_dx_k = (x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
                     else
-                        %dmeanR_sum_dx_k = (x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
-                        dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                        dmeanR_sum_dx_k = (x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                        %dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                     end
                     
                     if jj < obj.N
@@ -902,12 +918,14 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %dc = [dc, dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
                     dc = [dc, dmeanR_sum_du_k];
                 end
-                
+                 
                 % scale this robust cost
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
                 
-                obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                end
                 
                 % dx = diag(sqrt(eps(x_full)));
                 % for i=1:obj.N
@@ -942,10 +960,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % X0_m = [x_full; u_full_m];
                 % [cp,~] = robustVariancecost_ML_check(obj, X0_p);
                 % [cm,~] = robustVariancecost_ML_check(obj, X0_m);
-                 
+                
                 tElapsed = toc(tStart);
-                fprintf('ML robust cost: %4.4f\n',c);
-                 
+                fprintf('ML robust cost: %4.8f\n',c);
+                fprintf('ML robust mean deviation norm-2 value: %4.8f\n',c_mean);
+                fprintf('ML robust covariance trace value: %4.8f\n',c_quad);
+                
                 % % check gradient
                 % disp('check gradient')
                 % c_numeric = c;
@@ -1374,62 +1394,75 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 global timestep_updated
                 global x_previous
                 global df_previous
-                
-                x_full = x_full + randn(size(x_full))*0.1;
-                u_full = u_full + randn(size(u_full))*0.1;
-                
-                tic
+
                 x = reshape(x_full, obj.nx, obj.N);
                 u = reshape(u_full, obj.nu, obj.N);
                 nq = obj.plant.getNumPositions;
                 nv = obj.plant.getNumVelocities;
+                nx = nq+nv;
                 nu = obj.nu;%obj.plant.getNumInputs;
-                
+
                 % sigma points
                 Px = zeros(obj.nx,obj.nx,obj.N);
                 Px(:,:,1) = obj.cached_Px(:,:,1);
+                Px_init = Px(:,:,1);
                 
-                % disturbance variance
-                % currently only consider object horizontal 2D position and friction coefficient
-                Pw = diag([0.01]); %[to be tuned]
-                scale = .01;% 1e-10;% [to be tuned]
-                w = 0.5/scale^2;
-                nw = size(Pw,1);
-                n_sampling_point = 2*(obj.nx+nw);
-                w_avg = 1/n_sampling_point;
+                if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                end
                 
-                w_mu = ones(1,n_sampling_point);
-                w_phi = zeros(1,n_sampling_point);
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
-                    w_mu = load('friction_coeff_noise.dat');
+                    w_mu = obj.plant.uncertain_mu_set;
+                    w_noise = [w_mu];
+                    Pw = diag([0.01]);
                 elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
-                    w_phi = load('initial_position_noise.dat');
+                    w_phi = obj.plant.uncertain_position_set;
+                    w_noise = [w_phi];
+                    Pw = diag([0.0032,0.0037]); 
                 elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
-                    w_mu = load('friction_coeff_noise.dat');
-                    w_phi = load('initial_position_noise.dat');
+                    w_mu = obj.plant.uncertain_mu_set;
+                    w_phi = obj.plant.uncertain_position_set;
+                    w_noise = [w_mu;w_phi];
+                    Pw = diag([0.01, 0.0032,0.0037]);
+                elseif isempty(obj.plant.uncertainty_source)
+                    Pw = [];
+                    w_noise = [];
                 elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
                     w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
                     save -ascii friction_coeff_noise.dat w_mu
-                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
-                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
                     %w_phi = [x;y];%height noise
                     %save -ascii initial_position_noise.dat w_phi
+                    w_noise = [w_mu];
                 end
-                w_noise = [w_mu];%[w_phi;w_mu]
+                
+                % disturbance variance
+                % currently only consider object horizontal 2D position and friction coefficient
+                scale = .01;% [to be tuned]
+                w = 0.5/scale^2;
+                nw = size(Pw,1);
+                sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+                if sampling_method == 1
+                    n_sampling_point = 1;%2*(obj.nx+nw);
+                elseif sampling_method == 2
+                    n_sampling_point = 5;
+                    w_state = load('state_noise_small.dat');%std:0.001
+                    %w_state = 0.001*randn(28,62);
+                    %save -ascii state_noise_small.dat w_state
+                end
+                w_avg = 1/n_sampling_point; 
                 K = obj.options.K;
-                eta_final = ones(obj.N,1);
                 
                 %initialize c and dc
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                c = trace(Px(:,:,1));
-                % c_quadratic = 0;
-                c_variance = 0;
+                %c = 0;
+                c = trace(Px_init);
+                c_mean = 0;
+                c_quad = trace(Px_init);
+                %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                
-                % initialize gradient of Tr(V) w.r.t state vector x
-                dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
-                dTrVdu(:,:,1) = zeros(obj.N-1,nu);
                 
                 % time counter
                 tStart = tic;
@@ -1442,126 +1475,121 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 obj.plant.time_step = timestep_updated;
                 df_previous_full = [];
                 xdn_previous_full = [];
-                
-                for k = 1:obj.N-1%[Ye: double check the index]
-                    %Propagate sigma points through nonlinear dynamics
-                    if k == 1
-                        [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
-                        if d
-                            diverge = k;
-                            return;
+                noise_sample_type = 1;
+
+                for k = 1:obj.N-1
+                    if sampling_method == 1
+                        %Propagate sigma points through nonlinear dynamics
+                        if k == 1
+                            Px_init = obj.cached_Px(:,:,1);
+                            [S,d] = chol(blkdiag(Px_init, Pw),'lower');
+                            if d
+                                diverge = k;
+                                return;
+                            end
+                            S = scale*S;
+                            try
+                                Sig(:,:,k) = [S -S];
+                            catch
+                                keyboard
+                            end
+                            
+                            if isempty(w_noise)
+                                for j = 1:n_sampling_point
+                                    Sig(1:nx,j,k) = Sig(1:nx,j,k) + x(:,k);
+                                end
+                            else
+                                for j = 1:n_sampling_point
+                                    Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
+                                end
+                            end
                         end
-                        
-                        S = scale*S;
-                        try
-                            Sig(:,:,k) = [S -S];
-                        catch
-                            keyboard
+                    elseif sampling_method == 2
+                        if k == 1
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = x(:,k) + w_state(:,j);
+                            end
+                            Sig(:,:,k) = Sig_init(:,:,k);
+                        else
+                            Sig_init(:,:,k) = Sig(:,:,k);
                         end
-                        
-                        for j = 1:(2*(obj.nx+nw))
-                            Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
-                            % add terrain height uncertainty sample to each sigma point
-                        end
-                        x_mean(:,k) = zeros(obj.nx,1);
-                        for j = 1:n_sampling_point
-                            x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
-                        end
-                        c = c + norm(x(:,k)-x_mean(:,k))^2;
-                        
-                        % debugging
-                        c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
-                        % c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
-                        % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
-                        % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
-                        % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                        % for j = 1:n_sampling_point
-                        %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
-                        %     c_variance(j,k) = kappa*trace(w*V_comp);
-                        %
-                        %     % debugging
-                        %     V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
-                        %     c_variance_x(j,k) = kappa*trace(w*V_comp_x);
-                        %     V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
-                        %     c_variance_xd(j,k) = kappa*trace(w*V_comp_xd);
-                        %
-                        %     V_comp_z = (Sig(3,j,k)-x_mean(3,k))*(Sig(3,j,k)-x_mean(3,k))';
-                        %     c_variance_z(j,k) = kappa*trace(w*V_comp_z);
-                        %     V_comp_zd = (Sig(9,j,k)-x_mean(9,k))*(Sig(9,j,k)-x_mean(9,k))';
-                        %     c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
-                        % end
                     end
-                    k
                     
-                    nx = obj.nx;
-                    nu = obj.nu;
-                    nxhalf = nx/2;
+                    if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                        if k > obj.options.N1%don't apply object position uncertainty after contact happens
+                            obj.plant.uncertainty_source = 'friction_coeff';
+                        end
+                    end
                     
                     % begin of original non-parallezied version
                     for j = 1:n_sampling_point
-                        %Generate sigma points from Px(i+1)
-                        %[the sequential way to be modified]
-                        % currently, only use the initial variance matrix for the propogation
-                        
-                        % a hacky way to implement the control input
-                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
-                        Hinv(:,:,j,k) = inv(H);
-                        
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                             obj.plant.uncertain_mu = w_mu(j);
                         elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
                             obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                         elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                             obj.plant.uncertain_mu = w_mu(j);
                             obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                         end
+                        
+                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
+                        Hinv(:,:,j,k) = inv(H);
                         
                         % add feedback control
                         t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
-                        u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
+                        u_fdb_k = u(:,k) - K*(Sig_init(1:nx,j,k) - x(:,k));
                         
                         if k > 1
                             x_previous = xdn_previous_full(:,j);
                             df_previous = df_previous_full(:,:,j);
                         end
                         
-                        [xdn(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k);
-                        %toc
-                        
-                        %numerical diff
-                        dt = diag(sqrt(eps(t)));
-                        dx = diag(sqrt(eps(Sig(1:obj.nx,j,k))));
-                        du = diag(sqrt(eps(u_fdb_k)));
-                        
-                        [xdnp,df] = obj.plant.update(t+dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        [xdnm,df] = obj.plant.update(t-dt,Sig(1:obj.nx,j,k),u_fdb_k);
-                        df(:,1) = (xdnp-xdnm)/(2*dt);
-                        
-                        N_finite_diff_x = length(Sig(1:obj.nx,j,k));
-                        tic
-                        for m = 1:N_finite_diff_x
-                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)+dx(:,m),u_fdb_k);
-                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k)-dx(:,m),u_fdb_k);
-                            df(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        if noise_sample_type == 1
+                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
+                        elseif noise_sample_type == 2
+                            xdn_analytical(:,j) = zeros(nx,1);
+                            df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                            for kk=1:length(w_noise)
+                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
+                                xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                            end
+                            xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                            df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                         end
+                        % %numerical diff
+                        % dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+                        % dx = diag(max(sqrt(eps(Sig(1:nx,j,k))), 1e-7));
+                        % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                        %
+                        % [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig(1:nx,j,k),u_fdb_k);
+                        % [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig(1:nx,j,k),u_fdb_k);
+                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                        %
+                        % N_finite_diff_x = length(Sig(1:nx,j,k));
+                        % for m = 1:N_finite_diff_x
+                        %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)+dx(:,m),u_fdb_k);
+                        %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)-dx(:,m),u_fdb_k);
+                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        % end
+                        %
+                        % N_finite_diff_u = length(u_fdb_k);
+                        % for m = 1:N_finite_diff_u
+                        %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k+du(:,m));
+                        %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k-du(:,m));
+                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        % end
+                        % df(:,:,j) = df_numeric;
                         
-                        N_finite_diff_u = length(u_fdb_k);
+                        % ToDo: check numerical gradient accuracy
+                        xdn(:,j) = xdn_analytical(:,j);
+                        df(:,:,j) = df_analytical(:,:,j);
                         
-                        for m = 1:N_finite_diff_u
-                            [xdnp,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k+du(:,m));
-                            [xdnm,df_numerical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k-du(:,m));
-                            df(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                        end
-                        % only columns 9,12,13,14 occasionally have value differences.
-                        
-                        if (sum(sum(abs(df(:,:,j) - df_numerical))) > 1e-2)
-                            keyboard
-                        end
-                        
-                        Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx,j);
-                        
-                        dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end,j);
-                        dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1,j) - dfdu(:,:,j,k+1)*K;
+                        Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                        dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                        dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
                         dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                     end
                     xdn_previous_full = xdn;
@@ -1588,7 +1616,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %     t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
                     %     %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
                     %
-                    %     %[xdn,df] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                    %     %[xdn,df] = obj.plant.update(t,Sig(1:nx,j,k),u_fdb_k);
                     %     [xdn(:,jj),df(:,:,jj)] = feval(plant_update,timestep_updated,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
                     % end
                     %
@@ -1605,103 +1633,93 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     % end
                     
                     % calculate mean and variance w.r.t. [x_k] from sigma points
-                    x_mean(:,k+1) = zeros(obj.nx,1);
+                    x_mean(:,k+1) = zeros(nx,1);
                     for j = 1:n_sampling_point
-                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
                     end
                     
-                    % shift sigma point
-                    for j = 1:n_sampling_point
-                        Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
-                        eta_optimal = etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
-                        if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
-                            eta_final(k+1) = eta_optimal;
-                        end
-                    end
+                    % % shift sigma point
+                    % for j = 1:n_sampling_point
+                    %     Sig(1:nx,j,k+1) = Sig(1:nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                    %     eta_optimal = etaEstimation(Sig(1:nx,j,k+1),x(:,k+1));
+                    %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
+                    %         eta_final(k+1) = eta_optimal;
+                    %     end
+                    % end
                     
-                    % scale Sigma point deviation by eta
-                    for j = 1:n_sampling_point
-                        Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
-                    end
+                    % % scale Sigma point deviation by eta
+                    % for j = 1:n_sampling_point
+                    %     Sig(1:nx,j,k+1) = eta_final(k+1)*(Sig(1:nx,j,k+1) - x(:,k+1)) + x(:,k+1);
+                    % end
                     
-                    % recalculate mean and variance w.r.t. [x_k] from sigma points
-                    x_mean(:,k+1) = zeros(obj.nx,1);
-                    for j = 1:n_sampling_point
-                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
-                    end
+                    % % recalculate mean and variance w.r.t. [x_k] from sigma points
+                    % x_mean(:,k+1) = zeros(nx,1);
+                    % for j = 1:n_sampling_point
+                    %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                    % end
                     
-                    % check that the mean deviation term is cancelled out
-                    if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
-                        disp('shifting scheme is not correct')
-                        keyboard
-                    end
+                    % % check that the mean deviation term is cancelled out
+                    % if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                    %     disp('shifting scheme is not correct')
+                    %     keyboard
+                    % end
                     
-                    Px(:,:,k+1) = zeros(obj.nx);
+                    Px(:,:,k+1) = zeros(nx);
                     for j = 1:n_sampling_point
-                        Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
+                        Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,j,k+1)-x_mean(:,k+1))*(Sig(1:nx,j,k+1)-x_mean(:,k+1))';
                     end
                     
                     % accumulate returned cost
-                    c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    % debugging
-                    % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
-                    % c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
-                    % c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
-                    % c_quadratic_zd(k+1) = norm(x(7,k+1)-x_mean(9,k+1))^2;
-                    
-                    for j = 1:n_sampling_point
-                        V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
-                        c = c + trace(w*V_comp);
-                        
-                        % % debugging
-                        % c_variance(j,k+1) = kappa*trace(w*V_comp);
-                        %
-                        % V_comp_x = (Sig(1,j,k+1)-x_mean(1,k+1))*(Sig(1,j,k+1)-x_mean(1,k+1))';
-                        % c_variance_x(j,k+1) = kappa*trace(w*V_comp_x);
-                        % V_comp_xd = (Sig(7,j,k+1)-x_mean(7,k+1))*(Sig(7,j,k+1)-x_mean(7,k+1))';
-                        % c_variance_xd(j,k+1) = kappa*trace(w*V_comp_xd);
-                        %
-                        % V_comp_z = (Sig(3,j,k+1)-x_mean(3,k+1))*(Sig(3,j,k+1)-x_mean(3,k+1))';
-                        % c_variance_z(j,k+1) = kappa*trace(w*V_comp_z);
-                        % V_comp_zd = (Sig(9,j,k+1)-x_mean(9,k+1))*(Sig(9,j,k+1)-x_mean(9,k+1))';
-                        % c_variance_zd(j,k+1) = kappa*trace(w*V_comp_zd);
-                    end
+                    c = c + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                    %    + nx/2*log(2*pi);%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    c = c + trace(Px(:,:,k+1));%ML mean deviation version
+                    % note that: 1/2 coefficient is removed.
+                    c_mean = c_mean + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
+                    c_quad = c_quad + trace(Px(:,:,k+1));
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
-                    dTrVdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
+                    dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
+                    dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+
+                    % derivative of variance matrix
+                    % gradient of Tr(V) w.r.t state vector x
+                    dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
                     dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
                     
                     for j=k:-1:1
-                        dTrVdx(j,:,k+1) = zeros(1,obj.nx);
+                        dTrVdx(j,:,k+1) = zeros(1,nx);
                         dTrVdu(j,:,k+1) = zeros(1,nu);
                         
                         % gradient w.r.t state x
-                        dSig_m_kplus1_dx_sum = zeros(obj.nx);
+                        dSig_m_kplus1_dx_sum = zeros(nx);
                         % gradient w.r.t control u
-                        dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                        dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
-                        dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
+                        dSig_m_kplus1_du_sum = zeros(nx,nu);
+                        dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
+                        dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
                         
                         for i=1:n_sampling_point
                             if i == 1
-                                for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                     % gradient of Tr(V_{k+1}) w.r.t control x and u
-                                    dSig_m_kplus1_dx = zeros(obj.nx);
-                                    dSig_m_kplus1_du = zeros(obj.nx,1);
+                                    dSig_m_kplus1_dx = zeros(nx);
+                                    dSig_m_kplus1_du = zeros(nx,1);
                                     
                                     chain_rule_indx = k-j;
                                     if j ~= 1
-                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                        %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
                                     else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
                                         dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
                                     end
                                     dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
                                     
                                     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                        dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_dx;
-                                        dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_du;
+                                        dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
+                                        dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
                                         chain_rule_indx = chain_rule_indx - 1;
                                     end
                                     dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
@@ -1709,72 +1727,98 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                 end
                             end
                             
-                            % run 2*(obj.nx+nw) times in total to obtain
+                            % run 2*(nx+nw) times in total to obtain
                             % gradient w.r.t sigma points
-                            dSig_i_kplus1_dx = zeros(obj.nx);
-                            dSig_i_kplus1_du = zeros(obj.nx,nu);
+                            dSig_i_kplus1_dx = zeros(nx);
+                            dSig_i_kplus1_du = zeros(nx,nu);
                             chain_rule_indx = k-j;
                             if j ~= 1
-                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
                             else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
                                 dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
                             end
                             dSig_i_kplus1_du = dfdu(:,:,i,j+1);
                             
                             while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_dx;
-                                dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_du;
+                                dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
+                                dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
                                 chain_rule_indx = chain_rule_indx - 1;
                             end
-                            % new sigma point due to resampling mechanism
-                            dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                            dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                            
+                            dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                            
+                            %% new sigma point due to resampling mechanism
+                            %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                         end
                         
-                        dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
-                        dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
+                        % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
+                        % dSig_kplus1_du_sum_resample = zeros(nx,nu);
+                        %
+                        % for i =1:n_sampling_point
+                        %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                        %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                        % end
+                        %
+                        % for i =1:n_sampling_point
+                        %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                        %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                        % end
                         
-                        for i =1:n_sampling_point
-                            dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
-                            dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
-                        end
-                        
-                        for i =1:n_sampling_point
-                            dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
-                            dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
-                        end
+                        % gradient of mean residual w.r.t state x and control u, assume norm 2
+                        dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+                        dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+                        %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                        %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                     end
                     
                     % induced by resampling mechanism
-                    % dTrVdx(k+1,:,k+1) = zeros(obj.nx); since
-                    % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(obj.nx);
+                    % dTrVdx(k+1,:,k+1) = zeros(nx); since
+                    % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(nx);
                 end
-                tElapsed = toc(tStart);
                 
                 dc = [];
                 % cost gradient w.r.t x at first time step is zero
-                for k=1:obj.N % index for x_k
+                for jj=1:obj.N % index for x_k
                     dTrV_sum_dx_k = zeros(1, obj.nx);
-                    for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
-                        dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(k,:,kk);
+                    if (jj == 1)
+                        dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
+                    else
+                        dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                        %dmeanR_sum_dx_k = (inv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                     end
-                    dc = [dc, dTrV_sum_dx_k];
+                    
+                    for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                        dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
+                        dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
+                    end
+                    dc = [dc, 1/2*dmeanR_sum_dx_k+dTrV_sum_dx_k];
+                    %dc = [dc, dmeanR_sum_dx_k];
+                    %dc = [dc, dTrV_sum_dx_k];
                 end
                 
                 % cost gradient w.r.t u at first time step is zero, since
                 % c(k=1) = Px(:,:,1)
-                for k=1:obj.N % index for u_k
+                for jj=1:obj.N % index for u_k
                     dTrV_sum_du_k = zeros(1, nu);
-                    for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
-                        dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(k,:,kk);
+                    dmeanR_sum_du_k = zeros(1, nu);
+                    for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                        dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
+                        dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                     end
-                    dc = [dc, dTrV_sum_du_k];
+                    dc = [dc, 1/2*dmeanR_sum_du_k+dTrV_sum_du_k];
+                    %dc = [dc, dmeanR_sum_du_k];
+                    %dc = [dc, dTrV_sum_du_k];
                 end
                 
                 % scale this robust cost
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
-                toc
+                fprintf('robust cost function: %4.8f\n',c);
+                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean);
+                fprintf('robust covariance trace value: %4.8f\n',c_quad);
                 
                 % figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
                 % figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');
@@ -1902,10 +1946,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 % check gradient
                 %disp('check gradient')
-                %c_numeric = c;
-                %dc_numeric = dc;
+                c_numeric = c;
+                dc_numeric = dc;
                 %
-                %X0 = [x_full; u_full];
+                X0 = [x_full; u_full];
                 %X0 = X0 + randn(size(X0))*0.1;
                 %
                 %fun = @(X0) robustVariancecost_check(obj, X0);
@@ -1948,244 +1992,323 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 end
                 
                 function [c,dc] = robustVariancecost_check(obj, X0)
-                    x_full = X0(1:obj.nx*obj.N);
-                    u_full = X0(obj.nx*obj.N+1:end);
+                    x_full = X0(1:nx*obj.N);
+                    u_full = X0(nx*obj.N+1:end);
                     
-                    x = reshape(x_full, obj.nx, obj.N);
-                    u = reshape(u_full, obj.nu, obj.N);
-                    nq = obj.plant.getNumPositions;
-                    nv = obj.plant.getNumVelocities;
-                    nu = obj.nu;%obj.plant.getNumInputs;
+                    x = reshape(x_full, nx, obj.N);
+                    u = reshape(u_full, nu, obj.N);
                     
                     % sigma points
                     Px = zeros(obj.nx,obj.nx,obj.N);
                     Px(:,:,1) = obj.cached_Px(:,:,1);
+                    Px_init = Px(:,:,1);
+                    
+                    if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                        obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    end
+                    
+                    if strcmp(obj.plant.uncertainty_source,'friction_coeff')
+                        w_mu = obj.plant.uncertain_mu_set;
+                        w_noise = [w_mu];
+                        Pw = diag([0.01]);
+                    elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
+                        w_phi = obj.plant.uncertain_position_set;
+                        w_noise = [w_phi];
+                        Pw = diag([0.0032,0.0037]);
+                    elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
+                        w_mu = obj.plant.uncertain_mu_set;
+                        w_phi = obj.plant.uncertain_position_set;
+                        w_noise = [w_mu;w_phi];
+                        Pw = diag([0.01, 0.0032,0.0037]);
+                    elseif isempty(obj.plant.uncertainty_source)
+                        Pw = [];
+                        w_noise = [];
+                    elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
+                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
+                        save -ascii friction_coeff_noise.dat w_mu
+                        %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+                        %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
+                        %w_phi = [x;y];%height noise
+                        %save -ascii initial_position_noise.dat w_phi
+                        w_noise = [w_mu];
+                    end
                     
                     % disturbance variance
                     % currently only consider object horizontal 2D position and friction coefficient
-                    Pw = diag([0.01]); %[to be tuned]
-                    scale = .01;% 1e-10;% [to be tuned]
+                    scale = .01;% [to be tuned]
                     w = 0.5/scale^2;
                     nw = size(Pw,1);
-                    n_sampling_point = 2*(obj.nx+nw);
-                    w_avg = 1/n_sampling_point;
-                    
-                    w_mu = ones(1,n_sampling_point);
-                    w_phi = zeros(1,n_sampling_point);
-                    if strcmp(obj.plant.uncertainty_source,'friction_coeff')
-                        w_mu = load('friction_coeff_noise.dat');
-                    elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
-                        w_phi = load('initial_position_noise.dat');
-                    elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
-                        w_mu = load('friction_coeff_noise.dat');
-                        w_phi = load('initial_position_noise.dat');
-                    elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
-                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);%friction coefficient noise
-                        save -ascii friction_coeff_noise.dat w_mu
-                        %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(1,1));
-                        %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
-                        %w_phi = [x;y];%height noise
-                        %save -ascii initial_position_noise.dat w_phi
+                    sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+                    if sampling_method == 1
+                        n_sampling_point = 1;%2*(obj.nx+nw);
+                    elseif sampling_method == 2
+                        n_sampling_point = 5;
+                        w_state = load('state_noise_small.dat');%std:0.001
+                        %w_state = 0.001*randn(28,62);
+                        %save -ascii state_noise_small.dat w_state
                     end
-                    w_noise = [w_mu];%[w_phi;w_mu]
+                    w_avg = 1/n_sampling_point;
                     K = obj.options.K;
-                    eta_final = ones(obj.N,1);
                     
                     %initialize c and dc
                     x_mean = zeros(obj.nx, obj.N);
                     % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
-                    c = trace(Px(:,:,1));
-                    % c_quadratic = 0;
-                    c_variance = 0;
+                    c = 0;
+                    %c = trace(Px_init);
+                    %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                     dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
-                    
-                    % initialize gradient of Tr(V) w.r.t state vector x
-                    dTrVdx(:,:,1) = zeros(obj.N-1,obj.nx);
-                    dTrVdu(:,:,1) = zeros(obj.N-1,nu);
                     
                     % time counter
                     tStart = tic;
                     
-                    for k = 1:obj.N-1%[Ye: double check the index]
-                        %Propagate sigma points through nonlinear dynamics
-                        if k == 1
-                            % reassign initial object position
-                            % currently, not treat object x-y position as
-                            % disturbance
-                            %if strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                            %    x(9:10,k) = x(9:10,k) + w_phi(:,j);
-                            %end
-                            
-                            [S,d] = chol(blkdiag(Px(:,:,k), Pw),'lower');
-                            if d
-                                diverge = k;
-                                return;
+                    function [xdn,df] = objPlantUpdate(timestep_updated,Sig,u_fdb_k)
+                        [xdn,df] = obj.plant.update(timestep_updated,Sig,u_fdb_k);
+                    end
+                    
+                    plant_update = @objPlantUpdate;
+                    obj.plant.time_step = timestep_updated;
+                    df_previous_full = [];
+                    xdn_previous_full = [];
+                    noise_sample_type = 1;
+                    
+                    for k = 1:obj.N-1
+                        if sampling_method == 1
+                            %Propagate sigma points through nonlinear dynamics
+                            if k == 1
+                                Px_init = obj.cached_Px(:,:,1);
+                                [S,d] = chol(blkdiag(Px_init, Pw),'lower');
+                                if d
+                                    diverge = k;
+                                    return;
+                                end
+                                S = scale*S;
+                                try
+                                    Sig(:,:,k) = [S -S];
+                                catch
+                                    keyboard
+                                end
+                                
+                                if isempty(w_noise)
+                                    for j = 1:n_sampling_point
+                                        Sig(1:nx,j,k) = Sig(1:nx,j,k) + x(:,k);
+                                    end
+                                else
+                                    for j = 1:n_sampling_point
+                                        Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
+                                    end
+                                end
                             end
-                            
-                            S = scale*S;
-                            try
-                                Sig(:,:,k) = [S -S];
-                            catch
-                                keyboard
+                        elseif sampling_method == 2
+                            if k == 1
+                                for j = 1:n_sampling_point
+                                    Sig(:,j,k) = x(:,k) + w_state(:,j);
+                                end
                             end
-                            
-                            for j = 1:(2*(obj.nx+nw))
-                                Sig(:,j,k) =  Sig(:,j,k) + [x(:,k); w_noise(:,k)];
-                                % add terrain height uncertainty sample to each sigma point
-                            end
-                            x_mean(:,k) = zeros(obj.nx,1);
-                            for j = 1:n_sampling_point
-                                x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:obj.nx,j,k);
-                            end
-                            c = c + norm(x(:,k)-x_mean(:,k))^2;
-                            
-                            % debugging
-                            c_quadratic(k) = norm(x(:,k)-x_mean(:,k))^2;
-                            % c_quadratic_x(k) = norm(x(1,k)-x_mean(1,k))^2;
-                            % c_quadratic_xd(k) = norm(x(7,k)-x_mean(7,k))^2;
-                            % c_quadratic_z(k) = norm(x(3,k)-x_mean(3,k))^2;
-                            % c_quadratic_zd(k) = norm(x(9,k)-x_mean(9,k))^2;
-                            % for j = 1:n_sampling_point
-                            %     V_comp = (Sig(1:obj.nx,j,k)-x_mean(:,k))*(Sig(1:obj.nx,j,k)-x_mean(:,k))';
-                            %     c_variance(j,k) = kappa*trace(w*V_comp);
-                            %
-                            %     % debugging
-                            %     V_comp_x = (Sig(1,j,k)-x_mean(1,k))*(Sig(1,j,k)-x_mean(1,k))';
-                            %     c_variance_x(j,k) = kappa*trace(w*V_comp_x);
-                            %     V_comp_xd = (Sig(7,j,k)-x_mean(7,k))*(Sig(7,j,k)-x_mean(7,k))';
-                            %     c_variance_xd(j,k) = kappa*trace(w*V_comp_xd);
-                            %
-                            %     V_comp_z = (Sig(3,j,k)-x_mean(3,k))*(Sig(3,j,k)-x_mean(3,k))';
-                            %     c_variance_z(j,k) = kappa*trace(w*V_comp_z);
-                            %     V_comp_zd = (Sig(9,j,k)-x_mean(9,k))*(Sig(9,j,k)-x_mean(9,k))';
-                            %     c_variance_zd(j,k) = kappa*trace(w*V_comp_zd);
-                            % end
                         end
-                        k
+                        
+                        if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                            if k > obj.options.N1%don't apply object position uncertainty after contact happens
+                                obj.plant.uncertainty_source = 'friction_coeff';
+                            end
+                        end
+                        
+                        % begin of original non-parallezied version
                         for j = 1:n_sampling_point
-                            %Generate sigma points from Px(i+1)
-                            %[the sequential way to be modified]
-                            % currently, only use the initial variance matrix for the propogation
-                            %j
-                            
-                            % a hacky way to implement the control input
-                            [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:obj.nx/2,j,k),Sig(obj.nx/2+1:obj.nx,j,k));
-                            Hinv(:,:,j,k) = inv(H);
-                            
                             if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                                 obj.plant.uncertain_mu = w_mu(j);
+                            elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                            elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                                obj.plant.uncertain_mu = w_mu(j);
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
                             end
+                            
+                            [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nx/2,j,k),Sig(nx/2+1:nx,j,k));
+                            Hinv(:,:,j,k) = inv(H);
                             
                             % add feedback control
                             t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
-                            u_fdb_k = u(:,k) - K*(Sig(1:obj.nx,j,k) - x(:,k));
-                            [xdn,df_analytical] = obj.plant.update(t,Sig(1:obj.nx,j,k),u_fdb_k);
+                            u_fdb_k = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
                             
-                            Sig(1:obj.nx,j,k+1) = xdn(1:obj.nx);
+                            if k > 1
+                                x_previous = xdn_previous_full(:,j);
+                                df_previous = df_previous_full(:,:,j);
+                            end
                             
-                            dfdu(:,:,j,k+1) = df(:,end-obj.nu+1:end);%[obj.plant.timestep^2*Hinv(:,:,j,k)*B(:,:,j,k);obj.plant.timestep*Hinv(:,:,j,k)*B(:,:,j,k)];
-                            dfdSig(:,:,j,k+1) = df(:,2:obj.nx+1) - dfdu(:,:,j,k+1)*K;
+                            if noise_sample_type == 1
+                                [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k);
+                            elseif noise_sample_type == 2
+                                xdn_analytical(:,j) = zeros(nx,1);
+                                df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                                for kk=1:length(w_noise)
+                                    [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k);
+                                    xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                    df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                                end
+                                xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                                df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
+                            end
+                            % %numerical diff
+                            % dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+                            % dx = diag(max(sqrt(eps(Sig(1:nx,j,k))), 1e-7));
+                            % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                            %
+                            % [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig(1:nx,j,k),u_fdb_k);
+                            % [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig(1:nx,j,k),u_fdb_k);
+                            % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                            %
+                            % N_finite_diff_x = length(Sig(1:nx,j,k));
+                            % for m = 1:N_finite_diff_x
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)+dx(:,m),u_fdb_k);
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)-dx(:,m),u_fdb_k);
+                            %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                            % end
+                            %
+                            % N_finite_diff_u = length(u_fdb_k);
+                            % for m = 1:N_finite_diff_u
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k+du(:,m));
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k-du(:,m));
+                            %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                            % end
+                            % df(:,:,j) = df_numeric;
+                            
+                            % ToDo: check numerical gradient accuracy
+                            xdn(:,j) = xdn_analytical(:,j);
+                            df(:,:,j) = df_analytical(:,:,j);
+                            
+                            Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                            dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                            dfdSig(:,:,j,k+1) = df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*K;
                             dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*K;
                         end
+                        xdn_previous_full = xdn;
+                        df_previous_full = df;
+                        
+                        % end of original non-parallezied version
+                        
+                        % parfor jj = 1:n_sampling_point
+                        %     %Generate sigma points from Px(i+1)
+                        %     %[the sequential way to be modified]
+                        %     % currently, only use the initial variance matrix for the propogation
+                        %
+                        %     % a hacky way to implement the control input
+                        %     %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+                        %     %Hinv(:,:,j,k) = inv(H(:,:,j));
+                        %
+                        %     % this friction coeff samples are directly embedded
+                        %     % as the input argument of update() function
+                        %     %if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                        %     %obj.plant.uncertain_mu = w_mu(j);
+                        %     %end
+                        %
+                        %     % add feedback control
+                        %     t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                        %     %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+                        %
+                        %     %[xdn,df] = obj.plant.update(t,Sig(1:nx,j,k),u_fdb_k);
+                        %     [xdn(:,jj),df(:,:,jj)] = feval(plant_update,timestep_updated,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
+                        % end
+                        %
+                        % for jj=1:n_sampling_point
+                        %
+                        %     [H(:,:,jj),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,jj,k),Sig(nxhalf+1:nx,jj,k));
+                        %     Hinv(:,:,jj,k) = inv(H(:,:,jj));
+                        %
+                        %     Sig(1:nx,jj,k+1) = xdn(1:nx,jj);
+                        %
+                        %     dfdu(:,:,jj,k+1) = df(:,end-nu+1:end,jj);
+                        %     dfdSig(:,:,jj,k+1) = df(:,2:nx+1,jj) - dfdu(:,:,jj,k+1)*K;
+                        %     dfdx(:,:,jj,k+1) = dfdu(:,:,jj,k+1)*K;
+                        % end
                         
                         % calculate mean and variance w.r.t. [x_k] from sigma points
-                        x_mean(:,k+1) = zeros(obj.nx,1);
+                        x_mean(:,k+1) = zeros(nx,1);
                         for j = 1:n_sampling_point
-                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
+                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
                         end
                         
-                        % shift sigma point
-                        for j = 1:n_sampling_point
-                            Sig(1:obj.nx,j,k+1) = Sig(1:obj.nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
-                            eta_optimal = etaEstimation(Sig(1:obj.nx,j,k+1),x(:,k+1));
-                            if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
-                                eta_final(k+1) = eta_optimal;
-                            end
-                        end
+                        % % shift sigma point
+                        % for j = 1:n_sampling_point
+                        %     Sig(1:nx,j,k+1) = Sig(1:nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                        %     eta_optimal = etaEstimation(Sig(1:nx,j,k+1),x(:,k+1));
+                        %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
+                        %         eta_final(k+1) = eta_optimal;
+                        %     end
+                        % end
                         
-                        % scale Sigma point deviation by eta
-                        for j = 1:n_sampling_point
-                            Sig(1:obj.nx,j,k+1) = eta_final(k+1)*(Sig(1:obj.nx,j,k+1) - x(:,k+1)) + x(:,k+1);
-                        end
+                        % % scale Sigma point deviation by eta
+                        % for j = 1:n_sampling_point
+                        %     Sig(1:nx,j,k+1) = eta_final(k+1)*(Sig(1:nx,j,k+1) - x(:,k+1)) + x(:,k+1);
+                        % end
                         
-                        % recalculate mean and variance w.r.t. [x_k] from sigma points
-                        x_mean(:,k+1) = zeros(obj.nx,1);
-                        for j = 1:n_sampling_point
-                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:obj.nx,j,k+1);
-                        end
+                        % % recalculate mean and variance w.r.t. [x_k] from sigma points
+                        % x_mean(:,k+1) = zeros(nx,1);
+                        % for j = 1:n_sampling_point
+                        %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                        % end
                         
-                        % check that the mean deviation term is cancelled out
-                        if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
-                            disp('shifting scheme is not correct')
-                            keyboard
-                        end
+                        % % check that the mean deviation term is cancelled out
+                        % if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                        %     disp('shifting scheme is not correct')
+                        %     keyboard
+                        % end
                         
-                        Px(:,:,k+1) = zeros(obj.nx);
+                        Px(:,:,k+1) = zeros(nx);
                         for j = 1:n_sampling_point
-                            Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
+                            Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,j,k+1)-x_mean(:,k+1))*(Sig(1:nx,j,k+1)-x_mean(:,k+1))';
                         end
                         
                         % accumulate returned cost
-                        c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;
-                        % debugging
-                        % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
-                        % c_quadratic_x(k+1) = norm(x(1,k+1)-x_mean(1,k+1))^2;
-                        % c_quadratic_xd(k+1) = norm(x(7,k+1)-x_mean(7,k+1))^2;
-                        % c_quadratic_z(k+1) = norm(x(3,k+1)-x_mean(3,k+1))^2;
-                        % c_quadratic_zd(k+1) = norm(x(7,k+1)-x_mean(9,k+1))^2;
-                        
-                        for j = 1:n_sampling_point
-                            V_comp = (Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))*(Sig(1:obj.nx,j,k+1)-x_mean(:,k+1))';
-                            c = c + trace(w*V_comp);
-                            
-                            % % debugging
-                            % c_variance(j,k+1) = kappa*trace(w*V_comp);
-                            %
-                            % V_comp_x = (Sig(1,j,k+1)-x_mean(1,k+1))*(Sig(1,j,k+1)-x_mean(1,k+1))';
-                            % c_variance_x(j,k+1) = kappa*trace(w*V_comp_x);
-                            % V_comp_xd = (Sig(7,j,k+1)-x_mean(7,k+1))*(Sig(7,j,k+1)-x_mean(7,k+1))';
-                            % c_variance_xd(j,k+1) = kappa*trace(w*V_comp_xd);
-                            %
-                            % V_comp_z = (Sig(3,j,k+1)-x_mean(3,k+1))*(Sig(3,j,k+1)-x_mean(3,k+1))';
-                            % c_variance_z(j,k+1) = kappa*trace(w*V_comp_z);
-                            % V_comp_zd = (Sig(9,j,k+1)-x_mean(9,k+1))*(Sig(9,j,k+1)-x_mean(9,k+1))';
-                            % c_variance_zd(j,k+1) = kappa*trace(w*V_comp_zd);
-                        end
+                        c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                        %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                        %    + nx/2*log(2*pi);%ML mean deviation version
+                        %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                        %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                        %c = c + trace(Px(:,:,k+1));%ML mean deviation version
+                        % note that: 1/2 coefficient is removed.
                         
                         % derivative of variance matrix
                         % gradient of Tr(V) w.r.t state vector x
-                        dTrVdx(:,:,k+1) = zeros(obj.N-1,obj.nx);
+                        dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
+                        dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+                        
+                        % derivative of variance matrix
+                        % gradient of Tr(V) w.r.t state vector x
+                        dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
                         dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
                         
                         for j=k:-1:1
-                            dTrVdx(j,:,k+1) = zeros(1,obj.nx);
+                            dTrVdx(j,:,k+1) = zeros(1,nx);
                             dTrVdu(j,:,k+1) = zeros(1,nu);
                             
                             % gradient w.r.t state x
-                            dSig_m_kplus1_dx_sum = zeros(obj.nx);
+                            dSig_m_kplus1_dx_sum = zeros(nx);
                             % gradient w.r.t control u
-                            dSig_m_kplus1_du_sum = zeros(obj.nx,nu);
-                            dSig_i_kplus1_dx_resample = zeros(obj.nx,obj.nx,n_sampling_point);
-                            dSig_i_kplus1_du_resample = zeros(obj.nx,nu,n_sampling_point);
+                            dSig_m_kplus1_du_sum = zeros(nx,nu);
+                            dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
+                            dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
                             
                             for i=1:n_sampling_point
                                 if i == 1
-                                    for m = 1:(2*(obj.nx+nw))% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                    for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
                                         % gradient of Tr(V_{k+1}) w.r.t control x and u
-                                        dSig_m_kplus1_dx = zeros(obj.nx);
-                                        dSig_m_kplus1_du = zeros(obj.nx,1);
+                                        dSig_m_kplus1_dx = zeros(nx);
+                                        dSig_m_kplus1_du = zeros(nx,1);
                                         
                                         chain_rule_indx = k-j;
                                         if j ~= 1
-                                            dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                            %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                            dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
                                         else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
                                             dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
                                         end
                                         dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
                                         
                                         while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                            dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_dx;
-                                            dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_m_kplus1_du;
+                                            dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
+                                            dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
                                             chain_rule_indx = chain_rule_indx - 1;
                                         end
                                         dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
@@ -2193,64 +2316,88 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     end
                                 end
                                 
-                                % run 2*(obj.nx+nw) times in total to obtain
+                                % run 2*(nx+nw) times in total to obtain
                                 % gradient w.r.t sigma points
-                                dSig_i_kplus1_dx = zeros(obj.nx);
-                                dSig_i_kplus1_du = zeros(obj.nx,nu);
+                                dSig_i_kplus1_dx = zeros(nx);
+                                dSig_i_kplus1_du = zeros(nx,nu);
                                 chain_rule_indx = k-j;
                                 if j ~= 1
-                                    dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                    %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                    dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
                                 else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
                                     dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
                                 end
                                 dSig_i_kplus1_du = dfdu(:,:,i,j+1);
                                 
                                 while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                    dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_dx;
-                                    dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*eta_final(k+2-chain_rule_indx)*(1-w_avg)*dSig_i_kplus1_du;
+                                    dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
+                                    dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
                                     chain_rule_indx = chain_rule_indx - 1;
                                 end
-                                % new sigma point due to resampling mechanism
-                                dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                                dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                                
+                                dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                                dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                                
+                                %% new sigma point due to resampling mechanism
+                                %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                                %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
                             end
                             
-                            dSig_kplus1_dx_sum_resample = zeros(obj.nx,obj.nx);
-                            dSig_kplus1_du_sum_resample = zeros(obj.nx,nu);
+                            % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
+                            % dSig_kplus1_du_sum_resample = zeros(nx,nu);
+                            %
+                            % for i =1:n_sampling_point
+                            %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                            %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                            % end
+                            %
+                            % for i =1:n_sampling_point
+                            %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                            %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                            % end
                             
-                            for i =1:n_sampling_point
-                                dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
-                                dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
-                            end
-                            
-                            for i =1:n_sampling_point
-                                dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
-                                dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
-                            end
+                            % gradient of mean residual w.r.t state x and control u, assume norm 2
+                            dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+                            dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+                            %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                            %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                         end
                         
                         % induced by resampling mechanism
-                        % dTrVdx(k+1,:,k+1) = zeros(obj.nx); since
-                        % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(obj.nx);
+                        % dTrVdx(k+1,:,k+1) = zeros(nx); since
+                        % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(nx);
                     end
-                    tElapsed = toc(tStart);
                     
                     dc = [];
                     % cost gradient w.r.t x at first time step is zero
-                    for k=1:obj.N % index for x_k
-                        for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
-                            dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(k,:,kk);
+                    for jj=1:obj.N % index for x_k
+                        dTrV_sum_dx_k = zeros(1, obj.nx);
+                        if (jj == 1)
+                            dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
+                        else
+                            dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                            %dmeanR_sum_dx_k = (inv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
                         end
+                        
+                        for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                            dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
+                            dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
+                        end
+                        %dc = [dc, dmeanR_sum_dx_k+dTrV_sum_dx_k];
                         dc = [dc, dTrV_sum_dx_k];
                     end
                     
                     % cost gradient w.r.t u at first time step is zero, since
                     % c(k=1) = Px(:,:,1)
-                    for k=1:obj.N % index for u_k
+                    for jj=1:obj.N % index for u_k
                         dTrV_sum_du_k = zeros(1, nu);
-                        for kk = k+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
-                            dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(k,:,kk);
+                        dmeanR_sum_du_k = zeros(1, nu);
+                        for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                            dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
+                            dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                         end
+                        %dc = [dc, dmeanR_sum_du_k+dTrV_sum_du_k];
+                        %dc = [dc, dmeanR_sum_du_k];
                         dc = [dc, dTrV_sum_du_k];
                     end
                     
@@ -2310,6 +2457,1040 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         end
                     end
                     eta_optimal = eta_optimal/5;% scale down
+                end
+            end
+            
+            function [c,dc] = robustVariancecost_scaled(obj, x_full, u_full)
+                global timestep_updated
+                global x_previous
+                global df_previous
+
+                x = reshape(x_full, obj.nx, obj.N);
+                u = reshape(u_full, obj.nu, obj.N);
+                nq = obj.plant.getNumPositions;
+                nv = obj.plant.getNumVelocities;
+                nx = nq+nv;
+                nu = obj.nu;%obj.plant.getNumInputs;
+
+                % sigma points
+                Px = zeros(obj.nx,obj.nx,obj.N);
+                Px(:,:,1) = obj.cached_Px(:,:,1);
+                Px_init = Px(:,:,1);
+                
+                if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                end
+                
+                if strcmp(obj.plant.uncertainty_source,'friction_coeff')
+                    w_mu = obj.plant.uncertain_mu_set;
+                    w_noise = [w_mu];
+                    Pw = diag([0.01]);
+                elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
+                    w_phi = obj.plant.uncertain_position_set;
+                    w_noise = [w_phi];
+                    Pw = diag([0.0032,0.0037]); 
+                elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
+                    w_mu = obj.plant.uncertain_mu_set;
+                    w_phi = obj.plant.uncertain_position_set;
+                    w_noise = [w_mu;w_phi];
+                    Pw = diag([0.01, 0.0032,0.0037]);
+                elseif isempty(obj.plant.uncertainty_source)
+                    Pw = [];
+                    w_noise = [];
+                elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
+                    w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
+                    save -ascii friction_coeff_noise.dat w_mu
+                    %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+                    %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
+                    %w_phi = [x;y];%height noise
+                    %save -ascii initial_position_noise.dat w_phi
+                    w_noise = [w_mu];
+                end
+                
+                % disturbance variance
+                % currently only consider object horizontal 2D position and friction coefficient
+                scale = .01;% [to be tuned]
+                w = 0.5/scale^2;
+                nw = size(Pw,1);
+                sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+                if sampling_method == 1
+                    n_sampling_point = 1;%2*(obj.nx+nw);
+                elseif sampling_method == 2
+                    n_sampling_point = 5;
+                    w_state = load('state_noise_small.dat');%std:0.001
+                    %w_state = 0.001*randn(28,62);
+                    %save -ascii state_noise_small.dat w_state
+                end
+                w_avg = 1/n_sampling_point; 
+                K = obj.options.K;
+                alpha = obj.options.alpha;
+                 
+                %initialize c and dc
+                x_mean = zeros(obj.nx, obj.N);
+                % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
+                %c = 0;
+                c = trace(Px_init);
+                %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+                c_quad = trace(Px_init);
+                c_mean = 0;
+                dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
+                
+                % time counter
+                tStart = tic;
+                
+                function [xdn,df] = objPlantUpdate(timestep_updated,Sig,u_fdb_k)
+                    [xdn,df] = obj.plant.update(timestep_updated,Sig,u_fdb_k);
+                end
+                
+                plant_update = @objPlantUpdate;
+                obj.plant.time_step = timestep_updated;
+                df_previous_full = [];
+                xdn_previous_full = [];
+                noise_sample_type = 1;
+
+                for k = 1:obj.N-1
+                    if sampling_method == 1
+                        %Propagate sigma points through nonlinear dynamics
+                        if k == 1
+                            Px_init = obj.cached_Px(:,:,1);
+                            [S,d] = chol(blkdiag(Px_init, Pw),'lower');
+                            if d
+                                diverge = k;
+                                return;
+                            end
+                            S = scale*S;
+                            try
+                                Sig(:,:,k) = [S -S];
+                            catch
+                                keyboard
+                            end
+                            
+                            if isempty(w_noise)
+                                for j = 1:n_sampling_point
+                                    Sig(1:nx,j,k) = Sig(1:nx,j,k) + x(:,k);
+                                end
+                            else
+                                for j = 1:n_sampling_point
+                                    Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
+                                end
+                            end
+                        end 
+                    elseif sampling_method == 2
+                        if k == 1
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = x(:,k) + w_state(:,j);
+                            end
+                            Sig(:,:,k) = Sig_init(:,:,k);
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = (1-alpha)*Sig(:,j,k) + alpha*x(:,k);
+                            end
+                        end
+                    end
+                    
+                    if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                        if k > obj.options.N1%don't apply object position uncertainty after contact happens
+                            obj.plant.uncertainty_source = 'friction_coeff';
+                        end
+                    end
+                    
+                    % begin of original non-parallezied version
+                    for j = 1:n_sampling_point
+                        if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                            obj.plant.uncertain_mu = w_mu(j);
+                        elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                            obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                            obj.plant.uncertain_mu = w_mu(j);
+                            obj.plant.uncertain_phi = w_phi(:,j);
+                            Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        end
+                        
+                        [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
+                        Hinv(:,:,j,k) = inv(H);
+                        
+                        % add feedback control
+                        t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                        u_fdb_k = u(:,k) - K*(Sig_init(1:nx,j,k) - x(:,k));
+                        
+                        if k > 1
+                            x_previous = xdn_previous_full(:,j);
+                            df_previous = df_previous_full(:,:,j);
+                        end
+                        
+                        if noise_sample_type == 1
+                            [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
+                        elseif noise_sample_type == 2
+                            xdn_analytical(:,j) = zeros(nx,1);
+                            df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                            for kk=1:length(w_noise)
+                                [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
+                                xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                            end
+                            xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                            df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
+                        end
+                        % %numerical diff
+                        % dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+                        % dx = diag(max(sqrt(eps(Sig(1:nx,j,k))), 1e-7));
+                        % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                        %
+                        % [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig(1:nx,j,k),u_fdb_k);
+                        % [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig(1:nx,j,k),u_fdb_k);
+                        % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                        %
+                        % N_finite_diff_x = length(Sig(1:nx,j,k));
+                        % for m = 1:N_finite_diff_x
+                        %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)+dx(:,m),u_fdb_k);
+                        %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)-dx(:,m),u_fdb_k);
+                        %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                        % end
+                        %
+                        % N_finite_diff_u = length(u_fdb_k);
+                        % for m = 1:N_finite_diff_u
+                        %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k+du(:,m));
+                        %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k-du(:,m));
+                        %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                        % end
+                        % df(:,:,j) = df_numeric;
+                        
+                        % ToDo: check numerical gradient accuracy
+                        xdn(:,j) = xdn_analytical(:,j);
+                        df(:,:,j) = df_analytical(:,:,j);
+                        
+                        Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                        dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                        dfdSig(:,:,j,k+1) = (1-alpha)*df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*(1-alpha)*K;
+                        dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*(1-alpha)*K + alpha*df(:,2:nx+1,j);
+                    end
+                    xdn_previous_full = xdn;
+                    df_previous_full = df;
+                    
+                    % end of original non-parallezied version
+                    
+                    % parfor jj = 1:n_sampling_point
+                    %     %Generate sigma points from Px(i+1)
+                    %     %[the sequential way to be modified]
+                    %     % currently, only use the initial variance matrix for the propogation
+                    %
+                    %     % a hacky way to implement the control input
+                    %     %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+                    %     %Hinv(:,:,j,k) = inv(H(:,:,j));
+                    %
+                    %     % this friction coeff samples are directly embedded
+                    %     % as the input argument of update() function
+                    %     %if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                    %     %obj.plant.uncertain_mu = w_mu(j);
+                    %     %end
+                    %
+                    %     % add feedback control
+                    %     t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                    %     %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+                    %
+                    %     %[xdn,df] = obj.plant.update(t,Sig(1:nx,j,k),u_fdb_k);
+                    %     [xdn(:,jj),df(:,:,jj)] = feval(plant_update,timestep_updated,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
+                    % end
+                    %
+                    % for jj=1:n_sampling_point
+                    %
+                    %     [H(:,:,jj),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,jj,k),Sig(nxhalf+1:nx,jj,k));
+                    %     Hinv(:,:,jj,k) = inv(H(:,:,jj));
+                    %
+                    %     Sig(1:nx,jj,k+1) = xdn(1:nx,jj);
+                    %
+                    %     dfdu(:,:,jj,k+1) = df(:,end-nu+1:end,jj);
+                    %     dfdSig(:,:,jj,k+1) = df(:,2:nx+1,jj) - dfdu(:,:,jj,k+1)*K;
+                    %     dfdx(:,:,jj,k+1) = dfdu(:,:,jj,k+1)*K;
+                    % end
+                    
+                    % calculate mean and variance w.r.t. [x_k] from sigma points
+                    x_mean(:,k+1) = zeros(nx,1);
+                    for j = 1:n_sampling_point
+                        x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                    end
+                    
+                    % % shift sigma point
+                    % for j = 1:n_sampling_point
+                    %     Sig(1:nx,j,k+1) = Sig(1:nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                    %     eta_optimal = etaEstimation(Sig(1:nx,j,k+1),x(:,k+1));
+                    %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
+                    %         eta_final(k+1) = eta_optimal;
+                    %     end
+                    % end
+                    
+                    % % scale Sigma point deviation by eta
+                    % for j = 1:n_sampling_point
+                    %     Sig(1:nx,j,k+1) = eta_final(k+1)*(Sig(1:nx,j,k+1) - x(:,k+1)) + x(:,k+1);
+                    % end
+                    
+                    % % recalculate mean and variance w.r.t. [x_k] from sigma points
+                    % x_mean(:,k+1) = zeros(nx,1);
+                    % for j = 1:n_sampling_point
+                    %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                    % end
+                    
+                    % % check that the mean deviation term is cancelled out
+                    % if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                    %     disp('shifting scheme is not correct')
+                    %     keyboard
+                    % end
+                    
+                    Px(:,:,k+1) = zeros(nx);
+                    for j = 1:n_sampling_point
+                        Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,j,k+1)-x_mean(:,k+1))*(Sig(1:nx,j,k+1)-x_mean(:,k+1))';
+                    end
+                    
+                    % accumulate returned cost
+                    c = c + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                    %    + nx/2*log(2*pi);%ML mean deviation version
+                    %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                    c = c + trace(Px(:,:,k+1));%ML mean deviation version
+                    % note that: 1/2 coefficient is removed.
+                    c_mean = c_mean + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
+                    c_quad = c_quad + trace(Px(:,:,k+1));
+                    
+                    % derivative of variance matrix
+                    % gradient of Tr(V) w.r.t state vector x
+                    dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
+                    dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+
+                    % derivative of variance matrix
+                    % gradient of Tr(V) w.r.t state vector x
+                    dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
+                    dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
+                    
+                    for j=k:-1:1
+                        dTrVdx(j,:,k+1) = zeros(1,nx);
+                        dTrVdu(j,:,k+1) = zeros(1,nu);
+                        
+                        % gradient w.r.t state x
+                        dSig_m_kplus1_dx_sum = zeros(nx);
+                        % gradient w.r.t control u
+                        dSig_m_kplus1_du_sum = zeros(nx,nu);
+                        dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
+                        dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
+                        
+                        for i=1:n_sampling_point
+                            if i == 1
+                                for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                    % gradient of Tr(V_{k+1}) w.r.t control x and u
+                                    dSig_m_kplus1_dx = zeros(nx);
+                                    dSig_m_kplus1_du = zeros(nx,1);
+                                    
+                                    chain_rule_indx = k-j;
+                                    if j ~= 1
+                                        %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
+                                    else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                                        dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
+                                    end
+                                    dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
+                                    
+                                    while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                        dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
+                                        dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
+                                        chain_rule_indx = chain_rule_indx - 1;
+                                    end
+                                    dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
+                                    dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
+                                end
+                            end
+                            
+                            % run 2*(nx+nw) times in total to obtain
+                            % gradient w.r.t sigma points
+                            dSig_i_kplus1_dx = zeros(nx);
+                            dSig_i_kplus1_du = zeros(nx,nu);
+                            chain_rule_indx = k-j;
+                            if j ~= 1
+                                %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
+                            else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                                dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
+                            end
+                            dSig_i_kplus1_du = dfdu(:,:,i,j+1);
+                            
+                            while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
+                                dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
+                                chain_rule_indx = chain_rule_indx - 1;
+                            end
+                            
+                            dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                            
+                            %% new sigma point due to resampling mechanism
+                            %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                            %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                        end
+                        
+                        % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
+                        % dSig_kplus1_du_sum_resample = zeros(nx,nu);
+                        %
+                        % for i =1:n_sampling_point
+                        %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                        %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                        % end
+                        %
+                        % for i =1:n_sampling_point
+                        %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                        %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                        % end
+                        
+                        % gradient of mean residual w.r.t state x and control u, assume norm 2
+                        dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+                        dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+                        %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                        %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                    end
+                    
+                    % induced by resampling mechanism
+                    % dTrVdx(k+1,:,k+1) = zeros(nx); since
+                    % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(nx);
+                end
+                
+                dc = [];
+                % cost gradient w.r.t x at first time step is zero
+                for jj=1:obj.N % index for x_k
+                    dTrV_sum_dx_k = zeros(1, obj.nx);
+                    if (jj == 1)
+                        dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
+                    else
+                        dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                        %dmeanR_sum_dx_k = (inv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                    end
+                    
+                    for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                        dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
+                        dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
+                    end
+                    dc = [dc, 1/2*dmeanR_sum_dx_k+dTrV_sum_dx_k];
+                    %dc = [dc, dmeanR_sum_dx_k];
+                    %dc = [dc, dTrV_sum_dx_k];
+                end
+                
+                % cost gradient w.r.t u at first time step is zero, since
+                % c(k=1) = Px(:,:,1)
+                for jj=1:obj.N % index for u_k
+                    dTrV_sum_du_k = zeros(1, nu);
+                    dmeanR_sum_du_k = zeros(1, nu);
+                    for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                        dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
+                        dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
+                    end
+                    dc = [dc, 1/2*dmeanR_sum_du_k+dTrV_sum_du_k];
+                    %dc = [dc, dmeanR_sum_du_k];
+                    %dc = [dc, dTrV_sum_du_k];
+                end
+                
+                % scale this robust cost
+                c = obj.options.contact_robust_cost_coeff*c;
+                dc = obj.options.contact_robust_cost_coeff*dc;
+                fprintf('robust cost function: %4.8f\n',c);
+                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean);
+                fprintf('robust cost covariance trace value: %4.8f\n',c_quad);
+                
+                if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                end
+                
+                % figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
+                % figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');
+                % figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_quadratic_x1');
+                % figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_quadratic_xd1');
+                %
+                % figure(11),hold on;plot(c_quadratic_z,'b-');title('c_quadratic_z');
+                % figure(12),hold on;plot(c_quadratic_zd,'b-');title('c_quadratic_zd');
+                % figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
+                % figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
+                
+                % figure(15)
+                % clf
+                % Sig_permute = permute(Sig,[1,3,2]);
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(1,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(1,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([0,7])
+                % title('Sigma Point x');
+                %
+                % figure(16)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(7,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(7,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([0,11])
+                % title('Sigma Point vx');
+                %
+                % figure(17)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(2,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(2,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([0,4])
+                % title('Sigma Point z');
+                %
+                % figure(18)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(8,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(8,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-7,0])
+                % title('Sigma Point vz');
+                %
+                % figure(19)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(3,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(3,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point first hip');
+                %
+                % figure(20)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(9,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(9,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point hip velocity');
+                %
+                % figure(21)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(4,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(4,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point first knee');
+                %
+                % figure(22)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(10,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(10,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point first knee velocity');
+                %
+                % figure(23)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(5,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(5,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point second hip');
+                %
+                % figure(24)
+                % clf
+                % for j = 1:n_sampling_point
+                %     plot(Sig_permute(6,:,j),'r-')
+                %     hold on;
+                % end
+                % hold on;
+                % plot(x(6,:),'b-','Linewidth',3)
+                % %xlim([0,30]);ylim([-1,1])
+                % title('Sigma Point second knee');
+                
+                %obj.cached_Px = Px;
+                %fprintf('robust cost function: %4.8f\n',c);
+                 
+                % check gradient
+                %disp('check gradient')
+                c_numeric = c;
+                dc_numeric = dc;
+                %
+                X0 = [x_full; u_full];
+                %X0 = X0 + randn(size(X0))*0.1;
+                %
+                %fun = @(X0) robustVariancecost_check(obj, X0);
+                %DerivCheck(fun, X0)
+                %disp('finish numerical gradient');
+                
+                %tic
+                %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                %toc
+                
+                %[c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
+                %
+                %valuecheck(dc,dc_numeric,1e-5);
+                %valuecheck(c,c_numeric,1e-5);
+                
+                function DerivCheck(funptr, X0, ~, varargin)
+                    % DerivCheck(funptr, X0, opts, arg1, arg2, arg3, ....);
+                    %`
+                    %  Checks the analytic gradient of a function 'funptr' at a point X0, and
+                    %  compares to numerical gradient.  Useful for checking gradients computed
+                    %  for fminunc and fmincon.
+                    %
+                    %  Call with same arguments as you would call for optimization (fminunc).
+                    %
+                    % $id$
+                    
+                    [~, JJ] = feval(funptr, X0, varargin{:});  % Evaluate function at X0
+                    
+                    % Pick a small vector in parameter space
+                    rr = sqrt(eps(X0));
+                    
+                    % Evaluate at symmetric points around X0
+                    f1 = feval(funptr, X0-rr/2, varargin{:});  % Evaluate function at X0_minus
+                    f2 = feval(funptr, X0+rr/2, varargin{:});  % Evaluate function at X0_plus
+                    
+                    % Print results
+                    fprintf('Derivs: Analytic vs. Finite Diff = [%.12e, %.12e]\n', dot(rr, JJ), f2-f1);
+                    dd = dot(rr, JJ)-f2+f1;
+                    fprintf('difference between numerical and analytical: %4.15f\n',dd);
+                end
+                
+                function [c,dc] = robustVariancecost_check(obj, X0)
+                    x_full = X0(1:nx*obj.N);
+                    u_full = X0(nx*obj.N+1:end);
+                    
+                    x = reshape(x_full, obj.nx, obj.N);
+                    u = reshape(u_full, obj.nu, obj.N);
+                    nq = obj.plant.getNumPositions;
+                    nv = obj.plant.getNumVelocities;
+                    nx = nq+nv;
+                    nu = obj.nu;%obj.plant.getNumInputs;
+                    
+                    % sigma points
+                    Px = zeros(obj.nx,obj.nx,obj.N);
+                    Px(:,:,1) = obj.cached_Px(:,:,1);
+                    Px_init = Px(:,:,1);
+                    
+                    if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                        obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    end
+                    
+                    if strcmp(obj.plant.uncertainty_source,'friction_coeff')
+                        w_mu = obj.plant.uncertain_mu_set;
+                        w_noise = [w_mu];
+                        Pw = diag([0.01]);
+                    elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
+                        w_phi = obj.plant.uncertain_position_set;
+                        w_noise = [w_phi];
+                        Pw = diag([0.0032,0.0037]);
+                    elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
+                        w_mu = obj.plant.uncertain_mu_set;
+                        w_phi = obj.plant.uncertain_position_set;
+                        w_noise = [w_mu;w_phi];
+                        Pw = diag([0.01, 0.0032,0.0037]);
+                    elseif isempty(obj.plant.uncertainty_source)
+                        Pw = [];
+                        w_noise = [];
+                    elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
+                        w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
+                        save -ascii friction_coeff_noise.dat w_mu
+                        %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+                        %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
+                        %w_phi = [x;y];%height noise
+                        %save -ascii initial_position_noise.dat w_phi
+                        w_noise = [w_mu];
+                    end
+                    
+                    % disturbance variance
+                    % currently only consider object horizontal 2D position and friction coefficient
+                    scale = .01;% [to be tuned]
+                    w = 0.5/scale^2;
+                    nw = size(Pw,1);
+                    sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
+                    if sampling_method == 1
+                        n_sampling_point = 1;%2*(obj.nx+nw);
+                    elseif sampling_method == 2
+                        n_sampling_point = 5;
+                        w_state = load('state_noise_small.dat');%std:0.001
+                        %w_state = 0.001*randn(28,62);
+                        %save -ascii state_noise_small.dat w_state
+                    end
+                    w_avg = 1/n_sampling_point;
+                    K = obj.options.K;
+                    alpha = obj.options.alpha;
+                    
+                    %initialize c and dc
+                    x_mean = zeros(obj.nx, obj.N);
+                    % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
+                    c = 0;
+                    %c = trace(Px_init);
+                    %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+                    dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
+                    
+                    % time counter
+                    tStart = tic;
+                    
+                    function [xdn,df] = objPlantUpdate(timestep_updated,Sig,u_fdb_k)
+                        [xdn,df] = obj.plant.update(timestep_updated,Sig,u_fdb_k);
+                    end
+                    
+                    plant_update = @objPlantUpdate;
+                    obj.plant.time_step = timestep_updated;
+                    df_previous_full = [];
+                    xdn_previous_full = [];
+                    noise_sample_type = 1;
+                    
+                    for k = 1:obj.N-1
+                        if sampling_method == 1
+                            %Propagate sigma points through nonlinear dynamics
+                            if k == 1
+                                Px_init = obj.cached_Px(:,:,1);
+                                [S,d] = chol(blkdiag(Px_init, Pw),'lower');
+                                if d
+                                    diverge = k;
+                                    return;
+                                end
+                                S = scale*S;
+                                try
+                                    Sig(:,:,k) = [S -S];
+                                catch
+                                    keyboard
+                                end
+                                
+                                if isempty(w_noise)
+                                    for j = 1:n_sampling_point
+                                        Sig(1:nx,j,k) = Sig(1:nx,j,k) + x(:,k);
+                                    end
+                                else
+                                    for j = 1:n_sampling_point
+                                        Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
+                                    end
+                                end
+                            end
+                        elseif sampling_method == 2
+                            if k == 1
+                                for j = 1:n_sampling_point
+                                    Sig(:,j,k) = x(:,k) + w_state(:,j);
+                                end
+                            else
+                                for j = 1:n_sampling_point
+                                    Sig(:,j,k) = (1-alpha)*Sig(:,j,k) + alpha*x(:,k);
+                                end
+                            end
+                        end
+                        
+                        if strcmp(obj.options.test_name, 'pick_and_place_motion')
+                            if k > obj.options.N1%don't apply object position uncertainty after contact happens
+                                obj.plant.uncertainty_source = 'friction_coeff';
+                            end
+                        end
+                        
+                        % begin of original non-parallezied version
+                        for j = 1:n_sampling_point
+                            if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                                obj.plant.uncertain_mu = w_mu(j);
+                            elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig(9:10,j,k) = Sig(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                            elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                                obj.plant.uncertain_mu = w_mu(j);
+                                obj.plant.uncertain_phi = w_phi(:,j);
+                                Sig(9:10,j,k) = Sig(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                            end
+                            
+                            [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nx/2,j,k),Sig(nx/2+1:nx,j,k));
+                            Hinv(:,:,j,k) = inv(H);
+                            
+                            % add feedback control
+                            t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                            u_fdb_k = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+                            
+                            if k > 1
+                                x_previous = xdn_previous_full(:,j);
+                                df_previous = df_previous_full(:,:,j);
+                            end
+                            
+                            if noise_sample_type == 1
+                                [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k);
+                            elseif noise_sample_type == 2
+                                xdn_analytical(:,j) = zeros(nx,1);
+                                df_analytical(:,:,j) = zeros(nx,1+nx+nu);
+                                for kk=1:length(w_noise)
+                                    [xdn_analytical_sample(:,j),df_analytical_sample(:,:,j)] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k);
+                                    xdn_analytical(:,j) = xdn_analytical(:,j) + xdn_analytical_sample(:,j);
+                                    df_analytical(:,:,j) = df_analytical(:,:,j) + df_analytical_sample(:,:,j);
+                                end
+                                xdn_analytical(:,j) = xdn_analytical(:,j)/length(w_noise);
+                                df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
+                            end
+                            % %numerical diff
+                            % dt = diag(max(sqrt(eps(timestep_updated)), 1e-7));
+                            % dx = diag(max(sqrt(eps(Sig(1:nx,j,k))), 1e-7));
+                            % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                            %
+                            % [xdnp,~] = feval(plant_update,timestep_updated+dt,Sig(1:nx,j,k),u_fdb_k);
+                            % [xdnm,~] = feval(plant_update,timestep_updated-dt,Sig(1:nx,j,k),u_fdb_k);
+                            % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                            %
+                            % N_finite_diff_x = length(Sig(1:nx,j,k));
+                            % for m = 1:N_finite_diff_x
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)+dx(:,m),u_fdb_k);
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k)-dx(:,m),u_fdb_k);
+                            %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                            % end
+                            %
+                            % N_finite_diff_u = length(u_fdb_k);
+                            % for m = 1:N_finite_diff_u
+                            %     [xdnp,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k+du(:,m));
+                            %     [xdnm,~] = feval(plant_update,timestep_updated,Sig(1:nx,j,k),u_fdb_k-du(:,m));
+                            %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                            % end
+                            % df(:,:,j) = df_numeric;
+                            
+                            % ToDo: check numerical gradient accuracy
+                            xdn(:,j) = xdn_analytical(:,j);
+                            df(:,:,j) = df_analytical(:,:,j);
+                            
+                            Sig(1:nx,j,k+1) = xdn(1:nx,j);
+                            dfdu(:,:,j,k+1) = df(:,end-nu+1:end,j);
+                            dfdSig(:,:,j,k+1) = (1-alpha)*df(:,2:nx+1,j) - dfdu(:,:,j,k+1)*(1-alpha)*K;
+                            dfdx(:,:,j,k+1) = dfdu(:,:,j,k+1)*(1-alpha)*K + alpha*df(:,2:nx+1,j);
+                        end
+                        xdn_previous_full = xdn;
+                        df_previous_full = df;
+                        
+                        % end of original non-parallezied version
+                        
+                        % parfor jj = 1:n_sampling_point
+                        %     %Generate sigma points from Px(i+1)
+                        %     %[the sequential way to be modified]
+                        %     % currently, only use the initial variance matrix for the propogation
+                        %
+                        %     % a hacky way to implement the control input
+                        %     %[H(:,:,j),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,j,k),Sig(nxhalf+1:nx,j,k));
+                        %     %Hinv(:,:,j,k) = inv(H(:,:,j));
+                        %
+                        %     % this friction coeff samples are directly embedded
+                        %     % as the input argument of update() function
+                        %     %if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                        %     %obj.plant.uncertain_mu = w_mu(j);
+                        %     %end
+                        %
+                        %     % add feedback control
+                        %     t = timestep_updated*(k-1);%[double make sure obj.h is updated correctly]
+                        %     %u_fdb_k(:,j) = u(:,k) - K*(Sig(1:nx,j,k) - x(:,k));
+                        %
+                        %     %[xdn,df] = obj.plant.update(t,Sig(1:nx,j,k),u_fdb_k);
+                        %     [xdn(:,jj),df(:,:,jj)] = feval(plant_update,timestep_updated,Sig(1:nx,jj,k),u(:,k) - K*(Sig(1:nx,jj,k) - x(:,k)));
+                        % end
+                        %
+                        % for jj=1:n_sampling_point
+                        %
+                        %     [H(:,:,jj),~,~,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig(1:nxhalf,jj,k),Sig(nxhalf+1:nx,jj,k));
+                        %     Hinv(:,:,jj,k) = inv(H(:,:,jj));
+                        %
+                        %     Sig(1:nx,jj,k+1) = xdn(1:nx,jj);
+                        %
+                        %     dfdu(:,:,jj,k+1) = df(:,end-nu+1:end,jj);
+                        %     dfdSig(:,:,jj,k+1) = df(:,2:nx+1,jj) - dfdu(:,:,jj,k+1)*K;
+                        %     dfdx(:,:,jj,k+1) = dfdu(:,:,jj,k+1)*K;
+                        % end
+                        
+                        % calculate mean and variance w.r.t. [x_k] from sigma points
+                        x_mean(:,k+1) = zeros(nx,1);
+                        for j = 1:n_sampling_point
+                            x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                        end
+                        
+                        % % shift sigma point
+                        % for j = 1:n_sampling_point
+                        %     Sig(1:nx,j,k+1) = Sig(1:nx,j,k+1) - x_mean(:,k+1) + x(:,k+1);
+                        %     eta_optimal = etaEstimation(Sig(1:nx,j,k+1),x(:,k+1));
+                        %     if eta_optimal < eta_final(k+1)% actually represent for k^th time step, use k+1 for notation consistency later
+                        %         eta_final(k+1) = eta_optimal;
+                        %     end
+                        % end
+                        
+                        % % scale Sigma point deviation by eta
+                        % for j = 1:n_sampling_point
+                        %     Sig(1:nx,j,k+1) = eta_final(k+1)*(Sig(1:nx,j,k+1) - x(:,k+1)) + x(:,k+1);
+                        % end
+                        
+                        % % recalculate mean and variance w.r.t. [x_k] from sigma points
+                        % x_mean(:,k+1) = zeros(nx,1);
+                        % for j = 1:n_sampling_point
+                        %     x_mean(:,k+1) = x_mean(:,k+1) + w_avg*Sig(1:nx,j,k+1);
+                        % end
+                        
+                        % % check that the mean deviation term is cancelled out
+                        % if any(abs(x_mean(:,k+1)-x(:,k+1)) > 1e-5)
+                        %     disp('shifting scheme is not correct')
+                        %     keyboard
+                        % end
+                        
+                        Px(:,:,k+1) = zeros(nx);
+                        for j = 1:n_sampling_point
+                            Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,j,k+1)-x_mean(:,k+1))*(Sig(1:nx,j,k+1)-x_mean(:,k+1))';
+                        end
+                        
+                        % accumulate returned cost
+                        c = c + norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                        %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                        %    + nx/2*log(2*pi);%ML mean deviation version
+                        %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                        %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
+                        %c = c + trace(Px(:,:,k+1));%ML mean deviation version
+                        % note that: 1/2 coefficient is removed.
+                        
+                        % derivative of variance matrix
+                        % gradient of Tr(V) w.r.t state vector x
+                        dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
+                        dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+                        
+                        % derivative of variance matrix
+                        % gradient of Tr(V) w.r.t state vector x
+                        dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
+                        dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
+                        
+                        for j=k:-1:1
+                            dTrVdx(j,:,k+1) = zeros(1,nx);
+                            dTrVdu(j,:,k+1) = zeros(1,nu);
+                            
+                            % gradient w.r.t state x
+                            dSig_m_kplus1_dx_sum = zeros(nx);
+                            % gradient w.r.t control u
+                            dSig_m_kplus1_du_sum = zeros(nx,nu);
+                            dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
+                            dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
+                            
+                            for i=1:n_sampling_point
+                                if i == 1
+                                    for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                                        % gradient of Tr(V_{k+1}) w.r.t control x and u
+                                        dSig_m_kplus1_dx = zeros(nx);
+                                        dSig_m_kplus1_du = zeros(nx,1);
+                                        
+                                        chain_rule_indx = k-j;
+                                        if j ~= 1
+                                            %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                            dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
+                                        else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                                            dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
+                                        end
+                                        dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
+                                        
+                                        while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                            dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
+                                            dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
+                                            chain_rule_indx = chain_rule_indx - 1;
+                                        end
+                                        dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
+                                        dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
+                                    end
+                                end
+                                
+                                % run 2*(nx+nw) times in total to obtain
+                                % gradient w.r.t sigma points
+                                dSig_i_kplus1_dx = zeros(nx);
+                                dSig_i_kplus1_du = zeros(nx,nu);
+                                chain_rule_indx = k-j;
+                                if j ~= 1
+                                    %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                                    dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
+                                else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                                    dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
+                                end
+                                dSig_i_kplus1_du = dfdu(:,:,i,j+1);
+                                
+                                while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                    dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
+                                    dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
+                                    chain_rule_indx = chain_rule_indx - 1;
+                                end
+                                
+                                dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                                dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                                
+                                %% new sigma point due to resampling mechanism
+                                %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                                %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                            end
+                            
+                            % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
+                            % dSig_kplus1_du_sum_resample = zeros(nx,nu);
+                            %
+                            % for i =1:n_sampling_point
+                            %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                            %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                            % end
+                            %
+                            % for i =1:n_sampling_point
+                            %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                            %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                            % end
+                            
+                            % gradient of mean residual w.r.t state x and control u, assume norm 2
+                            dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+                            dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+                            %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                            %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                        end
+                        
+                        % induced by resampling mechanism
+                        % dTrVdx(k+1,:,k+1) = zeros(nx); since
+                        % dSig_i_kplus1_dx_resample(:,:,k+1) = zeros(nx);
+                    end
+                    
+                    dc = [];
+                    % cost gradient w.r.t x at first time step is zero
+                    for jj=1:obj.N % index for x_k
+                        dTrV_sum_dx_k = zeros(1, obj.nx);
+                        if (jj == 1)
+                            dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
+                        else
+                            dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                            %dmeanR_sum_dx_k = (inv(Px(:,:,jj))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                        end
+                        
+                        for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                            dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
+                            dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
+                        end
+                        %dc = [dc, dmeanR_sum_dx_k+dTrV_sum_dx_k];
+                        dc = [dc, dmeanR_sum_dx_k];
+                        %dc = [dc, dTrV_sum_dx_k];
+                    end
+                    
+                    % cost gradient w.r.t u at first time step is zero, since
+                    % c(k=1) = Px(:,:,1)
+                    for jj=1:obj.N % index for u_k
+                        dTrV_sum_du_k = zeros(1, nu);
+                        dmeanR_sum_du_k = zeros(1, nu);
+                        for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
+                            dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
+                            dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
+                        end
+                        %dc = [dc, dmeanR_sum_du_k+dTrV_sum_du_k];
+                        dc = [dc, dmeanR_sum_du_k];
+                        %dc = [dc, dTrV_sum_du_k];
+                    end
+                    
+                    % scale this robust cost
+                    c = obj.options.contact_robust_cost_coeff*c;
+                    dc = obj.options.contact_robust_cost_coeff*dc;
                 end
             end
             

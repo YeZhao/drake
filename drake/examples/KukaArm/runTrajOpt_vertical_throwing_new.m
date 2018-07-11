@@ -1,4 +1,4 @@
-function runTrajOpt_vertical_throwing_new%new
+function runTrajOpt_vertical_throwing_new
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -56,7 +56,7 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 2
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
-%trial 4
+%trial 4 
 q1 = q0;
 q1(2) = q1(2) + 0.3;
 %q1(1) = q0(1) + 0.8; 
@@ -87,7 +87,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 1;
-N = 20;%20;%10;
+N = 20;%20;
 Nm = 8;%phase 1: pick
 N1 = Nm;
 N2 = N - Nm;%phase 2: place
@@ -110,7 +110,9 @@ options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
-
+options.test_name = 'regrasping_motion';
+options.alpha = 1;
+ 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
@@ -219,7 +221,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-1);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
