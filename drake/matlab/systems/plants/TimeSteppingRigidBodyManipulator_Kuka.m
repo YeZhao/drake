@@ -8,7 +8,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
         dirty=true;
     end
-     
+    
     properties (SetAccess=protected)
         timestep 
         twoD=false
@@ -19,7 +19,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         z_inactive_guess_tol = .01;
         multiple_contacts = false;
         gurobi_present = false;
-        update_convex = true; 
+        update_convex = true;
         phi_max = 0.1; % m, max contact force distance %this threhold should be small
         phiL_max = 0.05; % m, max contact force distance %this threhold should be different than phi_max
         active_threshold = 0.1; % height below which contact forces are calculated
@@ -27,7 +27,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         active_collision_options; % used in contactConstraint
         body
     end
-     
+    
     methods
         function obj=TimeSteppingRigidBodyManipulator_Kuka(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
@@ -912,7 +912,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             S_weighting = blkdiag(S_weighting_array{:});
             
-            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-2*eye(num_params);
+            Q = 0.5*V'*S_weighting*(A+R)*S_weighting*V + 1e-6*eye(num_params);
              
             % N*(A*z + c) - v_min \ge 0
             Ain = zeros(num_active+nL,num_params);
@@ -2689,7 +2689,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         function model = setParams(model,p)
             model.manip = setParams(model.manip,p);
         end
-        
+         
         function terrain_contact_point_struct = getTerrainContactPoints(obj,varargin)
             terrain_contact_point_struct = getTerrainContactPoints(obj.manip,varargin{:});
         end

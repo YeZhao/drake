@@ -83,7 +83,7 @@ q0(4) = q0(4) + 0.4;
 q0(8) = 0.08;
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
-
+ 
 u0 = r.findTrim(q0);
 u0(8) = -5;
 um = r.findTrim(qm);
@@ -95,8 +95,8 @@ T0 = 3;
 N = 20;%10;
 N1 = 8;%phase 1: pick
 N2 = N - N1;%phase 2: place
-
-r.uncertainty_source = 'friction_coeff';%'friction_coeff+object_initial_position';%'object_initial_position'
+ 
+r.uncertainty_source = 'friction_coeff+object_initial_position';%'friction_coeff+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
@@ -104,16 +104,18 @@ if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source
 end
 if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
     w_phi = load('initial_position_noise.dat');
-    r.uncertain_position_set = w_phi;
-    r.uncertain_position_mean = mean(w_phi,2);
+    phi_scaling = 1;
+    r.uncertain_position_set = w_phi/phi_scaling;
+    r.uncertain_position_mean = mean(w_phi/phi_scaling,2);
 end
 
-options.contact_robust_cost_coeff = 1;%important, if it is 0.1, can not solve successfully.
+options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
+options.test_name = 'pick_and_place_motion';
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -137,7 +139,7 @@ u_init1 = zeros(length(u0),N1);
 for i=1:length(u0)
     u_init1(i,:) = linspace(u0(i,:),um(i,:),N1);
 end
-
+ 
 %% phase 2
 for i=1:length(xm)
     x_init2(i,:) = linspace(xm(i,:),x1(i,:),N2);
@@ -184,7 +186,7 @@ T_span = T0;%[3 T0];
 % x0_lb = [q0;-inf*ones(14,1)];
 % x1_ub = [q1;inf*ones(14,1)];
 % x1_lb = [q1;-inf*ones(14,1)];
-
+ 
 % xfinal_lb = x1 - 0.05*ones(length(x1),1);
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
 % xm_lb = xm - 0.05*ones(length(xm),1);
@@ -198,7 +200,7 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
 % traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
@@ -230,7 +232,7 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % state_cost.base_roll = 1;
 % state_cost.base_yaw = 1;
 % state_cost = double(state_cost);
-% Q = diag(state_cost);
+% Q = diag(state_cost); 
 
 % traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
@@ -242,11 +244,11 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-4);
- 
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
+
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
 persistent sum_running_cost
@@ -256,7 +258,18 @@ tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
+
 keyboard
+
+h_nominal = z(traj_opt.h_inds);
+t_nominal = [0; cumsum(h_nominal)];
+x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
+u_nominal = utraj.eval(t_nominal);
+c_nominal = ctraj.eval(t_nominal);
+c_normal_nominal = c_nominal(1:6:end,:);
+figure(1)
+plot(t_nominal,x_nominal(8,:));
+title('gripper position')
 
 %% stabilization
 ts = getBreaks(xtraj);
@@ -384,13 +397,6 @@ output_select(1).output=1;
 warning(S);
 xtraj_new = simulate(sys,xtraj.tspan,x0);
 playback(v,xtraj_new,struct('slider',true));
-
-h_nominal = z(traj_opt.h_inds);
-t_nominal = [0; cumsum(h_nominal)];
-x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
-u_nominal = utraj.eval(t_nominal);
-c_nominal = ctraj.eval(t_nominal);
-c_normal_nominal = c_nominal(1:6:end,:);
 
     function [f,df] = running_cost_fun(h,x,u)
         R = 1e-6*eye(nu);
