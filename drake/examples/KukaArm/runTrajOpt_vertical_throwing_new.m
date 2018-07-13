@@ -56,7 +56,7 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 2
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
-%trial 4 
+%trial 4
 q1 = q0;
 q1(2) = q1(2) + 0.3;
 %q1(1) = q0(1) + 0.8; 
@@ -87,7 +87,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 1;
-N = 20;%20;
+N = 20;
 Nm = 8;%phase 1: pick
 N1 = Nm;
 N2 = N - Nm;%phase 2: place
@@ -111,8 +111,8 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
 options.test_name = 'regrasping_motion';
-options.alpha = 1;
- 
+options.alpha = 0.8;
+
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
@@ -164,6 +164,20 @@ T_span = T0;%[3 T0];
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
 % xm_lb = xm - 0.05*ones(length(xm),1);
 % xm_ub = xm + 0.05*ones(length(xm),1);
+
+warm_start = 1;
+
+if warm_start
+    load('robust_vertical_regrasping_robust_coeff_p1_5_sample_points_alpha_1.mat');
+    traj_init.x = PPTrajectory(foh(t_init,x_nominal));
+    traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
+    
+    traj_init.u = PPTrajectory(foh(t_init,u_nominal));
+    traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
+    options.alpha = 0.8;
+    v=r.constructVisualizer;
+    iteration_index = [];
+end
  
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
@@ -221,20 +235,125 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-2);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
-persistent sum_running_cost
-persistent cost_index
- 
+if ~warm_start
+    persistent sum_running_cost
+    persistent cost_index
+end
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
 v.playback(xtraj,struct('slider',true));
+h_nominal = z(traj_opt.h_inds);
+t_nominal = [0; cumsum(h_nominal)];
+x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
+u_nominal = utraj.eval(t_nominal);
+c_nominal = ctraj.eval(t_nominal);
 keyboard
 
-% % simulate with LQR gains
+%% stabilization
+ts = getBreaks(xtraj);
+h = T0/(N-1);
+utraj_data = utraj.eval(ts);
+xtraj_data = xtraj.eval(ts);
+ctraj_data = ctraj.eval(ts);
+nD = 4;
+nC = 12;
+ 
+kp = 1000;
+kd = sqrt(kp)*2;
+kp_gripper = 2000;
+kd_gripper = sqrt(kp_gripper)*2;
+
+K = [blkdiag(kp*eye(nq_arm-1),kp_gripper),zeros(nq_arm,nq_object),blkdiag(kd*eye(nq_arm-1),kd_gripper),zeros(nq_arm,nq_object)];
+
+g = 9.81;
+
+q_real(:,1) = xtraj_data(1:nq,1);
+qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
+x_real_full(:,1) = xtraj_data(:,1);
+
+stabilitation_scenario = 'friction_coeff';
+
+if isempty(stabilitation_scenario)
+    sample_length = 1;
+end
+
+if strcmp(stabilitation_scenario, 'friction_coeff')
+    w_mu = load('friction_coeff_noise.dat');
+    sample_length = length(w_mu);
+end
+
+if strcmp(stabilitation_scenario, 'object_initial_position')
+    w_phi = load('initial_position_noise.dat');
+    %w_phi = w_phi/terrain_height_scale_factor;
+    r.uncertain_position_set = w_phi;
+    r.uncertain_position_mean = mean(w_phi,2);
+    sample_length = length(w_phi);
+end
+
+if strcmp(stabilitation_scenario, 'friction_coeff+object_initial_position')
+    w_mu = load('friction_coeff_noise.dat');
+    w_phi = load('initial_position_noise.dat');
+    %w_phi = w_phi/terrain_height_scale_factor;
+    r.uncertain_position_set = w_phi;
+    r.uncertain_position_mean = mean(w_phi);
+    sample_length = length(w_phi);
+end
+
+for m=1:sample_length
+    if strcmp(stabilitation_scenario, 'friction_coeff')
+        r.uncertainty_source = 'friction_coeff';
+        r.uncertain_mu = w_mu(m);
+    elseif strcmp(stabilitation_scenario, 'object_initial_position')
+        r.uncertainty_source = 'object_initial_position';
+        r.uncertain_phi = w_phi(m,:);
+    elseif strcmp(stabilitation_scenario, 'friction_coeff+object_initial_position')
+        r.uncertainty_source = 'friction_coeff+object_initial_position';
+        r.uncertain_phi = w_phi(m,:);
+    end
+     
+    for i=1:N-1
+        %feedback ctrl in q position
+        F_fb(:,i) = K(:,1:nq)*(xtraj_data(1:nq,i) - q_real(:,i)) + K(:,nq+1:nq+nv)*(xtraj_data(1+nq:nq+nv,i) - qdot_real(:,i));
+        %feedforward
+        F_ff(:,i) = utraj_data(:,i);
+        F_net(:,i) = F_fb(:,i) + F_ff(:,i);
+        
+        [xdn,~] = r.update(T0/(N-1),x_real_full(:,i),F_net(:,i));
+        x_real_full(:,i+1) = xdn;
+        q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
+        qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
+    end
+     
+    x_simulated = x_real_full;
+    xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+    xtraj_simulated = xtraj_simulated.setOutputFrame(r.getStateFrame);
+    v.playback(xtraj_simulated,struct('slider',true));
+    
+    % figure(4)
+    % hold on;
+    % plot(x_real_full(1,:), x_real_full(3,:),'r-');
+    % hold on;
+    % plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+    % xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+    % title('joint trajectory','fontsize',22)
+    % %legend('passive case','robust case')
+    % ylim([0,2.1])
+    
+    disp('-------------')
+    fprintf('sample index: %4d\n',m);
+    fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
+    fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
+    fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
+end
+keyboard
+
+%% simulate with LQR gains
 % % LQR Cost Matrices
 Q = diag(10*ones(1,nx));
 R = .1*eye(nu);

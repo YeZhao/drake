@@ -243,7 +243,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_scaled(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-             
+            
             %if (obj.nC > 0)
             %    obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
             %end
@@ -252,7 +252,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 y = [x;gamma;lambda];
                 global f_accumulate;
                 global number_of_call;
-                
+                 
                 if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
                     sample_num = length(obj.plant.uncertain_mu_set);
                     for i=1:sample_num
@@ -876,7 +876,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     dCovdu(:,:,pp) = dCovdu(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_du_set(nn,pp,i) - w_avg*dSig_m_kplus1_du_sum(nn,pp));
                                 end
                             end
-                        end 
+                        end
                         %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
                         %dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
                         dmeanRdx(k,pp,k+1) = dmeanRdx(k,pp,k+1) + trace(dCovdx(:,:,pp));
@@ -2896,6 +2896,60 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
                     obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
                 end
+                
+                % figure(1)
+                % kkk = 2;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
+                %
+                % figure(2)
+                % kkk = 4;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
+                %
+                % figure(3)
+                % kkk = 6;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
+                %
+                % figure(4)
+                % kkk = 8;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
+                %
+                % figure(5)
+                % kkk = 9;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
+                %
+                % figure(6)
+                % kkk = 11;
+                % plot(x(kkk,:),'b-');
+                % hold on;
+                % for j = 1:n_sampling_point
+                % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
+                % hold on;
+                % end
                 
                 % figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
                 % figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');

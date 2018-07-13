@@ -116,7 +116,7 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
 options.test_name = 'pick_and_place_motion';
-options.alpha = 1;
+options.alpha = 0.4;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -278,12 +278,13 @@ xtraj_data = xtraj.eval(ts);
 ctraj_data = ctraj.eval(ts);
 nD = 4;
 nC = 12;
-lambda_n_data = ctraj_data(1:nD+2:end,:)/h;
 
-kp = 1000;
-kd = sqrt(kp)*1.5;
+kp = 500;
+kd = sqrt(kp)*2;
+kp_gripper = 1000;
+kd_gripper = sqrt(kp_gripper)*2;
 
-K = [kp*eye(nq_arm),kp*eye(nq_arm,nq_object),kd*eye(nq_arm),kd*eye(nq_arm,nq_object)];
+K = [blkdiag(kp*eye(nq_arm-1),kp_gripper),zeros(nq_arm,nq_object),blkdiag(kd*eye(nq_arm-1),kd_gripper),zeros(nq_arm,nq_object)];
 
 g = 9.81;
 
@@ -320,7 +321,6 @@ if strcmp(stabilitation_scenario, 'friction_coeff+object_initial_position')
 end
 
 for m=1:sample_length
-    m
     if strcmp(stabilitation_scenario, 'friction_coeff')
         r.uncertainty_source = 'friction_coeff';
         r.uncertain_mu = w_mu(m);
@@ -339,7 +339,7 @@ for m=1:sample_length
         F_ff(:,i) = utraj_data(:,i);
         F_net(:,i) = F_fb(:,i) + F_ff(:,i);
         
-        [xdn,df] = r.update(T0/(N-1),x_real_full(:,i),F_net(:,i));
+        [xdn,~] = r.update(T0/(N-1),x_real_full(:,i),F_net(:,i));
         x_real_full(:,i+1) = xdn;
         q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
         qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
@@ -350,21 +350,25 @@ for m=1:sample_length
     xtraj_simulated = xtraj_simulated.setOutputFrame(r.getStateFrame);
     v.playback(xtraj_simulated,struct('slider',true));
     
-    figure(4)
-    hold on;
-    plot(x_real_full(1,:), x_real_full(3,:),'r-');
-    hold on;
-    plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
-    xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
-    title('joint trajectory','fontsize',22)
-    %legend('passive case','robust case')
-    ylim([0,2.1])
+    % figure(4)
+    % hold on;
+    % plot(x_real_full(1,:), x_real_full(3,:),'r-');
+    % hold on;
+    % plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+    % xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+    % title('joint trajectory','fontsize',22)
+    % %legend('passive case','robust case')
+    % ylim([0,2.1])
     
-    x_final_dev(:,m) = x_real_full(:,end) - xtraj_data(:,end);
+    disp('-------------')
+    fprintf('sample index: %4d\n',m);
+    fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
+    fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
+    fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
 end
 keyboard
 
-% % simulate with LQR gains
+%% simulate with LQR gains
 % % LQR Cost Matrices
 Q = diag(10*ones(1,nx));
 R = .1*eye(nu);
