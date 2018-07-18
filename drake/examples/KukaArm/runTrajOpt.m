@@ -96,8 +96,9 @@ N = 20;%10;
 N1 = 8;%phase 1: pick
 N2 = N - N1;%phase 2: place
  
-r.uncertainty_source = 'friction_coeff+object_initial_position';%'friction_coeff+object_initial_position';%'object_initial_position'
-if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
+r.uncertainty_source = 'friction_coeff+object_initial_orientation';%'friction_coeff+object_initial_position';%'object_initial_position'
+r.uncertainty_source_default = r.uncertainty_source;
+if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_orientation')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
     r.uncertain_mu_mean = mean(r.uncertain_mu_set);
@@ -108,6 +109,11 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_set = w_phi/phi_scaling;
     r.uncertain_position_mean = mean(w_phi/phi_scaling,2);
 end
+if strcmp(r.uncertainty_source, 'object_initial_orientation') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_orientation')
+    w_ori = load('initial_orientation_noise.dat');
+    r.uncertain_orientation_set = w_ori;
+    r.uncertain_orientation_mean = mean(w_ori,2);
+end
 
 options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
@@ -116,7 +122,7 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
 options.test_name = 'pick_and_place_motion';
-options.alpha = 0.4;
+options.alpha = 1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -183,6 +189,20 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 T_span = T0;%[3 T0];
 % v.playback(traj_init.x,struct('slider',true));
 
+warm_start = 0;
+if warm_start
+    load('robust_test23_pick_and_place_motion_phi_scaling_1_good_motion_quadratic_robust_cost.mat');
+    traj_init.x = PPTrajectory(foh(t_init,x_nominal));
+    traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
+
+    traj_init.u = PPTrajectory(foh(t_init,u_nominal));
+    traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
+    options.alpha = 1;
+    options.test_name = 'pick_and_place_motion';
+    v=r.constructVisualizer;
+    iteration_index = [];
+end
+
 % x0_ub = [q0;inf*ones(14,1)];
 % x0_lb = [q0;-inf*ones(14,1)];
 % x1_ub = [q1;inf*ones(14,1)];
@@ -245,16 +265,18 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
-persistent sum_running_cost
-persistent cost_index
- 
+if ~warm_start
+    persistent sum_running_cost
+    persistent cost_index
+end
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -265,6 +287,7 @@ x_nominal = xtraj.eval(t_nominal);% this is exactly same as z components
 u_nominal = utraj.eval(t_nominal);
 c_nominal = ctraj.eval(t_nominal);
 c_normal_nominal = c_nominal(1:6:end,:);
+lambda_n_data = [];
 figure(1)
 plot(t_nominal,x_nominal(8,:));
 title('gripper position')
@@ -367,6 +390,8 @@ for m=1:sample_length
     fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
 end
 keyboard
+
+df = [];
 
 %% simulate with LQR gains
 % % LQR Cost Matrices

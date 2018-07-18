@@ -56,7 +56,7 @@ rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6))
 %trial 2
 %q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
 %      -0.124;0.78;0.09;0;0;0];
-%trial 4
+%trial 4 
 q1 = q0;
 q1(2) = q1(2) + 0.3;
 %q1(1) = q0(1) + 0.8; 
@@ -111,7 +111,7 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
 options.test_name = 'regrasping_motion';
-options.alpha = 0.8;
+options.alpha = 0.1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -149,7 +149,7 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 % qm(11) = qm(11) + 0.1;% adjust the height
 % xm = [qm;zeros(nv,1)];
 % v.draw(0,xm);
-
+ 
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
 T_span = T0;%[3 T0];
@@ -168,17 +168,17 @@ T_span = T0;%[3 T0];
 warm_start = 1;
 
 if warm_start
-    load('robust_vertical_regrasping_robust_coeff_p1_5_sample_points_alpha_1.mat');
+    load('warm_start_6_robust_vertical_regrasping_robust_coeff_p1_5_sample_points_alpha_p3_with_warmstart5.mat');
     traj_init.x = PPTrajectory(foh(t_init,x_nominal));
     traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
     
     traj_init.u = PPTrajectory(foh(t_init,u_nominal));
     traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
-    options.alpha = 0.8;
+    options.alpha = 0.1;
     v=r.constructVisualizer;
     iteration_index = [];
 end
- 
+
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
@@ -238,12 +238,12 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-2);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
-
+ 
 if ~warm_start
     persistent sum_running_cost
     persistent cost_index
 end
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc

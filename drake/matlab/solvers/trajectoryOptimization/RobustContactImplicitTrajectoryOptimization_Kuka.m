@@ -19,7 +19,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
         jl_lb_ind  % joint indices where the lower bound is finite
         jl_ub_ind % joint indices where the lower bound is finite
         nJL % number of joint limits = length([jl_lb_ind;jl_ub_ind])
-        
+         
         nonlincompl_constraints
         nonlincompl_slack_inds
         
@@ -544,7 +544,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 Px_init = obj.cached_Px(:,:,1);
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                 end
                 
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
@@ -924,7 +924,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 dc = obj.options.contact_robust_cost_coeff*dc;
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                 end
                 
                 % dx = diag(sqrt(eps(x_full)));
@@ -1408,7 +1408,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 Px_init = Px(:,:,1);
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                 end
                 
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
@@ -2004,7 +2004,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     Px_init = Px(:,:,1);
                     
                     if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                        obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                        obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                     end
                     
                     if strcmp(obj.plant.uncertainty_source,'friction_coeff')
@@ -2478,7 +2478,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 Px_init = Px(:,:,1);
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                 end
                 
                 if strcmp(obj.plant.uncertainty_source,'friction_coeff')
@@ -2489,11 +2489,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     w_phi = obj.plant.uncertain_position_set;
                     w_noise = [w_phi];
                     Pw = diag([0.0032,0.0037]); 
+                elseif strcmp(obj.plant.uncertainty_source,'object_initial_orientation')
+                    w_ori = obj.plant.uncertain_orientation_set;
+                    w_noise = [w_ori];
+                    Pw = diag([0.025,0.025]); 
                 elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
                     w_mu = obj.plant.uncertain_mu_set;
                     w_phi = obj.plant.uncertain_position_set;
                     w_noise = [w_mu;w_phi];
                     Pw = diag([0.01, 0.0032,0.0037]);
+                elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_orientation')
+                    w_mu = obj.plant.uncertain_mu_set;
+                    w_ori = obj.plant.uncertain_orientation_set;
+                    w_noise = [w_mu;w_ori];
+                    Pw = diag([0.01, 0.025,0.025]);
                 elseif isempty(obj.plant.uncertainty_source)
                     Pw = [];
                     w_noise = [];
@@ -2521,7 +2530,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
                 end
-                w_avg = 1/n_sampling_point; 
+                w_avg = 1/n_sampling_point;
                 K = obj.options.K;
                 alpha = obj.options.alpha;
                  
@@ -2547,7 +2556,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 df_previous_full = [];
                 xdn_previous_full = [];
                 noise_sample_type = 1;
-
+                global external_force_index;
+                
                 for k = 1:obj.N-1
                     if sampling_method == 1
                         %Propagate sigma points through nonlinear dynamics
@@ -2593,7 +2603,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             obj.plant.uncertainty_source = 'friction_coeff';
                         end
                     end
-                    
+                     
                     % begin of original non-parallezied version
                     for j = 1:n_sampling_point
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
@@ -2601,10 +2611,17 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                         elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
                             obj.plant.uncertain_phi = w_phi(:,j);
                             Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        elseif strcmp(obj.plant.uncertainty_source, 'object_initial_orientation')
+                            obj.plant.uncertain_ori = w_ori(:,j);
+                            Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
                         elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                             obj.plant.uncertain_mu = w_mu(j);
                             obj.plant.uncertain_phi = w_phi(:,j);
                             Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                        elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_orientation')
+                            obj.plant.uncertain_mu = w_mu(j);
+                            obj.plant.uncertain_ori = w_ori(:,j);
+                            Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
                         end
                         
                         [H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
@@ -2619,6 +2636,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             df_previous = df_previous_full(:,:,j);
                         end
                         
+                        external_force_index = j;
                         if noise_sample_type == 1
                             [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep_updated,Sig_init(1:nx,j,k),u_fdb_k);
                         elseif noise_sample_type == 2
@@ -2894,7 +2912,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 fprintf('robust cost covariance trace value: %4.8f\n',c_quad);
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                    obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                    obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                 end
                 
                 % figure(1)
@@ -3139,7 +3157,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     Px_init = Px(:,:,1);
                     
                     if strcmp(obj.options.test_name, 'pick_and_place_motion')
-                        obj.plant.uncertainty_source = 'friction_coeff+object_initial_position';
+                        obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
                     end
                     
                     if strcmp(obj.plant.uncertainty_source,'friction_coeff')

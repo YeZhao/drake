@@ -8,6 +8,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         right_finger_id
         iiwa_link_7_id
         uncertainty_source
+        uncertainty_source_default
         object_initial_position
         friction_coeff
         time_step
@@ -15,8 +16,11 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
         uncertain_mu_mean
         uncertain_mu_set
         uncertain_phi
+        uncertain_ori
         uncertain_position_mean
         uncertain_position_set
+        uncertain_orientation_mean
+        uncertain_orientation_set
     end
     
     methods

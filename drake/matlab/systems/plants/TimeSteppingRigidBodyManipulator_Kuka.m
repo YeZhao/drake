@@ -2,7 +2,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
     % A discrete time system which simulates (an Euler approximation of) the
     % manipulator equations, with contact / limits resolved using the linear
     % complementarity problem formulation of contact in Stewart96.
-     
+    
     properties (Access=protected)
         manip  % the CT manipulator
         sensor % additional TimeSteppingRigidBodySensors (beyond the sensors attached to manip)
@@ -27,7 +27,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
         active_collision_options; % used in contactConstraint
         body
     end
-    
+     
     methods
         function obj=TimeSteppingRigidBodyManipulator_Kuka(manipulator_or_urdf_filename,timestep,options)
             if (nargin<3) options=struct(); end
@@ -775,8 +775,18 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             phiL = phiL(possible_limit_indices);
             phi = [phiC;phiL];
             
+            global external_force_index;
+             
+            addExternalForce = 0;
+            if addExternalForce == 1
+                w_force = load('external_force.dat');
+                tau_external = [zeros(8+1,1);w_force(external_force_index);zeros(1+3,1)];
+            else
+                tau_external = zeros(num_q,1);
+            end
+            
             if (obj.num_u>0)
-                tau = B*u - C;
+                tau = B*u - C + tau_external;
                 dtau = [zeros(num_v,1), matGradMult(dB,u) - dC, B];
             else
                 tau = -C;
