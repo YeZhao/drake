@@ -23,6 +23,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
         % convex setting below
         update_convex = true;
         phi_max = 0.1; % m, max contact force distance
+        phiL_max = 0.05;
         active_threshold = 0.1; % height below which contact forces are calculated
         contact_threshold = 1e-3; % threshold where force penalties are eliminated (modulo regularization)
     end
@@ -438,7 +439,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             fcnV = @V_gradient_numerical;
             dV = zeros(num_full_dim,(num_d*num_c+nL),num_q);
             for i=1:num_q
-                rr = sqrt(eps(X0));
+                rr = sqrt(max(eps(X0),1e-7*ones(length(X0),1)));
                 rr(1:i) = 0;
                 m = i+2;% only q component affects Jacobian J
                 rr(m:end) = rr(m:end) - rr(m:end);% set all other elements (unrelated to q state) to be zero
@@ -512,13 +513,28 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 r(phiC>=obj.phi_max) = R_max;
                 r(phiC<=obj.contact_threshold) = R_min;
                 ind = (phiC > obj.contact_threshold) & (phiC < obj.phi_max);
-                y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-                r(ind) = R_min + R_max./(1+exp(-10*y));
+                %y = (phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+                %r(ind) = R_min + R_max./(1+exp(-10*y));
                 
                 % Todorov's function
-                %r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
+                r(ind) = R_min + (R_max - R_min)*(phiC(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold);
                 r = repmat(r,1,dim)';
                 R = diag(r(:));
+                
+                for i=1:num_q
+                    for j=1:length(ind)
+                        %linear function
+                        if ind(j) == 0
+                            drdq(j,i) = 0;
+                        else
+                            drdq(j,i) = (R_max - R_min)*n(j,i)./(obj.phi_max - obj.contact_threshold);
+                        end
+                        %nonlinear scaling
+                        %drdq(j,i) = (R_max*10*exp(-20*y(j))./(1+exp(-20*y(j)))^2)*(2*n(j,i)/(obj.phi_max - obj.contact_threshold));
+                    end
+                    dRdq_tmp = repmat(drdq(:,i),1,dim)';
+                    dRsubdq(:,:,i) = diag(reshape(dRdq_tmp,[],1));
+                end
                 
                 if any(ind > 0)
                     S_weighting_unit = diag([0.1,1e-3,1]);
@@ -539,12 +555,37 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 w(phiL>=obj.phi_max) = W_max;
                 w(phiL<=obj.contact_threshold) = W_min;
                 ind = (phiL > obj.contact_threshold) & (phiL < obj.phi_max);
-                y = (phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
-                w(ind) = W_min + W_max./(1+exp(-10*y));
+                %y = (phiL(ind)-obj.contact_threshold)./(obj.phi_max - obj.contact_threshold)*2 - 1; % scale between -1,1
+                %w(ind) = W_min + W_max./(1+exp(-10*y));
+                
+                % linear function
+                w(ind) = W_min + (W_max - W_min)*(phiL(ind)-obj.contact_threshold)./(obj.phiL_max - obj.contact_threshold);
+
                 W = diag(w(:));
+                dwdq = [];
+                dWdq= [];
+                for i=1:num_q
+                    for j=1:length(ind)
+                        %linear function
+                        if ind(j) == 0
+                            dwdq(j,i) = 0;
+                        else
+                            dwdq(j,i) = (W_max - W_min)*JL(j,i)./(obj.phiL_max - obj.contact_threshold);
+                        end
+                        %nonlinear function
+                        %dwdq(j,i) = (W_max*10*exp(-20*y(j))./(1+exp(-20*y(j)))^2)*(2*JL(j,i)/(obj.phiL_max - obj.contact_threshold));
+                    end
+                    if ~isempty(dwdq)
+                        dWdq(:,:,i) = diag(dwdq(:,i));
+                    end
+                end
                 
                 R = blkdiag(R,W);
                  
+                for i=1:num_q
+                    dRdq(:,:,i) = blkdiag(dRsubdq(:,:,i));%,dWdq(:,:,i) %
+                end
+                
                 num_params = num_beta+nL;
                 % lambda_ub = zeros(num_params,1);
                 % scale_fact = 1e3;
@@ -861,7 +902,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                     
                     dAdq_tmp(:,:,i) = -J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*vToqdot'*J' + dJdq(:,:,i)*vToqdot*Hinv*vToqdot'*J' ...
                         +J*vToqdot*Hinv*vToqdot'*dJdq(:,:,i)';
-                    dAdq(:,:,i) = V'*S_weighting*dAdq_tmp(:,:,i)*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
+                    dAdq(:,:,i) = V'*S_weighting*(dAdq_tmp(:,:,i)+dRdq(:,:,i))*S_weighting*V + dV(:,:,i)'*S_weighting*(A+R)*S_weighting*V ...
                         + V'*S_weighting*(A+R)*S_weighting*dV(:,:,i);
                     
                     dcdq(:,i) = dJdq(:,:,i)*vToqdot*(v+Hinv*tau*h) - J*vToqdot*Hinv*dHdq(:,:,i)*Hinv*tau*h ...
@@ -936,7 +977,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         row = active_set(j);
                         idx = (row-1)*dim + (1:dim);
                         dA_tildedq_dyn(j,:,i) = -normal(:,row)'*(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                        db_tildedq_dyn(j,:,i) = normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
+                        db_tildedq_dyn(j,:,i) = n(row,i)/h + normal(:,row)'*dcdq(idx,i);% switch the sign to correct one
                         db_tildedv_dyn(j,:,i) = normal(:,row)'*dcdv(idx,i);
                     end
                     %handle joint constraints
@@ -944,7 +985,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                         row = active_set(j+num_dynamicsConstraint_active_set);
                         idx = num_active*dim+(row-num_active);
                         dA_tildedq_joint(j,:,i) = -(dAdq_tmp(idx,:,i)*V+A(idx,:)*dV(:,:,i));
-                        db_tildedq_joint(j,:,i) = dcdq(idx,i);% switch the sign to correct one
+                        db_tildedq_joint(j,:,i) = JL(row-num_active,i)/h + dcdq(idx,i);% switch the sign to correct one
                         db_tildedv_joint(j,:,i) = dcdv(idx,i);
                     end
                      
@@ -1091,19 +1132,69 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
             
             %xdn = wvn;
             %df = dwvn;
+            %xdn = tau;
+            %df = dtau;
             %xdn = reshape(Mvn,[],1);
             %df = dMvn;
-            %xdn = lambda;
-            %df = dlambda;
+            %xdn = reshape(H,[],1);%correct
+            %df = [zeros(size(dH,1),1), dH, zeros(size(dH,1),num_u)];%correct
+            %xdn = reshape(Hinv,[],1);%correct
+            %df = [zeros(numel(Hinv),1),reshape(Hinv*reshape(- matGradMult(dH(:,1:num_q),Hinv),num_q,[]),numel(Hinv),[]),zeros(numel(Hinv),num_v+num_u)];%correct
+            %xdn = reshape(J_contact,[],1);
+            %xdn = reshape(J',[],1);%correct
+            %df = [zeros(numel(J),1), dJtranspose_qp, zeros(numel(J),num_v+num_u)];%correct
+
+            %A_length = size(A,1)*size(A,2);%correct at 1e-4 level
+            %xdn = reshape(A, A_length,1);%correct
+            %df = [zeros(A_length,1), reshape(dAdq_tmp,A_length,14), zeros(A_length,14), zeros(A_length,8)];%correct
+
+            %A_length = size(V'*(A+R)*V,1)*size(V'*(A+R)*V,2);%correct at 1e-4 level
+            %xdn = reshape(V'*(A+R)*V, A_length,1);%correct
+            %df = [zeros(A_length,1), reshape(dAdq,A_length,14), zeros(A_length,14), zeros(A_length,8)];%correct
             
-            %G_length = size(G,1)*size(G,2);
-            %xdn = reshape(G,G_length,[]);
-            %df = [zeros(G_length,1), reshape(dGdq,G_length,6), zeros(G_length,6), zeros(G_length,2)];
+            %V_length = size(V,1)*size(V,2);%correct
+            %xdn = reshape(V, V_length,1);%correct
+            %df = [zeros(V_length,1), reshape(dV,V_length,num_q), zeros(V_length,num_v), zeros(V_length,num_u)];%correct
+
+            %reshape(Hinv*reshape(dJtranspose_qp - matGradMult(dH(:,1:num_q),Hinv*J'),num_q,[]),numel(Mvn),[]),zeros(numel(Mvn),num_v+obj.num_u)];
+
+            %xdn = reshape(J',[],1);
+            %df = [zeros(length(xdn),1), dJtranspose_qp, zeros(length(xdn),14+8)];
             
-            %E_length = size(E,1)*size(E,2);
+            %xdn = lambda;%correct with a medium-level difference
+            %df = dlambda;%correct with a medium-level difference
+            %xdn = b;% correct
+            %df = [dbdh, dbdq, dbdv, dbdu];% correct
+            
+            %Ain_length = size(Ain_fqp_active,1)*size(Ain_fqp_active,2);%correct at 1e-6 level
+            %xdn = reshape(Ain_fqp_active,Ain_length,[]);%correct
+            %df = [zeros(Ain_length,1), reshape(dA_tildedq,Ain_length,14), reshape(dA_tildedv,Ain_length,14), zeros(Ain_length,8)];%correct
+            
+            %bin_length = size(bin_fqp_active,1);%correct, only a few elements have large deviations.
+            %xdn = bin_fqp_active;%correct, only a few elements have large deviations.
+            %df = [db_tildedh, reshape(db_tildedq,bin_length,num_q), reshape(db_tildedv,bin_length,num_q), reshape(db_tildedu,bin_length,obj.num_u)];%correct
+            
+            %Q_length = size(Q,1)*size(Q,2);%correct with constant R value, sensitive to nonlinear R
+            %xdn = reshape(Q,[],1);
+            %df = [zeros(Q_length,1), reshape(0.5*dAdq,Q_length,14), zeros(Q_length,14), zeros(Q_length,8)];
+            
+            %Qinv_length = size(Qinv,1)*size(Qinv,2);%correct, if using linear scaling for R, accuracy at the 1e-4 level if 1e0 constant in Q. (accuracy at the 1e-1 level if 1e-2 constant in Q.)
+            % if using nonlinear scaling for R (with nonlinear coeff 20), accuracy at the 1e-6 level if 1e0 constant in Q. (accuracy at the 1e-2 level if 1e-2 constant in Q.)
+            %xdn = reshape(Qinv,[],1);
+            %df = [zeros(Qinv_length,1), reshape(dQinvdq,Qinv_length,14), zeros(Qinv_length,14), zeros(Qinv_length,8)];
+            %df = [zeros(numel(Qinv),1),reshape(Qinv*reshape(- matGradMult(reshape(dAdq(:,:,:),[],num_q),Qinv),size(Qinv,1),[]),numel(Qinv),[]),zeros(numel(Qinv),num_v+obj.num_u)];%correct
+
+            %E_length = size(E,1)*size(E,2);%accuracy depends on constant term in Q matrix
             %xdn = reshape(E,E_length,[]);
-            %df = [zeros(E_length,1), reshape(dEdq,E_length,6), zeros(E_length,6), zeros(E_length,2)];
+            %df = [zeros(E_length,1), reshape(dEdq,E_length,14), zeros(E_length,14), zeros(E_length,8)];
             
+            %F_length = size(F,1)*size(F,2);%accuracy depends on constant term in Q matrix
+            %xdn = reshape(F,F_length,[]);
+            %df = [zeros(F_length,1), reshape(dFdq,F_length,14), zeros(F_length,14), zeros(F_length,8)];
+            
+            %G_length = size(G,1)*size(G,2);%accuracy depends on constant term in Q matrix
+            %xdn = reshape(G,G_length,[]);
+            %df = [zeros(G_length,1), reshape(dGdq,G_length,14), zeros(G_length,14), zeros(G_length,8)];
             
             for i=1:length(obj.sensor)
                 if isa(obj.sensor{i},'TimeSteppingRigidBodySensorWithState')

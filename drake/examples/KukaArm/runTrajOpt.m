@@ -268,7 +268,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-1);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  

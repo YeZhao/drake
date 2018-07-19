@@ -12,7 +12,7 @@ if nargin < 2, position_tol = 1.5e-2; end
 if nargin < 3, velocity_tol = 1e-1; end
 global example_name;
 example_name = 'falling brick';
-
+ 
 options.terrain = RigidBodyFlatTerrain();
 options.floating = true;
 w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
@@ -26,7 +26,7 @@ plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terr
 uncertainty_source = plant.uncertainty_source;
 if strcmp(plant.uncertainty_source, 'friction_coeff') || strcmp(plant.uncertainty_source, 'friction_coeff+terrain_height')
     w_mu = load('friction_coeff_noise.dat');
-    w_mu = ones(1,length(w_mu))-(ones(1,length(w_mu)) - w_mu)./15;%scale down
+    %w_mu = ones(1,length(w_mu))-(ones(1,length(w_mu)) - w_mu)./15;%scale down
     plant.uncertain_mu_set = w_mu;
     plant.uncertain_mu_mean = mean(plant.uncertain_mu_set);
 end
@@ -89,6 +89,7 @@ options.Kzd_gain = sqrt(options.Kz_gain)*1.5;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
+options.alpha = 1;
 
 persistent sum_running_cost
 persistent cost_index
@@ -175,7 +176,7 @@ keyboard
 
 kp_x = 5;
 kd_x = sqrt(kp_x)*1.5;
-kp_z = 25;
+kp_z = 15;
 kd_z = sqrt(kp_z)*1.5;
 
 % 4 contact points at the bottom surface
@@ -204,7 +205,7 @@ xddot_real(1) = 0;
 zddot_real(1) = 0;
 x_real_full(:,1) = xtraj_data(:,1);
 
-stabilitation_scenario = 'friction_coeff+terrain_height';
+stabilitation_scenario = 'friction_coeff';%'friction_coeff+terrain_height';
 
 if strcmp(stabilitation_scenario, 'friction_coeff')
     w_mu = load('friction_coeff_noise.dat');
@@ -252,7 +253,6 @@ if strcmp(stabilitation_scenario, 'friction_coeff+terrain_height')
 end
 
 for m=1:sample_length
-    m
     if strcmp(stabilitation_scenario, 'friction_coeff')
         uncertain_mu = w_mu(m);
         plant.uncertainty_source = 'friction_coeff';
@@ -300,6 +300,11 @@ for m=1:sample_length
     legend('passive case','robust case')
     ylim([0,2.1])
     
+    disp('-------------')
+    fprintf('sample index: %4d\n',m);
+    fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
+    fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
+    fprintf('final object x direction deviation: %4.8f\n',x_real_full(1,end) - xtraj_data(1,end));
     x_final_dev(m) = x_real_full(1,end) - xtraj_data(1,end);
 end
 keyboard

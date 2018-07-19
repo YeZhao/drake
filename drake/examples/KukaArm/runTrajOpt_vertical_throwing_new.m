@@ -448,7 +448,7 @@ c_normal_nominal = c_nominal(1:6:end,:);
             iteration_index = iteration_index + 1;
         end
         fprintf('iteration index: %4d\n',iteration_index);
-         
+        
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
         % global robustLCPcost_coeff
         % if isempty(iteration_num)
