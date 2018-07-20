@@ -896,7 +896,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dWdq(:,:,i) = diag(dwdq(:,i));
             end
             
-            R = blkdiag(R,W);%1e-3*eye(52);%
+            R = blkdiag(R,W);%1e-3*eye(52);
             
             for i=1:num_q
                 dRdq(:,:,i) = blkdiag(dRsubdq(:,:,i),dWdq(:,:,i));%zeros(52);%

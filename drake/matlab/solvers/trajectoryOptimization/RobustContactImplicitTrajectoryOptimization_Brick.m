@@ -3648,17 +3648,19 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             
             % disturbance variance
             % currently only consider terrain height and/or friction coefficient
-            scale = .01;% [to be tuned]
-            w = 0.5/scale^2;
+            
             nw = size(Pw,1);
             sampling_method = 1;%option 1: unscented transform, option 2: random sampling with a smaller number
             if sampling_method == 1
                 n_sampling_point = 2*(nx+nw);
+                scale = .01;% [to be tuned]
+                w = 0.5/scale^2;
             elseif sampling_method == 2
-                n_sampling_point = 5;
+                n_sampling_point = 10;
                 w_state = load('state_noise.dat');%std:0.001
                 %w_state = 0.001*randn(28,62);
                 %save -ascii state_noise_small.dat w_state
+                w = 1;
             end
             w_avg = 1/n_sampling_point;
             K = obj.options.K;
@@ -3669,9 +3671,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             x_mean = zeros(nx, obj.N);
             % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
             c = 0;
-            c = kappa*trace(Px_init);
-            %c_quadratic = 0;
-            %c_variance = 0;
+            c_quadratic = 0;
+            c_covariance = 0;
             dc = zeros(1, 1+obj.N*(nx+nu));
             
             % initialize gradient of Tr(V) w.r.t state vector x
@@ -3694,27 +3695,32 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             for k = 1:obj.N-1%[Ye: double check the index]
                 if sampling_method == 1
                     %Propagate sigma points through nonlinear dynamics
-                    [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
-                    
-                    if d
-                        diverge = k;
-                        return;
-                    end
-                    S = scale*S;
-                    Sig_init(:,:,k) = [S -S];
-                    if k == 1%customize for ML formulation
-                        Sig(:,:,k) = Sig_init(:,:,k);
-                    end
-                    
-                    %state dimensionality of sigma point depends on the number of uncertainties.
-                    %Our case w_noise has 0, 1, or 2 dimensions
-                    if isempty(w_noise)
-                        for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                    if k == 1
+                        [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
+                        
+                        if d
+                            diverge = k;
+                            return;
                         end
+                        S = scale*S;
+                        Sig_init(:,:,k) = [S -S];
+                        
+                        %state dimensionality of sigma point depends on the number of uncertainties.
+                        %Our case w_noise has 0, 1, or 2 dimensions
+                        if isempty(w_noise)
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
+                            end
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                            end
+                        end
+                        Sig(:,:,k) = Sig_init(:,:,k);
+                        c = c + kappa*trace(Px_init);
                     else
                         for j = 1:n_sampling_point
-                            Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
+                            Sig_init(1:nx,j,k) = (1-alpha)*Sig(1:nx,j,k) + alpha*x(1:nx,k);
                         end
                     end
                 elseif sampling_method == 2
@@ -3723,6 +3729,20 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                             Sig_init(:,j,k) = x(:,k) + w_state(:,j);
                         end
                         Sig(:,:,k) = Sig_init(:,:,k);
+                        
+                        x_mean(:,k) = zeros(nx,1);
+                        for j = 1:n_sampling_point
+                            x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:nx,j,k);
+                        end
+                        c = c + 1/2*norm(x(:,k)-x_mean(:,k))^2;
+                        c_quadratic = c_quadratic + 1/2*norm(x(:,k)-x_mean(:,k))^2;
+                        
+                        Px_init = zeros(nx);
+                        for j = 1:n_sampling_point
+                            Px_init = Px_init + w*(Sig(1:nx,j,k)-x_mean(:,k))*(Sig(1:nx,j,k)-x_mean(:,k))';
+                        end
+                        c = c + trace(Px_init);
+                        c_covariance = c_covariance + trace(Px_init);
                     else
                         for j = 1:n_sampling_point
                             Sig_init(:,j,k) = (1-alpha)*Sig(:,j,k) + alpha*x(:,k);
@@ -3835,13 +3855,13 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 %     disp('shifting scheme is not correct')
                 %     keyboard
                 % end
-                
+                 
                 Px(:,:,k+1) = zeros(nx);
                 for jj = 1:n_sampling_point
                     Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))';
                 end
                 c = c + kappa*trace(Px(:,:,k+1));
-                
+                c_covariance = c_covariance + kappa*trace(Px(:,:,k+1));
                 % for jj = 1:n_sampling_point
                 % V_comp(:,:,k+1) = (Sig(1:nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))';
                 % c = c + kappa*trace(w*V_comp(:,:,k+1));
@@ -3863,6 +3883,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % accumulate returned cost
                 c = c + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+                c_quadratic = c_quadratic + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
                 %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*log(det(Px(:,:,k+1)));%ML mean deviation version
                 % % debugging
                 % c_quadratic(k+1) = norm(x(:,k+1)-x_mean(:,k+1))^2;
@@ -3970,7 +3991,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
                 end
             end
-            
+             
             dc = [];
             % cost gradient w.r.t x at first time step is zero
             for jj=1:obj.N % index for x_k
@@ -4008,6 +4029,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             c = obj.options.contact_robust_cost_coeff*c;
             dc = obj.options.contact_robust_cost_coeff*dc;
             fprintf('robust cost function: %4.8f\n',c);
+            fprintf('robust mean deivation cost: %4.8f\n',obj.options.contact_robust_cost_coeff*c_quadratic);
+            fprintf('robust covariance cost: %4.8f\n',obj.options.contact_robust_cost_coeff*c_covariance);
             tElapsed = toc(tStart);
             
             % figure(7),hold on;plot(c_quadratic_x,'b-')
@@ -4036,7 +4059,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
             % disp('finish')
             c_numeric = c;
             dc_numeric = dc;
-            
+             
             % [c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_scaled_check(obj,X0),X0,struct('grad_method','numerical'));
             %
             % [c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
@@ -4119,17 +4142,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                 
                 % disturbance variance
                 % currently only consider terrain height and/or friction coefficient
-                scale = .01;% [to be tuned]
-                w = 0.5/scale^2;
                 nw = size(Pw,1);
                 sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
                 if sampling_method == 1
-                    n_sampling_point = 1;%2*(nx+nw);
+                    n_sampling_point = 2*(nx+nw);
+                    scale = .01;% [to be tuned]
+                    w = 0.5/scale^2;
                 elseif sampling_method == 2
-                    n_sampling_point = 2;
+                    n_sampling_point = 5;
                     w_state = load('state_noise.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
+                    w = 1;
                 end
                 w_avg = 1/n_sampling_point;
                 K = obj.options.K;
@@ -4166,23 +4190,30 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     if sampling_method == 1
                         %Propagate sigma points through nonlinear dynamics
                         if k == 1
-                            [S,d] = chol(blkdiag(Px(:,:,k), Pw), 'lower');
+                            [S,d] = chol(blkdiag(Px_init, Pw), 'lower');
+                            
                             if d
                                 diverge = k;
                                 return;
                             end
-                            %S = zeros(length(Px(:,:,k)));
-                            
                             S = scale*S;
-                            Sig(:,:,k) = [S -S];
+                            Sig_init(:,:,k) = [S -S];
+                            
+                            %state dimensionality of sigma point depends on the number of uncertainties.
+                            %Our case w_noise has 0, 1, or 2 dimensions
                             if isempty(w_noise)
                                 for j = 1:n_sampling_point
-                                    Sig(:,j,k) = Sig(:,j,k) + [x(:,k)];
+                                    Sig_init(:,j,k) = Sig_init(:,j,k) + x(:,k);
                                 end
                             else
                                 for j = 1:n_sampling_point
-                                    Sig(:,j,k) = Sig(:,j,k) + [x(:,k); w_noise(:,k)];
+                                    Sig_init(:,j,k) = Sig_init(:,j,k) + [x(:,k); w_noise(:,k)];
                                 end
+                            end
+                            Sig(:,:,k) = Sig_init(:,:,k);
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(1:nx,j,k) = (1-alpha)*Sig(1:nx,j,k) + alpha*x(1:nx,k);
                             end
                         end
                     elseif sampling_method == 2
@@ -4191,6 +4222,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                                 Sig_init(:,j,k) = x(:,k) + w_state(:,j);
                             end
                             Sig(:,:,k) = Sig_init(:,:,k);
+                            
+                            x_mean(:,k) = zeros(nx,1);
+                            for j = 1:n_sampling_point
+                                x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:nx,j,k);
+                            end
+                            c = c + 1/2*norm(x(:,k)-x_mean(:,k))^2;
+                            
+                            Px_init = zeros(nx);
+                            for j = 1:n_sampling_point
+                                Px_init = Px_init + w*(Sig(1:nx,j,k)-x_mean(:,k))*(Sig(1:nx,j,k)-x_mean(:,k))';
+                            end
+                            c = c + trace(Px_init);
                         else
                             for j = 1:n_sampling_point
                                 Sig_init(:,j,k) = (1-alpha)*Sig(:,j,k) + alpha*x(:,k);
@@ -4308,7 +4351,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                     for jj = 1:n_sampling_point
                         Px(:,:,k+1) = Px(:,:,k+1) + w*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))';
                     end
-                    %c = c + kappa*trace(Px(:,:,k+1));
+                    c = c + kappa*trace(Px(:,:,k+1));
                     
                     % for jj = 1:n_sampling_point
                     % V_comp(:,:,k+1) = (Sig(1:nx,jj,k+1)-x_mean(:,k+1))*(Sig(1:nx,jj,k+1)-x_mean(:,k+1))';
@@ -4455,8 +4498,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
                     end
                     dc = [dc, 1/2*dmeanR_sum_dx_k+dTrV_sum_dx_k];
-                    %dc = [dc, dmeanR_sum_dx_k];
-                    %dc = [dc, kappa*dTrV_sum_dx_k];
+                    %dc = [dc, 1/2*dmeanR_sum_dx_k];
+                    %dc = [dc, dTrV_sum_dx_k];
                 end
                 
                 % cost gradient w.r.t u at first time step is zero, since
@@ -4468,8 +4511,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Brick < DirectTrajectoryOpt
                         dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                     end
                     dc = [dc, 1/2*dmeanR_sum_du_k+dTrV_sum_du_k];
-                    %dc = [dc, dmeanR_sum_du_k];
-                    %dc = [dc, kappa*dTrV_sum_du_k];
+                    %dc = [dc, 1/2*dmeanR_sum_du_k];
+                    %dc = [dc, dTrV_sum_du_k];
                 end
                 
                 % scale this robust cost

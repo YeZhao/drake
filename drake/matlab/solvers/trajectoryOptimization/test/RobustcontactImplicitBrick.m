@@ -19,7 +19,7 @@ w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
 plant = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),options);
 warning(w);
 
-N=10; tf=2;
+N=20; tf=2;
 
 %% instantiate RigidBodyTerrain with different heights and friction coeff
 plant.uncertainty_source = 'friction_coeff+terrain_height';%'friction_coeff+terrain_height';%'terrain_height'
@@ -36,10 +36,10 @@ if strcmp(plant.uncertainty_source, 'terrain_height') || strcmp(plant.uncertaint
     w_phi = w_phi/terrain_height_scale_factor;%scale down the height variation manually
     plant.uncertain_position_set = w_phi;
     plant.uncertain_position_mean = mean(w_phi);
-    
+    RigidBodyFlatTerrainc
     n_sig_point = length(w_phi);
     for i=1:n_sig_point
-        sample_options.terrain = RigidBodyFlatTerrain(w_phi(i));
+        sample_options.terrain = (w_phi(i));
         sample_options.floating = true;
         w = warning('off','Drake:RigidBodyManipulator:UnsupportedContactPoints');
         plant_sample{i} = RigidBodyManipulator(fullfile(getDrakePath,'matlab','systems','plants','test','FallingBrickContactPoints.urdf'),sample_options);
@@ -77,7 +77,7 @@ nv = plant.num_velocities;
 options = struct();
 options.integration_method = RobustContactImplicitTrajectoryOptimization_Brick.MIXED;
 
-options.contact_robust_cost_coeff = 1;%100;%0.1;%0.0001;%1e-13;
+options.contact_robust_cost_coeff = 100;%0.1;%0.0001;%1e-13;
 options.ERMcost_coeff = 10;
 options.robustLCPcost_coeff = 1000;
 options.Px_coeff = 0.0000001;
@@ -89,12 +89,12 @@ options.Kzd_gain = sqrt(options.Kz_gain)*1.5;
 options.K = [options.Kx_gain,zeros(1,nq-1),options.Kxd_gain,zeros(1,nv-1);
                 zeros(1,2),options.Kz_gain,zeros(1,3),zeros(1,2),options.Kzd_gain,zeros(1,3)];
 options.kappa = 1;
-options.alpha = 1;
+options.alpha = 0.6;
 
 persistent sum_running_cost
 persistent cost_index
 slack_sum_vec = [];% vector storing the slack variable sum
-
+ 
 prog = RobustContactImplicitTrajectoryOptimization_Brick(plant_ts,N,tf,options);
 prog = prog.setSolverOptions('snopt','MajorIterationsLimit',20000);
 prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
@@ -105,17 +105,17 @@ prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
 prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 %prog = prog.setCheckGrad(true);
 %snprint('snopt.out');
- 
+
 % initial conditions constraint
 prog = addStateConstraint(prog,ConstantConstraint(x0),1);
 prog = addStateConstraint(prog,BoundingBoxConstraint(xf_min,xf_max),N);
 prog = prog.addTrajectoryDisplayFunction(@displayTraj);
 prog = prog.addRunningCost(@running_cost_fun);
- 
+
 traj_init.x = PPTrajectory(foh([0,tf],[x0,xf]));
 traj_init.F_ext = PPTrajectory(foh([0,tf], 0.01*ones(2,2)));
 traj_init.LCP_slack = PPTrajectory(foh([0,tf], 0.01*ones(1,2)));
- 
+
 tic
 [xtraj,utraj,ltraj,~,slacktraj,F_exttraj,z,F,info,infeasible_constraint_name] = solveTraj(prog,tf,traj_init);
 toc 
@@ -123,9 +123,6 @@ toc
 v.playback(xtraj,struct('slider',true));
 % Create an animation movie
 %v.playbackAVI(xtraj, 'throwingBrick.avi');
-keyboard
-
-%% data analysis
 ts = getBreaks(xtraj);
 h = tf/(N-1);
 F_exttraj_data = F_exttraj.eval(ts);%convert impulse to force.
@@ -134,45 +131,47 @@ ltraj_data = ltraj.eval(ts);
 nD = 4;
 nC = 8;
 lambda_n_data = ltraj_data(1:nD+2:end,:)/h;
-
-%ltraj_data.
-figure(1)
-colorset={'r','b','g','k'};
-subplot(2,1,1)
-hold on;
-plot(ts, xtraj_data(3,:),'b-');
-hold on;
-plot(ts, xtraj_data(1,:),'k-');
-hold on;
-legend('passive case z position','passive case x position','robust case z position','robust case x position');
-subplot(2,1,2)
-for i=1:nC/2
-    plot(ts, lambda_n_data(2*i,:),colorset{i});
-    hold on;
-end
-legend('contact point 1','contact point 2','contact point 3','contact point 4');
-title('Normal contact forces in robust case','fontsize',18);
-xlabel('t [s]','fontsize',15);ylabel('force [N]','fontsize',15);
-%print -depsc brick_throwing_time_profile
-
-figure(2)
-hold on;
-plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
-xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
-title('2D Cartesian CoM trajectory','fontsize',22)
-legend('passive case','robust case')
-ylim([0,2.1])
-
-figure(3)
-plot(ts, F_exttraj_data(1,:),'b-');
-hold on;
-plot(ts, F_exttraj_data(2,:),'r-');
-xlabel('t [s]','fontsize',20);ylabel('force [N]','fontsize',20);
-title('Force Profile','fontsize',22)
-legend('horizontal force','vertical force')
-ylim([-10.5,10.5])
-
 keyboard
+
+%% data analysis
+%ltraj_data.
+% figure(1)
+% colorset={'r','b','g','k'};
+% subplot(2,1,1)
+% hold on;
+% plot(ts, xtraj_data(3,:),'b-');
+% hold on;
+% plot(ts, xtraj_data(1,:),'k-');
+% hold on;
+% legend('passive case z position','passive case x position','robust case z position','robust case x position');
+% subplot(2,1,2)
+% for i=1:nC/2
+%     plot(ts, lambda_n_data(2*i,:),colorset{i});
+%     hold on;
+% end
+% legend('contact point 1','contact point 2','contact point 3','contact point 4');
+% title('Normal contact forces in robust case','fontsize',18);
+% xlabel('t [s]','fontsize',15);ylabel('force [N]','fontsize',15);
+% %print -depsc brick_throwing_time_profile
+% 
+% figure(2)
+% hold on;
+% plot(xtraj_data(1,:), xtraj_data(3,:),'b-');
+% xlabel('x [m]','fontsize',20);ylabel('z [m]','fontsize',20);
+% title('2D Cartesian CoM trajectory','fontsize',22)
+% legend('passive case','robust case')
+% ylim([0,2.1])
+% 
+% figure(3)
+% plot(ts, F_exttraj_data(1,:),'b-');
+% hold on;
+% plot(ts, F_exttraj_data(2,:),'r-');
+% xlabel('t [s]','fontsize',20);ylabel('force [N]','fontsize',20);
+% title('Force Profile','fontsize',22)
+% legend('horizontal force','vertical force')
+% ylim([-10.5,10.5])
+% 
+% keyboard
 
 kp_x = 5;
 kd_x = sqrt(kp_x)*1.5;
@@ -205,7 +204,7 @@ xddot_real(1) = 0;
 zddot_real(1) = 0;
 x_real_full(:,1) = xtraj_data(:,1);
 
-stabilitation_scenario = 'friction_coeff';%'friction_coeff+terrain_height';
+stabilitation_scenario = 'friction_coeff+terrain_height';
 
 if strcmp(stabilitation_scenario, 'friction_coeff')
     w_mu = load('friction_coeff_noise.dat');

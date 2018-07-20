@@ -595,8 +595,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 %c = 0;
                 c = trace(Px_init);
-                c_mean = 0;
-                c_quad = trace(Px_init);
+                c_mean_dev = 0;
+                c_covariance = trace(Px_init);
                 %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                 
@@ -803,8 +803,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %    + nx/2*log(2*pi);%ML mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                     c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
-                    c_mean = c_mean + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1));
-                    c_quad = c_quad + trace(Px(:,:,k+1));
+                    c_mean_dev = c_mean_dev + 1/2*(x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1));
+                    c_covariance = c_covariance + trace(Px(:,:,k+1));
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
@@ -963,8 +963,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 tElapsed = toc(tStart);
                 fprintf('ML robust cost: %4.8f\n',c);
-                fprintf('ML robust mean deviation norm-2 value: %4.8f\n',c_mean);
-                fprintf('ML robust covariance trace value: %4.8f\n',c_quad);
+                fprintf('ML robust mean deviation norm-2 value: %4.8f\n',c_mean_dev);
+                fprintf('ML robust covariance trace value: %4.8f\n',c_covariance);
                 
                 % % check gradient
                 % disp('check gradient')
@@ -1459,8 +1459,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 %c = 0;
                 c = trace(Px_init);
-                c_mean = 0;
-                c_quad = trace(Px_init);
+                c_mean_dev = 0;
+                c_covariance = trace(Px_init);
                 %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                 
@@ -1677,8 +1677,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                     c = c + trace(Px(:,:,k+1));%ML mean deviation version
                     % note that: 1/2 coefficient is removed.
-                    c_mean = c_mean + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    c_quad = c_quad + trace(Px(:,:,k+1));
+                    c_mean_dev = c_mean_dev + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
+                    c_covariance = c_covariance + trace(Px(:,:,k+1));
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
@@ -1817,18 +1817,18 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
                 fprintf('robust cost function: %4.8f\n',c);
-                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean);
-                fprintf('robust covariance trace value: %4.8f\n',c_quad);
+                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean_dev);
+                fprintf('robust covariance trace value: %4.8f\n',c_covariance);
                 
-                % figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
-                % figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');
-                % figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_quadratic_x1');
-                % figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_quadratic_xd1');
+                % figure(7),hold on;plot(c_mean_dev_x,'b-');title('c_mean_dev_x');
+                % figure(8),hold on;plot(c_mean_dev_xd,'b-');title('c_mean_dev_xd');
+                % figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_mean_dev_x1');
+                % figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_mean_dev_xd1');
                 %
-                % figure(11),hold on;plot(c_quadratic_z,'b-');title('c_quadratic_z');
-                % figure(12),hold on;plot(c_quadratic_zd,'b-');title('c_quadratic_zd');
-                % figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
-                % figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
+                % figure(11),hold on;plot(c_mean_dev_z,'b-');title('c_mean_dev_z');
+                % figure(12),hold on;plot(c_mean_dev_zd,'b-');title('c_mean_dev_zd');
+                % figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_mean_dev_z1');
+                % figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_mean_dev_zd1');
                 
                 % figure(15)
                 % clf
@@ -2518,30 +2518,32 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 % disturbance variance
                 % currently only consider object horizontal 2D position and friction coefficient
-                scale = .01;% [to be tuned]
-                w = 0.5/scale^2;
                 nw = size(Pw,1);
                 sampling_method = 2;%option 1: unscented transform, option 2: random sampling with a smaller number
                 if sampling_method == 1
+                    scale = .01;% [to be tuned]
+                    w = 0.5/scale^2;
                     n_sampling_point = 1;%2*(obj.nx+nw);
                 elseif sampling_method == 2
                     n_sampling_point = 5;
                     w_state = load('state_noise_small.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
                     %save -ascii state_noise_small.dat w_state
+                    w = 1;
                 end
                 w_avg = 1/n_sampling_point;
                 K = obj.options.K;
                 alpha = obj.options.alpha;
-                 
+                kappa = obj.options.kappa;
+                
                 %initialize c and dc
                 x_mean = zeros(obj.nx, obj.N);
                 % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
                 %c = 0;
                 c = trace(Px_init);
                 %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
-                c_quad = trace(Px_init);
-                c_mean = 0;
+                c_covariance = 0;
+                c_mean_dev = 0;
                 dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
                 
                 % time counter
@@ -2584,13 +2586,34 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                                     Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
                                 end
                             end
-                        end 
+                            Sig_init(:,:,k) = Sig(:,:,k);
+                            c = c + kappa*trace(Px_init);
+                            c_covariance = c_covariance + kappa*trace(Px_init);
+                        else
+                            for j = 1:n_sampling_point
+                                Sig_init(1:nx,j,k) = (1-alpha)*Sig(1:nx,j,k) + alpha*x(1:nx,k);
+                            end
+                        end
                     elseif sampling_method == 2
                         if k == 1
                             for j = 1:n_sampling_point
                                 Sig_init(:,j,k) = x(:,k) + w_state(:,j);
                             end
                             Sig(:,:,k) = Sig_init(:,:,k);
+                            
+                            x_mean(:,k) = zeros(nx,1);
+                            for j = 1:n_sampling_point
+                                x_mean(:,k) = x_mean(:,k) + w_avg*Sig(1:nx,j,k);
+                            end
+                            c = c + 1/2*norm(x(:,k)-x_mean(:,k))^2;
+                            c_mean_dev = c_mean_dev + 1/2*norm(x(:,k)-x_mean(:,k))^2;
+                            
+                            Px_init = zeros(nx);
+                            for j = 1:n_sampling_point
+                                Px_init = Px_init + w*(Sig(1:nx,j,k)-x_mean(:,k))*(Sig(1:nx,j,k)-x_mean(:,k))';
+                            end
+                            c = c + kappa*trace(Px_init);
+                            c_covariance = c_covariance + kappa*trace(Px_init);
                         else
                             for j = 1:n_sampling_point
                                 Sig_init(:,j,k) = (1-alpha)*Sig(:,j,k) + alpha*x(:,k);
@@ -2603,7 +2626,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                             obj.plant.uncertainty_source = 'friction_coeff';
                         end
                     end
-                     
+                    
                     % begin of original non-parallezied version
                     for j = 1:n_sampling_point
                         if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
@@ -2766,10 +2789,10 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     %    + nx/2*log(2*pi);%ML mean deviation version
                     %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
                     %c = c + (x(:,k+1)-x_mean(:,k+1))'*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
-                    c = c + trace(Px(:,:,k+1));%ML mean deviation version
+                    c = c + kappa*trace(Px(:,:,k+1));%ML mean deviation version
                     % note that: 1/2 coefficient is removed.
-                    c_mean = c_mean + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
-                    c_quad = c_quad + trace(Px(:,:,k+1));
+                    c_mean_dev = c_mean_dev + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
+                    c_covariance = c_covariance + kappa*trace(Px(:,:,k+1));
                     
                     % derivative of variance matrix
                     % gradient of Tr(V) w.r.t state vector x
@@ -2908,8 +2931,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 c = obj.options.contact_robust_cost_coeff*c;
                 dc = obj.options.contact_robust_cost_coeff*dc;
                 fprintf('robust cost function: %4.8f\n',c);
-                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean);
-                fprintf('robust cost covariance trace value: %4.8f\n',c_quad);
+                fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean_dev);
+                fprintf('robust cost covariance trace value: %4.8f\n',c_covariance);
                 
                 if strcmp(obj.options.test_name, 'pick_and_place_motion')
                     obj.plant.uncertainty_source = obj.plant.uncertainty_source_default;
@@ -2969,15 +2992,15 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 % hold on;
                 % end
                 
-                % figure(7),hold on;plot(c_quadratic_x,'b-');title('c_quadratic_x');
-                % figure(8),hold on;plot(c_quadratic_xd,'b-');title('c_quadratic_xd');
-                % figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_quadratic_x1');
-                % figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_quadratic_xd1');
+                % figure(7),hold on;plot(c_mean_dev_x,'b-');title('c_mean_dev_x');
+                % figure(8),hold on;plot(c_mean_dev_xd,'b-');title('c_mean_dev_xd');
+                % figure(9),hold on;plot(c_variance_x(1,:),'b-');title('c_mean_dev_x1');
+                % figure(10),hold on;plot(c_variance_xd(1,:),'b-');title('c_mean_dev_xd1');
                 %
-                % figure(11),hold on;plot(c_quadratic_z,'b-');title('c_quadratic_z');
-                % figure(12),hold on;plot(c_quadratic_zd,'b-');title('c_quadratic_zd');
-                % figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_quadratic_z1');
-                % figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_quadratic_zd1');
+                % figure(11),hold on;plot(c_mean_dev_z,'b-');title('c_mean_dev_z');
+                % figure(12),hold on;plot(c_mean_dev_zd,'b-');title('c_mean_dev_zd');
+                % figure(13),hold on;plot(c_variance_z(1,:),'b-');title('c_mean_dev_z1');
+                % figure(14),hold on;plot(c_variance_zd(1,:),'b-');title('c_mean_dev_zd1');
                 
                 % figure(15)
                 % clf

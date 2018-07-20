@@ -1210,7 +1210,7 @@ classdef TimeSteppingRigidBodyManipulator_Brick < DrakeSystem
                 end
             end
         end
-        
+         
         function [xdn,df] = update(obj,timestep,x,u)
             X0 = [timestep;x;u];             
             [xdn,df] = solveQP(obj,X0);

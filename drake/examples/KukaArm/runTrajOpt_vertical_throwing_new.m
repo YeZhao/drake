@@ -110,8 +110,9 @@ options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
+options.kappa = 1;
 options.test_name = 'regrasping_motion';
-options.alpha = 0.1;
+options.alpha = 1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
@@ -165,7 +166,7 @@ T_span = T0;%[3 T0];
 % xm_lb = xm - 0.05*ones(length(xm),1);
 % xm_ub = xm + 0.05*ones(length(xm),1);
 
-warm_start = 1;
+warm_start = 0;
 
 if warm_start
     load('warm_start_6_robust_vertical_regrasping_robust_coeff_p1_5_sample_points_alpha_p3_with_warmstart5.mat');
@@ -235,7 +236,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-2);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
  
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
