@@ -2528,7 +2528,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     n_sampling_point = 5;
                     w_state = load('state_noise_small.dat');%std:0.001
                     %w_state = 0.001*randn(28,62);
-                    %save -ascii state_noise_small.dat w_state
+                    %save -ascii state_noise_small.dat w_state                    
                     w = 1;
                 end
                 w_avg = 1/n_sampling_point;

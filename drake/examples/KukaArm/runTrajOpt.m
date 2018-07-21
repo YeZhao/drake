@@ -14,7 +14,7 @@ example_name = 'kuka_arm';
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
 r = KukaArm(options);
-
+ 
 nq = r.getNumPositions();
 nv = r.getNumVelocities();
 nx = nq+nv;
@@ -95,7 +95,7 @@ T0 = 3;
 N = 20;%10;
 N1 = 8;%phase 1: pick
 N2 = N - N1;%phase 2: place
- 
+
 r.uncertainty_source = 'friction_coeff+object_initial_orientation';%'friction_coeff+object_initial_position';%'object_initial_position'
 r.uncertainty_source_default = r.uncertainty_source;
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_orientation')
@@ -123,11 +123,12 @@ options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_a
 options.N1 = N1;
 options.test_name = 'pick_and_place_motion';
 options.alpha = 1;
+options.kappa = 1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
-
+ 
 %% phase 1
 for i=1:length(x0)
     x_init1(i,:) = linspace(x0(i,:),xm(i,:),N1);
@@ -259,16 +260,16 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
-% traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
-
+% traj_opt = traj_opt.addPositionConstraint(periodi c_constraint,{[1 N]});
+ 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-1);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-3);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
  
@@ -276,7 +277,7 @@ if ~warm_start
     persistent sum_running_cost
     persistent cost_index
 end
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
