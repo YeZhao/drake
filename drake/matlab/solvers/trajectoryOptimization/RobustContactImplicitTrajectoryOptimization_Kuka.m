@@ -3115,7 +3115,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 
                 %obj.cached_Px = Px;
                 %fprintf('robust cost function: %4.8f\n',c);
-                 
+                
                 % check gradient
                 %disp('check gradient')
                 c_numeric = c;
@@ -3124,12 +3124,12 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 X0 = [x_full; u_full];
                 %X0 = X0 + randn(size(X0))*0.1;
                 %
-                %fun = @(X0) robustVariancecost_check(obj, X0);
+                %fun = @(X0) robustVariancecost_scaled_check(obj, X0);
                 %DerivCheck(fun, X0)
                 %disp('finish numerical gradient');
                 
                 %tic
-                %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_check(obj,X0),X0,struct('grad_method','numerical'));
+                %[c_numeric,dc_numeric] = geval(@(X0) robustVariancecost_scaled_check(obj,X0),X0,struct('grad_method','numerical'));
                 %toc
                 
                 %[c_numeric,dc_numeric] = robustVariancecost_check(obj, X0);
@@ -3163,7 +3163,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     fprintf('difference between numerical and analytical: %4.15f\n',dd);
                 end
                 
-                function [c,dc] = robustVariancecost_check(obj, X0)
+                function [c,dc] = robustVariancecost_scaled_check(obj, X0)
                     x_full = X0(1:nx*obj.N);
                     u_full = X0(nx*obj.N+1:end);
                     

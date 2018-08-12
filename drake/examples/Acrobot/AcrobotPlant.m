@@ -142,14 +142,13 @@ classdef AcrobotPlant < Manipulator
             end
         end
         
-        function [utraj,xtraj,z,prog]=swingUpTrajectory(obj)
+        function [utraj,xtraj,z,prog]=swingUpTrajectory(obj,N)
             x0 = zeros(4,1);
             xf = double(obj.xG);
             tf0 = 6;
             
-            N = 131;
-            % prog = DirtranTrajectoryOptimization(obj,N,[6 6]);
-            prog = DircolTrajectoryOptimization(obj,N,[6 6]);
+            prog = DirtranTrajectoryOptimization(obj,N,[6 6]);
+            %prog = DircolTrajectoryOptimization(obj,N,[6 6]);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
             prog = prog.addRunningCost(@cost);
@@ -157,7 +156,7 @@ classdef AcrobotPlant < Manipulator
             
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
-            for attempts=1:10
+            for attempts=1:1
                 tic
                 [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
                 toc
@@ -205,6 +204,277 @@ classdef AcrobotPlant < Manipulator
             
         end
         
+        function [utraj,xtraj,z,prog,K]=robustSwingUpTrajectory_dirtran(obj,N,utrajArray,xtrajArray)
+            x0 = zeros(4,1);
+            xf = double(obj.xG);
+            tf0 = 6;%[changed]
+            
+            nq = obj.getNumPositions;
+            nv = obj.getNumVelocities;
+
+            global sum_running_cost
+            global sum_state_running_cost
+            global sum_control_running_cost
+            global cost_index
+            global iteration_index
+            iteration_index = 0;
+
+            % LQR gains
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            v = AcrobotVisualizer(obj);
+            
+            options.Px_coeff = 0.09;
+            options.alpha = 1;
+            options.kappa = 1;
+            options.K = [0,10,0,sqrt(10)*2];
+            options.contact_robust_cost_coeff = 0.1;
+            
+            %prog = RobustDirtranTrajectoryOptimization(obj,N,[tf0 tf0],options);
+            prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0]);
+            prog = prog.addStateConstraint(ConstantConstraint(x0),1);
+            prog = prog.addStateConstraint(ConstantConstraint(xf),N);
+            prog = prog.addRunningCost(@cost);
+            prog = prog.addFinalCost(@finalCost);
+            prog = prog.addMotionDisplayFunction(@displayTraj);
+            
+            traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
+            
+            for attempts=1:1
+                attempts
+                tic
+                %size(traj_init)
+                [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
+                toc
+                v.playback(xtraj,struct('slider',true));
+                keyboard
+                
+                %% LQR stabilization
+                Q = diag([10 10 1 1]);
+                R = .1;
+                Qf = 100*eye(4);
+                
+                ltvsys = tvlqr(obj,xtraj,utraj,Q,R,Qf);
+                sys=feedback(obj,ltvsys);
+                
+                xtraj_new = simulate(sys,xtraj.tspan, [0;0;0;0]);%+0.05*randn(4,1)
+                v.playback(xtraj_new,struct('slider',true));
+                keyboard
+                
+                %% manually created PD stabilization
+                % ts = getBreaks(xtraj);
+                % h = tf0/(N-1);
+                % utraj_data = utraj.eval(ts);
+                % xtraj_data = xtraj.eval(ts);
+                %
+                % kp = 10;
+                % kd = sqrt(kp)*2;
+                %
+                % K = [0,kp,0,kd];
+                % g = 9.81;
+                %
+                % q_real(:,1) = xtraj_data(1:nq,1);
+                % qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
+                % x_real_full(:,1) = xtraj_data(:,1);
+                %
+                % stabilitation_scenario = 'initial_state_noise';
+                %
+                % if isempty(stabilitation_scenario)
+                %     sample_length = 1;
+                % end
+                %
+                % if strcmp(stabilitation_scenario, 'initial_state_noise')
+                %     w_x_init = load('initial_state_noise.dat');
+                %     sample_length = size(w_x_init,2);
+                % end
+                %
+                % for m=1:sample_length
+                %     if strcmp(stabilitation_scenario, 'initial_state_noise')
+                %         xtraj_data(:,1) = xtraj_data(:,1) + w_x_init(:,m);
+                %         q_real(:,1) = xtraj_data(1:nq,1);
+                %         qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
+                %     end
+                %
+                %     for i=1:N-1
+                %         %feedback ctrl in q position
+                %         F_fb(:,i) = K(:,1:nq)*(xtraj_data(1:nq,i) - q_real(:,i)) + K(:,nq+1:nq+nv)*(xtraj_data(1+nq:nq+nv,i) - qdot_real(:,i));
+                %         %feedforward
+                %         F_ff(:,i) = utraj_data(:,i);
+                %         F_net(:,i) = F_fb(:,i) + F_ff(:,i);
+                %
+                %         [xdot,~] = obj.dynamics(0,x_real_full(:,i),F_net(:,i));
+                %         xdn = x_real_full(:,i) + tf0/(N-1)*xdot;
+                %
+                %         x_real_full(:,i+1) = xdn;
+                %         q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
+                %         qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
+                %     end
+                %
+                %     x_simulated = x_real_full;
+                %     xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+                %     xtraj_simulated = xtraj_simulated.setOutputFrame(obj.getStateFrame);
+                %     v.playback(xtraj_simulated,struct('slider',true));
+                %
+                %     disp('-------------')
+                %     fprintf('sample index: %4d\n',m);
+                %     fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
+                %     fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
+                %     fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
+                % end
+                keyboard
+                
+                if info==1, break; end
+            end
+            
+            % generate LQR gain matrix             
+            % manually refactor the decision variable vector for deltaLQR input
+            h_vector = tf0/(N-1)*ones(1,N-1);
+            t_span = linspace(0,tf0,N);
+            xtraj_eval = xtraj.eval(t_span);
+            utraj_eval = utraj.eval(t_span);
+            state_full = reshape([h_vector;xtraj_eval(:,1:end-1);utraj_eval(:,1:end-1)],[],1);
+            %state_full = [state_full;xtraj_eval(:,end)];
+            
+            D = 2^2;
+            E0 = zeros(4);
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            if (nargout>4)
+                % solve LQR feedback gain matrix of nominal model
+                K = prog.deltaLQR(state_full,xf);
+            end
+            
+            function [g,dg] = cost(dt,x,u)
+                % persistent count;
+                % if isempty(count)
+                %     count = 1;
+                % else
+                %     count = count + 1;
+                % end
+                % count
+                
+                %penalize control only
+                R = 1;
+                g = sum((R*u).*u,1);
+                dg = [zeros(1,1+size(x,1)),2*u'*R];
+                
+                if isempty(cost_index)
+                    cost_index = 1;
+                    sum_running_cost = g;
+                    sum_state_running_cost = sum((Q*xerr).*xerr,1);
+                    sum_control_running_cost = sum((R*u).*u,1);
+                elseif cost_index == N-2
+                    sum_running_cost = sum_running_cost + g;
+                    sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
+                    sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
+                    fprintf('sum of running cost: %4.4f\n',sum_running_cost);
+                    fprintf('sum of state running cost: %4.4f\n',sum_state_running_cost);
+                    fprintf('sum of control running cost: %4.4f\n',sum_control_running_cost);
+                    cost_index = [];
+                else
+                    sum_running_cost = sum_running_cost + g;
+                    sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
+                    sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
+                    cost_index = cost_index + 1;
+                end
+                
+                return;
+                
+                xd = repmat([pi;0;0;0],1,size(x,2));
+                xerr = x-xd;
+                xerr(1,:) = mod(xerr(1,:)+pi,2*pi)-pi;
+                
+                Q = diag([1,1,0.1,0.1]);
+                R = 0.1;
+                g = sum((Q*xerr).*xerr,1) + sum((R*u).*u,1);
+                
+                if g ~= sum((Q*xerr).*xerr,1) + sum((R*u).*u,1);
+                    keyboard
+                end
+                
+                if (nargout>1)
+                    dgddt = 0;
+                    dgdx = 2*xerr'*Q;
+                    dgdu = 2*u'*R;
+                    dg = [dgddt,dgdx,dgdu];
+                end
+                
+                %g_numeric = g;
+                %dg_numeric = dg;
+                %X0 = [dt,x',u];
+                
+                %[g_numeric,dg_numeric] = geval(@(X0) cost_check(X0),X0,struct('grad_method','numerical'));
+                % valuecheck(dg,dg_numeric,1e-5);
+                function [g,dg] = cost_check(X0)
+                    dt = X0(1);
+                    x = X0(2:5)';
+                    u = X0(6);
+                    
+                    xd = repmat([pi;0;0;0],1,size(x,2));
+                    xerr = x-xd;
+                    xerr(1,:) = mod(xerr(1,:)+pi,2*pi)-pi;
+                    
+                    Q = diag([1,1,0.1,0.1]);
+                    R = 0.1;
+                    g = sum((Q*xerr).*xerr) + sum((R*u).*u,1);
+                                       
+                    if (nargout>1)
+                        dgddt = 0;
+                        dgdx = 2*xerr'*Q;
+                        dgdu = 2*u'*R;
+                        dg = [dgddt,dgdx,dgdu];
+                    end
+                    
+                end
+            end
+            
+            function [h,dh] = finalCost(t,x)
+                h = t;
+                dh = [1,zeros(1,size(x,1))];
+                return;
+                
+                xd = repmat([pi;0;0;0],1,size(x,2));
+                xerr = x-xd;
+                xerr(1,:) = mod(xerr(1,:)+pi,2*pi)-pi;
+                
+                Qf = 100*diag([10,10,1,1]);
+                h = sum((Qf*xerr).*xerr,1);
+                
+                if (nargout>1)
+                    dh = [0, 2*xerr'*Qf];
+                end
+            end
+            
+            function displayTraj(h,x,u)
+                ts = [0;cumsum(h)];
+                for i=1:length(ts)
+                    v.drawWrapper(0,x(:,i));
+                    %pause(h(1)/3);
+                end
+                
+                iteration_index = iteration_index + 1;
+                disp('------------------')
+                fprintf('iteration index: %4d\n',iteration_index);
+                
+                % global robustLCPcost_coeff
+                % if isempty(iteration_num)
+                %     robustLCPcost_coeff = 1;
+                %     iteration_num = 1;
+                % elseif iteration_num > 15
+                %     robustLCPcost_coeff = 10;
+                % elseif iteration_num > 30
+                %     robustLCPcost_coeff = 100;
+                % elseif iteration_num > 45
+                %     robustLCPcost_coeff = 1000;
+                % end
+                % iteration_num = iteration_num + 1;
+            end
+        end
+        
         function [utraj,xtraj,z,prog,K]=swingUpTrajectory_dircol(obj,N,utrajArray,xtrajArray)
             x0 = zeros(4,1);
             xf = double(obj.xG);
@@ -230,7 +500,7 @@ classdef AcrobotPlant < Manipulator
             
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
-            for attempts=1:4
+            for attempts=1:1
                 attempts
                 tic
                 %size(traj_init)

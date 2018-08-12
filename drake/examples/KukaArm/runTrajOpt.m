@@ -476,11 +476,7 @@ playback(v,xtraj_new,struct('slider',true));
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
         
-        if isempty(iteration_index)
-            iteration_index = 1;
-        else
-            iteration_index = iteration_index + 1;
-        end
+        iteration_index = iteration_index + 1;
         fprintf('iteration index: %4d\n',iteration_index);
          
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));
