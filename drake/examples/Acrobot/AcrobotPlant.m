@@ -227,13 +227,14 @@ classdef AcrobotPlant < Manipulator
             v = AcrobotVisualizer(obj);
             
             options.Px_coeff = 0.09;
-            options.alpha = 1;
+            options.alpha = 0.7;
             options.kappa = 1;
             options.K = [0,10,0,sqrt(10)*2];
-            options.contact_robust_cost_coeff = 0.1;
+            options.contact_robust_cost_coeff = 1;%0.01 works with 0.5*randn noise.
+            %tune alpha, contact_robust_cost_coeff, number of knot points.
             
             %prog = RobustDirtranTrajectoryOptimization(obj,N,[tf0 tf0],options);
-            prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0]);
+            prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0],options);
             prog = prog.addStateConstraint(ConstantConstraint(x0),1);
             prog = prog.addStateConstraint(ConstantConstraint(xf),N);
             prog = prog.addRunningCost(@cost);
@@ -242,6 +243,20 @@ classdef AcrobotPlant < Manipulator
             
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
+            warm_start = 0;
+            if warm_start
+                load('robust_test_alpha_1_robust_cost_coeff_1_knot_point_30.mat');
+                traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
+                traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
+                
+                traj_init.u = utraj;%PPTrajectory(foh(t_init,u_nominal));
+                traj_init.u = traj_init.u.setOutputFrame(obj.getInputFrame);
+                options.alpha = 0.8;
+                v=AcrobotVisualizer(obj);
+                iteration_index = 0;
+                cost_index = [];
+            end
+
             for attempts=1:1
                 attempts
                 tic
@@ -259,8 +274,24 @@ classdef AcrobotPlant < Manipulator
                 ltvsys = tvlqr(obj,xtraj,utraj,Q,R,Qf);
                 sys=feedback(obj,ltvsys);
                 
-                xtraj_new = simulate(sys,xtraj.tspan, [0;0;0;0]);%+0.05*randn(4,1)
-                v.playback(xtraj_new,struct('slider',true));
+                num_trial = 100;
+                num_success = 0;
+                state_noise = load('random_state_noise.dat');
+                for i=1:num_trial
+                    xtraj_new = simulate(sys,xtraj.tspan, [0;0;0;0]+state_noise(:,i));
+                    v.playback(xtraj_new,struct('slider',true));
+                    ts = getBreaks(xtraj_new);
+                    xtraj_new_data = xtraj_new.eval(ts);
+                    if sum(abs(xtraj_new_data(:,end) - xf)) < 1e-2
+                        num_success = num_success + 1;
+                    end
+                end
+                %if alpha = 1, num_success = 57;
+                %if alpha = 0.9 and no warm start, num_success = 59;
+                %if alpha = 0.8 and no warm start, num_success = 60;
+                
+                %if warm start, alpha = 0.8, num_success = 30;
+                
                 keyboard
                 
                 %% manually created PD stabilization
@@ -323,7 +354,7 @@ classdef AcrobotPlant < Manipulator
                 %     fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
                 %     fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
                 % end
-                keyboard
+                %keyboard
                 
                 if info==1, break; end
             end
@@ -343,10 +374,10 @@ classdef AcrobotPlant < Manipulator
             R = .1;
             Qf = 100*eye(4);
             
-            if (nargout>4)
-                % solve LQR feedback gain matrix of nominal model
-                K = prog.deltaLQR(state_full,xf);
-            end
+            %if (nargout>4)
+            %    % solve LQR feedback gain matrix of nominal model
+            %    K = prog.deltaLQR(state_full,xf);
+            %end
             
             function [g,dg] = cost(dt,x,u)
                 % persistent count;
@@ -365,20 +396,20 @@ classdef AcrobotPlant < Manipulator
                 if isempty(cost_index)
                     cost_index = 1;
                     sum_running_cost = g;
-                    sum_state_running_cost = sum((Q*xerr).*xerr,1);
-                    sum_control_running_cost = sum((R*u).*u,1);
+                    %sum_state_running_cost = sum((Q*xerr).*xerr,1);
+                    %sum_control_running_cost = sum((R*u).*u,1);
                 elseif cost_index == N-2
                     sum_running_cost = sum_running_cost + g;
-                    sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
-                    sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
+                    %sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
+                    %sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
                     fprintf('sum of running cost: %4.4f\n',sum_running_cost);
                     fprintf('sum of state running cost: %4.4f\n',sum_state_running_cost);
                     fprintf('sum of control running cost: %4.4f\n',sum_control_running_cost);
                     cost_index = [];
                 else
                     sum_running_cost = sum_running_cost + g;
-                    sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
-                    sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
+                    %sum_state_running_cost = sum_state_running_cost + sum((Q*xerr).*xerr,1);
+                    %sum_control_running_cost = sum_control_running_cost + sum((R*u).*u,1);
                     cost_index = cost_index + 1;
                 end
                 

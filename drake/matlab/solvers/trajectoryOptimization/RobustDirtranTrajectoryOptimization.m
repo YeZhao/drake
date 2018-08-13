@@ -113,40 +113,40 @@ classdef RobustDirtranTrajectoryOptimization < DirectTrajectoryOptimization
             w_noise = [];
             Pw = [];
             
-%             if strcmp(obj.plant.uncertainty_source,'friction_coeff')
-%                 w_mu = obj.plant.uncertain_mu_set;
-%                 w_noise = [w_mu];
-%                 Pw = diag([0.01]);
-%             elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
-%                 w_phi = obj.plant.uncertain_position_set;
-%                 w_noise = [w_phi];
-%                 Pw = diag([0.0032,0.0037]);
-%             elseif strcmp(obj.plant.uncertainty_source,'object_initial_orientation')
-%                 w_ori = obj.plant.uncertain_orientation_set;
-%                 w_noise = [w_ori];
-%                 Pw = diag([0.025,0.025]);
-%             elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
-%                 w_mu = obj.plant.uncertain_mu_set;
-%                 w_phi = obj.plant.uncertain_position_set;
-%                 w_noise = [w_mu;w_phi];
-%                 Pw = diag([0.01, 0.0032,0.0037]);
-%             elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_orientation')
-%                 w_mu = obj.plant.uncertain_mu_set;
-%                 w_ori = obj.plant.uncertain_orientation_set;
-%                 w_noise = [w_mu;w_ori];
-%                 Pw = diag([0.01, 0.025,0.025]);
-%             elseif isempty(obj.plant.uncertainty_source)
-%                 Pw = [];
-%                 w_noise = [];
-%             elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
-%                 w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
-%                 save -ascii friction_coeff_noise.dat w_mu
-%                 %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
-%                 %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
-%                 %w_phi = [x;y];%height noise
-%                 %save -ascii initial_position_noise.dat w_phi
-%                 w_noise = [w_mu];
-%             end
+            % if strcmp(obj.plant.uncertainty_source,'friction_coeff')
+            %     w_mu = obj.plant.uncertain_mu_set;
+            %     w_noise = [w_mu];
+            %     Pw = diag([0.01]);
+            % elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
+            %     w_phi = obj.plant.uncertain_position_set;
+            %     w_noise = [w_phi];
+            %     Pw = diag([0.0032,0.0037]);
+            % elseif strcmp(obj.plant.uncertainty_source,'object_initial_orientation')
+            %     w_ori = obj.plant.uncertain_orientation_set;
+            %     w_noise = [w_ori];
+            %     Pw = diag([0.025,0.025]);
+            % elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
+            %     w_mu = obj.plant.uncertain_mu_set;
+            %     w_phi = obj.plant.uncertain_position_set;
+            %     w_noise = [w_mu;w_phi];
+            %     Pw = diag([0.01, 0.0032,0.0037]);
+            % elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_orientation')
+            %     w_mu = obj.plant.uncertain_mu_set;
+            %     w_ori = obj.plant.uncertain_orientation_set;
+            %     w_noise = [w_mu;w_ori];
+            %     Pw = diag([0.01, 0.025,0.025]);
+            % elseif isempty(obj.plant.uncertainty_source)
+            %     Pw = [];
+            %     w_noise = [];
+            % elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
+            %     w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
+            %     save -ascii friction_coeff_noise.dat w_mu
+            %     %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
+            %     %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
+            %     %w_phi = [x;y];%height noise
+            %     %save -ascii initial_position_noise.dat w_phi
+            %     w_noise = [w_mu];
+            % end
             
             % disturbance variance
             % currently only consider object horizontal 2D position and friction coefficient
@@ -253,23 +253,23 @@ classdef RobustDirtranTrajectoryOptimization < DirectTrajectoryOptimization
                 
                 % begin of original non-parallezied version
                 for j = 1:n_sampling_point
-%                     if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-%                         obj.plant.uncertain_mu = w_mu(j);
-%                     elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-%                         obj.plant.uncertain_phi = w_phi(:,j);
-%                         Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-%                     elseif strcmp(obj.plant.uncertainty_source, 'object_initial_orientation')
-%                         obj.plant.uncertain_ori = w_ori(:,j);
-%                         Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-%                     elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-%                         obj.plant.uncertain_mu = w_mu(j);
-%                         obj.plant.uncertain_phi = w_phi(:,j);
-%                         Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-%                     elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_orientation')
-%                         obj.plant.uncertain_mu = w_mu(j);
-%                         obj.plant.uncertain_ori = w_ori(:,j);
-%                         Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-%                     end
+                    % if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
+                    %     obj.plant.uncertain_mu = w_mu(j);
+                    % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
+                    %     obj.plant.uncertain_phi = w_phi(:,j);
+                    %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                    % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_orientation')
+                    %     obj.plant.uncertain_ori = w_ori(:,j);
+                    %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
+                    % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
+                    %     obj.plant.uncertain_mu = w_mu(j);
+                    %     obj.plant.uncertain_phi = w_phi(:,j);
+                    %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
+                    % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_orientation')
+                    %     obj.plant.uncertain_mu = w_mu(j);
+                    %     obj.plant.uncertain_ori = w_ori(:,j);
+                    %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
+                    % end
                     
                     %[H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
                     %Hinv(:,:,j,k) = inv(H);

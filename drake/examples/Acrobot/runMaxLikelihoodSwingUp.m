@@ -11,8 +11,9 @@ N = 31;
 
 keyboard
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
-[utraj_nominal,xtraj_nominal,z_nominal,prog_nominal] = swingUpTrajectory(p_nominal,N);
+% [utraj_nominal,xtraj_nominal,z_nominal,prog_nominal] = swingUpTrajectory(p_nominal,N);
 %[utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = robustSwingUpTrajectory_dirtran(p_nominal,N);
+[utraj_nominal,xtraj_nominal,z_nominal,prog_nominal,K_nominal] = robustSwingUpTrajectory_dirtran(p_nominal,N);
 v_nominal = AcrobotVisualizer(p_nominal);
 v_nominal.playback(xtraj_nominal,struct('slider',true));
 
@@ -68,7 +69,6 @@ R = .1;
 Qf = 100*eye(4);
 
 ltvsys = tvlqr(p_nominal,xtraj_nominal,utraj_nominal,Q,R,Qf);
-
 sys=feedback(p_nominal,ltvsys);
 
 xtraj_new = simulate(sys,xtraj_nominal.tspan, [0;0;0;0]);%+0.05*randn(4,1)
