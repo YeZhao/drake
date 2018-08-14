@@ -13,7 +13,8 @@ classdef AcrobotPlant < Manipulator
         Ic1 = .083;  Ic2 = .33;
         
         xG
-        uG        
+        uG
+        uncertainty_source
     end
     
     methods
@@ -201,7 +202,6 @@ classdef AcrobotPlant < Manipulator
                     dh = [0, 2*xerr'*Qf];
                 end
             end
-            
         end
         
         function [utraj,xtraj,z,prog,K]=robustSwingUpTrajectory_dirtran(obj,N,utrajArray,xtrajArray)
@@ -225,13 +225,15 @@ classdef AcrobotPlant < Manipulator
             Qf = 100*eye(4);
             
             v = AcrobotVisualizer(obj);
-            
+             
             options.Px_coeff = 0.09;
-            options.alpha = 0.7;
-            options.kappa = 1;
+            options.alpha = 1;
+            options.kappa = 0.1;
             options.K = [0,10,0,sqrt(10)*2];
             options.contact_robust_cost_coeff = 1;%0.01 works with 0.5*randn noise.
             %tune alpha, contact_robust_cost_coeff, number of knot points.
+             
+            obj.uncertainty_source = 'physical_parameter_uncertainty';
             
             %prog = RobustDirtranTrajectoryOptimization(obj,N,[tf0 tf0],options);
             prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0],options);
@@ -241,11 +243,14 @@ classdef AcrobotPlant < Manipulator
             prog = prog.addFinalCost(@finalCost);
             prog = prog.addMotionDisplayFunction(@displayTraj);
             
+            prog = prog.setSolverOptions('snopt','IterationsLimit',100000000);
+            prog = prog.setSolverOptions('snopt','SuperbasicsLimit',1000000);
+
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
             
             warm_start = 0;
             if warm_start
-                load('robust_test_alpha_1_robust_cost_coeff_1_knot_point_30.mat');
+                load('robust_test_alpha_p9_robust_cost_coeff_1_knot_point_30_warm_start.mat');
                 traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
                 traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
                 
@@ -256,108 +261,186 @@ classdef AcrobotPlant < Manipulator
                 iteration_index = 0;
                 cost_index = [];
             end
+ 
+            tic
+            %size(traj_init)
+            [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
+            toc
+            v.playback(xtraj,struct('slider',true));
+            keyboard
+            
+            h = z(prog.h_inds);
+            t = [0; cumsum(h)];
+            x = xtraj.eval(t);
+            u = utraj.eval(t)';
+            
+            % plot nominal model trajs
+            nominal_linewidth = 2.5;
+            color_line_type = 'b-';
+            figure(10)
+            hold on;
+            plot(t', u, color_line_type, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('u');
+            hold on;
+            
+            figure(22)
+            subplot(2,2,1)
+            hold on;
+            plot(t', x(1,:), color_line_type, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('x_1')
+            hold on;
+            
+            subplot(2,2,2)
+            hold on;
+            plot(t', x(2,:), color_line_type, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('x_2')
+            hold on;
+            
+            subplot(2,2,3)
+            hold on;
+            plot(t', x(3,:), color_line_type, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('xdot_1')
+            hold on;
+            
+            subplot(2,2,4)
+            hold on;
+            plot(t', x(4,:), color_line_type, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('xdot_2')
+            hold on;
+            keyboard
 
-            for attempts=1:1
-                attempts
-                tic
-                %size(traj_init)
-                [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
-                toc
-                v.playback(xtraj,struct('slider',true));
-                keyboard
+            % %% pd control
+            % Kp = options.K(2);
+            % Kd = options.K(4);
+            %
+            % Kp = 500;
+            % Kd = sqrt(Kp)*2;
+            % sys=pdcontrol(obj,[Kp],[Kd],[2]);
+            %
+            % ltisys = pdcontrol(obj,Kp,Kd,[2]);
+            % ltisys = setOutputFrame(ltisys,obj.getInputFrame);
+            %
+            % sys=feedback(obj,ltisys);
+            
+            %% LQR stabilization
+            Q = diag([10 10 1 1]);
+            R = .1;
+            Qf = 100*eye(4);
+            
+            %ytraj = simulate(cascade(setOutputFrame(xtraj, sys.getInputFrame), sys), [0, ts(end)], xstar_hand);
+            
+            num_trial = 100;
+            num_success = 0;
+            state_noise = load('random_state_noise.dat');
+            param_uncertainty = load('physical_param_pertubation_simulate.dat');
+            for i=1:num_trial
+                obj.m1 = 1;
+                obj.m2 = 1;
                 
-                %% LQR stabilization
-                Q = diag([10 10 1 1]);
-                R = .1;
-                Qf = 100*eye(4);
-                
+                obj.m1 = obj.m1 + obj.m1*param_uncertainty(i,1)/10;
+                obj.m2 = obj.m2 + obj.m2*param_uncertainty(i,2)/10;
+            
                 ltvsys = tvlqr(obj,xtraj,utraj,Q,R,Qf);
                 sys=feedback(obj,ltvsys);
                 
-                num_trial = 100;
-                num_success = 0;
-                state_noise = load('random_state_noise.dat');
-                for i=1:num_trial
-                    xtraj_new = simulate(sys,xtraj.tspan, [0;0;0;0]+state_noise(:,i));
-                    v.playback(xtraj_new,struct('slider',true));
-                    ts = getBreaks(xtraj_new);
-                    xtraj_new_data = xtraj_new.eval(ts);
-                    if sum(abs(xtraj_new_data(:,end) - xf)) < 1e-2
-                        num_success = num_success + 1;
-                    end
+                xtraj_new = simulate(sys,xtraj.tspan, [0;0;0;0]+state_noise(:,i));%
+                
+                %xtraj_new = simulate(cascade(setOutputFrame(xtraj, sys.getInputFrame), sys),xtraj.tspan, [0;0;0;0]+state_noise(:,i));
+                
+                v.playback(xtraj_new,struct('slider',true));
+                ts = getBreaks(xtraj_new);
+                xtraj_new_data = xtraj_new.eval(ts);
+                if sum(abs(xtraj_new_data(:,end) - xf)) < 1e-2
+                    num_success = num_success + 1;
                 end
-                %if alpha = 1, num_success = 57;
-                %if alpha = 0.9 and no warm start, num_success = 59;
-                %if alpha = 0.8 and no warm start, num_success = 60;
-                
-                %if warm start, alpha = 0.8, num_success = 30;
-                
-                keyboard
-                
-                %% manually created PD stabilization
-                % ts = getBreaks(xtraj);
-                % h = tf0/(N-1);
-                % utraj_data = utraj.eval(ts);
-                % xtraj_data = xtraj.eval(ts);
-                %
-                % kp = 10;
-                % kd = sqrt(kp)*2;
-                %
-                % K = [0,kp,0,kd];
-                % g = 9.81;
-                %
-                % q_real(:,1) = xtraj_data(1:nq,1);
-                % qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
-                % x_real_full(:,1) = xtraj_data(:,1);
-                %
-                % stabilitation_scenario = 'initial_state_noise';
-                %
-                % if isempty(stabilitation_scenario)
-                %     sample_length = 1;
-                % end
-                %
-                % if strcmp(stabilitation_scenario, 'initial_state_noise')
-                %     w_x_init = load('initial_state_noise.dat');
-                %     sample_length = size(w_x_init,2);
-                % end
-                %
-                % for m=1:sample_length
-                %     if strcmp(stabilitation_scenario, 'initial_state_noise')
-                %         xtraj_data(:,1) = xtraj_data(:,1) + w_x_init(:,m);
-                %         q_real(:,1) = xtraj_data(1:nq,1);
-                %         qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
-                %     end
-                %
-                %     for i=1:N-1
-                %         %feedback ctrl in q position
-                %         F_fb(:,i) = K(:,1:nq)*(xtraj_data(1:nq,i) - q_real(:,i)) + K(:,nq+1:nq+nv)*(xtraj_data(1+nq:nq+nv,i) - qdot_real(:,i));
-                %         %feedforward
-                %         F_ff(:,i) = utraj_data(:,i);
-                %         F_net(:,i) = F_fb(:,i) + F_ff(:,i);
-                %
-                %         [xdot,~] = obj.dynamics(0,x_real_full(:,i),F_net(:,i));
-                %         xdn = x_real_full(:,i) + tf0/(N-1)*xdot;
-                %
-                %         x_real_full(:,i+1) = xdn;
-                %         q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
-                %         qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
-                %     end
-                %
-                %     x_simulated = x_real_full;
-                %     xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
-                %     xtraj_simulated = xtraj_simulated.setOutputFrame(obj.getStateFrame);
-                %     v.playback(xtraj_simulated,struct('slider',true));
-                %
-                %     disp('-------------')
-                %     fprintf('sample index: %4d\n',m);
-                %     fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
-                %     fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
-                %     fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
-                % end
-                %keyboard
-                
-                if info==1, break; end
             end
+            keyboard
+            
+            % N = 31, direct collocation
+            %if alpha = 1, num_success = 57; mean deviation 72.1, covariance = 43.17
+            %if alpha = 0.9 and no warm start, num_success = 59; mean deviation = 54.1, covariance = 51.7
+            %if alpha = 0.8 and no warm start, num_success = 60; mean deviation = 62, covariance = 83.9, show 32 major interation limit
+            %if alpha = 0.7 and no warm start, num_success = 66; mean deviation = 46, covariance = 155, not working yet
+            
+            % N = 61, direct collocation
+            %if alpha = 1 and no warm start, num_success = ; mean deviation = 34, covariance = 10
+            %if alpha = 0.9 and no warm start, num_success = 50; mean deviation = 35, covariance = 11.3
+            %if alpha = 0.8 and no warm start, num_success = 49; mean deviation = 38, covariance = 12.5
+            %if alpha = 0.7 and no warm start, num_success = 59; mean deviation = 35, covariance = 15
+            
+            %if using direct transcription, N = 31, alpha = 1, num_success = 4;
+            %if using direct transcription, N = 101, alpha = 1, num_success = 29;
+            
+            %if warm start, alpha = 0.8, num_success = 30;
+            
+            %keyboard
+            
+            %% manually created PD stabilization
+            % ts = getBreaks(xtraj);
+            % h = tf0/(N-1);
+            % utraj_data = utraj.eval(ts);
+            % xtraj_data = xtraj.eval(ts);
+            %
+            % kp = 10;
+            % kd = sqrt(kp)*2;
+            %
+            % K = [0,kp,0,kd];
+            % g = 9.81;
+            %
+            % q_real(:,1) = xtraj_data(1:nq,1);
+            % qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
+            % x_real_full(:,1) = xtraj_data(:,1);
+            %
+            % stabilitation_scenario = 'initial_state_noise';
+            %
+            % if isempty(stabilitation_scenario)
+            %     sample_length = 1;
+            % end
+            %
+            % if strcmp(stabilitation_scenario, 'initial_state_noise')
+            %     w_x_init = load('initial_state_noise.dat');
+            %     sample_length = size(w_x_init,2);
+            % end
+            %
+            % for m=1:sample_length
+            %     if strcmp(stabilitation_scenario, 'initial_state_noise')
+            %         xtraj_data(:,1) = xtraj_data(:,1) + w_x_init(:,m);
+            %         q_real(:,1) = xtraj_data(1:nq,1);
+            %         qdot_real(:,1) = xtraj_data(nq+1:nq+nv,1);
+            %     end
+            %
+            %     for i=1:N-1
+            %         %feedback ctrl in q position
+            %         F_fb(:,i) = K(:,1:nq)*(xtraj_data(1:nq,i) - q_real(:,i)) + K(:,nq+1:nq+nv)*(xtraj_data(1+nq:nq+nv,i) - qdot_real(:,i));
+            %         %feedforward
+            %         F_ff(:,i) = utraj_data(:,i);
+            %         F_net(:,i) = F_fb(:,i) + F_ff(:,i);
+            %
+            %         [xdot,~] = obj.dynamics(0,x_real_full(:,i),F_net(:,i));
+            %         xdn = x_real_full(:,i) + tf0/(N-1)*xdot;
+            %
+            %         x_real_full(:,i+1) = xdn;
+            %         q_real(1:nq,i+1) = x_real_full(1:nq,i+1);
+            %         qdot_real(1:nv,i+1) = x_real_full(1+nq:nq+nv,i+1);
+            %     end
+            %
+            %     x_simulated = x_real_full;
+            %     xtraj_simulated = PPTrajectory(foh(ts,x_simulated));
+            %     xtraj_simulated = xtraj_simulated.setOutputFrame(obj.getStateFrame);
+            %     v.playback(xtraj_simulated,struct('slider',true));
+            %
+            %     disp('-------------')
+            %     fprintf('sample index: %4d\n',m);
+            %     fprintf('final state deviation: %4.8f\n',norm(x_real_full(:,end) - xtraj_data(:,end)));
+            %     fprintf('full trajectory state deviation cost: %4.8f\n',norm(x_real_full - xtraj_data));
+            %     fprintf('final object height deviation cost: %4.8f\n',x_real_full(11,end) - xtraj_data(11,end));
+            % end
+            %keyboard
             
             % generate LQR gain matrix             
             % manually refactor the decision variable vector for deltaLQR input

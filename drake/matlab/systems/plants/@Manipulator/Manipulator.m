@@ -471,18 +471,26 @@ classdef Manipulator < DrakeSystem
       pdfb = setInputFrame(pdfb,sys.getStateFrame);  % note: assume full-state feedback for now
 
       % pdff = prop-derivative control feedforward term:
-      % tau = Kp*thetadesired
-      pdff = LinearSystem([],[],[],[],[],Kp*eye(sys.num_u));
+      % tau = Kp*thetadesired + Kd*thetadotdesired
+      %pdff = LinearSystem([],[],[],[],[],Kp*eye(sys.num_u));
+      D2 = D;
+      D2(:,sys.num_positions + index) = 0;
+      pdff = LinearSystem([],[],[],[],[],-D2);
       pdff = setOutputFrame(pdff,sys.getInputFrame);
-      coordinates = sys.getStateFrame.getCoordinateNames();
-      pdff = setInputFrame(pdff,CoordinateFrame('q_d',length(index),'d',{coordinates{index}}));
-
+      %coordinates = sys.getStateFrame.getCoordinateNames();
+      %pdff = setInputFrame(pdff,CoordinateFrame('q_d',length(index),'d',{coordinates{index}}));
+      pdff = setInputFrame(pdff,sys.getStateFrame);
+      
       if nargout>1
-        varargout{1} = pdff;
-        varargout{2} = pdfb;
+          varargout{1} = pdff;
+          varargout{2} = pdfb;
       else
-%        sys = cascade(cascade(ScopeSystem(sys.getInputFrame),sys),ScopeSystem(sys.getInputFrame));
-        varargout{1} = cascade(pdff,feedback(sys,pdfb));
+          %sys = cascade(cascade(ScopeSystem(sys.getInputFrame),sys),ScopeSystem(sys.getInputFrame));
+          %varargout{1} = cascade(parallel(pdff,setOutputFrame(utraj,pdff.getOutputFrame),feedback(sys,pdfb));
+          %varargout{1} = cascade(parallel(cascade(setOutputFrame(xtraj, pdff.getInputFrame), pdff),setOutputFrame(utraj,pdff.getOutputFrame)),feedback(sys,pdfb));
+          %varargout{1} = cascade(setOutputFrame(utraj,pdff.getOutputFrame),sys);
+          varargout{1} = cascade(pdff,feedback(sys,pdfb));
+          %varargout{1} = feedback(sys,pdfb);
       end
     end
 

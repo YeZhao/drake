@@ -385,4 +385,3 @@ function K = affineKsoln(S,R,B,N)
   K{1} = -Ri*(B'*S{1}+N');
   K{2} = -.5*Ri*(B'*S{2} + R{2});
 end
-

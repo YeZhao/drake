@@ -220,8 +220,8 @@ if generate_robust_traj == 1
         % --- step 3: regenerate optimal trajs of nominal model ----
         
         [utraj_nominal_new,xtraj_nominal_new,z_nominal_new,prog_nominal_new,K_nominal_new] = swingUpTrajectory_dircol(p_nominal,N,utrajArray,xtrajArray);
-%         v_nominal_new = AcrobotVisualizer(p_nominal);
-%         v_nominal_new.playback(xtraj_nominal_new,struct('slider',true));
+        %v_nominal_new = AcrobotVisualizer(p_nominal);
+        %v_nominal_new.playback(xtraj_nominal_new,struct('slider',true));
         
         h_nominal_new = z_nominal_new(prog_nominal_new.h_inds);
         t_nominal_new = [0; cumsum(h_nominal_new)];
@@ -289,7 +289,7 @@ if generate_robust_traj == 1
         u_traj_diff_sum_percent = 100*u_traj_diff_sum/N;
         u_traj_max_diff_sum_percent = max(u_traj_diff_sum_percent);
         
-        % increment interation index
+        % increment iteration index
         m = m + 1;
         
         % save data of new nominal model

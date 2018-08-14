@@ -21,7 +21,7 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
       nu
       nx
       h
-      
+       
       Q % LQR state cost matrix
       R % LQR input cost matrix
       Qf% LQR terminal cost matrix
@@ -36,7 +36,6 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
       
       xtraj_perturbed_array % State trajectory array of perturbed model
       utraj_perturbed_array % Control trajectory array of perturbed model
-      
   end
   
   methods
@@ -60,6 +59,8 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
       obj.nq = nX/2;
       obj.nv = nX/2;
       obj.nu = nU;
+      obj.nX = obj.nx;
+      obj.nU = obj.nu;
       
       constraints = cell(N-1,1);
       dyn_inds = cell(N-1,1);
@@ -68,18 +69,17 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
       cnstr = FunctionHandleConstraint(zeros(nX,1),zeros(nX,1),n_vars,@obj.constraint_fun);
       cnstr = setName(cnstr,'collocation');
 
-      % create shared data functions to calculate dynamics at the knot
-      % points
+      % create shared data functions to calculate dynamics at the knot points
       shared_data_index = obj.getNumSharedDataFunctions;
       for i=1:obj.N,
-        obj = obj.addSharedDataFunction(@obj.dynamics_data,{obj.x_inds(:,i);obj.u_inds(:,i)});
+       obj = obj.addSharedDataFunction(@obj.dynamics_data,{obj.x_inds(:,i);obj.u_inds(:,i)});
       end
       
       for i=1:obj.N-1,
-        dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.u_inds(:,i+1)};
-        constraints{i} = cnstr;
-        
-        obj = obj.addConstraint(constraints{i}, dyn_inds{i},[shared_data_index+i;shared_data_index+i+1]);
+         dyn_inds{i} = {obj.h_inds(i);obj.x_inds(:,i);obj.x_inds(:,i+1);obj.u_inds(:,i);obj.u_inds(:,i+1)};
+         constraints{i} = cnstr;
+         
+         obj = obj.addConstraint(constraints{i}, dyn_inds{i},[shared_data_index+i;shared_data_index+i+1]);
       end
       
       obj = obj.addCost(FunctionHandleObjective(1,@(h_inds)getTimeStep(obj,h_inds),1),{obj.h_inds(1)});
@@ -107,6 +107,14 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         nu = obj.plant.getNumInputs;
         h = timestep;
         
+        %compute LQR gains
+        % for k = 1:obj.N-1
+        %     y((k-1)*(1+nx+nu)+1+(1:nx)) = x(:,k);
+        %     y((k-1)*(1+nx+nu)+1+nx+(1:nu)) = u(:,k);
+        % end
+        % xf = x(:,obj.N);
+        % [K] = deltaLQR(obj,y,xf);
+                
         % sigma points
         Px = zeros(obj.nx,obj.nx,obj.N);
         Px(:,:,1) = obj.options.Px_coeff*eye(nx);
@@ -114,40 +122,21 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         w_noise = [];
         Pw = [];
         
-        % if strcmp(obj.plant.uncertainty_source,'friction_coeff')
-        %     w_mu = obj.plant.uncertain_mu_set;
-        %     w_noise = [w_mu];
-        %     Pw = diag([0.01]);
-        % elseif strcmp(obj.plant.uncertainty_source,'object_initial_position')
-        %     w_phi = obj.plant.uncertain_position_set;
-        %     w_noise = [w_phi];
-        %     Pw = diag([0.0032,0.0037]);
-        % elseif strcmp(obj.plant.uncertainty_source,'object_initial_orientation')
-        %     w_ori = obj.plant.uncertain_orientation_set;
-        %     w_noise = [w_ori];
-        %     Pw = diag([0.025,0.025]);
-        % elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_position')
-        %     w_mu = obj.plant.uncertain_mu_set;
-        %     w_phi = obj.plant.uncertain_position_set;
-        %     w_noise = [w_mu;w_phi];
-        %     Pw = diag([0.01, 0.0032,0.0037]);
-        % elseif strcmp(obj.plant.uncertainty_source,'friction_coeff+object_initial_orientation')
-        %     w_mu = obj.plant.uncertain_mu_set;
-        %     w_ori = obj.plant.uncertain_orientation_set;
-        %     w_noise = [w_mu;w_ori];
-        %     Pw = diag([0.01, 0.025,0.025]);
-        % elseif isempty(obj.plant.uncertainty_source)
-        %     Pw = [];
-        %     w_noise = [];
-        % elseif strcmp(obj.plant.uncertainty_source,'generate_new_noise_set')
-        %     w_mu = normrnd(ones(1,n_sampling_point),sqrt(Pw(1,1)),1,n_sampling_point);
-        %     save -ascii friction_coeff_noise.dat w_mu
-        %     %x = (1-2*rand(1,n_sampling_point))*sqrt(Pw(2,2));
-        %     %y = (1-2*rand(1,n_sampling_point))*sqrt(Pw(3,3));
-        %     %w_phi = [x;y];%height noise
-        %     %save -ascii initial_position_noise.dat w_phi
-        %     w_noise = [w_mu];
-        % end
+        if strcmp(obj.plant.uncertainty_source,'physical_parameter_uncertainty')
+            param_uncertainty = load('physical_param_pertubation.dat');
+        elseif strcmp(obj.plant.uncertainty_source,'generate_new_parameter_uncertainty_set')
+            paramstd = 1/5; % Standard deviation of the parameter value percent error
+            for i = 1:2*(obj.nx)
+                % Perturb original parameter estimates with random percentage error
+                % normally distributed with standard dev = paramstd, and greater than -1
+                param_uncertainty(i,:) = randn(1,10)*paramstd;
+                while sum(param_uncertainty(i,:)<=-1)~=0
+                    param_uncertainty(param_uncertainty(i,:)<-1) = randn(1,sum(param_uncertainty(i,:)<-1))*paramstd;
+                end
+            end
+            save -ascii physical_param_pertubation.dat param_uncertainty
+            w_noise = param_uncertainty;
+        end
         
         % disturbance variance
         % currently only consider object horizontal 2D position and friction coefficient
@@ -173,9 +162,9 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         x_mean = zeros(obj.nx, obj.N);
         % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
         %c = 0;
-        c = trace(Px_init);
+        c = kappa*trace(Px_init);
         %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
-        c_covariance = 0;
+        c_covariance = kappa*trace(Px_init);
         c_mean_dev = 0;
         dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
         
@@ -254,31 +243,28 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             
             % begin of original non-parallezied version
             for j = 1:n_sampling_point
-                % if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                %     obj.plant.uncertain_mu = w_mu(j);
-                % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                %     obj.plant.uncertain_phi = w_phi(:,j);
-                %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-                % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_orientation')
-                %     obj.plant.uncertain_ori = w_ori(:,j);
-                %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-                % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                %     obj.plant.uncertain_mu = w_mu(j);
-                %     obj.plant.uncertain_phi = w_phi(:,j);
-                %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-                % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_orientation')
-                %     obj.plant.uncertain_mu = w_mu(j);
-                %     obj.plant.uncertain_ori = w_ori(:,j);
-                %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-                % end
-                
-                %[H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
-                %Hinv(:,:,j,k) = inv(H);
+                if strcmp(obj.plant.uncertainty_source, 'physical_parameter_uncertainty')
+                    % Perturb original parameter estimates with random percentage error
+                    % normally distributed with standard dev = paramstd, and greater than -1
+                    
+                    obj.plant.m1 = 1;
+                    obj.plant.m2 = 1;
+                    
+                    obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1)/10;
+                    obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2)/10;
+                    % obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,1);
+                    % obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,2);
+                    % obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
+                    % obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
+                    % obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7);
+                    % obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8);
+                    % obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9);
+                    % obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10);
+                end
                 
                 % add feedback control
                 u_fdb_k = u(:,k) - K*(Sig_init(1:nx,j,k) - x(:,k));
                 
-                external_force_index = j;
                 if noise_sample_type == 1
                     [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k);
                 elseif noise_sample_type == 2
@@ -512,7 +498,7 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                 dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
                 dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
             end
-            dc = [dc, 1/2*dmeanR_sum_dx_k+dTrV_sum_dx_k];
+            dc = [dc, 1/2*dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
             %dc = [dc, dmeanR_sum_dx_k];
             %dc = [dc, dTrV_sum_dx_k];
         end
@@ -526,7 +512,7 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                 dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
                 dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
             end
-            dc = [dc, 1/2*dmeanR_sum_du_k+dTrV_sum_du_k];
+            dc = [dc, 1/2*dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
             %dc = [dc, dmeanR_sum_du_k];
             %dc = [dc, dTrV_sum_du_k];
         end
@@ -772,12 +758,36 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             nu = obj.plant.getNumInputs;
             h = timestep;
             
+            %compute LQR gains
+            % for k = 1:obj.N-1
+            %     y((k-1)*(1+nx+nu)+1+(1:nx)) = x(:,k);
+            %     y((k-1)*(1+nx+nu)+1+nx+(1:nu)) = u(:,k);
+            % end
+            % xf = x(:,obj.N);
+            % [K] = deltaLQR(obj,y,xf);
+            
             % sigma points
             Px = zeros(obj.nx,obj.nx,obj.N);
             Px(:,:,1) = obj.options.Px_coeff*eye(nx);
             Px_init = Px(:,:,1);
             w_noise = [];
             Pw = [];
+            
+            if strcmp(obj.plant.uncertainty_source,'physical_parameter_uncertainty')
+                param_uncertainty = load('physical_param_pertubation.dat');
+            elseif strcmp(obj.plant.uncertainty_source,'generate_new_parameter_uncertainty_set')
+                paramstd = 1/5; % Standard deviation of the parameter value percent error
+                for i = 1:2*(obj.nx)
+                    % Perturb original parameter estimates with random percentage error
+                    % normally distributed with standard dev = paramstd, and greater than -1
+                    param_uncertainty(i,:) = randn(1,10)*paramstd;
+                    while sum(param_uncertainty(i,:)<=-1)~=0
+                        param_uncertainty(param_uncertainty(i,:)<-1) = randn(1,sum(param_uncertainty(i,:)<-1))*paramstd;
+                    end
+                end
+                save -ascii physical_param_pertubation.dat param_uncertainty
+                w_noise = param_uncertainty;
+            end
             
             % disturbance variance
             % currently only consider object horizontal 2D position and friction coefficient
@@ -803,9 +813,9 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             x_mean = zeros(obj.nx, obj.N);
             % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
             %c = 0;
-            c = trace(Px_init);
+            c = kappa*trace(Px_init);
             %c = 1/2*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
-            c_covariance = 0;
+            c_covariance = kappa*trace(Px_init);
             c_mean_dev = 0;
             dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
             
@@ -884,31 +894,28 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                 
                 % begin of original non-parallezied version
                 for j = 1:n_sampling_point
-                    % if strcmp(obj.plant.uncertainty_source, 'friction_coeff')
-                    %     obj.plant.uncertain_mu = w_mu(j);
-                    % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_position')
-                    %     obj.plant.uncertain_phi = w_phi(:,j);
-                    %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-                    % elseif strcmp(obj.plant.uncertainty_source, 'object_initial_orientation')
-                    %     obj.plant.uncertain_ori = w_ori(:,j);
-                    %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-                    % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
-                    %     obj.plant.uncertain_mu = w_mu(j);
-                    %     obj.plant.uncertain_phi = w_phi(:,j);
-                    %     Sig_init(9:10,j,k) = Sig_init(9:10,j,k) + obj.plant.uncertain_phi;%object x and y position uncertainty
-                    % elseif strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_orientation')
-                    %     obj.plant.uncertain_mu = w_mu(j);
-                    %     obj.plant.uncertain_ori = w_ori(:,j);
-                    %     Sig_init(12:13,j,k) = Sig_init(12:13,j,k) + obj.plant.uncertain_ori;%object x and y orientation uncertainty
-                    % end
-                    
-                    %[H,C,B,dH,dC,dB] = obj.plant.manipulatorDynamics(Sig_init(1:nx/2,j,k),Sig_init(nx/2+1:nx,j,k));
-                    %Hinv(:,:,j,k) = inv(H);
+                    if strcmp(obj.plant.uncertainty_source, 'physical_parameter_uncertainty')
+                        % Perturb original parameter estimates with random percentage error
+                        % normally distributed with standard dev = paramstd, and greater than -1
+                        
+                        obj.plant.m1 = 1;
+                        obj.plant.m2 = 1;
+                        
+                        obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1);
+                        obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2);
+                        % obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,1);
+                        % obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,2);
+                        % obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
+                        % obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
+                        % obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7);
+                        % obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8);
+                        % obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9);
+                        % obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10);
+                    end
                     
                     % add feedback control
                     u_fdb_k = u(:,k) - K*(Sig_init(1:nx,j,k) - x(:,k));
                     
-                    external_force_index = j;
                     if noise_sample_type == 1
                         [xdn_analytical(:,j),df_analytical(:,:,j)] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k);
                     elseif noise_sample_type == 2
@@ -1142,7 +1149,7 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                     dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
                     dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
                 end
-                dc = [dc, 1/2*dmeanR_sum_dx_k+dTrV_sum_dx_k];
+                dc = [dc, 1/2*dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];
                 %dc = [dc, dmeanR_sum_dx_k];
                 %dc = [dc, dTrV_sum_dx_k];
             end
@@ -1156,7 +1163,7 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                     dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
                     dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
                 end
-                dc = [dc, 1/2*dmeanR_sum_du_k+dTrV_sum_du_k];
+                dc = [dc, 1/2*dmeanR_sum_du_k+kappa*dTrV_sum_du_k];
                 %dc = [dc, dmeanR_sum_du_k];
                 %dc = [dc, dTrV_sum_du_k];
             end
@@ -1348,33 +1355,36 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         %Get dynamics derivatives along trajectory
         A = zeros(nX,nX,N-1);
         B = zeros(nX,nU,N-1);
-        G = zeros(nX,nW,N-1);
+        %G = zeros(nX,nW,N-1);
         
         dA = zeros(nX*nX,2*(1+nX+nU),N-1);
         dB = zeros(nX*nU,2*(1+nX+nU),N-1);
-        dG = zeros(nX*nW,2*(1+nX+nU),N-1);
+        %dG = zeros(nX*nW,2*(1+nX+nU),N-1);
         for k = 1:(N-2)
-            [~,dx,d2x] = obj.robust_dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+y((k)*(1+nX+nU)+1+(1:nX))),y((k-1)*(1+nX+nU)+1+nX+(1:nU)),zeros(nW,1));
+            [~,dx,d2x] = obj.dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+y((k)*(1+nX+nU)+1+(1:nX))),y((k-1)*(1+nX+nU)+1+nX+(1:nU)));
             A(:,:,k) = dx(:,1+(1:nX));
             B(:,:,k) = dx(:,1+nX+(1:nU));
-            G(:,:,k) = dx(:,1+nX+nU+(1:nW));
-            dvec = reshape(d2x,nX*(1+nX+nU+nW),1+nX+nU+nW);
+            %G(:,:,k) = dx(:,1+nX+nU+(1:nW));
+            dvec = reshape(d2x,nX*(1+nX+nU),1+nX+nU);
             dA(:,:,k) = [dvec(nX+(1:nX*nX),1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), dvec(nX+(1:nX*nX),1+nX+(1:nU)), zeros(nX*nX,1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), zeros(nX*nX,nU)];
             dB(:,:,k) = [dvec((1+nX)*nX+(1:nX*nU),1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), dvec((1+nX)*nX+(1:nX*nU),1+nX+(1:nU)), zeros(nX*nU,1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), zeros(nX*nU,nU)];
-            dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
+            %dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
         end
         k = N-1;
-        [~,dx,d2x] = obj.robust_dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+xf),y((k-1)*(1+nX+nU)+1+nX+(1:nU)),zeros(nW,1));
+        [~,dx,d2x] = obj.dynamics(y((k-1)*(1+nX+nU)+1),.5*(y((k-1)*(1+nX+nU)+1+(1:nX))+xf'),y((k-1)*(1+nX+nU)+1+nX+(1:nU)));
         A(:,:,k) = dx(:,1+(1:nX));
         B(:,:,k) = dx(:,1+nX+(1:nU));
-        G(:,:,k) = dx(:,1+nX+nU+(1:nW));
-        dvec = reshape(d2x,nX*(1+nX+nU+nW),1+nX+nU+nW);
+        %G(:,:,k) = dx(:,1+nX+nU+(1:nW));
+        dvec = reshape(d2x,nX*(1+nX+nU),1+nX+nU);
         dA(:,:,k) = [dvec(nX+(1:nX*nX),1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), dvec(nX+(1:nX*nX),1+nX+(1:nU)), zeros(nX*nX,1), .5*dvec(nX+(1:nX*nX),1+(1:nX)), zeros(nX*nX,nU)];
         dB(:,:,k) = [dvec((1+nX)*nX+(1:nX*nU),1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), dvec((1+nX)*nX+(1:nX*nU),1+nX+(1:nU)), zeros(nX*nU,1), .5*dvec((1+nX)*nX+(1:nX*nU),1+(1:nX)), zeros(nX*nU,nU)];
-        dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
+        %dG(:,:,k) = [dvec((1+nX+nU)*nX+(1:nX*nW),1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), dvec((1+nX+nU)*nX+(1:nX*nW),1+nX+(1:nU)), zeros(nX*nW,1), .5*dvec((1+nX+nU)*nX+(1:nX*nW),1+(1:nX)), zeros(nX*nW,nU)];
         
         %Solve Riccati Equation
-        P = obj.Qf;
+        P = 100*eye(4);
+        obj.Q = diag([10 10 1 1]);
+        obj.R = .1;
+        
         dP = zeros(nX*nX,(N-1)*(1+nX+nU)+nX);
         K = zeros(nU,nX,N-1);
         dK = zeros(nU*nX,(N-1)*(1+nX+nU)+nX,N-1);
@@ -1440,6 +1450,31 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
           d2f(:,1:(1+obj.nX+obj.nU+obj.nW)) = dxdot;
           d2f(:,1:(1+obj.nX+obj.nU+obj.nW):end) = dxdot;
       end
+    end
+    
+    function [f,df,d2f] = dynamics(obj,h,x,u)
+        x = x';
+        u = u';
+        % Euler integration of continuous dynamics
+        if nargout == 1
+            xdot = obj.plant.dynamics(0,x,u);
+            f = x + h*xdot;
+        elseif nargout == 2
+            [xdot,dxdot] = obj.plant.dynamics(0,x,u);
+            f = x + h*xdot;
+            df = [xdot ... h
+                eye(obj.nX) + h*dxdot(:,1+(1:obj.nX)) ... x0
+                h*dxdot(:,1+obj.nX+(1:obj.nU))]; % u
+        else %nargout == 3
+            [xdot,dxdot,d2xdot] = obj.plant.dynamics(0,x,u);
+            f = x + h*xdot;
+            df = [xdot ... h
+                eye(obj.nX) + h*dxdot(:,1+(1:obj.nX)) ... x0
+                h*dxdot(:,1+obj.nX+(1:obj.nU))]; % u
+            d2f = h*d2xdot;
+            d2f(:,1:(1+obj.nX+obj.nU)) = dxdot;
+            d2f(:,1:(1+obj.nX+obj.nU):end) = dxdot;
+        end
     end
     
     function [utraj,xtraj] = reconstructInputTrajectory(obj,z)
