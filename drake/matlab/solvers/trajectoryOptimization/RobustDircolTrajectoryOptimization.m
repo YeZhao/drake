@@ -173,8 +173,12 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         
         function [xdn,df] = objPlantUpdate(timestep,Sig,u_fdb_k)
             [xdot,dxdot] = obj.plant.dynamics(0,Sig,u_fdb_k);
-            xdn = Sig + timestep*xdot;
-            df = [xdot,eye(4),zeros(4,nu)]+timestep*full(dxdot);
+            v_new = xdot(1:nq) + timestep*xdot(nq+1:nq+nv);
+            xdot_new = [v_new;xdot(nq+1:nq+nv)];% update velocity component
+            xdn = Sig + timestep*xdot_new;
+            dxdot_new = full(dxdot);
+            dxdot_new(1:nq,:) = [xdot(nq+1:nq+nv),zeros(nq,nx),zeros(nq,nu)] + dxdot_new(1:nq,:) + timestep*dxdot_new(nq+1:nq+nv,:);
+            df = [xdot_new,eye(4),zeros(nx,nu)]+timestep*full(dxdot_new);
         end
         
         plant_update = @objPlantUpdate;
@@ -249,17 +253,25 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                     
                     obj.plant.m1 = 1;
                     obj.plant.m2 = 1;
+                    obj.plant.l1 = 1;
+                    obj.plant.l2 = 2;
+                    obj.plant.b1 = 0.1;
+                    obj.plant.b2 = 0.1;
+                    obj.plant.lc1 = 0.5;
+                    obj.plant.lc2 = 1;
+                    obj.plant.Ic1 = 0.0830;
+                    obj.plant.Ic2 = 0.3300;
                     
                     obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1)/10;
                     obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2)/10;
-                    % obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,1);
-                    % obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,2);
-                    % obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
-                    % obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
-                    % obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7);
-                    % obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8);
-                    % obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9);
-                    % obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10);
+                    %obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,3)/10;
+                    %obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,4)/10;
+                    %obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
+                    %obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
+                    obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7)/10;
+                    obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8)/10;
+                    %obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9)/10;
+                    %obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10)/10;
                 end
                 
                 % add feedback control
@@ -279,28 +291,28 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                     df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                 end
                 
-                % %numerical diff
-                % dt = diag(max(sqrt(eps(timestep)), 1e-7));
-                % dx = diag(max(sqrt(eps(Sig_init(1:nx,j,k))), 1e-7));
-                % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
-                %
-                % [xdnp,~] = feval(plant_update,timestep+dt,Sig_init(1:nx,j,k),u_fdb_k);
-                % [xdnm,~] = feval(plant_update,timestep-dt,Sig_init(1:nx,j,k),u_fdb_k);
-                % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                %
-                % N_finite_diff_x = length(Sig_init(1:nx,j,k));
-                % for m = 1:N_finite_diff_x
-                %     [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)+dx(:,m),u_fdb_k);
-                %     [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)-dx(:,m),u_fdb_k);
-                %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                % end
-                %
-                % N_finite_diff_u = length(u_fdb_k);
-                % for m = 1:N_finite_diff_u
-                %     [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k+du(:,m));
-                %     [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k-du(:,m));
-                %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                % end
+                %numerical diff
+                dt = diag(max(sqrt(eps(timestep)), 1e-7));
+                dx = diag(max(sqrt(eps(Sig_init(1:nx,j,k))), 1e-7));
+                du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                
+                [xdnp,~] = feval(plant_update,timestep+dt,Sig_init(1:nx,j,k),u_fdb_k);
+                [xdnm,~] = feval(plant_update,timestep-dt,Sig_init(1:nx,j,k),u_fdb_k);
+                df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                
+                N_finite_diff_x = length(Sig_init(1:nx,j,k));
+                for m = 1:N_finite_diff_x
+                    [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)+dx(:,m),u_fdb_k);
+                    [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)-dx(:,m),u_fdb_k);
+                    df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                end
+                
+                N_finite_diff_u = length(u_fdb_k);
+                for m = 1:N_finite_diff_u
+                    [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k+du(:,m));
+                    [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k-du(:,m));
+                    df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                end
                 %df(:,:,j) = df_numeric;
                 
                 % ToDo: check numerical gradient accuracy
@@ -526,11 +538,91 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         fprintf('robust cost mean deviation norm-2 value: %4.8f\n',c_mean_dev);
         fprintf('robust cost covariance trace value: %4.8f\n',c_covariance);
         
+        for k = 1:obj.N
+            q1(k) = std(Sig(1,:,k));
+            q2(k) = std(Sig(2,:,k));
+            v1(k) = std(Sig(3,:,k));
+            v2(k) = std(Sig(4,:,k));
+        end
+        
+        global iteration_index
+        if mod(iteration_index,10) == 0
+            % plot nominal model trajs
+            nominal_linewidth = 1;
+            color_line_type1 = 'b-';
+            color_line_type2 = 'r-';
+            color_line_type3 = 'k-';
+            
+            t = linspace(0, 6, obj.N);
+            figure(10)
+            hold on;
+            plot(t', u, color_line_type1, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', u, color_line_type2, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('u');
+            hold on;
+            
+            figure(22)
+            subplot(2,2,1)
+            hold on;
+            plot(t', x(1,:), color_line_type1, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(1,:), color_line_type2, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(1,:)+q1, color_line_type3, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(1,:)-q1, color_line_type3, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('x_1')
+            hold on;
+            
+            subplot(2,2,2)
+            hold on;
+            plot(t', x(2,:), color_line_type1, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(2,:), color_line_type2, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(2,:)+q2, color_line_type3, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(2,:)-q2, color_line_type3, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('x_2')
+            hold on;
+            
+            subplot(2,2,3)
+            hold on;
+            plot(t', x(3,:), color_line_type1, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(3,:), color_line_type2, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(3,:)+v1, color_line_type3, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(3,:)-v1, color_line_type3, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('xdot_1')
+            hold on;
+            
+            subplot(2,2,4)
+            hold on;
+            plot(t', x(4,:), color_line_type1, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(4,:), color_line_type2, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(4,:)+v2, color_line_type3, 'LineWidth',nominal_linewidth);
+            hold on;
+            plot(t', x_mean(4,:)-v2, color_line_type3, 'LineWidth',nominal_linewidth);
+            xlabel('t');
+            ylabel('xdot_2')
+            hold on;
+            %keyboard
+        end
+        
         % figure(1)
         % kkk = 2;
         % plot(x(kkk,:),'b-');
         % hold on;
-        % for j = 1:n_sampling_point
+        % for j = 1:n_saenmpling_point
         % plot(reshape(Sig(kkk,j,:),1,[]),'r-')
         % hold on;
         % end
@@ -824,8 +916,12 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             
             function [xdn,df] = objPlantUpdate(timestep,Sig,u_fdb_k)
                 [xdot,dxdot] = obj.plant.dynamics(0,Sig,u_fdb_k);
-                xdn = Sig + timestep*xdot;
-                df = [xdot,eye(4),zeros(4,nu)]+timestep*full(dxdot);
+                v_new = xdot(1:nq) + timestep*xdot(nq+1:nq+nv);
+                xdot_new = [v_new;xdot(nq+1:nq+nv)];% update velocity component
+                xdn = Sig + timestep*xdot_new;
+                dxdot_new = full(dxdot);
+                dxdot_new(1:nq,:) = [xdot(nq+1:nq+nv),zeros(nq,nx),zeros(nq,nu)] + dxdot_new(1:nq,:) + timestep*dxdot_new(nq+1:nq+nv,:);
+                df = [xdot_new,eye(4),zeros(nx,nu)]+timestep*full(dxdot_new);
             end
             
             plant_update = @objPlantUpdate;
@@ -900,17 +996,25 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                         
                         obj.plant.m1 = 1;
                         obj.plant.m2 = 1;
+                        obj.plant.l1 = 1;
+                        obj.plant.l2 = 2;
+                        obj.plant.b1 = 0.1;
+                        obj.plant.b2 = 0.1;
+                        obj.plant.lc1 = 0.5;
+                        obj.plant.lc2 = 1;
+                        obj.plant.Ic1 = 0.0830;
+                        obj.plant.Ic2 = 0.3300;
                         
-                        obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1);
-                        obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2);
-                        % obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,1);
-                        % obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,2);
-                        % obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
-                        % obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
-                        % obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7);
-                        % obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8);
-                        % obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9);
-                        % obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10);
+                        obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1)/10;
+                        obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2)/10;
+                        %obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,3)/10;
+                        %obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,4)/10;
+                        %obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
+                        %obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
+                        obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7)/10;
+                        obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8)/10;
+                        %obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9)/10;
+                        %obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10)/10;
                     end
                     
                     % add feedback control
@@ -930,28 +1034,28 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                         df_analytical(:,:,j) = df_analytical(:,:,j)/length(w_noise);
                     end
                     
-                    % %numerical diff
-                    % dt = diag(max(sqrt(eps(timestep)), 1e-7));
-                    % dx = diag(max(sqrt(eps(Sig_init(1:nx,j,k))), 1e-7));
-                    % du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
-                    %
-                    % [xdnp,~] = feval(plant_update,timestep+dt,Sig_init(1:nx,j,k),u_fdb_k);
-                    % [xdnm,~] = feval(plant_update,timestep-dt,Sig_init(1:nx,j,k),u_fdb_k);
-                    % df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
-                    %
-                    % N_finite_diff_x = length(Sig_init(1:nx,j,k));
-                    % for m = 1:N_finite_diff_x
-                    %     [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)+dx(:,m),u_fdb_k);
-                    %     [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)-dx(:,m),u_fdb_k);
-                    %     df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
-                    % end
-                    %
-                    % N_finite_diff_u = length(u_fdb_k);
-                    % for m = 1:N_finite_diff_u
-                    %     [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k+du(:,m));
-                    %     [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k-du(:,m));
-                    %     df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
-                    % end
+                    %numerical diff
+                    dt = diag(max(sqrt(eps(timestep)), 1e-7));
+                    dx = diag(max(sqrt(eps(Sig_init(1:nx,j,k))), 1e-7));
+                    du = diag(max(sqrt(eps(u_fdb_k)),1e-7));
+                    
+                    [xdnp,~] = feval(plant_update,timestep+dt,Sig_init(1:nx,j,k),u_fdb_k);
+                    [xdnm,~] = feval(plant_update,timestep-dt,Sig_init(1:nx,j,k),u_fdb_k);
+                    df_numeric(:,1) = (xdnp-xdnm)/(2*dt);
+                    
+                    N_finite_diff_x = length(Sig_init(1:nx,j,k));
+                    for m = 1:N_finite_diff_x
+                        [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)+dx(:,m),u_fdb_k);
+                        [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k)-dx(:,m),u_fdb_k);
+                        df_numeric(:,m+1) = (xdnp-xdnm)/(2*dx(m,m));
+                    end
+                    
+                    N_finite_diff_u = length(u_fdb_k);
+                    for m = 1:N_finite_diff_u
+                        [xdnp,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k+du(:,m));
+                        [xdnm,~] = feval(plant_update,timestep,Sig_init(1:nx,j,k),u_fdb_k-du(:,m));
+                        df_numeric(:,m+1+N_finite_diff_x) = (xdnp-xdnm)/(2*du(m,m));
+                    end
                     %df(:,:,j) = df_numeric;
                     
                     % ToDo: check numerical gradient accuracy

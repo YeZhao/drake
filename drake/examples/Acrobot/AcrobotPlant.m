@@ -223,14 +223,14 @@ classdef AcrobotPlant < Manipulator
             Q = diag([10 10 1 1]);
             R = .1;
             Qf = 100*eye(4);
-            
+             
             v = AcrobotVisualizer(obj);
              
             options.Px_coeff = 0.09;
-            options.alpha = 1;
-            options.kappa = 0.1;
+            options.alpha = 0.5;
+            options.kappa = 1;
             options.K = [0,10,0,sqrt(10)*2];
-            options.contact_robust_cost_coeff = 1;%0.01 works with 0.5*randn noise.
+            options.contact_robust_cost_coeff = 1;%works with 0.5*randn noise.
             %tune alpha, contact_robust_cost_coeff, number of knot points.
              
             obj.uncertainty_source = 'physical_parameter_uncertainty';
@@ -243,11 +243,17 @@ classdef AcrobotPlant < Manipulator
             prog = prog.addFinalCost(@finalCost);
             prog = prog.addMotionDisplayFunction(@displayTraj);
             
-            prog = prog.setSolverOptions('snopt','IterationsLimit',100000000);
-            prog = prog.setSolverOptions('snopt','SuperbasicsLimit',1000000);
+            %prog = prog.setSolverOptions('snopt','MajorIterationsLimit',10000);
+            %prog = prog.setSolverOptions('snopt','MinorIterationsLimit',200000);
+            %prog = prog.setSolverOptions('snopt','IterationsLimit',100000000);
+            %prog = prog.setSolverOptions('snopt','SuperbasicsLimit',1000000);
+            %prog = prog.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+            %prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+            %prog = prog.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+            %prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
-            
+             
             warm_start = 0;
             if warm_start
                 load('robust_test_alpha_p9_robust_cost_coeff_1_knot_point_30_warm_start.mat');
@@ -341,10 +347,26 @@ classdef AcrobotPlant < Manipulator
             for i=1:num_trial
                 obj.m1 = 1;
                 obj.m2 = 1;
-                
+                obj.l1 = 1;
+                obj.l2 = 2;
+                obj.b1 = 0.1;
+                obj.b2 = 0.1;
+                obj.lc1 = 0.5;
+                obj.lc2 = 1;
+                obj.Ic1 = 0.0830;
+                obj.Ic2 = 0.3300;
+                 
                 obj.m1 = obj.m1 + obj.m1*param_uncertainty(i,1)/10;
                 obj.m2 = obj.m2 + obj.m2*param_uncertainty(i,2)/10;
-            
+                %obj.l1 = obj.l1 + obj.l1*param_uncertainty(i,3)/10;
+                %obj.l2 = obj.l2 + obj.l2*param_uncertainty(i,4)/10;
+                %obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
+                %obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
+                obj.lc1 = obj.lc1 + obj.lc1*param_uncertainty(i,7)/10;
+                obj.lc2 = obj.lc2 + obj.lc2*param_uncertainty(i,8)/10;
+                %obj.Ic1 = obj.Ic1 + obj.Ic1*param_uncertainty(i,9)/10;
+                %obj.Ic2 = obj.Ic2 + obj.Ic2*param_uncertainty(i,10)/10;
+                
                 ltvsys = tvlqr(obj,xtraj,utraj,Q,R,Qf);
                 sys=feedback(obj,ltvsys);
                 
