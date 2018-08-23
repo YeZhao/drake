@@ -211,7 +211,8 @@ classdef AcrobotPlant < Manipulator
             
             nq = obj.getNumPositions;
             nv = obj.getNumVelocities;
-
+            nu = obj.getNumInputs;
+            
             global sum_running_cost
             global sum_state_running_cost
             global sum_control_running_cost
@@ -227,13 +228,40 @@ classdef AcrobotPlant < Manipulator
             v = AcrobotVisualizer(obj);
              
             options.Px_coeff = 0.09;
-            options.alpha = 0.5;
+            options.alpha = 0.6;
             options.kappa = 1;
             options.K = [0,10,0,sqrt(10)*2];
             options.contact_robust_cost_coeff = 1;%works with 0.5*randn noise.
             %tune alpha, contact_robust_cost_coeff, number of knot points.
              
             obj.uncertainty_source = 'physical_parameter_uncertainty';
+            traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
+
+            warm_start = 1;
+           if warm_start
+                load('robust_alpha_p9_robust_cost_coeff_1_knot_point_31.mat');
+                traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
+                traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
+                traj_init.u = utraj;%PPTrajectory(foh(t_init,u_nominal))1
+                traj_init.u = traj_init.u.setOutputFrame(obj.getInputFrame);
+                 
+                h_vector = tf0/(N-1)*ones(1,N-1);
+                t_span = linspace(0,tf0,N);
+                xtraj_eval = traj_init.x.eval(t_span);
+                xtraj_eval = xtraj_eval + randn(nq+nv,N)*0.05;
+                traj_init.x = PPTrajectory(foh(t_span,xtraj_eval));
+                
+                utraj_eval = traj_init.u.eval(t_span);
+                utraj_eval = traj_init.u.eval(t_span);
+                utraj_eval = utraj_eval + randn(nu,N)*0.05;
+                traj_init.u = PPTrajectory(foh(t_span,utraj_eval));
+                
+                options.alpha = 0.6;
+                v=AcrobotVisualizer(obj);
+                iteration_index = 0;
+                cost_index = [];
+                attempts = 1;               
+           end
             
             %prog = RobustDirtranTrajectoryOptimization(obj,N,[tf0 tf0],options);
             prog = RobustDircolTrajectoryOptimization(obj,N,Q,R,Qf,[tf0 tf0],options);
@@ -252,22 +280,6 @@ classdef AcrobotPlant < Manipulator
             %prog = prog.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
             %prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
-            traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
-             
-            warm_start = 0;
-            if warm_start
-                load('robust_test_alpha_p9_robust_cost_coeff_1_knot_point_30_warm_start.mat');
-                traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
-                traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
-                
-                traj_init.u = utraj;%PPTrajectory(foh(t_init,u_nominal));
-                traj_init.u = traj_init.u.setOutputFrame(obj.getInputFrame);
-                options.alpha = 0.8;
-                v=AcrobotVisualizer(obj);
-                iteration_index = 0;
-                cost_index = [];
-            end
- 
             tic
             %size(traj_init)
             [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
