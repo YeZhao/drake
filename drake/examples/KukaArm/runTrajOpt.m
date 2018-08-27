@@ -122,7 +122,7 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N1 = N1;
 options.test_name = 'pick_and_place_motion';
-options.alpha = 1;
+options.alpha = 0.2;
 options.kappa = 1;
 
 % ikoptions = IKoptions(r);

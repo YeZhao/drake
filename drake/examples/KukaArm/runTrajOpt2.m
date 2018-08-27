@@ -23,7 +23,7 @@ nq_arm = 8;
 nq_object = nq - nq_arm;
 
 v=r.constructVisualizer;
- 
+
 %% forward simulation
 %trial 1, initial gripper pose is open
 % q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
