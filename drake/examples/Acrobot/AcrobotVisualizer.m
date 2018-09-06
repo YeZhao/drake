@@ -30,10 +30,18 @@ classdef AcrobotVisualizer < Visualizer
         L2r = (L2x.^2+L2y.^2).^.5;
         L2a = atan2(L2y,L2x);
       end
-  
+        
+      %% default drawing
       patch(L1r.*sin(L1a+x(1)),-L1r.*cos(L1a+x(1)),0*L1a,'r');
       hold on
       patch(l1*sin(x(1))+L2r.*sin(L2a+x(1)+x(2)),-l1*cos(x(1))-L2r.*cos(L2a+x(1)+x(2)),1+0*L2a,'b');
+      
+      %% draw swing up motion
+      %global color_transparency_index
+      %l1_patch = patch(L1r.*sin(L1a+x(1)),-L1r.*cos(L1a+x(1)),0*L1a,'r','FaceVertexAlphaData',color_transparency_index/16,'FaceAlpha','flat');       patch(L1r.*sin(L1a+x(1)),-L1r.*cos(L1a+x(1)),0*L1a,'r');
+      %hold on
+      %l2_patch = patch(l1*sin(x(1))+L2r.*sin(L2a+x(1)+x(2)),-l1*cos(x(1))-L2r.*cos(L2a+x(1)+x(2)),1+0*L2a,'b','FaceVertexAlphaData',color_transparency_index/16,'FaceAlpha','flat');
+      
       plot3(0,0,2,'k+');
       axis image
       view(0,90)

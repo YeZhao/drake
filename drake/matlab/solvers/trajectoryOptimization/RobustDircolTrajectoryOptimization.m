@@ -157,15 +157,15 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         K = obj.options.K;
         alpha = obj.options.alpha;
         kappa = obj.options.kappa;
-        
+         
         %initialize c and dc
         x_mean = zeros(obj.nx, obj.N);
         % mean residual cost at first time step is 0, variance matrix is c(k=1) = Px(1);
         %c = 0;
-        c = kappa*trace(Px_init);
-        c_covariance = kappa*trace(Px_init);
-        %c = 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
-        %c_covariance = 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+        %c = kappa*trace(Px_init);
+        %c_covariance = kappa*trace(Px_init);
+        c = 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+        c_covariance = 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
         c_mean_dev = 0;
         dc = zeros(1, 1+obj.N*(obj.nx+1));% hand coding number of inputs
         
@@ -174,14 +174,14 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
         
         function [xdn,df] = objPlantUpdate(timestep,Sig,u_fdb_k)
             [xdot,dxdot] = obj.plant.dynamics(0,Sig,u_fdb_k);
-%             v_new = xdot(1:nq) + timestep*xdot(nq+1:nq+nv);
-%             xdot_new = [v_new;xdot(nq+1:nq+nv)];% update velocity component
-%             xdn = Sig + timestep*xdot_new;
-%             dxdot_new = full(dxdot);
-%             dxdot_new(1:nq,:) = [xdot(nq+1:nq+nv),zeros(nq,nx),zeros(nq,nu)] + dxdot_new(1:nq,:) + timestep*dxdot_new(nq+1:nq+nv,:);
-%             df = [xdot_new,eye(4),zeros(nx,nu)]+timestep*full(dxdot_new);
-                xdn = Sig + timestep*xdot;
-                df = [xdot,eye(4),zeros(4,nu)]+timestep*full(dxdot);
+            v_new = xdot(1:nq) + timestep*xdot(nq+1:nq+nv);
+            xdot_new = [v_new;xdot(nq+1:nq+nv)];% update velocity component
+            xdn = Sig + timestep*xdot_new;
+            dxdot_new = full(dxdot);
+            dxdot_new(1:nq,:) = [xdot(nq+1:nq+nv),zeros(nq,nx),zeros(nq,nu)] + dxdot_new(1:nq,:) + timestep*dxdot_new(nq+1:nq+nv,:);
+            df = [xdot_new,eye(4),zeros(nx,nu)]+timestep*full(dxdot_new);
+%                 xdn = Sig + timestep*xdot;
+%                 df = [xdot,eye(4),zeros(4,nu)]+timestep*full(dxdot);
         end
         
         plant_update = @objPlantUpdate;
@@ -212,10 +212,10 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                         for j = 1:n_sampling_point
                             Sig(1:nx,j,k) = Sig(1:nx,j,k) + [x(:,k); w_noise(:,k)];
                         end
-                    end
+                    end 
                     Sig_init(:,:,k) = Sig(:,:,k);
-                    c = c + kappa*trace(Px_init);
-                    c_covariance = c_covariance + kappa*trace(Px_init);
+                    %c = c + kappa*trace(Px_init);
+                    %c_covariance = c_covariance + kappa*trace(Px_init);
                     %c = c + 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                     %c_covariance = c_covariance + 1/2*kappa*log(det(Px(:,:,1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
                 else
@@ -267,14 +267,14 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                     obj.plant.Ic1 = 0.0830;
                     obj.plant.Ic2 = 0.3300;
                     
-                    %obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1)/10;
-                    %obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2)/10;
+                    obj.plant.m1 = obj.plant.m1 + obj.plant.m1*param_uncertainty(j,1)/10;
+                    obj.plant.m2 = obj.plant.m2 + obj.plant.m2*param_uncertainty(j,2)/10;
                     %obj.plant.l1 = obj.plant.l1 + obj.plant.l1*param_uncertainty(j,3)/10;
                     %obj.plant.l2 = obj.plant.l2 + obj.plant.l2*param_uncertainty(j,4)/10;
                     %obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
                     %obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
-                    %obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7)/10;
-                    %obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8)/10;
+                    obj.plant.lc1 = obj.plant.lc1 + obj.plant.lc1*param_uncertainty(j,7)/10;
+                    obj.plant.lc2 = obj.plant.lc2 + obj.plant.lc2*param_uncertainty(j,8)/10;
                     %obj.plant.Ic1 = obj.plant.Ic1 + obj.plant.Ic1*param_uncertainty(j,9)/10;
                     %obj.plant.Ic2 = obj.plant.Ic2 + obj.plant.Ic2*param_uncertainty(j,10)/10;
                 end
@@ -391,114 +391,19 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             end
             
             % ML cost
-            %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*kappa*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
-             %    + nx/2*log(2*pi);%ML mean deviation version
+            c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + 1/2*kappa*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) ...
+                 + nx/2*log(2*pi);%ML mean deviation version
             %c = c + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)) + trace(Px(:,:,k+1));%ML mean deviation version
-            %c_mean_dev = c_mean_dev + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1));
-            %c_covariance = c_covariance + 1/2*kappa*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
+            c_mean_dev = c_mean_dev + 1/2*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1));
+            c_covariance = c_covariance + 1/2*kappa*log(det(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))) + nx/2*log(2*pi);
             
-            c = c + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
-            c = c + kappa*trace(Px(:,:,k+1));%non-ML mean deviation version
-            % note that: 1/2 coefficient is removed.
-            c_mean_dev = c_mean_dev + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
-            c_covariance = c_covariance + kappa*trace(Px(:,:,k+1));
+%             c = c + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;%i.i.d mean deviation version
+%             c = c + kappa*trace(Px(:,:,k+1));%non-ML mean deviation version
+%             % note that: 1/2 coefficient is removed.
+%             c_mean_dev = c_mean_dev + 1/2*norm(x(:,k+1)-x_mean(:,k+1))^2;
+%             c_covariance = c_covariance + kappa*trace(Px(:,:,k+1));
             
-            %% non-ML version
-            % derivative of variance matrix
-            % gradient of Tr(V) w.r.t state vector x
-            dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
-            dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
-            
-            % derivative of variance matrix
-            % gradient of Tr(V) w.r.t state vector x
-            dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
-            dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
-            
-            for j=k:-1:1
-                dTrVdx(j,:,k+1) = zeros(1,nx);
-                dTrVdu(j,:,k+1) = zeros(1,nu);
-                
-                % gradient w.r.t state x
-                dSig_m_kplus1_dx_sum = zeros(nx);
-                % gradient w.r.t control u
-                dSig_m_kplus1_du_sum = zeros(nx,nu);
-                dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
-                dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
-                
-                for i=1:n_sampling_point
-                    if i == 1
-                        for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
-                            % gradient of Tr(V_{k+1}) w.r.t control x and u
-                            dSig_m_kplus1_dx = zeros(nx);
-                            dSig_m_kplus1_du = zeros(nx,1);
-                            
-                            chain_rule_indx = k-j;
-                            if j ~= 1
-                                %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
-                                dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
-                            else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                                dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
-                            end
-                            dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
-                            
-                            while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                                dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
-                                dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
-                                chain_rule_indx = chain_rule_indx - 1;
-                            end
-                            dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
-                            dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
-                        end
-                    end
-                    
-                    % run 2*(nx+nw) times in total to obtain
-                    % gradient w.r.t sigma points
-                    dSig_i_kplus1_dx = zeros(nx);
-                    dSig_i_kplus1_du = zeros(nx,nu);
-                    chain_rule_indx = k-j;
-                    if j ~= 1
-                        %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
-                        dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
-                    else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-                        dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
-                    end
-                    dSig_i_kplus1_du = dfdu(:,:,i,j+1);
-                    
-                    while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-                        dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
-                        dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
-                        chain_rule_indx = chain_rule_indx - 1;
-                    end
-                    
-                    dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                    dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
-                    
-                    %% new sigma point due to resampling mechanism
-                    %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-                    %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
-                end
-                
-                % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
-                % dSig_kplus1_du_sum_resample = zeros(nx,nu);
-                %
-                % for i =1:n_sampling_point
-                %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
-                %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
-                % end
-                %
-                % for i =1:n_sampling_point
-                %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
-                %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
-                % end
-                
-                % gradient of mean residual w.r.t state x and control u, assume norm 2
-                dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
-                dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
-                %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-                %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version    
-            end
-            
-%             %% ML version
+%             %% non-ML version
 %             % derivative of variance matrix
 %             % gradient of Tr(V) w.r.t state vector x
 %             dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
@@ -517,9 +422,6 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
 %                 dSig_m_kplus1_dx_sum = zeros(nx);
 %                 % gradient w.r.t control u
 %                 dSig_m_kplus1_du_sum = zeros(nx,nu);
-%                 dSig_i_kplus1_dx = zeros(nx, nx, n_sampling_point);
-%                 dSig_i_kplus1_du = zeros(nx, nu, n_sampling_point);
-%                 
 %                 dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
 %                 dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
 %                 
@@ -551,25 +453,29 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
 %                     
 %                     % run 2*(nx+nw) times in total to obtain
 %                     % gradient w.r.t sigma points
-%                     %dSig_i_kplus1_dx = zeros(nx,nx,);
-%                     %dSig_i_kplus1_du = zeros(nx,nu);
+%                     dSig_i_kplus1_dx = zeros(nx);
+%                     dSig_i_kplus1_du = zeros(nx,nu);
 %                     chain_rule_indx = k-j;
 %                     if j ~= 1
 %                         %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
-%                         dSig_i_kplus1_dx(:,:,i) = dfdx(:,:,i,j+1);
+%                         dSig_i_kplus1_dx = dfdx(:,:,i,j+1);
 %                     else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
-%                         dSig_i_kplus1_dx(:,:,i) = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
+%                         dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
 %                     end
-%                     dSig_i_kplus1_du(:,:,i) = dfdu(:,:,i,j+1);
+%                     dSig_i_kplus1_du = dfdu(:,:,i,j+1);
 %                     
 %                     while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
-%                         dSig_i_kplus1_dx(:,:,i) = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx(:,:,i);
-%                         dSig_i_kplus1_du(:,:,i) = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du(:,:,i);
+%                         dSig_i_kplus1_dx = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx;
+%                         dSig_i_kplus1_du = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du;
 %                         chain_rule_indx = chain_rule_indx - 1;
 %                     end
 %                     
-%                     %dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
-%                     %dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+%                     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+%                     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+%                     
+%                     %% new sigma point due to resampling mechanism
+%                     %dSig_i_kplus1_dx_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+%                     %dSig_i_kplus1_du_resample(:,:,i) = eta_final(k+1)*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
 %                 end
 %                 
 %                 % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
@@ -586,51 +492,145 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
 %                 % end
 %                 
 %                 % gradient of mean residual w.r.t state x and control u, assume norm 2
-%                 %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
-%                 %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
-%                 dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
-%                 dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
-%                 
-%                 dCovdx = zeros(nx,nx,nx);
-%                 dCovdu = zeros(nx,nx,nu);
-%                 
-%                 for pp=1:nx
-%                     for i=1:n_sampling_point
-%                         dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
-%                         for nn=1:nx
-%                             dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
-%                             if nn == 1
-%                                 dCovdmeandev(1,2:end,nn) = w*(Sig(2:nx,i,k+1)-x_mean(2:end,k+1))';
-%                                 dCovdmeandev(2:end,1,nn) = dCovdmeandev(1,2:end,nn)';
-%                             elseif nn == nx
-%                                 dCovdmeandev(nx,1:end-1,nn) = w*(Sig(1:nn-1,i,k+1)-x_mean(1:nn-1,k+1))';
-%                                 dCovdmeandev(1:end-1,nx,nn) = dCovdmeandev(nx,1:end-1,nn)';
-%                             else
-%                                 dCovdmeandev(nn,1:nn-1,nn) = w*(Sig(1:nn-1,i,k+1)-x_mean(1:nn-1,k+1))';
-%                                 dCovdmeandev(nn,nn+1:end,nn) = w*(Sig(nn+1:nx,i,k+1)-x_mean(nn+1:end,k+1))';
-%                                 dCovdmeandev(:,nn,nn) = dCovdmeandev(nn,:,nn)';
-%                             end
-%                             dCovdx(:,:,pp) = dCovdx(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_dx(nn,pp,i) - w_avg*dSig_m_kplus1_dx_sum(nn,pp));
-%                             if pp <= nu
-%                                 dCovdu(:,:,pp) = dCovdu(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_du(nn,pp,i) - w_avg*dSig_m_kplus1_du_sum(nn,pp));
-%                             end
-%                         end
-%                     end
-%                     dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
-%                     %dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
-%                     %dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) + trace(dCovdx(:,:,pp));
-%                     
-%                     dTrVdx(j,pp,k+1) = dTrVdx(j,pp,k+1) + 1/2*kappa*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
-%                     
-%                     if pp <= nu
-%                         dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
-%                         %dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
-%                         %dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) + trace(dCovdu(:,:,pp));
-%                         
-%                         dTrVdu(j,pp,k+1) = dTrVdu(j,pp,k+1) + 1/2*kappa*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
-%                     end
-%                 end
+%                 dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+%                 dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+%                 %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+%                 %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version    
 %             end
+            
+            %% ML version
+            % derivative of variance matrix
+            % gradient of Tr(V) w.r.t state vector x
+            dmeanRdx(:,:,k+1) = zeros(obj.N,obj.nx);
+            dmeanRdu(:,:,k+1) = zeros(obj.N-1,nu);
+            
+            % derivative of variance matrix
+            % gradient of Tr(V) w.r.t state vector x
+            dTrVdx(:,:,k+1) = zeros(obj.N-1,nx);
+            dTrVdu(:,:,k+1) = zeros(obj.N-1,nu);
+            
+            for j=k:-1:1
+                dTrVdx(j,:,k+1) = zeros(1,nx);
+                dTrVdu(j,:,k+1) = zeros(1,nu);
+                
+                % gradient w.r.t state x
+                dSig_m_kplus1_dx_sum = zeros(nx);
+                % gradient w.r.t control u
+                dSig_m_kplus1_du_sum = zeros(nx,nu);
+                dSig_i_kplus1_dx = zeros(nx, nx, n_sampling_point);
+                dSig_i_kplus1_du = zeros(nx, nu, n_sampling_point);
+                
+                dSig_i_kplus1_dx_resample = zeros(nx,nx,n_sampling_point);
+                dSig_i_kplus1_du_resample = zeros(nx,nu,n_sampling_point);
+                
+                for i=1:n_sampling_point
+                    if i == 1
+                        for m = 1:n_sampling_point% this for-loop is for \bar{x}_{k+1}, and only needs to go through once since the mean remains the same for different sigma points
+                            % gradient of Tr(V_{k+1}) w.r.t control x and u
+                            dSig_m_kplus1_dx = zeros(nx);
+                            dSig_m_kplus1_du = zeros(nx,1);
+                            
+                            chain_rule_indx = k-j;
+                            if j ~= 1
+                                %dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,j+1);
+                                dSig_m_kplus1_dx = dfdx(:,:,m,j+1);
+                            else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                                dSig_m_kplus1_dx = dfdx(:,:,m,j+1) + dfdSig(:,:,m,2);%[proved, actually these two if-statements are same now, but derived by different ways]
+                            end
+                            dSig_m_kplus1_du = dfdu(:,:,m,j+1);% [double check that du is not affected]
+                            
+                            while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                                dSig_m_kplus1_dx = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_dx;
+                                dSig_m_kplus1_du = dfdSig(:,:,m,k+2-chain_rule_indx)*dSig_m_kplus1_du;%note that: whether there should be a *(1-w_avg) term
+                                chain_rule_indx = chain_rule_indx - 1;
+                            end
+                            dSig_m_kplus1_dx_sum = dSig_m_kplus1_dx_sum+dSig_m_kplus1_dx;
+                            dSig_m_kplus1_du_sum = dSig_m_kplus1_du_sum+dSig_m_kplus1_du;
+                        end
+                    end
+                    
+                    % run 2*(nx+nw) times in total to obtain
+                    % gradient w.r.t sigma points
+                    %dSig_i_kplus1_dx = zeros(nx,nx,);
+                    %dSig_i_kplus1_du = zeros(nx,nu);
+                    chain_rule_indx = k-j;
+                    if j ~= 1
+                        %dSig_i_kplus1_dx = dfdx(:,:,i,j+1) + dfdSig(:,:,i,j+1);
+                        dSig_i_kplus1_dx(:,:,i) = dfdx(:,:,i,j+1);
+                    else% if j == 1, there is an extra gradient to take w.r.t dSigma1_m_dx1 due to sampling mechanism
+                        dSig_i_kplus1_dx(:,:,i) = dfdx(:,:,i,j+1) + dfdSig(:,:,i,2);%[proved]
+                    end
+                    dSig_i_kplus1_du(:,:,i) = dfdu(:,:,i,j+1);
+                    
+                    while(chain_rule_indx>0)% apply the chain rule w.r.t. sigma points
+                        dSig_i_kplus1_dx(:,:,i) = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_dx(:,:,i);
+                        dSig_i_kplus1_du(:,:,i) = dfdSig(:,:,i,k+2-chain_rule_indx)*dSig_i_kplus1_du(:,:,i);
+                        chain_rule_indx = chain_rule_indx - 1;
+                    end
+                    
+                    %dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx - w_avg*dSig_m_kplus1_dx_sum);
+                    %dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:obj.nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du - w_avg*dSig_m_kplus1_du_sum);
+                end
+                
+                % dSig_kplus1_dx_sum_resample = zeros(nx,nx);
+                % dSig_kplus1_du_sum_resample = zeros(nx,nu);
+                %
+                % for i =1:n_sampling_point
+                %     dSig_kplus1_dx_sum_resample = dSig_kplus1_dx_sum_resample + dSig_i_kplus1_dx_resample(:,:,i);
+                %     dSig_kplus1_du_sum_resample = dSig_kplus1_du_sum_resample + dSig_i_kplus1_du_resample(:,:,i);
+                % end
+                %
+                % for i =1:n_sampling_point
+                %     dTrVdx(j,:,k+1) = dTrVdx(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_dx_resample(:,:,i) - w_avg*dSig_kplus1_dx_sum_resample);
+                %     dTrVdu(j,:,k+1) = dTrVdu(j,:,k+1) + 2*w*(Sig(1:nx,i,k+1)-x_mean(:,k+1))'*(dSig_i_kplus1_du_resample(:,:,i) - w_avg*dSig_kplus1_du_sum_resample);
+                % end
+                
+                % gradient of mean residual w.r.t state x and control u, assume norm 2
+                %dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_dx_sum);%i.i.d mean deviation version
+                %dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + 2*(x(:,k+1)-x_mean(:,k+1))'*(-w_avg*dSig_m_kplus1_du_sum);%i.i.d mean deviation version
+                dmeanRdx(j,:,k+1) = dmeanRdx(j,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_dx_sum);%ML mean deviation version
+                dmeanRdu(j,:,k+1) = dmeanRdu(j,:,k+1) + (pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1)))'*(-w_avg*dSig_m_kplus1_du_sum);%ML mean deviation version
+                
+                dCovdx = zeros(nx,nx,nx);
+                dCovdu = zeros(nx,nx,nu);
+                
+                for pp=1:nx
+                    for i=1:n_sampling_point
+                        dCovdmeandev = zeros(nx,obj.nx,nx);%d covariance /d (mean deviation)
+                        for nn=1:nx
+                            dCovdmeandev(nn,nn,nn) = 2*w*(Sig(nn,i,k+1)-x_mean(nn,k+1));
+                            if nn == 1
+                                dCovdmeandev(1,2:end,nn) = w*(Sig(2:nx,i,k+1)-x_mean(2:end,k+1))';
+                                dCovdmeandev(2:end,1,nn) = dCovdmeandev(1,2:end,nn)';
+                            elseif nn == nx
+                                dCovdmeandev(nx,1:end-1,nn) = w*(Sig(1:nn-1,i,k+1)-x_mean(1:nn-1,k+1))';
+                                dCovdmeandev(1:end-1,nx,nn) = dCovdmeandev(nx,1:end-1,nn)';
+                            else
+                                dCovdmeandev(nn,1:nn-1,nn) = w*(Sig(1:nn-1,i,k+1)-x_mean(1:nn-1,k+1))';
+                                dCovdmeandev(nn,nn+1:end,nn) = w*(Sig(nn+1:nx,i,k+1)-x_mean(nn+1:end,k+1))';
+                                dCovdmeandev(:,nn,nn) = dCovdmeandev(nn,:,nn)';
+                            end
+                            dCovdx(:,:,pp) = dCovdx(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_dx(nn,pp,i) - w_avg*dSig_m_kplus1_dx_sum(nn,pp));
+                            if pp <= nu
+                                dCovdu(:,:,pp) = dCovdu(:,:,pp) + dCovdmeandev(:,:,nn)*(dSig_i_kplus1_du(nn,pp,i) - w_avg*dSig_m_kplus1_du_sum(nn,pp));
+                            end
+                        end
+                    end
+                    dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
+                    %dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
+                    %dmeanRdx(j,pp,k+1) = dmeanRdx(j,pp,k+1) + trace(dCovdx(:,:,pp));
+                    
+                    dTrVdx(j,pp,k+1) = dTrVdx(j,pp,k+1) + 1/2*kappa*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdx(:,:,pp));
+                    
+                    if pp <= nu
+                        dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) - 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,k+1)-x_mean(:,k+1))*(x(:,k+1)-x_mean(:,k+1))'*pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
+                        %dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) + 1/2*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
+                        %dmeanRdu(j,pp,k+1) = dmeanRdu(j,pp,k+1) + trace(dCovdu(:,:,pp));
+                        
+                        dTrVdu(j,pp,k+1) = dTrVdu(j,pp,k+1) + 1/2*kappa*trace(pinv(Px(:,:,k+1)+obj.options.Px_regularizer_coeff*eye(nx))*dCovdu(:,:,pp));
+                    end
+                end
+            end
         end
                 
         dc = [];
@@ -640,16 +640,16 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
             if (jj == 1)
                 dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))'*(eye(obj.nx)-eye(obj.nx));% equal to zero vector
             else
-                dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
-                %dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
+                %dmeanR_sum_dx_k = 2*(x(:,jj)-x_mean(:,jj))';%i.i.d mean deviation version
+                dmeanR_sum_dx_k = (pinv(Px(:,:,jj)+obj.options.Px_regularizer_coeff*eye(nx))*(x(:,jj)-x_mean(:,jj)))';%ML mean deviation version
             end
             
             for jjj = jj+1:obj.N % index for TrV_kk and residual of ||x_k - \bar{x}_k||
                 dTrV_sum_dx_k = dTrV_sum_dx_k + dTrVdx(jj,:,jjj);
                 dmeanR_sum_dx_k = dmeanR_sum_dx_k + dmeanRdx(jj,:,jjj);
             end
-            %dc = [dc, dmeanR_sum_dx_k+dTrV_sum_dx_k];%ML cost
-            dc = [dc, 1/2*dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];%non-ML cost
+            dc = [dc, dmeanR_sum_dx_k+dTrV_sum_dx_k];%ML cost
+            %dc = [dc, 1/2*dmeanR_sum_dx_k+kappa*dTrV_sum_dx_k];%non-ML cost
             %dc = [dc, dmeanR_sum_dx_k];
             %dc = [dc, dTrV_sum_dx_k];
         end
@@ -663,8 +663,8 @@ classdef RobustDircolTrajectoryOptimization < DirectTrajectoryOptimization
                 dTrV_sum_du_k = dTrV_sum_du_k + dTrVdu(jj,:,jjj);
                 dmeanR_sum_du_k = dmeanR_sum_du_k + dmeanRdu(jj,:,jjj);
             end
-            %dc = [dc, dmeanR_sum_du_k+dTrV_sum_du_k];%ML cost
-            dc = [dc, 1/2*dmeanR_sum_du_k+kappa*dTrV_sum_du_k];%non-ML cost
+            dc = [dc, dmeanR_sum_du_k+dTrV_sum_du_k];%ML cost
+            %dc = [dc, 1/2*dmeanR_sum_du_k+kappa*dTrV_sum_du_k];%non-ML cost
             %dc = [dc, dmeanR_sum_du_k];
             %dc = [dc, dTrV_sum_du_k];
         end

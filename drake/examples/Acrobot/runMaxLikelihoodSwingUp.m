@@ -7,7 +7,7 @@ p_perturb_averg = AcrobotPlant;
 p_nominal = AcrobotPlant;
 v = AcrobotVisualizer(p_perturb);
 v_averg = AcrobotVisualizer(p_perturb_averg);
-N = 31;
+N = 91;
 
 keyboard
 % --- step 1: generate optimal trajs and LQR gains of nominal model ----
@@ -146,16 +146,16 @@ if generate_robust_traj == 1
             if ~strcmp(mode,'base')
                 % Perturb original parameter estimates with random percentage error
                 
-%                 p_perturb.l1 = p_perturb.l1 + p_perturb.l1*paramerr(i,1);
-%                 p_perturb.l2 = p_perturb.l2 + p_perturb.l2*paramerr(i,2);
+                % p_perturb.l1 = p_perturb.l1 + p_perturb.l1*paramerr(i,1);
+                % p_perturb.l2 = p_perturb.l2 + p_perturb.l2*paramerr(i,2);
                 p_perturb.m1 = p_perturb.m1 + p_perturb.m1*paramerr(i,3);
                 p_perturb.m2 = p_perturb.m2 + p_perturb.m2*paramerr(i,4);
                 % p_perturb.b1  = p_perturb.b1 + p_perturb.b1*paramerr(i,5);
                 % p_perturb.b2  = p_perturb.b2 + p_perturb.b2*paramerr(i,6);
-%                 p_perturb.lc1 = p_perturb.lc1 + p_perturb.lc1*paramerr(i,7);
-%                 p_perturb.lc2 = p_perturb.lc2 + p_perturb.lc2*paramerr(i,8);
-%                 p_perturb.Ic1 = p_perturb.Ic1 + p_perturb.Ic1*paramerr(i,9);
-%                 p_perturb.Ic2 = p_perturb.Ic2 + p_perturb.Ic2*paramerr(i,10);
+                % p_perturb.lc1 = p_perturb.lc1 + p_perturb.lc1*paramerr(i,7);
+                % p_perturb.lc2 = p_perturb.lc2 + p_perturb.lc2*paramerr(i,8);
+                % p_perturb.Ic1 = p_perturb.Ic1 + p_perturb.Ic1*paramerr(i,9);
+                % p_perturb.Ic2 = p_perturb.Ic2 + p_perturb.Ic2*paramerr(i,10);
             end
             
             [utraj,xtraj,z_perturb,prog_perturb] = robustSwingUpTrajectory_dircol(p_perturb,u_nominal,x_nominal,K_nominal,Qr,Qrf,Rr,N);

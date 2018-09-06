@@ -228,36 +228,41 @@ classdef AcrobotPlant < Manipulator
             v = AcrobotVisualizer(obj);
              
             options.Px_coeff = 0.09;
-            options.alpha = 1;
+            options.alpha = 0.4;
             options.kappa = 1;
-            options.K = [0,10,0,sqrt(10)*2];
-            options.contact_robust_cost_coeff = 1;%works with 0.5*randn noise.
-            options.Px_regularizer_coeff = 0.1;%1e-3;
+            options.K = [0,2,0,sqrt(2)*2];
+            options.contact_robust_cost_coeff = 100;
+            options.Px_regularizer_coeff = 1e-3;
             %tune alpha, contact_robust_cost_coeff, number of knot points.
-             
+            
             obj.uncertainty_source = 'physical_parameter_uncertainty';
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
  
-            warm_start = 0;
+            warm_start = 1;
            if warm_start
-                load('robust_alpha_1_robust_cost_coeff_1_knot_point_31_ML_cost_small_regularizer.mat');
+                load('robust_test_alpha_1_robust_cost_coeff_100_knot_point_90_no_warm_start_controller_gain_2_kappa_1_Px_reg_p001.mat');
                 traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
                 traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
                 traj_init.u = utraj;%PPTrajectory(foh(t_init,u_nominal))1
                 traj_init.u = traj_init.u.setOutputFrame(obj.getInputFrame);
-                
-                h_vector = tf0/(N-1)*ones(1,N-1);
-                t_span = linspace(0,tf0,N);
-                xtraj_eval = traj_init.x.eval(t_span);
-                xtraj_eval = xtraj_eval + randn(nq+nv,N)*0.05;
-                traj_init.x = PPTrajectory(foh(t_span,xtraj_eval));
-                utraj_eval = traj_init.u.eval(t_span);
-                utraj_eval = traj_init.u.eval(t_span);
-                utraj_eval = utraj_eval + randn(nu,N)*0.05;
-                traj_init.u = PPTrajectory(foh(t_span,utraj_eval));                 
-
-                options.alpha = 0.9;
+                 
+                %% wart start with state and control pertubation
+                % h_vector = tf0/(N-1)*ones(1,N-1);
+                % t_span = linspace(0,tf0,N);
+                % xtraj_eval = traj_init.x.eval(t_span);
+                % xtraj_eval = xtraj_eval + randn(nq+nv,N)*0.05;
+                % traj_init.x = PPTrajectory(foh(t_span,xtraj_eval));
+                % utraj_eval = traj_init.u.eval(t_span);
+                % utraj_eval = traj_init.u.eval(t_span);
+                % utraj_eval = utraj_eval + randn(nu,N)*0.05;
+                % traj_init.u = PPTrajectory(foh(t_span,utraj_eval));
+  
+                options.Px_coeff = 0.09;
+                options.alpha = 0.6;
+                options.kappa = 1;
+                options.K = [0,2,0,sqrt(2)*2];
                 options.Px_regularizer_coeff = 1e-3;
+                options.contact_robust_cost_coeff = 100;
                 v=AcrobotVisualizer(obj);
                 iteration_index = 0;
                 cost_index = [];
@@ -282,7 +287,6 @@ classdef AcrobotPlant < Manipulator
             %prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 
             tic
-            %size(traj_init)
             [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
             toc
             v.playback(xtraj,struct('slider',true));
@@ -293,7 +297,21 @@ classdef AcrobotPlant < Manipulator
             x = xtraj.eval(t);
             u = utraj.eval(t)';
             
-            % plot nominal model trajs
+            %% create swing-up snaptshot drawing
+            % uncomment Lines 40-43 in AcrobotVisualizer.m
+            % remove clf on Line 55 in function drawWrapper() of Visualizer.m in ./matlab/systems/visualizers/Visualizer.m
+            
+            % global color_transparency_index
+            % color_transparency_index = 0;
+            %
+            % for i=1:length(t)
+            %     if mod(i,6) == 0
+            %         color_transparency_index = i/6;
+            %         v.drawWrapper(0,x(:,i));
+            %     end
+            % end
+            
+            %% plot nominal model trajs
             nominal_linewidth = 2.5;
             color_line_type = 'b-';
             figure(10)
@@ -369,14 +387,14 @@ classdef AcrobotPlant < Manipulator
                 obj.Ic1 = 0.0830;
                 obj.Ic2 = 0.3300;
                  
-                obj.m1 = obj.m1 + obj.m1*param_uncertainty(i,1)/10;
-                obj.m2 = obj.m2 + obj.m2*param_uncertainty(i,2)/10;
+                obj.m1 = obj.m1 + obj.m1*param_uncertainty(i,1)/3;
+                obj.m2 = obj.m2 + obj.m2*param_uncertainty(i,2)/3;
                 %obj.l1 = obj.l1 + obj.l1*param_uncertainty(i,3)/10;
                 %obj.l2 = obj.l2 + obj.l2*param_uncertainty(i,4)/10;
                 %obj.plant.b1  = obj.plant.b1 + obj.plant.b1*param_uncertainty(j,5);
                 %obj.plant.b2  = obj.plant.b2 + obj.plant.b2*param_uncertainty(j,6);
-                obj.lc1 = obj.lc1 + obj.lc1*param_uncertainty(i,7)/10;
-                obj.lc2 = obj.lc2 + obj.lc2*param_uncertainty(i,8)/10;
+                obj.lc1 = obj.lc1 + obj.lc1*param_uncertainty(i,7)/3;
+                obj.lc2 = obj.lc2 + obj.lc2*param_uncertainty(i,8)/3;
                 %obj.Ic1 = obj.Ic1 + obj.Ic1*param_uncertainty(i,9)/10;
                 %obj.Ic2 = obj.Ic2 + obj.Ic2*param_uncertainty(i,10)/10;
                  
@@ -395,25 +413,6 @@ classdef AcrobotPlant < Manipulator
                 end
             end
             keyboard
-            
-            % N = 31, direct collocation
-            %if alpha = 1, num_success = 57; mean deviation 72.1, covariance = 43.17
-            %if alpha = 0.9 and no warm start, num_success = 59; mean deviation = 54.1, covariance = 51.7
-            %if alpha = 0.8 and no warm start, num_success = 60; mean deviation = 62, covariance = 83.9, show 32 major interation limit
-            %if alpha = 0.7 and no warm start, num_success = 66; mean deviation = 46, covariance = 155, not working yet
-            
-            % N = 61, direct collocation
-            %if alpha = 1 and no warm start, num_success = ; mean deviation = 34, covariance = 10
-            %if alpha = 0.9 and no warm start, num_success = 50; mean deviation = 35, covariance = 11.3
-            %if alpha = 0.8 and no warm start, num_success = 49; mean deviation = 38, covariance = 12.5
-            %if alpha = 0.7 and no warm start, num_success = 59; mean deviation = 35, covariance = 15
-            
-            %if using direct transcription, N = 31, alpha = 1, num_success = 4;
-            %if using direct transcription, N = 101, alpha = 1, num_success = 29;
-            
-            %if warm start, alpha = 0.8, num_success = 30;
-            
-            %keyboard
             
             %% manually created PD stabilization
             % ts = getBreaks(xtraj);
