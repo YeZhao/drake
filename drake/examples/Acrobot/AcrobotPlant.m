@@ -228,7 +228,7 @@ classdef AcrobotPlant < Manipulator
             v = AcrobotVisualizer(obj);
              
             options.Px_coeff = 0.09;
-            options.alpha = 0.4;
+            options.alpha = 1;
             options.kappa = 1;
             options.K = [0,2,0,sqrt(2)*2];
             options.contact_robust_cost_coeff = 100;
@@ -238,9 +238,9 @@ classdef AcrobotPlant < Manipulator
             obj.uncertainty_source = 'physical_parameter_uncertainty';
             traj_init.x = PPTrajectory(foh([0,tf0],[double(x0),double(xf)]));
  
-            warm_start = 1;
+            warm_start = 0;
            if warm_start
-                load('robust_test_alpha_1_robust_cost_coeff_100_knot_point_90_no_warm_start_controller_gain_2_kappa_1_Px_reg_p001.mat');
+                load('robust_test_alpha_p2_robust_cost_coeff_100_knot_point_90_warm_start_alpha_p4_controller_gain_2_kappa_1_Px_reg_p001.mat');
                 traj_init.x = xtraj;%PPTrajectory(foh(t_init,x_nominal));
                 traj_init.x = traj_init.x.setOutputFrame(obj.getStateFrame);
                 traj_init.u = utraj;%PPTrajectory(foh(t_init,u_nominal))1
@@ -258,7 +258,7 @@ classdef AcrobotPlant < Manipulator
                 % traj_init.u = PPTrajectory(foh(t_span,utraj_eval));
   
                 options.Px_coeff = 0.09;
-                options.alpha = 0.6;
+                options.alpha = 0.0;
                 options.kappa = 1;
                 options.K = [0,2,0,sqrt(2)*2];
                 options.Px_regularizer_coeff = 1e-3;
@@ -285,7 +285,7 @@ classdef AcrobotPlant < Manipulator
             %prog = prog.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
             %prog = prog.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
             %prog = prog.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
-
+ 
             tic
             [xtraj,utraj,z,F,info] = prog.solveTraj(tf0,traj_init);
             toc
@@ -300,7 +300,6 @@ classdef AcrobotPlant < Manipulator
             %% create swing-up snaptshot drawing
             % uncomment Lines 40-43 in AcrobotVisualizer.m
             % remove clf on Line 55 in function drawWrapper() of Visualizer.m in ./matlab/systems/visualizers/Visualizer.m
-            
             % global color_transparency_index
             % color_transparency_index = 0;
             %
