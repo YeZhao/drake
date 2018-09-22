@@ -896,7 +896,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dWdq(:,:,i) = diag(dwdq(:,i));
             end
             
-            R = blkdiag(R,W);%1e-3*eye(52);
+            R = blkdiag(R,W);%1e-1*eye(52);%
             
             for i=1:num_q
                 dRdq(:,:,i) = blkdiag(dRsubdq(:,:,i),dWdq(:,:,i));%zeros(52);%
@@ -1347,7 +1347,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %xdn = reshape(Mvn,[],1);
             %df = dMvn;
             %xdn = reshape(H,[],1);%correct
-            %df = [zeros(size(dH,1),1), dH, zeros(size(dH,1),num_u)];%correct
+            %df = [zeros(size(dH,1),1), dH, zeros(size(dH,1),obj.num_u)];%correct
             %xdn = reshape(Hinv,[],1);%correct
             %df = [zeros(numel(Hinv),1),reshape(Hinv*reshape(- matGradMult(dH(:,1:num_q),Hinv),num_q,[]),numel(Hinv),[]),zeros(numel(Hinv),num_v+obj.num_u)];%correct
             %xdn = reshape(J_contact,[],1);

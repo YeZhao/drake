@@ -92,7 +92,7 @@ um(8) = -5;
 %u1(8) = -5;
 
 T0 = 1;
-N = 6;%phase 1: pick
+N = 40;%phase 1: pick
 
 r.uncertainty_source = '';%'+object_initial_position';%'object_initial_position'
 if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
@@ -113,11 +113,14 @@ options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
 options.N = N;
 options.test_name = 'grasping';
+options.alpha = 0.2;
+options.kappa = 1;
+options.robust_cost_type = 'ML cost';%1:non-ML cost; %2: ML cost
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
-
+ 
 %% phase 1
 for i=1:length(x0)
     x_init(i,:) = linspace(x0(i,:),xm(i,:),N);
@@ -222,10 +225,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-4);%5e-5
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);%5e-5
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
