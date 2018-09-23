@@ -79,7 +79,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             
             obj = obj.removeCollisionGroupsExcept({'manip'});
             options.floating = true;
-            obj = obj.addRobotFromURDF('urdf/cylinder.urdf',[],[],options);
+            %obj = obj.addRobotFromURDF('urdf/cylinder.urdf',[],[],options);
+            obj = obj.addRobotFromURDF('urdf/cylinder_short.urdf',[],[],options);
             
             obj.cylinder_id = obj.findLinkId('cylinder');
             obj.left_finger_id = obj.findLinkId('left_finger');

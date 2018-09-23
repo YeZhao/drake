@@ -1,4 +1,4 @@
-function runTrajOpt_externaldisturbance
+function runTrajOpt_objflip
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -23,67 +23,38 @@ nq_arm = 8;
 nq_object = nq - nq_arm;
 
 v=r.constructVisualizer;
- 
+
 %% forward simulation
 %trial 1, initial gripper pose is open
-% q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.08; ...
-%       0;0.79;0.09;0;0;0];
-%trial 2, initial gripper pose is close
-% q0 = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.057; ...
-%     0.015;0.79;0.09;0;0;0];
-%trial 3
-qm = [-1.575;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-    0.0145;0.79;0.09;0;0;0];
-%trial 5, inital gripper pose is open
-% q0 = [-1.57;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-%       0.01;0.79;0.09;0;0;0];
-xm = [qm;zeros(nv,1)];
-v.draw(0,xm);
+q0 = [-1.575;-.93;0;1.57;0.0;-0.62;0;0.06; ...
+    0.0145;0.58;0.06;0;0;0];
+x0 = [q0;zeros(nv,1)];
+v.draw(0,x0);
+
 kinematics_options.compute_gradients = 0;
-kinsol = doKinematics(r, qm, [], kinematics_options);
+kinsol = doKinematics(r, q0, [], kinematics_options);
 iiwa_link_7_init = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
 fr1 = r.forwardKin(kinsol,r.findLinkId('right_finger'),[0;0.04;0.1225],0);
 R_ee = rpy2rotmat(iiwa_link_7_init(4:6));
-rel_pos_object_gripper(1:3) = R_ee'*(qm(9:11) - iiwa_link_7_init(1:3));
-rel_rot_object_gripper = rpy2rotmat(qm(12:14))*rpy2rotmat(iiwa_link_7_init(4:6));
-%xtraj_ts = simulate(r,[0 2],x0);
-%v.playback(xtraj_ts,struct('slider',true));
+rel_pos_object_gripper(1:3) = R_ee'*(q0(9:11) - iiwa_link_7_init(1:3));
+rel_rot_object_gripper = rpy2rotmat(q0(12:14))*rpy2rotmat(iiwa_link_7_init(4:6));
 
-%q1 = q0;
-%q1(9) = q0(9)-0.1;
-%q1(11) = q0(11)+0.1;
-%q1(1:7) = q1(1:7) - [-1.57;-0.4;0;0.6;0;0.4;0];%[-1.57;-0.4;0;0.6;0;0.4;0];
-%trial 1
-% q1 = [0.7850;-0.6;0;1.27;0.0;0.35;0;0.08; ...
-%       -0.57;-0.57;0.59;0;0;0];
-%trial 2
-%q1 = [-1.4;-1.4;0;1.27;0.0;1.1;0;0.06; ...
-%      -0.124;0.78;0.09;0;0;0];
-%trial 4
-q1 = qm;
-q1(2) = q1(2) + 0.3;
-q1(1) = q1(1) + 0.8;
-q1(6) = q1(6) - 0.25;
+qm = q0;
+qm(6) = qm(6) + 1.82;
 %q1(8) = q1(8) - 0.02;
-kinsol = doKinematics(r, q1, [], kinematics_options);
+kinsol = doKinematics(r, qm, [], kinematics_options);
 iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
 R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
-q1(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
-q1(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
-%trial 5
-%q1 = q0;
-%q1(8) = q1(8) - 0.015;
+qm(9:11) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+qm(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+xm = [qm;zeros(nv,1)];
+v.draw(0,xm);
+
+q1 = [-1.575;-.93;0;1.57;0.0;1.6;0;0.06; ...
+    0.0145;1.1;0.06;3.14159;0;0];
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
-%reposition initial state
-q0 = qm;
-q0(2) = q0(2) + 0.2;
-q0(4) = q0(4) + 0.4;
-q0(8) = 0.08;
-x0 = [q0;zeros(nv,1)];
-v.draw(0,x0);
- 
 u0 = r.findTrim(q0);
 u0(8) = -5;
 um = r.findTrim(qm);
@@ -92,10 +63,13 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 3;
-N = 20;
- 
+N = 20;%10;
+N1 = 10;%phase 1: pick
+N2 = N - N1;%phase 2: throw
+
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
-if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position')
+r.uncertainty_source_default = r.uncertainty_source;
+if strcmp(r.uncertainty_source, 'friction_coeff') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_position') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_orientation')
     w_mu = load('friction_coeff_noise.dat');
     r.uncertain_mu_set = w_mu;
     r.uncertain_mu_mean = mean(r.uncertain_mu_set);
@@ -106,54 +80,60 @@ if strcmp(r.uncertainty_source, 'object_initial_position') || strcmp(r.uncertain
     r.uncertain_position_set = w_phi/phi_scaling;
     r.uncertain_position_mean = mean(w_phi/phi_scaling,2);
 end
- 
-options.contact_robust_cost_coeff = 10;%important, if it is 0.1, can not solve successfully.
+if strcmp(r.uncertainty_source, 'object_initial_orientation') || strcmp(r.uncertainty_source, 'friction_coeff+object_initial_orientation')
+    w_ori = load('initial_orientation_noise.dat');
+    r.uncertain_orientation_set = w_ori;
+    r.uncertain_orientation_mean = mean(w_ori,2);
+end
+
+options.contact_robust_cost_coeff = 0.1;%important, if it is 0.1, can not solve successfully.
 options.Px_coeff = 0.09;
 options.Px_regularizer_coeff = 1e-1;
 options.robustLCPcost_coeff = 1000;
 options.K = [10*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object),2*sqrt(10)*ones(nq_arm,nq_arm),zeros(nq_arm,nq_object)];
-options.N1 = N;
-options.test_name = 'grasping_motion_under_external_disturbance';
-options.alpha = 1;
+options.N1 = N1;
+options.test_name = 'pick_and_throw_motion';
+options.alpha = 0.2;
+options.kappa = 1;
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
 x_init = zeros(length(x0),N);
+
+%% phase 1
+for i=1:length(x0)
+    x_init1(i,:) = linspace(x0(i,:),xm(i,:),N1);
+end
+%run fwd kinematics for grasped object position
+for i=2:N1
+    kinsol = doKinematics(r, x_init1(:,i), [], kinematics_options);
+    iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
+    R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
+    x_init1(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
+    x_init1(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+end
+ 
+u_init1 = zeros(length(u0),N1);
+for i=1:length(u0)
+    u_init1(i,:) = linspace(u0(i,:),um(i,:),N1);
+end
  
 %% phase 2
 for i=1:length(xm)
-    x_init(i,:) = linspace(xm(i,:),x1(i,:),N);
-end
-%run fwd kinematics for grasped object position
-for i=2:N
-    kinsol = doKinematics(r, x_init(:,i), [], kinematics_options);
-    iiwa_link_7_final = r.forwardKin(kinsol,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-    R_ee = rpy2rotmat(iiwa_link_7_final(4:6));
-    x_init(9:11,i) = iiwa_link_7_final(1:3) + R_ee*rel_pos_object_gripper(1:3)';
-    x_init(12:14,i) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final(4:6))')');
+    x_init2(i,:) = linspace(xm(i,:),x1(i,:),N2);
 end
 
-u_init = zeros(length(um),N);
+u_init2 = zeros(length(um),N2);
 for i=1:length(um)
-    u_init(i,:) = linspace(um(i,:),u1(i,:),N);
+    u_init2(i,:) = linspace(um(i,:),u1(i,:),N2);
 end
 
+x_init = [x_init1,x_init2];
+u_init = [u_init1,u_init2];
 traj_init.x = PPTrajectory(foh(t_init,x_init));
 traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
 traj_init.u = PPTrajectory(foh(t_init,u_init));
 traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
-
-% qm = q0;
-% qm(2) = q0(2) + 0.4;
-% qm(6) = q1(6) - 0.2;
-% kinsol_m = doKinematics(r, qm, [], kinematics_options);
-% iiwa_link_7_final_m = r.forwardKin(kinsol_m,r.findLinkId('iiwa_link_7'),[0;0;0],1);
-% R_ee_m = rpy2rotmat(iiwa_link_7_final_m(4:6));
-% qm(9:11) = iiwa_link_7_final_m(1:3) + R_ee_m*rel_pos_object_gripper(1:3)';
-% qm(12:14) = rotmat2rpy((rel_rot_object_gripper*rpy2rotmat(iiwa_link_7_final_m(4:6))')');
-% qm(11) = qm(11) + 0.1;% adjust the height
-% xm = [qm;zeros(nv,1)];
-% v.draw(0,xm);
 
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
@@ -191,14 +171,14 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
-traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),1);
-% traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
+traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0-0.01*ones(length(x0),1),x0+0.01*ones(length(x0),1)),1);
+traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.01*ones(length(xm),1),xm+0.01*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
@@ -231,25 +211,25 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % traj_opt = traj_opt.addInputConstraint(ConstantConstraint(zeros(3,1)),1:N-1);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
-% traj_opt = traj_opt.addPositionConstraint(periodic_constraint,{[1 N]});
-
+% traj_opt = traj_opt.addPositionConstraint(periodi c_constraint,{[1 N]});
+ 
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-3);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-1);
-traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',2);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',0);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
- 
+
 if ~warm_start
     persistent sum_running_cost
     persistent cost_index
 end
-
+ 
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc
@@ -270,7 +250,7 @@ keyboard
 ts = getBreaks(xtraj);
 h = T0/(N-1);
 utraj_data = utraj.eval(ts);
-xtraj_data = xtraj.eval(ts);c
+xtraj_data = xtraj.eval(ts);
 ctraj_data = ctraj.eval(ts);
 nD = 4;
 nC = 12;
@@ -448,11 +428,7 @@ playback(v,xtraj_new,struct('slider',true));
         LCP_slack_var = LCP_slack_var';
         LCP_slack_var = [LCP_slack_var, LCP_slack_var(:,end)];
         
-        if isempty(iteration_index)
-            iteration_index = 1;
-        else
-            iteration_index = iteration_index + 1;
-        end
+        iteration_index = iteration_index + 1;
         fprintf('iteration index: %4d\n',iteration_index);
          
         fprintf('sum of slack variables along traj: %4.6f\n',sum(LCP_slack_var,2));

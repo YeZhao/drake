@@ -229,6 +229,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',5e-5);%
 traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',5e-5);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',5e-5);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',5e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',2);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 global time_step
