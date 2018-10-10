@@ -44,7 +44,58 @@
       <mass value="1"/>
       <inertia ixx="0.0014" ixy="0.0" ixz="0.0" iyy="0.0014" iyz="0.0" izz="0.00045"/>
       <!-- <inertia ixx="0.000525" ixy="0.0" ixz="0.0" iyy="0.000525" iyz="0.0" izz="0.00045"/> -->
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+    </inertial>
+  </link>
+
+  <joint name="pendulum_to_cylinder" type="revolute">
+    <parent link="cylinder"/>
+    <child link="pendulum_link"/>
+    <origin rpy="0 0 0" xyz="0 0.1 0"/>
+    <axis xyz="1 0 0"/>
+  </joint>
+
+  <link name="pendulum_link">
+   <visual>
+     <origin rpy="0 0 0" xyz="0 0 -0.04"/>
+     <geometry>
+       <cylinder length="0.08" radius="0.01"/>
+     </geometry>
+     <material name="blue"/>
+   </visual>
+
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 -0.04"/>
+      <mass value="0.1"/>
+      <inertia ixx="5.5833e-05" ixy="0" ixz="0" iyy="5.5833e-05" iyz="0" izz="0.000005"/>
+    </inertial>
+  </link>
+
+  <joint name="ball_to_pendulum" type="fixed">
+     <parent link="pendulum_link"/>
+     <child link="ball"/>
+     <origin rpy="0 0 0" xyz="0 0 -0.08"/>
+     <axis xyz="1 0 0"/>
+  </joint>
+
+  <link name="ball">
+    <visual>
+      <geometry>
+        <sphere radius="0.015"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <sphere radius="0.015"/>
+      </geometry>
+      <origin xyz="0 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="1.8e-5" ixy="0.0" ixz="0.0" iyy="1.8e-5" iyz="0.0" izz="1.8e-5"/>
       <origin xyz="0 0 0"/>
     </inertial>
   </link>
+
 </robot>

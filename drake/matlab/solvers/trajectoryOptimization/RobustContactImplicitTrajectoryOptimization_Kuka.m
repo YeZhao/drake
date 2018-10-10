@@ -121,7 +121,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             if strcmp(obj.plant.uncertainty_source, 'friction_coeff') || strcmp(obj.plant.uncertainty_source, 'friction_coeff+object_initial_position')
                 mu = mean(obj.plant.uncertain_mu_set)*ones(obj.nC,1);
             else
-                mu = ones(obj.nC,1);%nominal value
+                mu = 4*ones(obj.nC,1);%nominal value
             end
             
             for i=1:obj.N-1,
@@ -132,8 +132,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                 if obj.nC > 0
                     % indices for (i) gamma
                     gamma_inds = obj.l_inds(obj.nD+2:obj.nD+2:end,i);
-                    % awkward way to pull out these indices, for (i) lambda_N and
-                    % lambda_f
+                    % awkward way to pull out these indices, for (i) lambda_N and lambda_f
                     lambda_inds = obj.l_inds(repmat((1:1+obj.nD)',obj.nC,1) + kron((0:obj.nC-1)',(2+obj.nD)*ones(obj.nD+1,1)),i);
                     obj.lambda_inds(:,i) = lambda_inds;
                     

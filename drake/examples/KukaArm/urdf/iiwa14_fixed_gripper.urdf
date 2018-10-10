@@ -267,7 +267,7 @@
 
 
 
-<link
+  <link
     name="base_link">
     <inertial>
       <origin

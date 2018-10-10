@@ -27,7 +27,8 @@ v=r.constructVisualizer;
 %% forward simulation
 %trial 1, initial gripper pose is open
 q0 = [-1.575;-.93;0;1.57;0.0;-0.62;0;0.06; ...
-    0.0145;0.58;0.06;0;0;0];
+    0.0145;0.58;0.06;0;0;0;0];
+%q0 = [zeros(14,1);0];
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
 
@@ -62,9 +63,9 @@ um(8) = -5;
 u1 = r.findTrim(q1);
 u1(8) = -5;
 
-T0 = 3;
-N = 20;%10;
-N1 = 10;%phase 1: pick
+T0 = 2;
+N = 70;%10;
+N1 = 40;%phase 1: pick
 N2 = N - N1;%phase 2: throw
 
 r.uncertainty_source = '';%'friction_coeff+object_initial_position';%'object_initial_position'
@@ -137,7 +138,7 @@ traj_init.u = traj_init.u.setOutputFrame(r.getInputFrame);
 
 %traj_init.x = PPTrajectory(foh([0 T0],[x0, x1]));
 %traj_init.u = PPTrajectory(zoh([0 T0],[u0, u0]));
-T_span = T0;%[3 T0];
+T_span = [T0 10];
 % v.playback(traj_init.x,struct('slider',true));
 
 warm_start = 0;
@@ -158,7 +159,7 @@ end
 % x0_lb = [q0;-inf*ones(14,1)];
 % x1_ub = [q1;inf*ones(14,1)];
 % x1_lb = [q1;-inf*ones(14,1)];
- 
+
 % xfinal_lb = x1 - 0.05*ones(length(x1),1);
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
 % xm_lb = xm - 0.05*ones(length(xm),1);
@@ -170,11 +171,11 @@ traj_opt = traj_opt.addFinalCost(@final_cost_fun);
 %traj_opt = traj_opt.addFinalCost(@final_cost_fun2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q0),1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(q0_lb,q0_ub),1);
-%traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
+traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
-traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0-0.01*ones(length(x0),1),x0+0.01*ones(length(x0),1)),1);
-traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.01*ones(length(xm),1),xm+0.01*ones(length(xm),1)),N1);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0-0.01*ones(length(x0),1),x0+0.01*ones(length(x0),1)),1);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.01*ones(length(xm),1),xm+0.01*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
@@ -212,15 +213,15 @@ traj_opt = traj_opt.addPositionConstraint(BoundingBoxConstraint(q_lb,q_ub),1:N);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qm(1:6)),8);
 % traj_opt = traj_opt.addStateConstraint(ConstantConstraint(qf(1:6)),N);
 % traj_opt = traj_opt.addPositionConstraint(periodi c_constraint,{[1 N]});
- 
+
 traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-6);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-6);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',0);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
@@ -229,7 +230,7 @@ if ~warm_start
     persistent sum_running_cost
     persistent cost_index
 end
- 
+
 tic
 [xtraj,utraj,ctraj,btraj,straj,z,F,info,infeasible_constraint_name] = traj_opt.solveTraj(t_init,traj_init);
 toc

@@ -26,7 +26,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
     methods
         function obj = KukaArm(options)
             if nargin < 1
-                options = struct();
+                options = struct();s
             end
             
             if ~isfield(options,'floating')
@@ -80,9 +80,13 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             obj = obj.removeCollisionGroupsExcept({'manip'});
             options.floating = true;
             %obj = obj.addRobotFromURDF('urdf/cylinder.urdf',[],[],options);
-            obj = obj.addRobotFromURDF('urdf/cylinder_short.urdf',[],[],options);
+            %obj = obj.addRobotFromURDF('urdf/cylinder_small.urdf',[],[],options);
+            obj = obj.addRobotFromURDF('urdf/cylinder_small_with_inner_sliding_pendulum.urdf',[],[],options);
+            %obj = obj.addRobotFromURDF('urdf/test_robot.urdf',[],[],options);
             
-            obj.cylinder_id = obj.findLinkId('cylinder');
+            
+            
+            %obj.cylinder_id = obj.findLinkId('cylinder');
             obj.left_finger_id = obj.findLinkId('left_finger');
             obj.right_finger_id = obj.findLinkId('iiwa_link_7+iiwa_link_ee+base_link+right_finger+iiwa_link_ee_kuka');
             obj.iiwa_link_7_id = obj.findLinkId('iiwa_link_7');
@@ -474,7 +478,7 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
                     mu = obj.uncertain_mu*ones(nC,1);
                 end
             else
-                mu = 1.0*ones(nC,1);
+                mu = 4.0*ones(nC,1);
             end
         end
         
