@@ -5,7 +5,7 @@
   <link name="cylinder">
     <visual>
       <geometry>
-        <cylinder length="0.12" radius="0.03"/>
+        <cylinder length="0.12" radius="0.03"/>f
       </geometry>
       <origin xyz="0 0 0"/>
     </visual>
@@ -51,7 +51,7 @@
   <joint name="pendulum_to_cylinder" type="revolute">
     <parent link="cylinder"/>
     <child link="pendulum_link"/>
-    <origin rpy="0 0 0" xyz="0 0.1 0"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
     <axis xyz="1 0 0"/>
   </joint>
 
