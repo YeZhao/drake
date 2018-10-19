@@ -1,4 +1,4 @@
-function runTrajOpt_objflip
+function runTrajOpt_objflip_internalSliding
 options=struct();
 options.terrain = RigidBodyFlatTerrain();
 options.use_bullet = true;
@@ -27,7 +27,7 @@ v=r.constructVisualizer;
 %% forward simulation
 %trial 1, initial gripper pose is open
 q0 = [-1.575;-.93;0;1.57;0.0;-0.62;0;0.06; ...
-    0.0145;0.58;0.06;0;0;0];
+    0.0145;0.58;0.06;0;0;0;-0.08];
 %q0 = [zeros(14,1);0];
 x0 = [q0;zeros(nv,1)];
 v.draw(0,x0);
@@ -52,7 +52,7 @@ xm = [qm;zeros(nv,1)];
 v.draw(0,xm);
 
 q1 = [-1.575;-.93;0;1.57;0.0;1.6;0;0.06; ...
-    0.0145;1.1;0.06;3.14159;0;0];
+    0.0145;1.1;0.06;3.14159;0;0;0.08];
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
@@ -180,7 +180,7 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.01*ones(length
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:15)),N,9:15);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
@@ -383,7 +383,7 @@ playback(v,xtraj_new,struct('slider',true));
 
     function [f,df] = running_cost_fun(h,x,u)
         R = 1e-6*eye(nu);
-        Q = blkdiag(10*eye(8),0*eye(6),10*eye(14));
+        Q = blkdiag(10*eye(8),0*eye(7),10*eye(15));
         g = (1/2)*(x-x1)'*Q*(x-x1) + (1/2)*u'*R*u;
         f = h*g;
         df = [g, h*(x-x1)'*Q, h*u'*R];
@@ -402,7 +402,7 @@ playback(v,xtraj_new,struct('slider',true));
     end
 
     function [f,df] = final_cost_fun(h,x)
-        Qf = 1000*blkdiag(10*eye(8),0*eye(6),10*eye(14));
+        Qf = 1000*blkdiag(10*eye(8),0*eye(7),10*eye(15));
         g = (1/2)*(x-x1)'*Qf*(x-x1);
         f = h*g;
         df = [g, h*(x-x1)'*Qf];

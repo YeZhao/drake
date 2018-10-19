@@ -240,7 +240,7 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
             obj.cached_Px(:,:,1) = obj.options.Px_coeff*eye(obj.nx); %[ToDo: To be tuned]
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_ML(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
-            %obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_scaled(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
+            obj = obj.addCost(FunctionHandleObjective(obj.N*(nX+nU),@(x_inds,u_inds)robustVariancecost_scaled(obj,x_inds,u_inds),1),{x_inds_stack;u_inds_stack});
             
             if (obj.nC > 0)
                obj = obj.addCost(FunctionHandleObjective(length(obj.LCP_slack_inds),@(slack)robustLCPcost(obj,slack),1),obj.LCP_slack_inds(:));
@@ -2524,8 +2524,8 @@ classdef RobustContactImplicitTrajectoryOptimization_Kuka < DirectTrajectoryOpti
                     n_sampling_point = 1;%2*(obj.nx+nw);
                 elseif sampling_method == 2
                     n_sampling_point = 5;
-                    w_state = load('state_noise_small.dat');%std:0.001
-                    %w_state = 0.001*randn(28,62);
+                    w_state = load('state_noise_small.dat');%std:0.001                    
+                    %w_state = 0.001*randn(30,62);
                     %save -ascii state_noise_small.dat w_state                    
                     w = 1;
                 end

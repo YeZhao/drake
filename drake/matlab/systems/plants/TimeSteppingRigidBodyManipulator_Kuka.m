@@ -264,9 +264,17 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             global df_previous
             %global timestep_updated
                
+            num_q = obj.manip.getNumPositions;
+            num_v = obj.manip.getNumVelocities;
+            num_x = num_q + num_v;
+            num_u = obj.manip.getNumInputs;
+            arm_dim = 8;
+            obj_dim = num_q - arm_dim;
+            passive_joint_dim = 1;
+            
             h = X0(1);
-            x = X0(2:29);
-            u = X0(30:37);
+            x = X0(2:1+num_x);
+            u = X0(2+num_x:1+num_u+num_x);
             
             % try
             %     if (nargout>1)
@@ -342,12 +350,9 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             dim = 3;%[3D]
             %h = timestep_updated;
-             
-            num_q = obj.manip.getNumPositions;
-            num_v = obj.manip.getNumVelocities;
 
             q=x(1:num_q);
-            v=x(num_q+(1:obj.manip.getNumVelocities));
+            v=x(num_q+(1:num_v));
             
             kinematics_options.compute_gradients = 1;
             kinsol = doKinematics(obj, q, [], kinematics_options);
@@ -391,7 +396,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             index = [1:3];% defined for 3D kuka arm
             
             [phiL,JL] = obj.manip.jointLimitConstraints(q);
-            if length(phiL) ~= 16 % kuka arm
+            if length(phiL) ~= 2*(passive_joint_dim + arm_dim) % kuka arm
                 keyboard
             end
             
@@ -441,8 +446,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %% compute numerical Jacobian gradient for dJ and dV
             function [J_num, V_num] = object_gradient_numerical(X0)
                 h_num = X0(1);
-                x_num = X0(2:29);
-                u_num = X0(30:37);
+                x_num = X0(2:1+num_q+num_v);
+                u_num = X0(2+num_q+num_v:num_u+num_q+num_v);
                 
                 q_num=x_num(1:num_q);
                 v_num=x_num(num_q+(1:obj.manip.getNumVelocities));
@@ -491,8 +496,8 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             
             function [V_num] = V_gradient_numerical(X0)
                 h_num = X0(1);
-                x_num = X0(2:29);
-                u_num = X0(30:37);
+                x_num = X0(2:1+num_q+num_v);
+                u_num = X0(2+num_q+num_v:num_u+num_q+num_v);
                 
                 q_num=x_num(1:num_q);
                 v_num=x_num(num_q+(1:obj.manip.getNumVelocities));
@@ -520,7 +525,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             function [JA_ground_num, JB_num] = AB_gradient_numerical(X0)
-                x_num = X0(2:29);
+                x_num = X0(2:1+num_q+num_v);                
                 q_num=x_num(1:num_q);
                 
                 kinematics_options.compute_gradients = 1;
@@ -546,7 +551,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             end
             
             function [JA_ground_num, JB_num] = AB_gradient_numerical_new(X0)
-                x_num = X0(2:29);
+                x_num = X0(2:1+num_q+num_v);                
                 q_num=x_num(1:num_q);
                 
                 kinematics_options.compute_gradients = 1;
@@ -662,8 +667,6 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             %     %  p1q14x p1q14y p1q14z]          p2q14x p2q14y p2q14z]    p12q14x p12q14y p12q14z]
             % end
 
-            arm_dim = 8;
-            obj_dim = 6;
             groundcontact_num = 4;
             fingercontact_num = 8;
             for i=1:num_q
@@ -687,7 +690,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 [V_num_m] = feval(fcnV,X0_m);
                 dV(:,:,i) = (V_num_p - V_num_m)/(2*rr(i+1));
                 
-                q = X0(2:15);
+                q = X0(2:1+num_q);
                 
                 %for this part, we only compute 4 ground contact points for
                 %JA, and full contact points (4 ground contact points + 8
@@ -696,33 +699,33 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 %[JA_ground_num_m, JB_ground_finger_num_m] = feval(fcnAB,X0_m);
 
                 kinematics_options.compute_gradients = 1;
-                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
-                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+                kinsol_p = doKinematics(obj, X0_p(2:1+num_q), [], kinematics_options);
+                kinsol_m = doKinematics(obj, X0_m(2:1+num_q), [], kinematics_options);
                 
-                [~,~,~,~,~,xA_p,xB_p,~,~] = getContactTerms(obj,X0_p(2:15),kinsol_p);
-                [~,~,~,~,~,xA_m,xB_m,~,~] = getContactTerms(obj,X0_m(2:15),kinsol_m);
+                [~,~,~,~,~,xA_p,xB_p,~,~] = getContactTerms(obj,X0_p(2:1+num_q),kinsol_p);
+                [~,~,~,~,~,xA_m,xB_m,~,~] = getContactTerms(obj,X0_m(2:1+num_q),kinsol_m);
                 
                 J_B_p_num = []; J_B_m_num = []; J_A_p_num = []; J_A_m_num = [];
                 
-                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+                kinsol_p = doKinematics(obj, X0_p(2:1+num_q), [], kinematics_options);
                 for k=1:groundcontact_num+fingercontact_num
                     [~,J_B_p_num_new,~] = forwardKin(obj.manip,kinsol_p,Bidx(k),xB_p(:,k));
                     J_B_p_num = [J_B_p_num;J_B_p_num_new];
                 end
                 
-                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+                kinsol_m = doKinematics(obj, X0_m(2:1+num_q), [], kinematics_options);
                 for k=1:groundcontact_num+fingercontact_num
                     [~,J_B_m_num_new,~] = forwardKin(obj.manip,kinsol_m,Bidx(k),xB_m(:,k));
                     J_B_m_num = [J_B_m_num;J_B_m_num_new];
                 end
                 
-                kinsol_p = doKinematics(obj, X0_p(2:15), [], kinematics_options);
+                kinsol_p = doKinematics(obj, X0_p(2:1+num_q), [], kinematics_options);
                 for k=1:groundcontact_num+fingercontact_num
                     [~,J_A_p_num_new,~] = forwardKin(obj.manip,kinsol_p,Aidx(k),xA_p(:,k));
                     J_A_p_num = [J_A_p_num;J_A_p_num_new];
                 end
                 
-                kinsol_m = doKinematics(obj, X0_m(2:15), [], kinematics_options);
+                kinsol_m = doKinematics(obj, X0_m(2:1+num_q), [], kinematics_options);
                 for k=1:groundcontact_num+fingercontact_num
                     [~,J_A_m_num_new,~] = forwardKin(obj.manip,kinsol_m,Aidx(k),xA_m(:,k));
                     J_A_m_num = [J_A_m_num;J_A_m_num_new];
@@ -734,7 +737,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
                 dJ_original2 = dJA_num - dJB_num; 
                 
                 %dJ(:,i) = dJA(:,i) - dJB(:,i); 
-                dJ(:,i) = reshape(permute(reshape(dJ_original2,3,12,14),[1,3,2]),[],1);
+                dJ(:,i) = reshape(permute(reshape(dJ_original2,3,12,num_q),[1,3,2]),[],1);
                 %run permute(reshape(dJ(:,1),3,14,12),[2,1,3]) to see
                 % [p1q1x p1q1y p1q1z             [p2q1x p2q1y p2q1z        [p12q1x p12q1y p12q1z
                 %  p1q2x p1q2y p1q2z       ....   p2q2x p2q2y p2q2z         p12q2x p12q2y p12q2z

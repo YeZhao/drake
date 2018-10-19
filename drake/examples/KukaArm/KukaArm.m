@@ -81,7 +81,8 @@ classdef KukaArm < TimeSteppingRigidBodyManipulator_Kuka
             options.floating = true;
             %obj = obj.addRobotFromURDF('urdf/cylinder.urdf',[],[],options);
             %obj = obj.addRobotFromURDF('urdf/cylinder_small.urdf',[],[],options);
-            obj = obj.addRobotFromURDF('urdf/cylinder_small_with_inner_sliding_pendulum.urdf',[],[],options);
+            %obj = obj.addRobotFromURDF('urdf/cylinder_small_with_inner_sliding_pendulum.urdf',[],[],options);
+            obj = obj.addRobotFromURDF('urdf/cylinder_small_with_inner_prismatic_motion.urdf',[],[],options);
             
             obj.cylinder_id = obj.findLinkId('cylinder');
             obj.left_finger_id = obj.findLinkId('left_finger');

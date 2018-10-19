@@ -124,6 +124,7 @@ options.N1 = N1;
 options.test_name = 'pick_and_place_motion';
 options.alpha = 0.2;
 options.kappa = 1;
+options.robust_cost_type = 'ML cost';%1:non-ML cost; %2: ML cost
 
 % ikoptions = IKoptions(r);
 t_init = linspace(0,T0,N);
