@@ -263,7 +263,7 @@ classdef TimeSteppingRigidBodyManipulator_Kuka < DrakeSystem
             global x_previous
             global df_previous
             %global timestep_updated
-               
+              
             num_q = obj.manip.getNumPositions;
             num_v = obj.manip.getNumVelocities;
             num_x = num_q + num_v;

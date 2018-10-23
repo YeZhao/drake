@@ -14,7 +14,7 @@ example_name = 'kuka_arm';
 % options.with_weight = true;
 % options.with_shelf_and_boxes = true;
 r = KukaArm(options);
-
+ 
 nq = r.getNumPositions();
 nv = r.getNumVelocities();
 nx = nq+nv;
@@ -64,7 +64,7 @@ u1 = r.findTrim(q1);
 u1(8) = -5;
 
 T0 = 2;
-N = 35;%10;
+N = 28;%35;%10;
 N1 = 28;%phase 1: pick
 N2 = N - N1;%phase 2: throw
 
@@ -120,18 +120,18 @@ for i=1:length(u0)
     u_init1(i,:) = linspace(u0(i,:),um(i,:),N1);
 end
  
-%% phase 2
-for i=1:length(xm)
-    x_init2(i,:) = linspace(xm(i,:),x1(i,:),N2);
-end
-
-u_init2 = zeros(length(um),N2);
-for i=1:length(um)
-    u_init2(i,:) = linspace(um(i,:),u1(i,:),N2);
-end
+% %% phase 2
+% for i=1:length(xm)
+%     x_init2(i,:) = linspace(xm(i,:),x1(i,:),N2);
+% end
+% 
+% u_init2 = zeros(length(um),N2);
+% for i=1:length(um)
+%     u_init2(i,:) = linspace(um(i,:),u1(i,:),N2);
+% end
  
-x_init = [x_init1,x_init2];
-u_init = [u_init1,u_init2];
+x_init = [x_init1];%,x_init2
+u_init = [u_init1];%,u_init2
 traj_init.x = PPTrajectory(foh(t_init,x_init));
 traj_init.x = traj_init.x.setOutputFrame(r.getStateFrame);
 traj_init.u = PPTrajectory(foh(t_init,u_init));
@@ -165,7 +165,7 @@ end
 % xfinal_ub = x1 + 0.05*ones(length(x1),1);
 % xm_lb = xm - 0.05*ones(length(xm),1);
 % xm_ub = xm + 0.05*ones(length(xm),1);
- 
+
 traj_opt = RobustContactImplicitTrajectoryOptimization_Kuka(r,N,T_span,options);
 traj_opt = traj_opt.addRunningCost(@running_cost_fun);
 traj_opt = traj_opt.addFinalCost(@final_cost_fun);
@@ -180,9 +180,11 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.01*ones(length
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:14)),N,9:14);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(11)),N,11);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(12)),N,12);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
-
+ 
 [q_lb, q_ub] = getJointLimits(r);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
 % q_ub = min([q_ub, q0+0.2*ones(14,1)]')';
@@ -224,7 +226,7 @@ traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-3);
 traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',0);
-
+ 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
 
 if ~warm_start
