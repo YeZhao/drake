@@ -180,7 +180,7 @@ traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(9:15)),N,9:15);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(11:15)),N,11:15);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(zeros(15,1)),N,16:30);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
@@ -220,10 +220,10 @@ traj_opt = traj_opt.setSolverOptions('snopt','MajorIterationsLimit',10000);
 traj_opt = traj_opt.setSolverOptions('snopt','MinorIterationsLimit',200000);
 traj_opt = traj_opt.setSolverOptions('snopt','IterationsLimit',100000000);
 traj_opt = traj_opt.setSolverOptions('snopt','SuperbasicsLimit',1000000);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-4);
-traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-4);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorFeasibilityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MinorOptimalityTolerance',1e-5);
+traj_opt = traj_opt.setSolverOptions('snopt','MajorOptimalityTolerance',1e-5);
 traj_opt = traj_opt.setSolverOptions('snopt','ScaleOption',0);
 
 traj_opt = traj_opt.addTrajectoryDisplayFunction(@displayTraj);
