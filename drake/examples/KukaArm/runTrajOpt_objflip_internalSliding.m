@@ -52,7 +52,7 @@ xm = [qm;zeros(nv,1)];
 v.draw(0,xm);
 
 q1 = [-1.575;-.93;0;1.57;0.0;1.6;0;0.06; ...
-    0.0145;1.1;0.06;3.14159;0;0;0.08];
+    0.0145;1.1;0.06;2*3.14159;0;0;0.08];
 x1 = [q1;zeros(nv,1)];
 v.draw(0,x1);
 
@@ -176,13 +176,13 @@ traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x0),1);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(x1),N);
 %traj_opt = traj_opt.addStateConstraint(ConstantConstraint(xm),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(x0-0.01*ones(length(x0),1),x0+0.01*ones(length(x0),1)),1);
-traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
+%traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm-0.05*ones(length(xm),1),xm+0.05*ones(length(xm),1)),N1);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xfinal_lb,xfinal_ub),N);
 %traj_opt = traj_opt.addStateConstraint(BoundingBoxConstraint(xm_lb,xm_ub),N/2);
 %traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(1:7)),N,1:7);% free the finger final position
-traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(11:15)),N,11:15);
+%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(11:15)),N,11:15);
 traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(zeros(15,1)),N,16:30);
-%traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
+traj_opt = traj_opt.addPositionConstraint(ConstantConstraint(q1(8:14)),N,8:14);
 
 [q_lb, q_ub] = getJointLimits(r);
 % q_lb = max([q_lb, q0-0.2*ones(14,1)]')';
